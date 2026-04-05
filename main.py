@@ -718,8 +718,8 @@ async def oanda_stream_task():
                                 f"{candle.instrument} {candle.timeframe} {candle.timestamp}"
                             )
 
-                        # Compute signals for M5 and M15 candles (signal timeframes)
-                        if candle.timeframe in ('M5', 'M15'):
+                        # Compute signals for M1, M5 and M15 candles (signal timeframes)
+                        if candle.timeframe in ('M1', 'M5', 'M15'):  # M1 added 2026-04-02 (Matt-directed, scalping ADX/DI/RSI)
                             # ADR-0033: Use time-based lookback for consistent horizon across timeframes
                             # GOV-CFG-001: Load config from database, no hardcoded defaults
                             compute_start = time.time()
