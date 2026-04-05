@@ -11,7 +11,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from utils.iris_client import send_healthcheck, send_alert, send_audit
+try:
+    from utils.iris_client import send_healthcheck, send_alert, send_audit
+except ImportError:
+    # IRIS client not available — stub functions so HERMES runs independently
+    def send_healthcheck(**kwargs): return False
+    def send_alert(**kwargs): return False
+    def send_audit(**kwargs): return False
 
 if TYPE_CHECKING:
     from main import ServiceState
