@@ -313,6 +313,10 @@ class RecoveryExecutor:
 
     def _broker_fetch(self, step: RebuildStep) -> int:
         """Fetch candles from OANDA and write to DB."""
+        import time as _time
+        # Rate limit: max 4 REST requests/second to Oanda (WO-HERMES-MACRO-001)
+        _time.sleep(0.3)
+
         granularity = OANDA_GRANULARITY.get(step.timeframe)
         if not granularity:
             raise ValueError(f"No OANDA granularity for {step.timeframe}")
