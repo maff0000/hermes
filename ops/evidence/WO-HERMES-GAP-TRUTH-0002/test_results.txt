@@ -1,0 +1,74 @@
+
+============================================================
+TEST: Market hours logic
+============================================================
+  Market hours: all 6 checks passed
+  PASS
+
+============================================================
+TEST: Expected timestamp generation
+============================================================
+  Monday 30min: 7 M5 timestamps ✓
+  Saturday 1hr: 0 M1 timestamps ✓
+  PASS
+
+============================================================
+TEST: Real incident M1 gap detection
+============================================================
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-GAP-TRUTH-0002
+  M1 gap: 2026-03-31 02:55:00 → 2026-03-31 07:41:00
+  Missing: 287 candles
+  Scan hash: 080c2a0ac7d70d7c
+  PASS
+
+============================================================
+TEST: Higher timeframe gaps (M15, H1)
+============================================================
+  M15 gaps: 1, total missing: 19
+  H1 gaps: 2, total missing: 6
+  PASS
+
+============================================================
+TEST: Market-closed suppression
+============================================================
+  Saturday gaps: 0 ✓
+  PASS
+
+============================================================
+TEST: Signal gap detection logic
+============================================================
+  M15 signal gaps: 1 ✓
+  M1 signal gaps: 0 (correctly zero) ✓
+  PASS
+
+============================================================
+TEST: Idempotent persistence
+============================================================
+  First persist: 0 new, 1 existing
+  Second persist: 0 new, 1 existing
+  PASS
+
+============================================================
+TEST: Gap count for health integration
+============================================================
+  Unresolved gaps: 1
+  Latest: CANDLE M1 XAU_USD — 287 missing
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] Market hours logic
+  [PASS] Expected timestamp generation
+  [PASS] Real incident M1 gap detection
+  [PASS] Higher timeframe gaps (M15, H1)
+  [PASS] Market-closed suppression
+  [PASS] Signal gap detection logic
+  [PASS] Idempotent persistence
+  [PASS] Gap count for health integration
+
+8/8 passed
+
+All tests passed. Gap scanner behavior verified.
+Exit code: 0

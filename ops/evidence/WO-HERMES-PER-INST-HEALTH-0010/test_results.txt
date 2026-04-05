@@ -1,0 +1,55 @@
+
+============================================================
+TEST: All instruments healthy → all GREEN
+============================================================
+  All 3 instruments GREEN
+  PASS
+
+============================================================
+TEST: Single instrument tick stale → RED, others GREEN
+============================================================
+  XAU_USD: RED (HERMES_INSTRUMENT_TICK_STALE)
+  EUR_USD: GREEN
+  USD_JPY: GREEN
+  No cross-contamination.
+  PASS
+
+============================================================
+TEST: Single instrument M1 stale (ticks fresh) → RED
+============================================================
+  XAU_USD: RED (HERMES_INSTRUMENT_M1_STALE) — ticks fresh but M1 DB stale
+  EUR_USD: GREEN
+  PASS
+
+============================================================
+TEST: Market closed → AMBER not RED
+============================================================
+  XAU_USD: AMBER (MARKET_CLOSED)
+  PASS
+
+============================================================
+TEST: Snapshot includes per-instrument data
+============================================================
+  Snapshot instruments: ['XAU_USD', 'EUR_USD']
+    XAU_USD: GREEN (None)
+    EUR_USD: RED (HERMES_INSTRUMENT_TICK_STALE)
+  PASS
+
+============================================================
+TEST: Global not GREEN when instrument RED
+============================================================
+  XAU RED → global health: AMBER (not falsely GREEN)
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] All instruments healthy → all GREEN
+  [PASS] Single instrument tick stale → RED, others GREEN
+  [PASS] Single instrument M1 stale (ticks fresh) → RED
+  [PASS] Market closed → AMBER not RED
+  [PASS] Snapshot includes per-instrument data
+  [PASS] Global not GREEN when instrument RED
+
+6/6 passed
+Exit: 0

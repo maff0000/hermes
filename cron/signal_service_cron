@@ -1,0 +1,15 @@
+# Signal Service Cron Jobs
+# EPIC-D002: Standalone Signal Service
+# Install: sudo cp signal_service_cron /etc/cron.d/signal_service
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Archive old data (monthly, 1st of month at 3am)
+0 3 1 * * root cd /srv-dev/tradingSignals && /usr/bin/python3 scripts/archive_old_data.py >> /var/log/signal_service_archive.log 2>&1
+
+# Health check (every 5 minutes)
+*/5 * * * * root curl -sf http://localhost:8211/health > /dev/null || systemctl restart signal-service
+
+# Backfill any gaps (daily at 2am, last 2 days)
+0 2 * * * root cd /srv-dev/tradingSignals && /usr/bin/python3 scripts/backfill_oanda.py -a --all-timeframes -d 2 >> /var/log/signal_service_backfill.log 2>&1

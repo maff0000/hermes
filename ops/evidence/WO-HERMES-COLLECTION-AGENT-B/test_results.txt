@@ -1,0 +1,51 @@
+
+============================================================
+TEST: CandidateM1 validity checks
+============================================================
+  6 validity checks passed (1 valid, 5 invalid correctly rejected)
+  PASS
+
+============================================================
+TEST: AcceptResult fault codes
+============================================================
+  Accept/reject results carry correct status and fault codes
+  PASS
+
+============================================================
+TEST: Per-instrument health (not monolith)
+============================================================
+  Per-instrument health: XAU=CONNECTED, EUR=FAILED (independent)
+  PASS
+
+============================================================
+TEST: Source policy reader (no inheritance)
+============================================================
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-COLLECTION-AGENT-B
+  12 policies loaded, no inheritance (FAKE_INST=None)
+  PASS
+
+============================================================
+TEST: Contract isolation (no cross-instrument)
+============================================================
+  Candidates are atomic per-instrument. No batch structure exists.
+  PASS
+
+============================================================
+TEST: CandidateM1 serialization
+============================================================
+  Serialization clean: 230 bytes
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] CandidateM1 validity checks
+  [PASS] AcceptResult fault codes
+  [PASS] Per-instrument health (not monolith)
+  [PASS] Source policy reader (no inheritance)
+  [PASS] Contract isolation (no cross-instrument)
+  [PASS] CandidateM1 serialization
+
+6/6 passed
+Exit: 0

@@ -1,0 +1,74 @@
+[HERMES_CANONICAL_M1_REJECTED_LATE] XAU_USD 2020-01-01 00:01:00 from other_source: Candidate is 197151414s old, window is 120s
+[HERMES_CANONICAL_M1_REJECTED_LATE] XAU_USD 2020-01-01 00:02:00 from test_source: Candidate is 197151354s old, window is 120s
+[HERMES_CANONICAL_M1_REJECTED_INVALID] XAU_USD 2020-01-01 00:03:00 from test_source: Candidate failed validity check
+[HERMES_CANONICAL_M1_REJECTED_INVALID]  2020-01-01 00:04:00 from test_source: Candidate failed validity check
+[HERMES_CANONICAL_M1_REJECTED_INVALID] XAU_USD 2020-01-01 00:06:00 from test_source: Candidate failed validity check
+[HERMES_CANONICAL_M1_REJECTED_INVALID] XAU_USD 2020-01-01 00:07:00 from oanda_stream: Candidate failed validity check
+[HERMES_CANONICAL_M1_REJECTED_LATE] XAU_USD 2020-01-01 00:08:00 from concurrent_writer: Candidate is 197150994s old, window is 120s
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-CANONICAL-M1-ENGINE-C
+
+============================================================
+TEST: First valid arrival accepted
+============================================================
+  First arrival accepted, row verified in canonical_m1
+  PASS
+
+============================================================
+TEST: Duplicate candidate rejected
+============================================================
+  Duplicate correctly rejected: HERMES_CANONICAL_M1_REJECTED_LATE
+  PASS
+
+============================================================
+TEST: Late candidate rejected
+============================================================
+  Late candidate rejected: Candidate is 197151354s old, window is 120s
+  PASS
+
+============================================================
+TEST: Invalid candidate rejected
+============================================================
+  Invalid candidates rejected (bad OHLC + empty instrument)
+  PASS
+
+============================================================
+TEST: Repair overwrites with explicit marking
+============================================================
+  Repair overwrite: close 3100.80000 → 3105.00000, ingest_mode=REPAIR
+  PASS
+
+============================================================
+TEST: Rejection logged to candidate log
+============================================================
+  Rejection logged: HERMES_CANONICAL_M1_REJECTED_INVALID
+  PASS
+
+============================================================
+TEST: ADVERSARIAL: per-instrument isolation
+============================================================
+  EUR/USD: ACCEPTED (row exists, close=1.08520)
+  XAU/USD: REJECTED_INVALID (no row)
+  No cross-instrument contamination.
+  PASS
+
+============================================================
+TEST: Concurrent duplicate handled
+============================================================
+  Concurrent insert handled: HERMES_CANONICAL_M1_REJECTED_LATE
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] First valid arrival accepted
+  [PASS] Duplicate candidate rejected
+  [PASS] Late candidate rejected
+  [PASS] Invalid candidate rejected
+  [PASS] Repair overwrites with explicit marking
+  [PASS] Rejection logged to candidate log
+  [PASS] ADVERSARIAL: per-instrument isolation
+  [PASS] Concurrent duplicate handled
+
+8/8 passed
+Exit: 0

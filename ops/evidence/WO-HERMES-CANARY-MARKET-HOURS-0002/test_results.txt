@@ -1,0 +1,63 @@
+
+============================================================
+TEST: Monday midday → MARKET_OPEN
+============================================================
+  Monday 10:00 UTC: truth_expected=True, reason=MARKET_OPEN
+  PASS
+
+============================================================
+TEST: Saturday → MARKET_CLOSED
+============================================================
+  Saturday 12:00 UTC: truth_expected=False, reason=MARKET_CLOSED
+  PASS
+
+============================================================
+TEST: Sunday before 22:00 → MARKET_CLOSED
+============================================================
+  Sunday 15:00 UTC: truth_expected=False, reason=MARKET_CLOSED
+  PASS
+
+============================================================
+TEST: Sunday 22:00 → MARKET_OPEN
+============================================================
+  Sunday 22:00 UTC: truth_expected=True, reason=MARKET_OPEN
+  PASS
+
+============================================================
+TEST: Friday 21:59 → MARKET_OPEN
+============================================================
+  Friday 21:59 UTC: truth_expected=True, reason=MARKET_OPEN
+  PASS
+
+============================================================
+TEST: Friday 22:00 → MARKET_CLOSED
+============================================================
+  Friday 22:00 UTC: truth_expected=False, reason=MARKET_CLOSED
+  PASS
+
+============================================================
+TEST: Per-instrument isolation
+============================================================
+  XAU_USD: MARKET_CLOSED (METALS), EUR_USD: MARKET_CLOSED (FOREX) — independent rows
+  PASS
+
+============================================================
+TEST: No-policy fails safe
+============================================================
+  FAKE_INST: truth_expected=True, reason=NO_POLICY (fail safe)
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] Monday midday → MARKET_OPEN
+  [PASS] Saturday → MARKET_CLOSED
+  [PASS] Sunday before 22:00 → MARKET_CLOSED
+  [PASS] Sunday 22:00 → MARKET_OPEN
+  [PASS] Friday 21:59 → MARKET_OPEN
+  [PASS] Friday 22:00 → MARKET_CLOSED
+  [PASS] Per-instrument isolation
+  [PASS] No-policy fails safe
+
+8/8 passed
+Exit: 0

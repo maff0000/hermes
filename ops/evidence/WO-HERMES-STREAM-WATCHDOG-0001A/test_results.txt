@@ -1,0 +1,76 @@
+
+============================================================
+TEST: No per-tick DB writes (1000 ticks)
+============================================================
+  1000 ticks → 0 DB writes (correct: 0)
+  PASS
+
+============================================================
+TEST: Cadence-driven persistence
+============================================================
+  Persist calls after cadence: 1
+  PASS
+
+============================================================
+TEST: Health snapshot from in-memory
+============================================================
+  Snapshot tick age: 0.0s (in-memory, no DB read)
+  PASS
+
+============================================================
+TEST: Stale detection from in-memory
+============================================================
+  Fault: HERMES_STREAM_STALE_TICK
+  Persist calls on fault: 2
+  Critical logs: 1
+  PASS
+
+============================================================
+TEST: Burst tick stability (10000 ticks)
+============================================================
+  10000 ticks in 6.5ms
+  Health after burst: GREEN
+  PASS
+
+============================================================
+TEST: Logger injection
+============================================================
+  Log messages captured: 3
+    [info] Stream state: DISCONNECTED -> FLOWING
+    [info] Stream state: FLOWING -> CONNECTED_UNPROVEN
+    [info] Proof window opened (5s)
+  PASS
+
+============================================================
+TEST: False reconnect (regression)
+============================================================
+  False reconnect → HERMES_RECOVERY_FALSE_CONNECT
+  PASS
+
+============================================================
+TEST: Recovery exhaustion (regression)
+============================================================
+  Exhaustion → fatal callback fired
+  PASS
+
+============================================================
+TEST: Flow promotion persists immediately
+============================================================
+  Promotion → FLOWING persisted in 1 call(s)
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] No per-tick DB writes (1000 ticks)
+  [PASS] Cadence-driven persistence
+  [PASS] Health snapshot from in-memory
+  [PASS] Stale detection from in-memory
+  [PASS] Burst tick stability (10000 ticks)
+  [PASS] Logger injection
+  [PASS] False reconnect (regression)
+  [PASS] Recovery exhaustion (regression)
+  [PASS] Flow promotion persists immediately
+
+9/9 passed
+Exit code: 0

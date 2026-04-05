@@ -1,0 +1,61 @@
+
+============================================================
+TEST: All enabled artifacts governed
+============================================================
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-RECOVERY-LIBRARY-0003
+  6 artifacts, all with complete metadata
+  PASS
+
+============================================================
+TEST: Graph is acyclic and sortable
+============================================================
+  Topo order: CANDLE_H1 → CANDLE_M1 → CANDLE_M15 → CANDLE_M5 → SIGNAL_M15 → SIGNAL_M5
+  PASS
+
+============================================================
+TEST: Rebuild order consistency
+============================================================
+  Rebuild order is consistent with dependency graph
+  PASS
+
+============================================================
+TEST: Dependency references valid
+============================================================
+  2 dependencies, all references valid
+  PASS
+
+============================================================
+TEST: Full validation passes
+============================================================
+  Full validation: 0 errors
+  PASS
+
+============================================================
+TEST: Real outage plan is correct
+============================================================
+  Plan: 6 steps
+  Candles: ['CANDLE_M1', 'CANDLE_M5', 'CANDLE_M15', 'CANDLE_H1']
+  Signals: ['SIGNAL_M5', 'SIGNAL_M15']
+  SIGNAL_M5 lookback: 2026-03-30 06:05:00
+  PASS
+
+============================================================
+TEST: Partial plan resolves dependencies
+============================================================
+  Requested: SIGNAL_M5 → Plan: ['CANDLE_M5', 'SIGNAL_M5']
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] All enabled artifacts governed
+  [PASS] Graph is acyclic and sortable
+  [PASS] Rebuild order consistency
+  [PASS] Dependency references valid
+  [PASS] Full validation passes
+  [PASS] Real outage plan is correct
+  [PASS] Partial plan resolves dependencies
+
+7/7 passed
+Exit code: 0

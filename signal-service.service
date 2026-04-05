@@ -1,0 +1,27 @@
+[Unit]
+Description=Signal Service - Unified Market Data (EPIC-D002)
+After=network.target redis.service mariadb.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/srv-dev/tradingSandbox/services/signal-service
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/srv-dev/tradingSandbox/.env
+
+ExecStart=/usr/bin/python3 main.py
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=signal-service
+
+[Install]
+WantedBy=multi-user.target

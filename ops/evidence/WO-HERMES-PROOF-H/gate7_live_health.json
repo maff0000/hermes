@@ -1,0 +1,93 @@
+{
+    "health_state": "GREEN",
+    "stream_state": "FLOWING",
+    "data_flow_state": "ACTIVE",
+    "recovery_state": "IDLE",
+    "fault_code": null,
+    "last_tick_utc": "2026-04-01 07:38:29.128622",
+    "tick_age_seconds": 0.1,
+    "last_candle_m1_utc": "2026-04-01 07:37:00",
+    "candle_age_seconds": 89.3,
+    "last_signal_utc": "2026-04-01 07:30:00",
+    "recovery_attempt_no": 0,
+    "market_open": true,
+    "market_reason": "Market open",
+    "open_incidents": [],
+    "updated_at": "2026-04-01T07:38:29.273375+00:00",
+    "unresolved_gap_count": 0,
+    "latest_gap_summary": null,
+    "instruments": {
+        "EUR_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:29.118211",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "EUR_GBP": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:28.869111",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "USD_CAD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:28.872847",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "USD_CHF": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:26.369659",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "USD_JPY": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:29.120396",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "GBP_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:28.615900",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "AUD_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:26.381394",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "NZD_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:26.869151",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "XAU_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:29.125551",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "XAG_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:28.884245",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "XPT_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:29.128622",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        },
+        "XCU_USD": {
+            "health_state": "GREEN",
+            "reason_code": null,
+            "last_tick_utc": "2026-04-01 07:38:27.618300",
+            "last_m1_persisted_utc": "2026-04-01 07:37:00"
+        }
+    }
+}

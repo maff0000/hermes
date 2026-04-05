@@ -1,0 +1,70 @@
+[HERMES_RECOVERY_FALSE_CONNECT] Proof window expired after 3s with no fresh tick
+[HERMES_STREAM_STALE_TICK] No tick for 10s (threshold: 5s) during market hours
+[HERMES_STREAM_STALE_CANDLE] No M1 candle for 10s (threshold: 5s) during market hours
+[HERMES_RECOVERY_EXHAUSTED] Recovery exhausted after 3 attempts. Entering fatal exit path.
+Executing fatal exit callback...
+[HERMES_STREAM_STALE_TICK] No tick for 10s (threshold: 5s) during market hours
+
+============================================================
+TEST: False reconnect detection
+============================================================
+  Fault code: HERMES_RECOVERY_FALSE_CONNECT
+  Incidents opened: 1
+  PASS ✓
+
+============================================================
+TEST: Tick staleness during market hours
+============================================================
+  Fault code: HERMES_STREAM_STALE_TICK
+  Stream state: STALE
+  PASS ✓
+
+============================================================
+TEST: M1 candle stagnation
+============================================================
+  Fault code: HERMES_STREAM_STALE_CANDLE
+  PASS ✓
+
+============================================================
+TEST: Recovery exhaustion → fatal exit
+============================================================
+  Recovery state: EXHAUSTED
+  Fatal callback called: True
+  FATAL incidents: 1
+  PASS ✓
+
+============================================================
+TEST: Market-closed suppression
+============================================================
+  Health state: AMBER
+  Stale incidents: 0
+  PASS ✓
+
+============================================================
+TEST: Data flow promotion after proof
+============================================================
+  Stream state: FLOWING
+  Health state: GREEN
+  PASS ✓
+
+============================================================
+TEST: Incident lifecycle (open → close)
+============================================================
+  Open incidents after recovery: 0
+  PASS ✓
+
+============================================================
+RESULTS
+============================================================
+  [PASS] False reconnect detection
+  [PASS] Tick staleness during market hours
+  [PASS] M1 candle stagnation
+  [PASS] Recovery exhaustion → fatal exit
+  [PASS] Market-closed suppression
+  [PASS] Data flow promotion after proof
+  [PASS] Incident lifecycle (open → close)
+
+7/7 passed
+
+All tests passed. Watchdog behavior verified.
+Exit code: 0

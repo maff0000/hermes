@@ -1,0 +1,68 @@
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-GENERATOR-SPLIT-D
+Seeded 60 canonical M1 rows from legacy data
+
+============================================================
+TEST: M5 derivation from 5 M1s
+============================================================
+  M5 03:00: O=4567.99 H=4573.235 L=4566.205 C=4570.43 (5/5 M1s)
+  PASS
+
+============================================================
+TEST: M15 derivation from 15 M1s
+============================================================
+  M15 03:00: O=4567.99 H=4577.26 L=4566.205 C=4570.28 (15/15 M1s)
+  PASS
+
+============================================================
+TEST: H1 derivation from 60 M1s
+============================================================
+  H1 03:00: O=4567.99 H=4577.26 L=4550.455 C=4557.49 (60/60 M1s)
+  PASS
+
+============================================================
+TEST: Partial M1 produces incomplete
+============================================================
+  Partial M5 03:30: 3/5 M1s, complete=False
+  PASS
+
+============================================================
+TEST: Per-instrument independence
+============================================================
+  XAU_USD: 5 M1s → M5
+  EUR_USD: no canonical data (independent)
+  PASS
+
+============================================================
+TEST: Equivalence comparison
+============================================================
+  Comparison: 12/12 match (100.0%)
+  Mismatches: 0, Derived-only: 0, Legacy-only: 0
+  PASS
+
+============================================================
+TEST: Volume is sum of M1 volumes
+============================================================
+  M5 volume=6191 = SUM(M1 volumes)=6191
+  PASS
+
+============================================================
+TEST: Bucket boundaries match
+============================================================
+  All bucket boundary checks passed
+  PASS
+
+============================================================
+RESULTS
+============================================================
+  [PASS] M5 derivation from 5 M1s
+  [PASS] M15 derivation from 15 M1s
+  [PASS] H1 derivation from 60 M1s
+  [PASS] Partial M1 produces incomplete
+  [PASS] Per-instrument independence
+  [PASS] Equivalence comparison
+  [PASS] Volume is sum of M1 volumes
+  [PASS] Bucket boundaries match
+
+8/8 passed
+Exit: 0

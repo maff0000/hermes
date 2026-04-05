@@ -1,0 +1,29 @@
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /srv-dev/worktrees/wo-WO-HERMES-RECOVERY-LIBRARY-0003/utils/..
+REBUILD PLAN: XAU_USD [2026-03-31 02:55:00 → 2026-03-31 07:41:00]
+Steps: 6
+
+   10. [CANDLE] CANDLE_M1 → candles_M1
+       Strategy: BROKER_FETCH
+       Validate: CONTINUITY
+
+   20. [CANDLE] CANDLE_M5 → candles_M5
+       Strategy: BROKER_FETCH
+       Validate: CONTINUITY
+
+   30. [CANDLE] CANDLE_M15 → candles_M15
+       Strategy: BROKER_FETCH
+       Validate: CONTINUITY
+
+   40. [CANDLE] CANDLE_H1 → candles_H1
+       Strategy: BROKER_FETCH
+       Validate: CONTINUITY
+
+   50. [SIGNAL] SIGNAL_M5 → signals
+       Strategy: WINDOW_PLUS_LOOKBACK (lookback from 2026-03-30 06:05:00)
+       Validate: ROW_COUNT [depends: CANDLE_M5]
+
+   60. [SIGNAL] SIGNAL_M15 → signals
+       Strategy: WINDOW_PLUS_LOOKBACK (lookback from 2026-03-28 12:25:00)
+       Validate: ROW_COUNT [depends: CANDLE_M15]
+
