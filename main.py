@@ -558,6 +558,9 @@ def backfill_gap(instruments: List[str], gap_threshold_minutes: int = 10) -> int
         from_time = last_ts + timedelta(minutes=5)
         to_time = now
 
+        # Rate limit: max 4 REST requests/second to Oanda (WO-HERMES-MACRO-001)
+        time.sleep(0.3)
+
         candles = fetch_oanda_candles(instrument, from_time, to_time)
         if not candles:
             logger.warning(f"[{instrument}] No candles fetched for backfill")
