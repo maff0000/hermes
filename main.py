@@ -1051,10 +1051,12 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("Failed to connect to OANDA - service will start without streaming")
 
-    # Initialize and start healthcheck reporter (sends to IRIS)
-    state.healthcheck_reporter = init_healthcheck(state)
-    state.healthcheck_reporter.start()
-    logger.info("Healthcheck reporter started (reporting to IRIS)")
+    # IRIS disabled — table tradingReport.iris_messages does not exist
+    # TODO: Re-enable when IRIS is rebuilt
+    # state.healthcheck_reporter = init_healthcheck(state)
+    # state.healthcheck_reporter.start()
+    # logger.info("Healthcheck reporter started (reporting to IRIS)")
+    logger.info("Healthcheck reporter DISABLED (IRIS offline)")
 
     # WO-0030: Structured service ready logging (GOV-LOG-002)
     logger.info("HERMES service ready", extra={
