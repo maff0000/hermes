@@ -671,15 +671,23 @@ async def oanda_stream_task():
                 # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine persistence
                 # hook. Synchronous PublishResult contract. HERMES does not drive
                 # Structure Engine health — it logs its side and moves on.
+                # WO-STRUCT-INSTRUMENT-ROLE-GOVERNANCE-0003: IGNORED tag (role-
+                # governed intentional drops for DISABLED instruments) routes to
+                # DEBUG. All other failures keep WARNING.
                 try:
                     _se_result = state.structure_engine_publisher.publish(tick)
                     if not _se_result.ok:
-                        logger.warning(
-                            "[STRUCT_INGEST_FAIL] instrument=%s tag=%s detail=%s",
-                            tick.instrument,
-                            _se_result.error_tag.value if _se_result.error_tag else "UNKNOWN",
-                            _se_result.error_detail or "",
-                        )
+                        _se_tag = _se_result.error_tag.value if _se_result.error_tag else "UNKNOWN"
+                        if _se_tag == "IGNORED":
+                            logger.debug(
+                                "[STRUCT_INGEST_IGNORED] instrument=%s detail=%s",
+                                tick.instrument, _se_result.error_detail or "",
+                            )
+                        else:
+                            logger.warning(
+                                "[STRUCT_INGEST_FAIL] instrument=%s tag=%s detail=%s",
+                                tick.instrument, _se_tag, _se_result.error_detail or "",
+                            )
                 except Exception as _se_exc:
                     logger.error(
                         "[STRUCT_INGEST_EXCEPTION] instrument=%s error=%r",
