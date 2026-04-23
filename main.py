@@ -40,7 +40,7 @@ try:
 except ImportError:
     def send_alert(**kwargs): return False
     def send_audit(**kwargs): return False
-from tradingProteus.structure_engine.ingest import build_publisher as _se_build_publisher
+from structure_engine.ingest import build_publisher as _se_build_publisher
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
