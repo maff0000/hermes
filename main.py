@@ -40,6 +40,7 @@ try:
 except ImportError:
     def send_alert(**kwargs): return False
     def send_audit(**kwargs): return False
+from tradingProteus.structure_engine.ingest import build_publisher as _se_build_publisher
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -70,6 +71,7 @@ class ServiceState:
     # Adapters (initialized later)
     oanda_adapter = None
     ibkr_adapter = None
+    structure_engine_publisher = None  # WO-STRUCT-TICK-PERSISTENCE-0001
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -666,6 +668,24 @@ async def oanda_stream_task():
             # on first tick receipt via record_tick() -> _promote_to_flowing()
 
             async for tick in state.oanda_adapter.stream():
+                # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine persistence
+                # hook. Synchronous PublishResult contract. HERMES does not drive
+                # Structure Engine health — it logs its side and moves on.
+                try:
+                    _se_result = state.structure_engine_publisher.publish(tick)
+                    if not _se_result.ok:
+                        logger.warning(
+                            "[STRUCT_INGEST_FAIL] instrument=%s tag=%s detail=%s",
+                            tick.instrument,
+                            _se_result.error_tag.value if _se_result.error_tag else "UNKNOWN",
+                            _se_result.error_detail or "",
+                        )
+                except Exception as _se_exc:
+                    logger.error(
+                        "[STRUCT_INGEST_EXCEPTION] instrument=%s error=%r",
+                        tick.instrument, _se_exc,
+                    )
+
                 # Update latest ticks
                 state.latest_ticks[tick.instrument] = tick
 
@@ -1016,6 +1036,22 @@ async def lifespan(app: FastAPI):
         use_mock=state.config.oanda.use_mock,
         mock_url=state.config.oanda.mock_url
     )
+
+    # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine publisher init.
+    # STRUCTURE_ENGINE_ENABLED=false -> NoopPublisher (default).
+    # STRUCTURE_ENGINE_ENABLED=true  -> real publisher; init failure is HARD.
+    try:
+        state.structure_engine_publisher = _se_build_publisher()
+        logger.info(
+            "[STRUCT_ENGINE_BOOT] publisher=%s",
+            type(state.structure_engine_publisher).__name__,
+        )
+    except Exception as _se_init_exc:
+        logger.error(
+            "[STRUCT_ENGINE_BOOT_FAIL] HERMES boot aborted on init: %r",
+            _se_init_exc,
+        )
+        raise
 
     # Connect to OANDA
     if await state.oanda_adapter.connect():
