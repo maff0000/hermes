@@ -172,7 +172,7 @@ class SignalHealthChecker:
 
         if oldest_data and newest_data:
             coverage_days = (newest_data - oldest_data).days
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             is_current = (now - newest_data).total_seconds() < MAX_SIGNAL_AGE_MINUTES * 60
 
         # Check for duplicates
@@ -195,7 +195,7 @@ class SignalHealthChecker:
         # Check for stale data - but only if market is open
         market_open, market_reason = is_market_open()
         if not is_current and newest_data:
-            age_hours = (datetime.utcnow() - newest_data).total_seconds() / 3600
+            age_hours = (datetime.now(timezone.utc) - newest_data).total_seconds() / 3600
             if market_open:
                 # Only flag as stale if market is open
                 issues.append(f'STALE DATA: {age_hours:.1f} hours old')
@@ -215,7 +215,7 @@ class SignalHealthChecker:
                 signal_data = self.redis.hgetall(signal_key)
                 if signal_data and 'timestamp' in signal_data:
                     signal_time = datetime.fromisoformat(signal_data['timestamp'])
-                    signal_age_seconds = (datetime.utcnow() - signal_time).total_seconds()
+                    signal_age_seconds = (datetime.now(timezone.utc) - signal_time).total_seconds()
 
                     if signal_age_seconds > MAX_SIGNAL_AGE_MINUTES * 60:
                         issues.append(f'REDIS SIGNAL STALE: {signal_age_seconds/60:.1f} min old')
@@ -283,7 +283,7 @@ class SignalHealthChecker:
             return []
 
         cursor = self.db.cursor()
-        cutoff = datetime.utcnow() - timedelta(days=days_back)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
 
         # Get timestamps with gaps > 5 minutes (M5 candles)
         cursor.execute("""
@@ -365,7 +365,7 @@ class SignalHealthChecker:
             overall = 'HEALTHY'
 
         return HealthReport(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             overall_status=overall,
             instruments=instrument_health,
             redis_connected=self.redis is not None,

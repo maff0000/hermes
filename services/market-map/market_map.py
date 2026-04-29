@@ -323,7 +323,7 @@ class MarketMapBuilder:
 
             # Convert to string values for Redis hash
             mapping = {k: str(v) if v is not None else '' for k, v in market_map.items()}
-            mapping['updated_at'] = datetime.utcnow().isoformat()
+            mapping['updated_at'] = datetime.now(timezone.utc).isoformat()
 
             self.redis._client.hset(key, mapping=mapping)
             self.redis._client.expire(key, 600)  # 10 min TTL
@@ -355,9 +355,9 @@ class MarketMapBuilder:
 
         while self.running:
             try:
-                start = time.time()
+                start = datetime.now(timezone.utc).timestamp()
                 updated = self.update_all_instruments()
-                elapsed = time.time() - start
+                elapsed = datetime.now(timezone.utc).timestamp() - start
 
                 logger.info(f"Updated {updated}/{len(self.instruments)} instruments in {elapsed:.2f}s")
 

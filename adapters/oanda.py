@@ -7,7 +7,7 @@ Connects to OANDA v20 Streaming API for real-time prices.
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import AsyncIterator, List, Optional
 
 import httpx
@@ -138,7 +138,7 @@ class OANDAAdapter(BaseAdapter):
 
                     if msg_type == "HEARTBEAT":
                         # Heartbeat - connection is alive
-                        self._health.last_tick_at = datetime.utcnow()
+                        self._health.last_tick_at = datetime.now(timezone.utc)
                         continue
 
                     elif msg_type == "PRICE":
@@ -200,13 +200,13 @@ class OANDAAdapter(BaseAdapter):
                     time_str = f"{parts[0]}.{frac}Z"
                 source_timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
             except Exception:
-                source_timestamp = datetime.utcnow()
+                source_timestamp = datetime.now(timezone.utc)
 
             return SignalTick(
                 instrument=instrument,
                 bid=bid,
                 ask=ask,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 source=self.source,  # MOCK or OANDA based on use_mock
                 source_timestamp=source_timestamp
             )

@@ -18,7 +18,7 @@ Sessions:
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -57,7 +57,7 @@ class TradingHoursChecker:
     def _load_windows(self) -> List[Dict]:
         """Load trading windows from database."""
         # Check cache
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if self._windows_cache and self._cache_time:
             if (now - self._cache_time).total_seconds() < self._cache_ttl:
                 return self._windows_cache
@@ -92,7 +92,7 @@ class TradingHoursChecker:
             Tuple of (is_open, reason)
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         # Day of week: 0=Monday ... 6=Sunday
         dow = timestamp.weekday()
@@ -125,7 +125,7 @@ class TradingHoursChecker:
             Session name: asia, london, newyork, overlap_ldn_ny, off_hours
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         is_open, _ = self.is_market_open(timestamp)
         if not is_open:
@@ -156,7 +156,7 @@ class TradingHoursChecker:
             Dict with session details
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         is_open, reason = self.is_market_open(timestamp)
         session = self.get_current_session(timestamp)
@@ -205,7 +205,7 @@ class TradingHoursChecker:
             Next market open datetime
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         is_open, _ = self.is_market_open(timestamp)
         if is_open:
@@ -232,7 +232,7 @@ class TradingHoursChecker:
             Next market close datetime
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         is_open, _ = self.is_market_open(timestamp)
         if not is_open:
@@ -282,7 +282,7 @@ def should_expect_data(timestamp: datetime = None) -> bool:
 if __name__ == "__main__":
     checker = TradingHoursChecker()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     info = checker.get_session_info(now)
 
     print(f"Current UTC time: {now}")

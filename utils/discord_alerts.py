@@ -20,7 +20,7 @@ import sys
 import json
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from enum import Enum
 from pathlib import Path
@@ -92,7 +92,7 @@ def send_alert(
         "title": title,
         "description": message,
         "color": level.value,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {
             "text": footer or f"Signal Service [{ENV}] - Project Hygieia"
         }
@@ -186,7 +186,7 @@ def send_health_report(
     # Fields
     fields = {
         "Environment": ENV,
-        "Timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        "Timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     }
 
     if backfill_recommended:

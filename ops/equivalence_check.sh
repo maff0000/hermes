@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# WO-TRADING-SIGNALS-UTCNOW-CLEANUP-0001 — UTC cutoff computed shell-side
+# via timezone-aware `date -u`, replacing forbidden UTC_TIMESTAMP() in SQL.
+# Adjust the --date arg if a different lookback window is required.
+CUTOFF_UTC_5M="$(date -u --date='5 minutes ago' +'%Y-%m-%d %H:%M:%S')"
+CUTOFF_UTC_1H="$(date -u --date='1 hour ago' +'%Y-%m-%d %H:%M:%S')"
+
 # Equivalence Check — WO-HERMES-PROOF-H
 # Runs via cron every hour. Compares canonical_m1 vs candles_M1 OHLC.
 # Setup: 0 * * * * /srv-dev/tradingSignals/ops/equivalence_check.sh
@@ -22,7 +29,7 @@ SELECT
          THEN 1 ELSE 0 END) as matches
 FROM canonical_m1 cm
 JOIN candles_M1 c ON cm.instrument = c.instrument AND cm.minute_bucket_utc = c.timestamp
-WHERE cm.minute_bucket_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
+WHERE cm.minute_bucket_utc >= '${CUTOFF_UTC_1H}'
 " 2>/dev/null)
 
 M1_TOTAL=$(echo "$M1_RESULT" | awk '{print $1}')
@@ -37,7 +44,7 @@ HEALTH=$(curl -s --max-time 5 http://localhost:8211/health 2>/dev/null | python3
 
 # Canonical M1 row count for last hour
 CM1_COUNT=$(mysql -h 127.0.0.1 -P 3307 -u root -p"${PW}" tradingSignals -N -e "
-SELECT COUNT(*) FROM canonical_m1 WHERE minute_bucket_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
+SELECT COUNT(*) FROM canonical_m1 WHERE minute_bucket_utc >= '${CUTOFF_UTC_1H}'
 " 2>/dev/null)
 CM1_COUNT=${CM1_COUNT:-0}
 
