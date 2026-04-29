@@ -16,7 +16,8 @@ TS := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
         test-utc-compliance \
         verify-trading-signals-utc-clean \
         verify-trading-signals-runtime \
-        verify-trading-signals-canary
+        verify-trading-signals-canary \
+        verify-local-main-reconciliation
 
 help:
 	@echo "tradingSignals verification harness — WO-TRADING-SIGNALS-UTCNOW-CLEANUP-0001"
@@ -27,12 +28,14 @@ help:
 	@echo "  make verify-trading-signals-utc-clean    — alias for compliance test"
 	@echo "  make verify-trading-signals-runtime      — signal-service-dev active + canary GREEN"
 	@echo "  make verify-trading-signals-canary       — hermes-canary still GREEN post-cleanup"
+	@echo "  make verify-local-main-reconciliation    — local main == origin/main and no operator overlay"
 
 verify-all: \
 	test-utc-compliance \
 	verify-trading-signals-utc-clean \
 	verify-trading-signals-runtime \
-	verify-trading-signals-canary
+	verify-trading-signals-canary \
+	verify-local-main-reconciliation
 	@echo ""
 	@echo "============================================================"
 	@echo "verify-all PASS — all tradingSignals UTC closure checks green ($(TS))"
@@ -57,3 +60,6 @@ verify-trading-signals-runtime:
 
 verify-trading-signals-canary:
 	@bash $(REPO_ROOT)/ops/verify/check_canary.sh
+
+verify-local-main-reconciliation:
+	@bash $(REPO_ROOT)/ops/verify/check_local_main.sh

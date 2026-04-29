@@ -680,6 +680,19 @@ class HermesWatchdog:
                         "CRITICAL",
                     )
                     self.set_stream_state(StreamState.STALE)
+
+                    # HERMES-RESILIENCE-001: Auto-trigger recovery on STALE
+                    # Weekend-to-weekday transitions leave the stream in FLOWING
+                    # with a 42-hour-old last tick. Instead of staying STALE,
+                    # transition to RECOVERING so the reconnect loop picks it up.
+                    if tick_age > 3600:  # > 1 hour stale = likely weekend gap
+                        logger.warning(
+                            f"[HERMES_AUTO_RECOVER] Tick age {tick_age:.0f}s suggests "
+                            f"weekend gap. Transitioning to RECOVERING for auto-reconnect."
+                        )
+                        self.set_stream_state(StreamState.RECOVERING)
+                        self.record_recovery_attempt()
+
                     return
 
             # Candle M1 staleness (from in-memory)
