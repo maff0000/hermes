@@ -594,7 +594,7 @@ def cli_verify(args, db_config):
     scanner = GapScanner(db_config)
 
     if args.recent:
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(hours=args.recent)
     else:
         start = datetime.fromisoformat(args.start)

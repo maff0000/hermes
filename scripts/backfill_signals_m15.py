@@ -18,7 +18,7 @@ Usage:
 import sys
 import argparse
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from pathlib import Path
 
@@ -494,7 +494,7 @@ def main():
     # Calculate start date if days specified
     start_date = None
     if args.days:
-        start_date = datetime.utcnow() - timedelta(days=args.days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=args.days)
         logger.info(f"Backfilling from {start_date.isoformat()}")
 
     backfiller = SignalBackfillerM15(batch_size=args.batch)

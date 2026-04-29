@@ -13,7 +13,7 @@ import sys
 import time
 import requests
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, List
 
 from fastapi import FastAPI, HTTPException
@@ -531,7 +531,7 @@ def backfill_gap(instruments: List[str], gap_threshold_minutes: int = 10) -> int
     import pymysql
     from env_config import get_db_config
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     total_signals = 0
 
     for instrument in instruments:
@@ -750,7 +750,7 @@ async def oanda_stream_task():
                         if candle.timeframe in ('M1', 'M5', 'M15'):  # M1 added 2026-04-02 (Matt-directed, scalping ADX/DI/RSI)
                             # ADR-0033: Use time-based lookback for consistent horizon across timeframes
                             # GOV-CFG-001: Load config from database, no hardcoded defaults
-                            compute_start = time.time()
+                            compute_start = datetime.now(timezone.utc).timestamp()
                             lookback_hours = get_zeusv4_config('hermes_lookback_hours', 'int')
                             min_candles = get_zeusv4_config('hermes_min_candles_floor', 'int')
                             history = fetch_candle_history(candle.instrument, lookback_hours=lookback_hours, timeframe=candle.timeframe, min_candles_floor=min_candles)
@@ -758,7 +758,7 @@ async def oanda_stream_task():
                             if state.signal_computer and len(history) >= 50:
                                 # Compute complete signal
                                 signal = state.signal_computer.compute_signal(candle, history)
-                                compute_duration_ms = int((time.time() - compute_start) * 1000)
+                                compute_duration_ms = int((datetime.now(timezone.utc).timestamp() - compute_start) * 1000)
 
                                 if signal and state.signal_publisher:
                                     # Publish to DB and Redis
@@ -876,7 +876,7 @@ async def level_update_task():
 
     while True:
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             instruments = state.config.instruments if state.config else ['XAU_USD']
 
             for instrument in instruments:
@@ -936,7 +936,7 @@ async def lifespan(app: FastAPI):
 
     # Load configuration
     state.config = load_config()
-    state.started_at = datetime.utcnow()
+    state.started_at = datetime.now(timezone.utc)
 
     # CRITICAL: Detect production environment and block mock usage
     # NOTE: Mock functionality is DEPRECATED in this service.
@@ -1194,7 +1194,7 @@ async def ready():
         raise HTTPException(status_code=503, detail="No ticks received yet")
 
     # Check if any tick is stale (older than 60s)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for instrument, tick in state.latest_ticks.items():
         age = (now - tick.timestamp).total_seconds()
         if age > 60:
@@ -1218,14 +1218,14 @@ async def metrics():
 
     # Uptime
     if state.started_at:
-        uptime = (datetime.utcnow() - state.started_at).total_seconds()
+        uptime = (datetime.now(timezone.utc) - state.started_at).total_seconds()
         lines.append(f"signal_service_uptime_seconds {uptime:.0f}")
 
     # Active source
     lines.append(f'signal_service_active_source{{source="{state.active_source.value}"}} 1')
 
     # Tick ages per instrument
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for instrument, tick in state.latest_ticks.items():
         age = (now - tick.timestamp).total_seconds()
         lines.append(f'signal_service_tick_age_seconds{{instrument="{instrument}"}} {age:.3f}')

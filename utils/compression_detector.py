@@ -15,7 +15,7 @@ GOV-ENV-001: Config from .env, no hardcoded DEV/PROD values.
 
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
@@ -114,7 +114,7 @@ class CompressionDetector:
             else:
                 self.config[config_key] = default
 
-        self._config_loaded_at = datetime.utcnow()
+        self._config_loaded_at = datetime.now(timezone.utc)
         logger.debug(f"Compression Detector config loaded: {len(self.config)} keys")
 
     def compute_atr_percentile(self, instrument: str, current_atr: float) -> float:
@@ -313,7 +313,7 @@ class CompressionDetector:
             CompressionResult with score and components
         """
         # Load config if stale
-        if self._config_loaded_at is None or (datetime.utcnow() - self._config_loaded_at).seconds > 300:
+        if self._config_loaded_at is None or (datetime.now(timezone.utc) - self._config_loaded_at).seconds > 300:
             self._load_config_from_env()
 
         atr = float(signal_data.get('atr_14') or 0)

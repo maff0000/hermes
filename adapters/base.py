@@ -4,7 +4,7 @@ EPIC-D002: Standalone Signal Service
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import AsyncIterator, Callable, List, Optional
 import asyncio
@@ -40,7 +40,7 @@ class AdapterHealth:
         if self.last_tick_at is None:
             return False
         # Stale if no tick in 30 seconds
-        age = (datetime.utcnow() - self.last_tick_at).total_seconds()
+        age = (datetime.now(timezone.utc) - self.last_tick_at).total_seconds()
         return age < 30
 
     def to_dict(self) -> dict:
@@ -101,7 +101,7 @@ class BaseAdapter(ABC):
 
     def _record_tick(self, tick: SignalTick):
         """Record tick for health tracking and dispatch"""
-        self._health.last_tick_at = datetime.utcnow()
+        self._health.last_tick_at = datetime.now(timezone.utc)
         self._health.tick_count += 1
 
         # Track latency (keep last 100 samples)

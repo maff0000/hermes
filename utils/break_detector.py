@@ -121,7 +121,7 @@ class BreakDetector:
             else:
                 self.config[config_key] = default
 
-        self._config_loaded_at = datetime.utcnow()
+        self._config_loaded_at = datetime.now(timezone.utc)
         logger.debug(f"Break Detector config loaded: {len(self.config)} keys")
 
     def detect_break(self, instrument: str, candle: Dict, levels: List[Dict],
@@ -139,7 +139,7 @@ class BreakDetector:
             BreakResult with detection and quality details
         """
         # Load config if stale
-        if self._config_loaded_at is None or (datetime.utcnow() - self._config_loaded_at).seconds > 300:
+        if self._config_loaded_at is None or (datetime.now(timezone.utc) - self._config_loaded_at).seconds > 300:
             self._load_config_from_env()
 
         if not levels or not candle:

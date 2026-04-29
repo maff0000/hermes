@@ -9,7 +9,7 @@ Backfills M1, M5, H1, D1 candles from OANDA REST API.
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import argparse
 import logging
@@ -204,7 +204,7 @@ async def main():
 
     args = parser.parse_args()
 
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=args.days)
 
     instruments = ['XAU_USD', 'XAG_USD', 'XPT_USD', 'XCU_USD'] if args.all_instruments else [args.instrument]

@@ -14,7 +14,7 @@ Channels:
 import sys
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pathlib import Path
 
@@ -118,7 +118,7 @@ class RedisPublisher:
             channel = self._channel(f"signals:tick:{instrument}")
 
             # Add publish timestamp
-            tick_data['published_at'] = datetime.utcnow().isoformat()
+            tick_data['published_at'] = datetime.now(timezone.utc).isoformat()
 
             message = json.dumps(tick_data)
             subscribers = self._client.publish(channel, message)
@@ -132,7 +132,7 @@ class RedisPublisher:
                 'spread': str(tick_data.get('spread', 0)),
                 'timestamp': tick_data.get('timestamp', ''),
                 'source': tick_data.get('source', 'unknown'),  # mock/oanda/ibkr
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': datetime.now(timezone.utc).isoformat()
             })
             self._client.expire(price_key, 300)  # 5 min TTL
 
@@ -163,7 +163,7 @@ class RedisPublisher:
             channel = self._channel(f"signals:candle:{timeframe}:{instrument}")
 
             # Add publish timestamp
-            candle_data['published_at'] = datetime.utcnow().isoformat()
+            candle_data['published_at'] = datetime.now(timezone.utc).isoformat()
             candle_data['timeframe'] = timeframe
 
             message = json.dumps(candle_data, default=str)
@@ -178,7 +178,7 @@ class RedisPublisher:
                 'close': str(candle_data.get('close', 0)),
                 'volume': str(candle_data.get('volume', 0)),
                 'timestamp': str(candle_data.get('timestamp', '')),
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': datetime.now(timezone.utc).isoformat()
             })
             self._client.expire(candle_key, 3600)  # 1 hour TTL
 
@@ -205,7 +205,7 @@ class RedisPublisher:
 
         try:
             channel = self._channel("signals:health")
-            health_data['timestamp'] = datetime.utcnow().isoformat()
+            health_data['timestamp'] = datetime.now(timezone.utc).isoformat()
 
             message = json.dumps(health_data, default=str)
             subscribers = self._client.publish(channel, message)
@@ -214,7 +214,7 @@ class RedisPublisher:
             health_key = self._channel("signals:health:status")
             self._client.hset(health_key, mapping={
                 'status': health_data.get('status', 'unknown'),
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': datetime.now(timezone.utc).isoformat()
             })
             self._client.expire(health_key, 60)  # 1 min TTL
 
@@ -271,7 +271,7 @@ class RedisPublisher:
 
             # Convert all values to strings for Redis hash
             mapping = {k: str(v) for k, v in config.items()}
-            mapping['updated_at'] = datetime.utcnow().isoformat()
+            mapping['updated_at'] = datetime.now(timezone.utc).isoformat()
 
             self._client.hset(key, mapping=mapping)
             logger.debug(f"Published instrument config: {instrument}")

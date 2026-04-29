@@ -102,7 +102,7 @@ class LevelEngine:
             else:
                 self.config[config_key] = default
 
-        self._config_loaded_at = datetime.utcnow()
+        self._config_loaded_at = datetime.now(timezone.utc)
         logger.debug(f"Level Engine config loaded from env: {len(self.config)} keys")
 
     def compute_pdh_pdl(self, instrument: str, reference_date: datetime = None) -> Dict:
@@ -117,7 +117,7 @@ class LevelEngine:
             Dict with 'pdh' and 'pdl' level data, or empty if no data
         """
         if reference_date is None:
-            reference_date = datetime.utcnow().date()
+            reference_date = datetime.now(timezone.utc).date()
         elif hasattr(reference_date, 'date'):
             reference_date = reference_date.date()
 
@@ -186,7 +186,7 @@ class LevelEngine:
             Dict with 'asia_high' and 'asia_low' level data
         """
         if reference_date is None:
-            reference_date = datetime.utcnow().date()
+            reference_date = datetime.now(timezone.utc).date()
         elif hasattr(reference_date, 'date'):
             reference_date = reference_date.date()
 
@@ -322,7 +322,7 @@ class LevelEngine:
             atr = self._get_current_atr(instrument, cursor)
             zone_width = atr * self.config['level_zone_atr_mult']
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             return {
                 'm15_swing_high': {
@@ -543,7 +543,7 @@ class LevelEngine:
         summary = {'instrument': instrument, 'levels': {}}
 
         # Load config if stale (GOV-ENV-001: config from .env)
-        if self._config_loaded_at is None or (datetime.utcnow() - self._config_loaded_at).seconds > 300:
+        if self._config_loaded_at is None or (datetime.now(timezone.utc) - self._config_loaded_at).seconds > 300:
             self._load_config_from_env()
 
         # PDH/PDL
