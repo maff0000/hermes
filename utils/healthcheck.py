@@ -239,16 +239,19 @@ class HealthcheckReporter:
             metrics = self.collect_metrics()
             status, message = self._determine_status(metrics)
 
-            success = send_healthcheck(
-                status=status,
-                message=message,
-                metrics=metrics
-            )
+            # IRIS disabled — table tradingReport.iris_messages does not exist
+            # TODO: Re-enable when IRIS is rebuilt
+            # success = send_healthcheck(
+            #     status=status,
+            #     message=message,
+            #     metrics=metrics
+            # )
+            success = True  # Stub — IRIS disabled
 
             if success:
-                logger.debug(f"Healthcheck sent: {status} - {message}")
-            else:
-                logger.warning("Failed to send healthcheck to IRIS")
+                logger.debug(f"Healthcheck collected: {status} - {message}")
+            # else:
+            #     logger.warning("Failed to send healthcheck to IRIS")
 
             self._last_check = datetime.now(timezone.utc)
             return success

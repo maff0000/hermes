@@ -33,3 +33,9 @@ Thumbs.db
 .env
 *.pyc
 __pycache__/
+
+# WO-HERMES-LOCAL-MAIN-RECONCILIATION-0001 — append-only operational log files
+# stored under ops/evidence/. These are operator-runtime artefacts, not source.
+ops/evidence/WO-HERMES-PROOF-H/equivalence_log.jsonl
+ops/evidence/WO-HERMES-PROOF-OF-WORKING-0006/soak/soak_log.jsonl
+ops/evidence/**/*.jsonl
