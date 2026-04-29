@@ -457,7 +457,14 @@ def get_last_candle_timestamp(instrument: str) -> Optional[datetime]:
         result = cursor.fetchone()
         cursor.close()
         conn.close()
-        return result[0] if result and result[0] else None
+        # WO-TRADING-SIGNALS-UTC-DB-BOUNDARY-HOTFIX-0001 — pymysql returns naive
+        # datetime; candles_M5.timestamp is UTC by DB convention. Normalize to
+        # aware UTC at the boundary so callers (which now use aware now()) can
+        # subtract without TypeError.
+        if result and result[0]:
+            ts = result[0]
+            return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
+        return None
     except Exception as e:
         logger.warning(f"Failed to get last candle timestamp: {e}")
         return None
