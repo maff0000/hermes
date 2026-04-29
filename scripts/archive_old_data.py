@@ -9,7 +9,7 @@ Compresses old data to archive directory and removes from DB.
 import os
 import sys
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from pathlib import Path
 
@@ -113,7 +113,9 @@ def archive_month(table: str, year: int, month: int, row_count: int):
 def main():
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
 
-    cutoff = datetime.now() - timedelta(days=MONTHS_TO_KEEP * 30)
+    # WO-TRADING-SIGNALS-UTC-SWEEP-0001 — cutoff compared against UTC-stored
+    # timestamps; naked datetime.now() returned server-local and was BST-skewed.
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MONTHS_TO_KEEP * 30)
     logger.info(f"Archiving data older than {cutoff.strftime('%Y-%m-%d')}")
 
     conn = pymysql.connect(**DB_CONFIG)

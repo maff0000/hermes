@@ -21,7 +21,7 @@ import sys
 import json
 import argparse
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -229,13 +229,17 @@ class SignalHealthChecker:
                 issues.append(f'REDIS ERROR: {e}')
 
         # STORY-D002-09: Check ATR baseline metrics in recent signals
+        # WO-TRADING-SIGNALS-UTC-SWEEP-0001 — cutoff computed Python-side as
+        # timezone-aware UTC. signals.timestamp is stored UTC; SQL NOW() returns
+        # server-local (BST in summer = UTC+1) and would skew this window.
+        cutoff_utc = datetime.now(timezone.utc) - timedelta(hours=1)
         cursor.execute("""
             SELECT COUNT(*) as missing_count
             FROM signals
             WHERE instrument = %s
-              AND timestamp >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+              AND timestamp >= %s
               AND atr_baseline IS NULL
-        """, (instrument,))
+        """, (instrument, cutoff_utc))
         missing_row = cursor.fetchone()
         if missing_row and missing_row['missing_count'] > 0:
             issues.append(f'MISSING ATR METRICS: {missing_row["missing_count"]} recent signals without atr_baseline')

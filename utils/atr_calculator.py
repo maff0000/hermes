@@ -14,7 +14,7 @@ ATR = SMA(True Range, period)
 import sys
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pymysql
@@ -252,7 +252,7 @@ class ATRProvider:
         cache_key = f"{instrument}:{period}"
         if timestamp is None and cache_key in self._cache:
             cached_atr, cached_time = self._cache[cache_key]
-            if (datetime.now() - cached_time).total_seconds() < self._cache_ttl_seconds:
+            if (datetime.now(timezone.utc) - cached_time).total_seconds() < self._cache_ttl_seconds:
                 return cached_atr
 
         # Query candles from database
@@ -296,7 +296,7 @@ class ATRProvider:
 
             # Cache result (live only)
             if timestamp is None and atr is not None:
-                self._cache[cache_key] = (atr, datetime.now())
+                self._cache[cache_key] = (atr, datetime.now(timezone.utc))
 
             return atr
 

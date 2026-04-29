@@ -13,7 +13,7 @@ All levels stored in hermes_levels table with zones (level +/- ATR buffer).
 
 import logging
 import sys
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta, time as dt_time, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from decimal import Decimal
@@ -460,6 +460,10 @@ class LevelEngine:
         conn = self._get_db_connection()
         cursor = conn.cursor()
 
+        # WO-TRADING-SIGNALS-UTC-SWEEP-0001 — hermes_levels.valid_until is UTC.
+        # Falcon strategies and Helios consume hermes levels via this path; in
+        # BST, SQL NOW() returns server-local and levels expire 1h early.
+        now_utc = datetime.now(timezone.utc)
         try:
             cursor.execute("""
                 SELECT id, level_type, level_price, zone_upper, zone_lower,
@@ -468,9 +472,9 @@ class LevelEngine:
                 FROM hermes_levels
                 WHERE instrument = %s
                   AND is_active = TRUE
-                  AND (valid_until IS NULL OR valid_until > NOW())
+                  AND (valid_until IS NULL OR valid_until > %s)
                 ORDER BY level_type
-            """, (instrument,))
+            """, (instrument, now_utc))
 
             rows = cursor.fetchall()
             return list(rows) if rows else []

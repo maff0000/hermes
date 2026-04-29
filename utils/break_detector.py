@@ -17,7 +17,7 @@ GOV-ENV-001: Config from .env, no hardcoded DEV/PROD values.
 
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -341,14 +341,17 @@ class BreakDetector:
         conn = self._get_db_connection()
         cursor = conn.cursor()
 
+        # WO-TRADING-SIGNALS-UTC-SWEEP-0001 — hermes_levels.valid_until is UTC.
+        # SQL NOW() returns server-local; in BST, levels expire 1h early.
+        now_utc = datetime.now(timezone.utc)
         try:
             cursor.execute("""
                 SELECT id, level_type, level_price, zone_upper, zone_lower
                 FROM hermes_levels
                 WHERE instrument = %s
                   AND is_active = TRUE
-                  AND (valid_until IS NULL OR valid_until > NOW())
-            """, (instrument,))
+                  AND (valid_until IS NULL OR valid_until > %s)
+            """, (instrument, now_utc))
 
             levels = cursor.fetchall()
 
