@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from queue import Queue
 import threading
@@ -120,7 +120,7 @@ class DBWriter:
         conn = None
         batch_candles: List[Candle] = []
         batch_ticks: List[SignalTick] = []
-        last_flush = datetime.now()
+        last_flush = datetime.now(timezone.utc)
 
         while self._running:
             try:
@@ -139,7 +139,7 @@ class DBWriter:
                     batch_ticks.append(item[1])
 
                 # Flush every second or when batch is large
-                now = datetime.now()
+                now = datetime.now(timezone.utc)
                 should_flush = (
                     (now - last_flush).total_seconds() >= 1.0 or
                     len(batch_candles) >= 100 or
@@ -256,7 +256,9 @@ def archive_old_data(
         database = get_db_config()['database']
     os.makedirs(archive_dir, exist_ok=True)
 
-    cutoff = datetime.now() - timedelta(days=months_to_keep * 30)
+    # WO-TRADING-SIGNALS-UTC-SWEEP-0001 — cutoff compared against UTC-stored
+    # timestamps; naked datetime.now() returned server-local and was BST-skewed.
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months_to_keep * 30)
     cutoff_str = cutoff.strftime("%Y-%m-%d")
 
     logger.info(f"Archiving data older than {cutoff_str}")
