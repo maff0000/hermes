@@ -958,7 +958,10 @@ class SignalPublisher:
                     'break_quality_long': str(signal.break_quality_long),
                     'break_quality_short': str(signal.break_quality_short),
                     'break_level_id': str(signal.break_level_id),
-                    'updated_at': datetime.utcnow().isoformat()
+                    # UTC_AUDIT_METADATA_OK: redis-publish audit timestamp;
+                    # canonical signal timestamp lives elsewhere on the
+                    # signal payload. WO-HERMES-UTC-AUDIT-FIX-0001.
+                    'updated_at': datetime.now(timezone.utc).isoformat()
                 })
                 self.redis._client.expire(signal_key, 600)  # 10 min TTL
 
