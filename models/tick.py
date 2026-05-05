@@ -3,7 +3,7 @@ SignalTick - Unified tick model for all broker sources
 EPIC-D002: Standalone Signal Service
 """
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 import json
@@ -45,7 +45,10 @@ class SignalTick:
         if self.spread == 0.0:
             self.spread = self.ask - self.bid
         if self.received_at is None:
-            self.received_at = datetime.utcnow()
+            # UTC_AUDIT_METADATA_OK: tick receipt audit timestamp; not market
+            # truth (canonical timestamp is `source_timestamp` from broker).
+            # WO-HERMES-UTC-AUDIT-FIX-0001.
+            self.received_at = datetime.now(timezone.utc)
 
     @property
     def latency_ms(self) -> Optional[float]:
@@ -104,5 +107,7 @@ class SignalTick:
             "spread": str(self.spread),
             "timestamp": self.timestamp.isoformat(),
             "source": self.source.value,
-            "updated_at": datetime.utcnow().isoformat()
+            # UTC_AUDIT_METADATA_OK: dict serialisation audit timestamp;
+            # canonical tick timestamp is `timestamp` field above.
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
