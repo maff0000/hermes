@@ -47,6 +47,10 @@ from utils.watchdog import (
     HermesWatchdog, HealthPersistence, FaultCode,
     StreamState, HealthState, RecoveryState, DataFlowState,
 )
+# WO-HERMES-OANDA-RECONNECT-LOOP-FIX-IMPLEMENTATION-0001:
+# StreamSilentStallError lives in utils/exceptions.py to keep import-time
+# side effects out of test scope. See oanda_stream_task below.
+from utils.exceptions import StreamSilentStallError
 from utils.trading_hours import is_market_open
 
 # WO-0030: Unified logging with GELF streaming (GOV-LOG-001, GOV-LOG-011)
@@ -673,8 +677,46 @@ async def oanda_stream_task():
 
             # WO-HERMES-STREAM-WATCHDOG-0001: Watchdog handles state promotion
             # on first tick receipt via record_tick() -> _promote_to_flowing()
+            # WO-HERMES-OANDA-RECONNECT-LOOP-FIX-IMPLEMENTATION-0001:
+            # Wrap the per-iteration await on the async iterator in
+            # asyncio.wait_for() so a silent OANDA stall (TCP open, zero
+            # data) raises asyncio.TimeoutError within
+            # hermes_tick_staleness_threshold_sec. Translated to
+            # StreamSilentStallError which propagates to the outer
+            # except-Exception block below where the existing reconnect
+            # path (RECOVERING / record_recovery_attempt / proof_window /
+            # is_recovery_exhausted) activates unchanged.
+            # Config read is fail-loud per get_hermes_config (GOV-CFG-001).
+            tick_staleness_threshold_sec = get_hermes_config(
+                'hermes_tick_staleness_threshold_sec', 'int'
+            )
+            stream_iter = state.oanda_adapter.stream().__aiter__()
 
-            async for tick in state.oanda_adapter.stream():
+            while True:
+                try:
+                    tick = await asyncio.wait_for(
+                        stream_iter.__anext__(),
+                        timeout=float(tick_staleness_threshold_sec),
+                    )
+                except StopAsyncIteration:
+                    # Generator exhausted naturally; treat as disconnect so
+                    # the outer reconnect loop spins back up.
+                    break
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "OANDA stream silent stall detected",
+                        extra={
+                            'silent_stall_detected': True,
+                            'timeout_threshold_sec': tick_staleness_threshold_sec,
+                        },
+                    )
+                    if state.watchdog:
+                        state.watchdog.set_stream_state(StreamState.STALE)
+                    raise StreamSilentStallError(
+                        f"No tick received for "
+                        f"{tick_staleness_threshold_sec}s "
+                        f"— forcing reconnect"
+                    )
                 # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine persistence
                 # hook. Synchronous PublishResult contract. HERMES does not drive
                 # Structure Engine health — it logs its side and moves on.
