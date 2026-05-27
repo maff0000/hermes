@@ -1081,6 +1081,10 @@ async def lifespan(app: FastAPI):
         'recovery_proof_window_sec': get_hermes_config('hermes_recovery_proof_window_sec', 'int'),
         'max_recovery_attempts': get_hermes_config('hermes_max_recovery_attempts', 'int'),
         'watchdog_interval_sec': get_hermes_config('hermes_watchdog_interval_sec', 'int'),
+        # WO-HERMES-PER-INSTRUMENT-RECOVERY-CONFIG-PROMOTION-0001: per-instrument recovery thresholds
+        'per_instrument_sustained_red_threshold_sec': get_hermes_config('per_instrument_sustained_red_threshold_sec', 'int'),
+        'per_instrument_recovery_cooldown_sec': get_hermes_config('per_instrument_recovery_cooldown_sec', 'int'),
+        'per_instrument_max_recovery_attempts_per_hour': get_hermes_config('per_instrument_max_recovery_attempts_per_hour', 'int'),
     }
     _persistence = HealthPersistence(_watchdog_db, service_name='hermes', environment=ENV, logger=logger)
     state.watchdog = HermesWatchdog(

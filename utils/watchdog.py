@@ -67,16 +67,16 @@ class StreamState:
     FAILED = "FAILED"
 
 
-# WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001
-# Per-instrument recovery trigger thresholds. Future migration: promote to
-# hermes_config table rows (per_instrument_sustained_red_threshold_sec,
-# per_instrument_recovery_cooldown_sec, per_instrument_max_recovery_attempts_per_hour).
-# Constants kept here for the AMBER_CODE_READY_RESTART_REQUIRED bake — the
-# lens does not pre-authorise DB config writes, so we hold thresholds in code
-# pending a follow-on config-promotion WO.
-PER_INSTRUMENT_SUSTAINED_RED_THRESHOLD_SEC = 300   # 5 min sustained before recovery request
-PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC = 600         # 10 min between recovery requests (global)
-PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR = 3  # cap to prevent reconnect storm
+# WO-HERMES-PER-INSTRUMENT-RECOVERY-CONFIG-PROMOTION-0001 (supersedes RESUBSCRIBE-REPAIR-0001):
+# Per-instrument recovery thresholds have moved to governed hermes_config rows.
+# Loaded into self._config by main.py via get_hermes_config() at lifespan init.
+# Fail-loud: if any of these keys are missing from self._config the watchdog
+# raises KeyError on first per-instrument evaluation cycle. No silent defaults.
+# Required config keys:
+#   per_instrument_sustained_red_threshold_sec  (int; live value 300)
+#   per_instrument_recovery_cooldown_sec        (int; live value 600)
+#   per_instrument_max_recovery_attempts_per_hour (int; live value 3)
+# Migration: /srv-dev/tradingSignals/migrations/012_per_instrument_recovery_config.sql
 
 
 class HealthState:
@@ -641,19 +641,27 @@ class HermesWatchdog:
         if self._recovery_request_pending:
             return
 
+        # WO-HERMES-PER-INSTRUMENT-RECOVERY-CONFIG-PROMOTION-0001:
+        # Read thresholds from governed hermes_config (loaded into self._config
+        # at lifespan init). Fail-loud: missing key raises KeyError; the
+        # outer service watchdog will surface that loudly via journal.
+        sustained_red_threshold_sec = self._config['per_instrument_sustained_red_threshold_sec']
+        recovery_cooldown_sec = self._config['per_instrument_recovery_cooldown_sec']
+        max_recovery_attempts_per_hour = self._config['per_instrument_max_recovery_attempts_per_hour']
+
         # Identify instruments with sustained RED past the hysteresis threshold.
         sustained = [
             (inst, (now - since).total_seconds())
             for inst, since in self._per_instrument_red_since.items()
-            if (now - since).total_seconds() >= PER_INSTRUMENT_SUSTAINED_RED_THRESHOLD_SEC
+            if (now - since).total_seconds() >= sustained_red_threshold_sec
         ]
         if not sustained:
             return
 
-        # Cooldown: do not re-request within PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC.
+        # Cooldown: do not re-request within recovery_cooldown_sec.
         if self._last_recovery_request_at is not None:
             since_last = (now - self._last_recovery_request_at).total_seconds()
-            if since_last < PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC:
+            if since_last < recovery_cooldown_sec:
                 return
 
         # Trim attempts window to last hour; enforce max-attempts cap.
@@ -661,11 +669,11 @@ class HermesWatchdog:
         self._recovery_attempts_window = [
             t for t in self._recovery_attempts_window if t >= cutoff
         ]
-        if len(self._recovery_attempts_window) >= PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR:
+        if len(self._recovery_attempts_window) >= max_recovery_attempts_per_hour:
             self._log(
                 'warning',
                 f"Per-instrument recovery SUPPRESSED: max "
-                f"{PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR} attempts/hour "
+                f"{max_recovery_attempts_per_hour} attempts/hour "
                 f"reached. Sustained RED instruments: {[i for i, _ in sustained]}"
             )
             return
