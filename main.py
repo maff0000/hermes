@@ -717,6 +717,25 @@ async def oanda_stream_task():
                         f"{tick_staleness_threshold_sec}s "
                         f"— forcing reconnect"
                     )
+
+                # WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001:
+                # Per-instrument recovery hook. The watchdog evaluator runs on
+                # its own cadence; when an instrument is RED beyond the
+                # sustained-RED hysteresis it raises a recovery request. OANDA
+                # v20 has no per-instrument resubscribe, so we drop the global
+                # stream and let the existing outer reconnect block run
+                # (RECOVERING/proof_window/backfill_gap path unchanged).
+                if state.watchdog:
+                    _recovery_reason = state.watchdog.consume_recovery_request()
+                    if _recovery_reason:
+                        logger.warning(
+                            "Per-instrument recovery request consumed — forcing reconnect",
+                            extra={'recovery_reason': _recovery_reason},
+                        )
+                        raise StreamSilentStallError(
+                            f"Per-instrument recovery: {_recovery_reason}"
+                        )
+
                 # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine persistence
                 # hook. Synchronous PublishResult contract. HERMES does not drive
                 # Structure Engine health — it logs its side and moves on.

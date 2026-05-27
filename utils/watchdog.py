@@ -57,9 +57,26 @@ class StreamState:
     CONNECTING = "CONNECTING"
     CONNECTED_UNPROVEN = "CONNECTED_UNPROVEN"
     FLOWING = "FLOWING"
+    # WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001:
+    # Global stream is delivering ticks for at least some instruments, but one
+    # or more configured instruments are currently RED. Consumers may treat
+    # this as AMBER for backwards compatibility.
+    PARTIAL_FLOWING = "PARTIAL_FLOWING"
     STALE = "STALE"
     RECOVERING = "RECOVERING"
     FAILED = "FAILED"
+
+
+# WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001
+# Per-instrument recovery trigger thresholds. Future migration: promote to
+# hermes_config table rows (per_instrument_sustained_red_threshold_sec,
+# per_instrument_recovery_cooldown_sec, per_instrument_max_recovery_attempts_per_hour).
+# Constants kept here for the AMBER_CODE_READY_RESTART_REQUIRED bake — the
+# lens does not pre-authorise DB config writes, so we hold thresholds in code
+# pending a follow-on config-promotion WO.
+PER_INSTRUMENT_SUSTAINED_RED_THRESHOLD_SEC = 300   # 5 min sustained before recovery request
+PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC = 600         # 10 min between recovery requests (global)
+PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR = 3  # cap to prevent reconnect storm
 
 
 class HealthState:
@@ -248,6 +265,17 @@ class HermesWatchdog:
         self._instrument_last_m1 = {}        # {instrument: datetime}
         self._instrument_health = {}         # {instrument: (health_state, reason_code)}
         self._instruments = []               # populated on first tick
+
+        # ---- Per-instrument recovery trigger state ----
+        # WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001:
+        # Track sustained RED per instrument; raise a recovery request that the
+        # stream task consumes between ticks. OANDA v20 has no per-instrument
+        # resubscribe; the request triggers a full-stream reconnect.
+        self._per_instrument_red_since = {}       # {instrument: datetime first RED}
+        self._recovery_request_pending = False
+        self._recovery_request_reason = None
+        self._last_recovery_request_at = None
+        self._recovery_attempts_window = []       # list[datetime]; trimmed to last hour
 
         # ---- In-memory hot state (updated by record_* calls, zero DB cost) ----
         self._last_tick_utc = None
@@ -570,8 +598,103 @@ class HermesWatchdog:
                 self._set_health(HealthState.AMBER, DataFlowState.STALE, None)
                 self._state_dirty = True
 
+        # WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001:
+        # Track sustained per-instrument RED + raise recovery requests + flip
+        # global stream state to PARTIAL_FLOWING when applicable.
+        self._evaluate_per_instrument_recovery(now, red_count)
+
         # Persist per-instrument health to DB (cadence-driven, not per-tick)
         self._persist_instrument_health(now)
+
+    def _evaluate_per_instrument_recovery(self, now, red_count):
+        """Track sustained per-instrument RED + request stream recovery if needed.
+
+        Per WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001.
+        OANDA v20 has no per-instrument resubscribe (confirmed via adapter
+        inspection); this method requests a full-stream reconnect by raising
+        an in-memory flag that the streaming loop consumes via
+        ``consume_recovery_request()``. The existing reconnect path then runs.
+
+        Cooldown + max-attempts cap prevent reconnect storms. Cross-instrument
+        isolation: a single instrument RED does not falsely mark healthy
+        instruments. PARTIAL_FLOWING global state is set when red_count > 0
+        and the global stream is otherwise FLOWING.
+        """
+        # Track RED-start timestamps; clear when instrument recovers.
+        for inst, (health, _reason) in self._instrument_health.items():
+            if health == HealthState.RED:
+                if inst not in self._per_instrument_red_since:
+                    self._per_instrument_red_since[inst] = now
+            else:
+                self._per_instrument_red_since.pop(inst, None)
+
+        # PARTIAL_FLOWING state derivation. Only flip from/to FLOWING — leave
+        # STALE/RECOVERING/FAILED untouched so the existing recovery machinery
+        # is not interfered with.
+        if red_count > 0 and self._current_stream_state == StreamState.FLOWING:
+            self.set_stream_state(StreamState.PARTIAL_FLOWING)
+        elif red_count == 0 and self._current_stream_state == StreamState.PARTIAL_FLOWING:
+            self.set_stream_state(StreamState.FLOWING)
+
+        # If a recovery request is already pending and unconsumed by the stream
+        # task, do not re-raise; just wait.
+        if self._recovery_request_pending:
+            return
+
+        # Identify instruments with sustained RED past the hysteresis threshold.
+        sustained = [
+            (inst, (now - since).total_seconds())
+            for inst, since in self._per_instrument_red_since.items()
+            if (now - since).total_seconds() >= PER_INSTRUMENT_SUSTAINED_RED_THRESHOLD_SEC
+        ]
+        if not sustained:
+            return
+
+        # Cooldown: do not re-request within PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC.
+        if self._last_recovery_request_at is not None:
+            since_last = (now - self._last_recovery_request_at).total_seconds()
+            if since_last < PER_INSTRUMENT_RECOVERY_COOLDOWN_SEC:
+                return
+
+        # Trim attempts window to last hour; enforce max-attempts cap.
+        cutoff = now - timedelta(seconds=3600)
+        self._recovery_attempts_window = [
+            t for t in self._recovery_attempts_window if t >= cutoff
+        ]
+        if len(self._recovery_attempts_window) >= PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR:
+            self._log(
+                'warning',
+                f"Per-instrument recovery SUPPRESSED: max "
+                f"{PER_INSTRUMENT_MAX_RECOVERY_ATTEMPTS_PER_HOUR} attempts/hour "
+                f"reached. Sustained RED instruments: {[i for i, _ in sustained]}"
+            )
+            return
+
+        # Raise the recovery request.
+        inst, age_s = sustained[0]
+        reason = (
+            f"sustained_red instrument={inst} age_s={age_s:.0f} "
+            f"red_count={red_count} state={self._current_stream_state}"
+        )
+        self._recovery_request_pending = True
+        self._recovery_request_reason = reason
+        self._last_recovery_request_at = now
+        self._recovery_attempts_window.append(now)
+        self._log('warning', f"Per-instrument recovery request raised: {reason}")
+
+    def consume_recovery_request(self):
+        """Atomically consume a pending per-instrument recovery request.
+
+        Called by main.py oanda_stream_task between ticks. Returns the reason
+        string if a recovery was requested (and clears the flag), else None.
+        Per WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001.
+        """
+        if not self._recovery_request_pending:
+            return None
+        reason = self._recovery_request_reason
+        self._recovery_request_pending = False
+        self._recovery_request_reason = None
+        return reason
 
     def _persist_instrument_health(self, now):
         """Write per-instrument health to hermes_instrument_health table."""
