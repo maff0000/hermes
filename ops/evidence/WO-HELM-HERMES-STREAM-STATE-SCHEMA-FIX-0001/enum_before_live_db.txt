@@ -1,0 +1,8 @@
+# LIVE DB stream_state column BEFORE migration 013 (read-only)
+# tradingSignals.hermes_service_health on proteus-mariadb-dev (dell:3307)
+# captured utc: 2026-06-01T08:42:28Z
+
+enum('DISCONNECTED','CONNECTING','CONNECTED_UNPROVEN','FLOWING','STALE','RECOVERING','FAILED')
+
+# row count in hermes_service_health (0 = contract dead due to truncation):
+1

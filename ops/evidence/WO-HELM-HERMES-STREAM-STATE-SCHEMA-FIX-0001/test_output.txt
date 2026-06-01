@@ -1,0 +1,26 @@
+# pytest tests/test_stream_state_schema.py -v
+# host: dell-debian  utc: 2026-06-01T08:42:27Z
+
+============================= test session starts ==============================
+platform linux -- Python 3.11.2, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /srv-dev/worktrees/wo-WO-HELM-HERMES-STREAM-STATE-SCHEMA-FIX-0001
+plugins: asyncio-1.3.0, anyio-3.6.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+tests/test_stream_state_schema.py::TestStreamStateClassValues::test_partial_flowing_is_emitted_by_code PASSED [ 11%]
+tests/test_stream_state_schema.py::TestMigration013::test_all_code_states_fit_enum PASSED [ 22%]
+tests/test_stream_state_schema.py::TestMigration013::test_append_only_no_removal PASSED [ 33%]
+tests/test_stream_state_schema.py::TestMigration013::test_no_destructive_sql PASSED [ 44%]
+tests/test_stream_state_schema.py::TestMigration013::test_only_touches_stream_state PASSED [ 55%]
+tests/test_stream_state_schema.py::TestMigration013::test_ordinal_preservation PASSED [ 66%]
+tests/test_stream_state_schema.py::TestMigration013::test_partial_flowing_present PASSED [ 77%]
+tests/test_stream_state_schema.py::TestRuntimeWritePathCoverage::test_emitted_value_is_enum_covered PASSED [ 88%]
+tests/test_stream_state_schema.py::TestRuntimeWritePathCoverage::test_runtime_emits_partial_flowing PASSED [100%]
+
+============================== 9 passed in 0.06s ===============================
+
+## regression: sibling stream test
+....................                                                     [100%]
+20 passed in 0.55s

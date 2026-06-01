@@ -1,0 +1,24 @@
+# StreamState values emitted by utils/watchdog.py (code source of truth)
+
+class StreamState:
+    DISCONNECTED = "DISCONNECTED"
+    CONNECTING = "CONNECTING"
+    CONNECTED_UNPROVEN = "CONNECTED_UNPROVEN"
+    FLOWING = "FLOWING"
+    # WO-HERMES-SIGNAL-SERVICE-DEV-PER-INSTRUMENT-RESUBSCRIBE-REPAIR-0001:
+    # Global stream is delivering ticks for at least some instruments, but one
+    # or more configured instruments are currently RED. Consumers may treat
+    # this as AMBER for backwards compatibility.
+    PARTIAL_FLOWING = "PARTIAL_FLOWING"
+    STALE = "STALE"
+    RECOVERING = "RECOVERING"
+    FAILED = "FAILED"
+
+
+# WO-HERMES-PER-INSTRUMENT-RECOVERY-CONFIG-PROMOTION-0001 (supersedes RESUBSCRIBE-REPAIR-0001):
+
+# write path (UPDATE hermes_service_health SET stream_state=...):
+160:        sql = f"UPDATE hermes_service_health SET {', '.join(sets)} WHERE service_name = %s AND environment = %s"
+
+# transition that emits PARTIAL_FLOWING:
+635:            self.set_stream_state(StreamState.PARTIAL_FLOWING)
