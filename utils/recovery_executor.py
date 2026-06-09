@@ -377,10 +377,10 @@ class RecoveryExecutor:
     def _signal_recompute(self, step: RebuildStep) -> int:
         """Recompute signals from candle history for the gap window."""
         from signal_builder import SignalComputer, SignalPublisher, TIMEFRAMES
-        from main import fetch_candle_history, get_zeusv4_config
+        from main import fetch_candle_history, get_hermes_config
 
-        lookback_hours = get_zeusv4_config('hermes_lookback_hours', 'int')
-        min_candles = get_zeusv4_config('hermes_min_candles_floor', 'int')
+        lookback_hours = get_hermes_config('hermes_lookback_hours', 'int')
+        min_candles = get_hermes_config('hermes_min_candles_floor', 'int')
 
         history = fetch_candle_history(
             step.instrument,
