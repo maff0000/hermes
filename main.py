@@ -112,55 +112,6 @@ class ServiceState:
 state = ServiceState()
 
 
-def get_zeusv4_config(key: str, value_type: str = 'str'):
-    """
-    Load config value from zeusv4_config table in tradingProteus database.
-    GOV-CFG-001: Fail-loud if key not found.
-
-    Args:
-        key: Config key name
-        value_type: 'str', 'int', 'float', 'bool'
-
-    Returns:
-        Config value cast to requested type
-
-    Raises:
-        ValueError: If key not found (GOV-CFG-001)
-    """
-    import pymysql
-    from env_config import get_db_config, ENV
-
-    db_cfg = get_db_config()
-    # zeusv4_config is in tradingProteus database, not tradingSignals
-    conn = pymysql.connect(
-        host=db_cfg['host'],
-        port=db_cfg['port'],
-        user=db_cfg['user'],
-        password=db_cfg['password'],
-        database='tradingProteus',  # zeusv4_config lives here
-    )
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT config_value FROM zeusv4_config WHERE config_key = %s",
-        (key,)
-    )
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if row is None:
-        raise ValueError(f"GOV-CFG-001: Config key '{key}' not found in zeusv4_config")
-
-    value = row[0]
-    if value_type == 'int':
-        return int(value)
-    elif value_type == 'float':
-        return float(value)
-    elif value_type == 'bool':
-        return value.lower() in ('true', '1', 'yes')
-    return value
-
-
 def get_hermes_config(key: str, value_type: str = 'str'):
     """
     Load config value from hermes_config table in tradingSignals database.
@@ -615,8 +566,8 @@ def backfill_gap(instruments: List[str], gap_threshold_minutes: int = 10) -> int
             # Compute signals for backfilled candles
             # ADR-0033: Use time-based lookback for consistent horizon
             # GOV-CFG-001: Load config from database, no hardcoded defaults
-            lookback_hours = get_zeusv4_config('hermes_lookback_hours', 'int')
-            min_candles = get_zeusv4_config('hermes_min_candles_floor', 'int')
+            lookback_hours = get_hermes_config('hermes_lookback_hours', 'int')
+            min_candles = get_hermes_config('hermes_min_candles_floor', 'int')
             history = fetch_candle_history(instrument, lookback_hours=lookback_hours, min_candles_floor=min_candles)
             if len(history) >= 50 and state.signal_computer and state.signal_publisher:
                 signals_computed = 0
@@ -824,8 +775,8 @@ async def oanda_stream_task():
                             # ADR-0033: Use time-based lookback for consistent horizon across timeframes
                             # GOV-CFG-001: Load config from database, no hardcoded defaults
                             compute_start = datetime.now(timezone.utc).timestamp()
-                            lookback_hours = get_zeusv4_config('hermes_lookback_hours', 'int')
-                            min_candles = get_zeusv4_config('hermes_min_candles_floor', 'int')
+                            lookback_hours = get_hermes_config('hermes_lookback_hours', 'int')
+                            min_candles = get_hermes_config('hermes_min_candles_floor', 'int')
                             history = fetch_candle_history(candle.instrument, lookback_hours=lookback_hours, timeframe=candle.timeframe, min_candles_floor=min_candles)
 
                             if state.signal_computer and len(history) >= 50:
