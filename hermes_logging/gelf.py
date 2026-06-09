@@ -62,8 +62,8 @@ class GELFHandler:
     - Proper GELF message formatting
 
     Environment Variables:
-    - GRAYLOG_HOST: Graylog server hostname/IP (default: 192.168.11.10)
-    - GRAYLOG_PORT: Graylog GELF input port (default: 12201)
+    - GRAYLOG_HOST: Graylog server hostname/IP (required; fail-loud if unset)
+    - GRAYLOG_PORT: Graylog GELF input port (required; fail-loud if unset)
     - GRAYLOG_PROTOCOL: Connection protocol 'tcp' or 'udp' (default: tcp)
     - GRAYLOG_ENABLED: Enable/disable sending (default: true)
     """
@@ -97,7 +97,7 @@ class GELFHandler:
             facility: Log facility name (default 'trading-platform').
             service_name: Default service name for _service field.
         """
-        # Load configuration from environment with defaults
+        # Load configuration from environment (fail-loud; no hardcoded GELF target defaults)
         # WO-HELM-HERMES-LOGGING-VENDOR-0001: HERMES-owned; no hardcoded GELF target — fail-loud
         self.host = host or os.environ.get('GRAYLOG_HOST')
         if not self.host:
