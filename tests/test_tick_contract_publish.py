@@ -53,37 +53,76 @@ def test_seq_monotonic_per_instrument():
     assert [g.next("EUR_USD") for _ in range(2)] == [1,2]
     assert g.next("XAU_USD") == 104  # independent, monotonic
 
-# ---- idempotency / no silent loss ----
-class _Cur:
-    def __init__(self, rowcount): self.rowcount=rowcount; self._rc=rowcount
-    def __enter__(self): return self
-    def __exit__(self,*a): return False
-    def execute(self,*a): self.rowcount=self._rc
-class _Conn:
-    def __init__(self, rowcount): self._rc=rowcount; self.committed=False
-    def __enter__(self): return self
-    def __exit__(self,*a): return False
-    def cursor(self): return _Cur(self._rc)
-    def commit(self): self.committed=True
+# ---- writer: fail-loud insert (R1 fix per R2D2/Architect) ----
 class _Log:
     def __init__(self): self.msgs=[]
     def info(self,*a): self.msgs.append(a)
 
-def test_writer_insert_ok_and_idempotent_skip_is_visible():
-    g = TickSeqGenerator(seed_fn=lambda i:0)
-    log = _Log()
-    w_ok = TickContractWriter(lambda:_Conn(1), g, log, "hermes.tick.v1")
-    c = w_ok.build_contract("XAU_USD","OANDA",datetime(2026,6,10,tzinfo=timezone.utc),
-                            datetime(2026,6,10,tzinfo=timezone.utc),Decimal("1"),Decimal("2"))
-    assert w_ok.write(c) is True
-    log2=_Log()
-    w_dup = TickContractWriter(lambda:_Conn(0), g, log2, "hermes.tick.v1")
-    assert w_dup.write(c) is False
-    assert any("IDEMPOTENT_SKIP" in str(m) for m in log2.msgs)  # VISIBLE, not silent
+class _ICur:   # insert cursor; optionally raises
+    def __init__(self, raise_exc=None): self._raise=raise_exc; self.rowcount=0
+    def __enter__(self): return self
+    def __exit__(self,*a): return False
+    def execute(self, sql, params=None):
+        if self._raise is not None: raise self._raise
+        self.rowcount=1
+
+class _SCur:   # idempotency-confirm cursor
+    def __init__(self, exists): self._exists=exists
+    def __enter__(self): return self
+    def __exit__(self,*a): return False
+    def execute(self, sql, params=None): pass
+    def fetchone(self): return (1,) if self._exists else None
+
+class _Conn:
+    def __init__(self, cursors): self._c=list(cursors); self.committed=False; self.rolled=False
+    def __enter__(self): return self
+    def __exit__(self,*a): return False
+    def cursor(self): return self._c.pop(0)
+    def commit(self): self.committed=True
+    def rollback(self): self.rolled=True
+
+def _mk_writer(cursors, log=None):
+    return TickContractWriter(lambda: _Conn(cursors), TickSeqGenerator(lambda i:0), log or _Log(), "hermes.tick.v1")
+
+def _contract():
+    return HermesTickContract("XAU_USD","OANDA",
+        datetime(2026,6,10,tzinfo=timezone.utc), datetime(2026,6,10,tzinfo=timezone.utc),
+        Decimal("1"), Decimal("2"), 1, "hermes.tick.v1")
+
+def _raises_runtime(fn, substr):
+    try:
+        fn(); assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        assert substr in str(e), f"got: {e}"
+
+def test_writer_insert_success_returns_true():
+    assert _mk_writer([_ICur(None)]).write(_contract()) is True
+
+def test_writer_genuine_idempotency_duplicate_visible_skip():
+    log=_Log()
+    dup=Exception(1062, "Duplicate entry for key 'uq_ticks_idempotency'")
+    w=_mk_writer([_ICur(dup), _SCur(exists=True)], log=log)
+    assert w.write(_contract()) is False                       # skip, not success
+    assert any("IDEMPOTENT_SKIP" in str(m) for m in log.msgs)  # visible, not silent
+
+def test_writer_seq_collision_dupkey_not_idempotency_fails_loud():
+    dup=Exception(1062, "Duplicate entry for key 'uq_ticks_instrument_seq'")
+    w=_mk_writer([_ICur(dup), _SCur(exists=False)])            # dup-key but idempotency row absent
+    _raises_runtime(lambda: w.write(_contract()), "GOV-TICK-INSERT-001")
+
+def test_writer_non_duplicate_error_fails_loud():
+    trunc=Exception(1265, "Data truncated for column 'bid'")
+    w=_mk_writer([_ICur(trunc)])                               # non-1062 -> fail loud, no confirm
+    _raises_runtime(lambda: w.write(_contract()), "GOV-TICK-INSERT-001")
+
+def test_writer_zero_rowcount_without_error_fails_loud():
+    class _ZeroCur(_ICur):
+        def execute(self, sql, params=None): self.rowcount=0  # no raise, 0 rows -> no silent drop
+    _raises_runtime(lambda: _mk_writer([_ZeroCur(None)]).write(_contract()), "GOV-TICK-INSERT-001")
 
 def test_writer_requires_contract_version():
     try:
-        TickContractWriter(lambda:_Conn(1), TickSeqGenerator(lambda i:0), _Log(), "")
+        TickContractWriter(lambda:_Conn([]), TickSeqGenerator(lambda i:0), _Log(), "")
         assert False, "expected fail-loud"
     except ValueError as e:
         assert "contract_version" in str(e)
