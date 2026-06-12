@@ -66,10 +66,12 @@ def build_gap_record(instrument, gap_start_iso, gap_end_iso, duration_seconds,
     if duration_seconds is None or int(duration_seconds) <= 0:
         raise ValueError(f"GOV-TICKGAP-001: non-positive duration for {instrument} (fail-loud)")
     keys = list(finding_keys) if finding_keys else list(DEFAULT_R2D2_FINDING_KEYS)
-    if keys == [R2D2_FINDING_KEY_V1]:
-        raise ValueError("GOV-TICKGAP-002: v1-only provenance is not permitted; "
-                         "reference v2 (or both v1+v2) (fail-loud)")
-    primary = keys[-1]  # latest finding governs the primary key
+    # Positive invariant: v2 (the finding that confirmed unrecoverability) MUST be present.
+    # This rejects v1-only, [v1,v1], and any list lacking v2 — not just the [v1] special case.
+    if R2D2_FINDING_KEY_V2 not in keys:
+        raise ValueError(f"GOV-TICKGAP-002: provenance must include {R2D2_FINDING_KEY_V2}; "
+                         f"got {keys} (fail-loud)")
+    primary = R2D2_FINDING_KEY_V2  # latest finding governs the primary key (guaranteed present)
     return {
         "instrument": instrument,
         "gap_start_utc": gap_start_iso,
