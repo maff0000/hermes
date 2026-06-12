@@ -32,6 +32,52 @@ def test_build_gap_record_governed_fields():
     assert r["created_by"].startswith("WO-HELM-HERMES-TICK-GAP-SEMANTIC-AND-LEDGER")
 
 
+# ---------- provenance (R2D2 binding: v2 primary, both v1+v2 recorded) ----------
+def test_default_provenance_is_v2_primary_and_records_both():
+    import json
+    r = seed.build_gap_record("XAU_USD", "2026-06-10 20:59:05", "2026-06-10 22:07:02", 4077)
+    # default must NOT be v1-only
+    assert r["r2d2_finding_key"] != seed.R2D2_FINDING_KEY_V1
+    # primary is the latest finding (v2)
+    assert r["r2d2_finding_key"] == seed.R2D2_FINDING_KEY_V2
+    # full chain preserved in diagnostic_json
+    diag = json.loads(r["diagnostic_json"])
+    assert diag["r2d2_findings"] == [seed.R2D2_FINDING_KEY_V1, seed.R2D2_FINDING_KEY_V2]
+    assert "provenance_note" in diag
+
+
+def test_provenance_positive_invariant_passes():
+    # default [v1, v2], explicit [v2], explicit [v1, v2] all pass with primary v2
+    for keys in (None, [seed.R2D2_FINDING_KEY_V2],
+                 [seed.R2D2_FINDING_KEY_V1, seed.R2D2_FINDING_KEY_V2]):
+        r = seed.build_gap_record("EUR_USD", "a", "b", 100, finding_keys=keys)
+        assert r["r2d2_finding_key"] == seed.R2D2_FINDING_KEY_V2
+
+
+def test_provenance_without_v2_fails_loud():
+    # v1-only, duplicate v1-only, and an unrelated non-v2 key all fail GOV-TICKGAP-002
+    for keys in ([seed.R2D2_FINDING_KEY_V1],
+                 [seed.R2D2_FINDING_KEY_V1, seed.R2D2_FINDING_KEY_V1],
+                 ["r2d2:finding:hermes:something_else:v9"]):
+        try:
+            seed.build_gap_record("XAU_USD", "a", "b", 100, finding_keys=keys)
+            assert False, f"expected GOV-TICKGAP-002 for {keys}"
+        except ValueError as e:
+            assert "GOV-TICKGAP-002" in str(e)
+
+
+def test_default_finding_keys_constant_includes_v2():
+    assert seed.DEFAULT_R2D2_FINDING_KEYS != [seed.R2D2_FINDING_KEY_V1]
+    assert seed.R2D2_FINDING_KEY_V2 in seed.DEFAULT_R2D2_FINDING_KEYS
+
+
+def test_diagnostic_json_valid_with_findings_chain():
+    import json
+    r = seed.build_gap_record("XAG_USD", "a", "b", 100)
+    diag = json.loads(r["diagnostic_json"])  # must be valid JSON
+    assert seed.R2D2_FINDING_KEY_V2 in diag["r2d2_findings"]
+
+
 def test_build_gap_record_rejects_bad_duration():
     for bad in (0, -1, None):
         try:
