@@ -42,7 +42,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TIMEFRAME_SECONDS = {
     'M5': 300,
     'M15': 900,
+    'M30': 1800,    # WO-HELM-HERMES-CANDLE-H4-M30-PIPELINE-BUILD-0001 — UTC-aligned 30m
     'H1': 3600,
+    'H4': 14400,    # WO-HELM-HERMES-CANDLE-H4-M30-PIPELINE-BUILD-0001 — UTC-aligned 4h (00/04/08/12/16/20)
 }
 
 # Forex day boundary: 22:00 UTC (17:00 ET)
