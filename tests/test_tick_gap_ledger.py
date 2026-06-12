@@ -32,6 +32,38 @@ def test_build_gap_record_governed_fields():
     assert r["created_by"].startswith("WO-HELM-HERMES-TICK-GAP-SEMANTIC-AND-LEDGER")
 
 
+# ---------- provenance (R2D2 binding: v2 primary, both v1+v2 recorded) ----------
+def test_default_provenance_is_v2_primary_and_records_both():
+    import json
+    r = seed.build_gap_record("XAU_USD", "2026-06-10 20:59:05", "2026-06-10 22:07:02", 4077)
+    # default must NOT be v1-only
+    assert r["r2d2_finding_key"] != seed.R2D2_FINDING_KEY_V1
+    # primary is the latest finding (v2)
+    assert r["r2d2_finding_key"] == seed.R2D2_FINDING_KEY_V2
+    # full chain preserved in diagnostic_json
+    diag = json.loads(r["diagnostic_json"])
+    assert diag["r2d2_findings"] == [seed.R2D2_FINDING_KEY_V1, seed.R2D2_FINDING_KEY_V2]
+    assert "provenance_note" in diag
+
+
+def test_v1_only_provenance_rejected_fail_loud():
+    try:
+        seed.build_gap_record("XAU_USD", "a", "b", 100, finding_keys=[seed.R2D2_FINDING_KEY_V1])
+        assert False, "expected GOV-TICKGAP-002"
+    except ValueError as e:
+        assert "GOV-TICKGAP-002" in str(e)
+
+
+def test_explicit_finding_keys_set_primary_to_latest():
+    r = seed.build_gap_record("EUR_USD", "a", "b", 100, finding_keys=[seed.R2D2_FINDING_KEY_V2])
+    assert r["r2d2_finding_key"] == seed.R2D2_FINDING_KEY_V2
+
+
+def test_default_finding_keys_constant_not_v1_only():
+    assert seed.DEFAULT_R2D2_FINDING_KEYS != [seed.R2D2_FINDING_KEY_V1]
+    assert seed.R2D2_FINDING_KEY_V2 in seed.DEFAULT_R2D2_FINDING_KEYS
+
+
 def test_build_gap_record_rejects_bad_duration():
     for bad in (0, -1, None):
         try:

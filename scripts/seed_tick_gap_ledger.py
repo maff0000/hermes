@@ -31,7 +31,14 @@ SEMANTIC_VERSION = "hermes.tick.seq.stored_row.v1"
 ACCEPTED_POLICY = "STORED_ROW_SEQUENCE"
 SOURCE_CAUSE = "POWER_OUTAGE_INGEST_DROPOUT"
 DETECTION_METHOD = "TICK_INTERVAL_SCAN"
-R2D2_FINDING_KEY = "r2d2:finding:hermes:power_outage_tick_gap:v1"
+R2D2_FINDING_KEY_V1 = "r2d2:finding:hermes:power_outage_tick_gap:v1"
+R2D2_FINDING_KEY_V2 = "r2d2:finding:hermes:power_outage_tick_gap:v2"
+# Default provenance records BOTH findings (v1 raised the risk; v2 confirmed unrecoverable).
+# The primary (governed) r2d2_finding_key is the LATEST (v2); the full chain is preserved in
+# diagnostic_json.r2d2_findings. Default must NEVER be v1-only (R2D2 binding requirement).
+DEFAULT_R2D2_FINDING_KEYS = [R2D2_FINDING_KEY_V1, R2D2_FINDING_KEY_V2]
+R2D2_PROVENANCE_NOTE = ("v1 raised the outage-gap risk; v2 confirmed unrecoverable raw ticks "
+                        "and accepted stored-row sequencing.")
 ARCHITECT_RULING = (
     "Raw tick gaps 2026-06-10/11 ACCEPTED as UNRECOVERABLE under current governed HERMES "
     "sources. HERMES tick seq = per-instrument monotonic sequence over STORED tick rows; "
@@ -49,10 +56,20 @@ def scan_hash(instrument: str, gap_start_iso: str, gap_end_iso: str) -> str:
 
 
 def build_gap_record(instrument, gap_start_iso, gap_end_iso, duration_seconds,
-                     prev_id=None, next_id=None):
-    """Build one ACCEPTED/UNRECOVERABLE ledger record (pure dict). Fail loud on bad input."""
+                     prev_id=None, next_id=None, finding_keys=None):
+    """Build one ACCEPTED/UNRECOVERABLE ledger record (pure dict). Fail loud on bad input.
+
+    Provenance (R2D2 binding): finding_keys defaults to [v1, v2]. The governed primary
+    r2d2_finding_key is the LATEST key (v2); the full chain is preserved in
+    diagnostic_json.r2d2_findings. Fail loud if the resolved chain is v1-only.
+    """
     if duration_seconds is None or int(duration_seconds) <= 0:
         raise ValueError(f"GOV-TICKGAP-001: non-positive duration for {instrument} (fail-loud)")
+    keys = list(finding_keys) if finding_keys else list(DEFAULT_R2D2_FINDING_KEYS)
+    if keys == [R2D2_FINDING_KEY_V1]:
+        raise ValueError("GOV-TICKGAP-002: v1-only provenance is not permitted; "
+                         "reference v2 (or both v1+v2) (fail-loud)")
+    primary = keys[-1]  # latest finding governs the primary key
     return {
         "instrument": instrument,
         "gap_start_utc": gap_start_iso,
@@ -64,12 +81,13 @@ def build_gap_record(instrument, gap_start_iso, gap_end_iso, duration_seconds,
         "detection_method": DETECTION_METHOD,
         "accepted_policy": ACCEPTED_POLICY,
         "semantic_version": SEMANTIC_VERSION,
-        "r2d2_finding_key": R2D2_FINDING_KEY,
+        "r2d2_finding_key": primary,
         "architect_ruling": ARCHITECT_RULING,
         "notes": "Systemic ingest dropout; raw ticks unrecoverable (no OANDA tick history). "
                  "Candle/signal layer recoverable separately with provenance.",
         "diagnostic_json": json.dumps({"prev_tick_id": prev_id, "next_tick_id": next_id,
-                                       "window": "2026-06-10/11", "all_instruments_synchronized": True}),
+                                       "window": "2026-06-10/11", "all_instruments_synchronized": True,
+                                       "r2d2_findings": keys, "provenance_note": R2D2_PROVENANCE_NOTE}),
         "scan_hash": scan_hash(instrument, gap_start_iso, gap_end_iso),
         "created_by": CREATED_BY,
     }
@@ -78,7 +96,7 @@ def build_gap_record(instrument, gap_start_iso, gap_end_iso, duration_seconds,
 # ---------- read-only derivation (injected conn) ----------
 def derive_gaps(get_conn, threshold_seconds=DEFAULT_THRESHOLD_SECONDS,
                 window_start=OUTAGE_WINDOW_START, window_end=OUTAGE_WINDOW_END,
-                instruments=None):
+                instruments=None, finding_keys=None):
     """Read-only: derive per-instrument tick gaps > threshold inside the outage window."""
     instruments = instruments or INSTRUMENTS
     records = []
@@ -97,7 +115,7 @@ def derive_gaps(get_conn, threshold_seconds=DEFAULT_THRESHOLD_SECONDS,
                 for prev_ts, ts, dur, prev_id, next_id in cur.fetchall():
                     records.append(build_gap_record(
                         inst, prev_ts.isoformat(sep=" "), ts.isoformat(sep=" "),
-                        dur, prev_id, next_id))
+                        dur, prev_id, next_id, finding_keys=finding_keys))
     return records
 
 
@@ -136,8 +154,9 @@ def insert_records(get_conn, logger, records, execute=False, confirm=False):
     return summary
 
 
-def run(get_conn, logger, execute=False, confirm=False, threshold_seconds=DEFAULT_THRESHOLD_SECONDS):
-    records = derive_gaps(get_conn, threshold_seconds=threshold_seconds)
+def run(get_conn, logger, execute=False, confirm=False, threshold_seconds=DEFAULT_THRESHOLD_SECONDS,
+        finding_keys=None):
+    records = derive_gaps(get_conn, threshold_seconds=threshold_seconds, finding_keys=finding_keys)
     return insert_records(get_conn, logger, records, execute=execute, confirm=confirm)
 
 
@@ -146,12 +165,17 @@ def main(argv=None):
     ap.add_argument("--execute", action="store_true", help="actually insert (default dry-run)")
     ap.add_argument("--confirm", action="store_true", help="second guard; required with --execute")
     ap.add_argument("--threshold-seconds", type=int, default=DEFAULT_THRESHOLD_SECONDS)
+    ap.add_argument("--r2d2-finding-key", action="append", default=None, dest="finding_keys",
+                    help="R2D2 finding key(s); repeatable. Default records both v1 and v2 "
+                         "(primary = latest). v1-only is rejected fail-loud.")
     args = ap.parse_args(argv)
     if args.execute and not args.confirm:
         print("REFUSING: --execute requires --confirm (governed, not auto-run)", file=sys.stderr)
         return 2
-    print("Tick-gap ledger seed. Invoke run(get_conn, logger, ...) from an authorised runner. "
-          "Default mode is dry-run; mutation needs --execute --confirm. Phase 2 only.")
+    keys = args.finding_keys or DEFAULT_R2D2_FINDING_KEYS
+    print("Tick-gap ledger seed. Invoke run(get_conn, logger, finding_keys=...) from an authorised "
+          "runner. Default mode is dry-run; mutation needs --execute --confirm. "
+          f"Provenance default: {keys} (primary={keys[-1]}).")
     return 0
 
 

@@ -38,6 +38,12 @@ The 2026-06-10/11 outage windows are seeded as
 `accepted_policy=STORED_ROW_SEQUENCE`, `semantic_version=hermes.tick.seq.stored_row.v1`
 (see `scripts/seed_tick_gap_ledger.py`).
 
+**Provenance:** the governed primary `r2d2_finding_key` is the latest finding
+(`r2d2:finding:hermes:power_outage_tick_gap:v2`), and the full chain
+(`v1` + `v2`) is preserved in `diagnostic_json.r2d2_findings`. `v1` raised the outage-gap
+risk; `v2` confirmed the raw ticks are unrecoverable and accepted stored-row sequencing.
+A `v1`-only provenance is rejected fail-loud (`GOV-TICKGAP-002`).
+
 ## Consumer contract
 
 Consumers that require **complete market-time tick coverage** (e.g. raw-tick microstructure
