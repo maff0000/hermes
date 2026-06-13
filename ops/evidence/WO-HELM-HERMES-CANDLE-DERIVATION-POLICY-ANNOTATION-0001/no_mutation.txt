@@ -1,0 +1,1 @@
+NO-MUTATION PROOF (UTC). candles_M30=36377, forward m1_derive rows=0 unchanged. migration 023 NOT applied (policy_columns_present_live=0). No annotation execute. No forward --execute. No Redis writes/publisher. No /etc/systemd/cron. Runtime 840a07a untouched; no restart. DB target via env_config (no hardcode).

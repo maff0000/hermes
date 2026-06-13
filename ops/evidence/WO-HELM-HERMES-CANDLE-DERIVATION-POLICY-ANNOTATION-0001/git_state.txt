@@ -1,0 +1,4 @@
+git state (UTC 2026-06-13T19:37:38Z)
+repo maff0000/hermes; base origin/main 77ec... -> e581905a (PR#19 merged)
+branch wo/WO-HELM-HERMES-CANDLE-DERIVATION-POLICY-ANNOTATION-0001
+files: +migrations/023, +scripts/annotate_candle_derivation_policy.py, M utils/forward_derivation_runner.py, M utils/candle_features.py, +tests/test_candle_derivation_policy.py, +docs

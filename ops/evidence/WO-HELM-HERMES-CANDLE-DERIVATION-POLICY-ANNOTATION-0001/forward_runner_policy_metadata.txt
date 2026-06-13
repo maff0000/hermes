@@ -1,0 +1,4 @@
+FORWARD RUNNER POLICY METADATA (UTC).
+- Dry-run run evidence + per-bucket result carry: derivation_policy=FORWARD_COMPLETE_M1_ONLY, source_complete_policy=COMPLETE_ONLY, source_policy_epoch=FORWARD_STRICT_COMPLETE_POLICY_V1, source_expected/actual/complete/incomplete/missing counts, derivation_run_id, derivation_generated_at_utc.
+- Forward upsert writes these policy columns for forward rows. _assert_policy_columns / GOV-FWD-POLICY-001 fail loud if columns missing.
+- Live dry-run: FWD_DRYRUN_POLICY={"derivation_policy":"FORWARD_COMPLETE_M1_ONLY","source_complete_policy":"COMPLETE_ONLY","source_policy_epoch":"FORWARD_STRICT_COMPLETE_POLICY_V1","written":0}

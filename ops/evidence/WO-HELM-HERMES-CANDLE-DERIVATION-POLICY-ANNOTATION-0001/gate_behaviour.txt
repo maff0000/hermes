@@ -1,0 +1,5 @@
+GOV-FWD-BDIV GATE BEHAVIOUR (UTC) — live read-only proofs.
+- BDIV001_BLOCKED=GOV-FWD-BDIV-001 (execute=True, confirm=True, reconciliation_ack=False).
+- BDIV002_BLOCKED=GOV-FWD-BDIV-002 (reconciliation_ack=True but NOT verified — policy columns absent).
+- VERIFY_RECON=(False, 'GOV-FWD-POLICY-001') (columns absent live; 023 not applied).
+- No reconciliation_ack auto-supplied; no forward --execute run; both gates raise BEFORE any DB write.

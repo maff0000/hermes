@@ -224,10 +224,14 @@ def anchor_block(timeframe):
 def build_candle_feature(*, instrument, timeframe, candle_id, source_table, source_candle_id,
                          source_open_utc, source_close_utc, generated_at_utc,
                          open_, high, low, close, complete_state, expected, actual,
-                         freshness_state, config, prev_geo=None, swing_neighbours=None):
+                         freshness_state, config, prev_geo=None, swing_neighbours=None,
+                         derivation_policy_meta=None):
     """Full deterministic candle-feature record. `config` (CandleFeatureConfig) REQUIRED — the live
     calculation path uses NO module-constant fallback. swing_neighbours, if given, =
-    (left_highs,left_lows,right_highs,right_lows); swing_lookback comes from config."""
+    (left_highs,left_lows,right_highs,right_lows); swing_lookback comes from config.
+    `derivation_policy_meta`, if given, is a dict of governed B-DIV policy fields merged in so the
+    payload exposes which derivation policy produced the source row (machine-visible fact, no
+    strategy/trader interpretation)."""
     if config is None:
         raise ValueError("GOV-FEAT-CFG-001: classification config required (fail-loud)")
     config.validate()
@@ -250,4 +254,10 @@ def build_candle_feature(*, instrument, timeframe, candle_id, source_table, sour
                      "swing_right_highs_lows_available": False, "swing_status": UNAVAILABLE})
     feat.update(completeness_block(complete_state, expected, actual))
     feat.update(anchor_block(timeframe))
+    if derivation_policy_meta is not None:
+        allowed = {"derivation_policy", "source_complete_policy", "source_policy_epoch",
+                   "source_expected_candle_count", "source_actual_candle_count",
+                   "source_complete_candle_count", "source_incomplete_candle_count",
+                   "source_missing_candle_count", "historical_policy_note"}
+        feat["derivation_policy_meta"] = {k: v for k, v in derivation_policy_meta.items() if k in allowed}
     return feat

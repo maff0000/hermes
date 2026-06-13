@@ -42,6 +42,14 @@ MAX_CATCHUP_BUCKETS = 96
 # (HISTORICAL_ALL_M1_COUNTED). Forward derivation counts ONLY complete=1 source M1.
 DERIVATION_POLICY = "FORWARD_COMPLETE_M1_ONLY"
 SOURCE_COMPLETE_POLICY = "COMPLETE_ONLY"
+FORWARD_POLICY_EPOCH = "FORWARD_STRICT_COMPLETE_POLICY_V1"
+FORWARD_POLICY_NOTE = ("Forward-derived from canonical complete=1 M1 ONLY (strict). complete=1 "
+                       "means all expected complete-M1 present — distinct from historical "
+                       "HISTORICAL_ALL_M1_COUNTED rows.")
+HISTORICAL_POLICY = "HISTORICAL_ALL_M1_COUNTED"
+REQUIRED_POLICY_COLUMNS = ("derivation_policy", "source_complete_policy", "source_policy_epoch",
+                           "source_complete_candle_count", "source_incomplete_candle_count",
+                           "derivation_run_id", "derivation_generated_at_utc")
 
 COMPLETE, INCOMPLETE, FORMING, UNAVAILABLE = "COMPLETE", "INCOMPLETE", "FORMING", "UNAVAILABLE"
 FRESH, STALE, DEGRADED = "FRESH", "STALE", "DEGRADED"
@@ -116,15 +124,29 @@ def run_id_for(now_utc, tf, instruments):
 
 
 UPSERT = (
-    "INSERT INTO {table} (instrument, timestamp, open, high, low, close, volume, complete, source) "
-    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+    "INSERT INTO {table} (instrument, timestamp, open, high, low, close, volume, complete, source, "
+    "  derivation_policy, source_complete_policy, source_policy_epoch, source_expected_candle_count, "
+    "  source_actual_candle_count, source_complete_candle_count, source_incomplete_candle_count, "
+    "  source_missing_candle_count, derivation_run_id, derivation_generated_at_utc, derivation_policy_note) "
+    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
     "ON DUPLICATE KEY UPDATE "
     "  open=IF(VALUES(complete)=1, VALUES(open), open), "
     "  high=IF(VALUES(complete)=1, VALUES(high), high), "
     "  low=IF(VALUES(complete)=1, VALUES(low), low), "
     "  close=IF(VALUES(complete)=1, VALUES(close), close), "
     "  volume=IF(VALUES(complete)=1, VALUES(volume), volume), "
-    "  complete=GREATEST(complete, VALUES(complete))"
+    "  complete=GREATEST(complete, VALUES(complete)), "
+    "  derivation_policy=VALUES(derivation_policy), "
+    "  source_complete_policy=VALUES(source_complete_policy), "
+    "  source_policy_epoch=VALUES(source_policy_epoch), "
+    "  source_expected_candle_count=VALUES(source_expected_candle_count), "
+    "  source_actual_candle_count=VALUES(source_actual_candle_count), "
+    "  source_complete_candle_count=VALUES(source_complete_candle_count), "
+    "  source_incomplete_candle_count=VALUES(source_incomplete_candle_count), "
+    "  source_missing_candle_count=VALUES(source_missing_candle_count), "
+    "  derivation_run_id=VALUES(derivation_run_id), "
+    "  derivation_generated_at_utc=VALUES(derivation_generated_at_utc), "
+    "  derivation_policy_note=VALUES(derivation_policy_note)"
 )
 
 
@@ -167,6 +189,7 @@ class ForwardDerivationRunner:
         res = {"instrument": instrument, "timeframe": tf, "timestamp": bucket_start.isoformat(sep=" "),
                "complete": complete, "complete_state": state,
                "derivation_policy": DERIVATION_POLICY, "source_complete_policy": SOURCE_COMPLETE_POLICY,
+               "source_policy_epoch": FORWARD_POLICY_EPOCH,
                "source_complete_m1_count": cnt, "complete_source_candle_count": cnt,
                "incomplete_source_candle_count": incomplete_cnt,
                "actual_source_candle_count": cnt + incomplete_cnt,
@@ -213,10 +236,19 @@ class ForwardDerivationRunner:
             raise RuntimeError("GOV-FWD-BDIV-001: live --execute blocked — forward COMPLETE_ONLY "
                                "policy diverges from historical ALL_M1_COUNTED rows; reconciliation "
                                "ack required (no silent live write) (fail-loud)")
+        if execute and confirm and reconciliation_ack:
+            # ack alone is not enough: the reconciliation must be machine-verified (policy columns
+            # present AND historical rows annotated) or the ack is rejected. No silent ack.
+            ok, why = self.verify_reconciliation()
+            if not ok:
+                raise RuntimeError(f"GOV-FWD-BDIV-002: reconciliation_ack supplied but NOT verified "
+                                   f"({why}); run migration 023 + annotate historical rows first "
+                                   "(fail-loud)")
         instruments = self.load_instruments()
         ev = {"run_id": run_id_for(now_utc, "+".join(timeframes), instruments),
               "generated_at_utc": now_utc.isoformat(), "mode": "execute" if (execute and confirm) else "dry-run",
               "derivation_policy": DERIVATION_POLICY, "source_complete_policy": SOURCE_COMPLETE_POLICY,
+              "source_policy_epoch": FORWARD_POLICY_EPOCH,
               "historical_policy_note": "HISTORICAL_ALL_M1_COUNTED (Phase-2 backfill) vs FORWARD_COMPLETE_M1_ONLY",
               "h4_anchor_utc": H4_ANCHOR_UTC, "instruments": instruments, "timeframes": timeframes,
               "results": [], "totals": {"derived": 0, "complete": 0, "incomplete": 0, "forming": 0,
@@ -237,6 +269,8 @@ class ForwardDerivationRunner:
                     ev["totals"]["derived"] += 1
                     ev["totals"][{COMPLETE: "complete", INCOMPLETE: "incomplete",
                                   FORMING: "forming", UNAVAILABLE: "unavailable"}[r["complete_state"]]] += 1
+                    r["derivation_run_id"] = ev["run_id"]
+                    r["derivation_generated_at_utc"] = ev["generated_at_utc"]
                     if execute and confirm and r["complete_state"] in (COMPLETE, INCOMPLETE) and r["ohlcv"]:
                         self._upsert(tf, r)
                         ev["totals"]["written"] += 1
@@ -246,13 +280,47 @@ class ForwardDerivationRunner:
         self.log.info("[FWD_DERIVE] %s", json.dumps(ev["totals"]))
         return ev
 
+    def _assert_policy_columns(self):
+        """Migration 023 columns must exist before forward write (fail-loud)."""
+        for table in TARGET_TABLE.values():
+            with self._get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COLUMN_NAME FROM information_schema.columns "
+                                "WHERE table_schema=DATABASE() AND table_name=%s", (table,))
+                    cols = {row[0] for row in cur.fetchall()}
+            missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in cols]
+            if missing:
+                raise RuntimeError(f"GOV-FWD-POLICY-001: {table} missing policy columns {missing} "
+                                   "(apply migration 023 first) (fail-loud)")
+
+    def verify_reconciliation(self):
+        """(ok, reason). Reconciliation is verified iff: policy columns exist on both tables AND
+        no historical row remains with NULL derivation_policy (i.e. annotated)."""
+        try:
+            self._assert_policy_columns()
+        except RuntimeError as e:
+            return False, str(e).split(":")[0]
+        for table in TARGET_TABLE.values():
+            with self._get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(f"SELECT COUNT(*) FROM {table} WHERE derivation_policy IS NULL")
+                    unannotated = int(cur.fetchone()[0])
+            if unannotated > 0:
+                return False, f"{table} has {unannotated} unannotated rows"
+        return True, "policy columns present and historical rows annotated"
+
     def _upsert(self, tf, r):
         o = r["ohlcv"]
         with self._get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(UPSERT.format(table=TARGET_TABLE[tf]),
                             (r["instrument"], r["timestamp"], o["open"], o["high"], o["low"],
-                             o["close"], o["volume"], 1 if r["complete"] else 0, SOURCE))
+                             o["close"], o["volume"], 1 if r["complete"] else 0, SOURCE,
+                             DERIVATION_POLICY, SOURCE_COMPLETE_POLICY, FORWARD_POLICY_EPOCH,
+                             r["expected_source_candle_count"], r["actual_source_candle_count"],
+                             r["complete_source_candle_count"], r["incomplete_source_candle_count"],
+                             r["missing_source_candle_count"], r.get("derivation_run_id"),
+                             r.get("derivation_generated_at_utc"), FORWARD_POLICY_NOTE))
             conn.commit()
 
 
