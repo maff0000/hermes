@@ -1,0 +1,6 @@
+NO-MUTATION / NO-ACTIVATION PROOF (UTC).
+- Dry-run only (execute=False, confirm=False; get_conn rollback-on-exit). candles_M30=36377, candles_H4=4737 unchanged.
+- No Redis writes; no candle_features/candle_context/indicators publisher activation (builders are inert, return dicts only).
+- No /etc, no systemd, no cron, no host-global config changes.
+- Runtime untouched at 840a07a; signal-service-dev not restarted.
+- DB target resolved via env_config (fail-loud, no hardcoded host/port/db, no fallback). No Redis host/port in these modules.

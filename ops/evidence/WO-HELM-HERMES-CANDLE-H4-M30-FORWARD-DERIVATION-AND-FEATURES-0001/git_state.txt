@@ -1,0 +1,13 @@
+WO-HELM-HERMES-CANDLE-H4-M30-FORWARD-DERIVATION-AND-FEATURES-0001 — git state (UTC 2026-06-13T08:40:57Z)
+repo: maff0000/hermes
+base origin/main SHA: 77ec901656a4c2edf29a024b3e8b158c90e962a5
+branch: wo/WO-HELM-HERMES-CANDLE-H4-M30-FORWARD-DERIVATION-AND-FEATURES-0001
+worktree HEAD (pre-commit): 77ec901656a4c2edf29a024b3e8b158c90e962a5
+files (new):
+  utils/forward_derivation_runner.py
+  utils/candle_features.py
+  utils/candle_payload_builders.py
+  tests/test_forward_derivation_runner.py
+  tests/test_candle_features.py
+  tests/test_candle_payload_builders.py
+  docs/hermes_forward_derivation_and_features.md
