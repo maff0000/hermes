@@ -1,0 +1,3 @@
+HISTORICAL ANNOTATION DRY-RUN IMPACT (UTC). Plan only; NOT executed.
+- annotate_candle_derivation_policy.py run() live -> GOV-ANNOT-001 (columns absent; fail-loud, correct).
+- Would-affect after migration 023 applied (= all currently un-annotated rows): candles_M30=36,377, candles_H4=4,737 (matches WO expected). Sets HISTORICAL_ALL_M1_COUNTED / ALL_M1_COUNTED / PHASE2_BACKFILL_PRE_STRICT_COMPLETE_POLICY on derivation_policy IS NULL rows. ANNOTATE_SQL assigns ONLY policy columns (no open/high/low/close/volume/complete/timestamp) — verified by test.

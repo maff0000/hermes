@@ -1,0 +1,4 @@
+MIGRATION 023 REVIEW (UTC). Append-only, non-destructive.
+- ALTER TABLE candles_M30 / candles_H4 ADD COLUMN IF NOT EXISTS (x11 nullable policy columns), ALGORITHM=INSTANT. No DROP/DELETE/UPDATE/MODIFY/TRUNCATE. Existing OHLC/complete/timestamp untouched.
+- Columns: derivation_policy, source_complete_policy, source_policy_epoch, source_expected/actual/complete/incomplete/missing_candle_count, derivation_run_id, derivation_generated_at_utc, derivation_policy_note.
+- NOT applied live (policy_columns_present_live=0). Idempotent via IF NOT EXISTS.

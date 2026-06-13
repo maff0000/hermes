@@ -1,0 +1,1 @@
+NO REDIS / NO PUBLISHER (UTC). This WO touches only DB (candles_<TF> policy columns design) — no Redis I/O. No hermes:candle*/candle_context/indicators publisher keys created or activated.
