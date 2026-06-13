@@ -1,0 +1,6 @@
+NO-MUTATION / NO-ACTIVATION PROOF v2 (UTC).
+- Dry-run only; candles_M30=36377, candles_H4=4737 unchanged. hermes_candle_feature_config NOT applied live (count=0). migration 022 PR-only.
+- B-DIV live --execute machine-blocked (GOV-FWD-BDIV-001); no live forward writes.
+- No Redis writes; payload builders inert; no candle_features/candle_context/indicators publisher activation.
+- No /etc, no systemd, no cron, no host-global. Runtime 840a07a untouched; signal-service-dev not restarted. No cross-service edits.
+- No hardcoded Redis host/port/db; classification thresholds governed (DB config), no module-constant fallback.

@@ -1,0 +1,9 @@
+HERMES forward derivation dry-run + governed-config sample (single-cycle, DB-only, read-only). UTC.
+DRYRUN_TOTALS={"derived":24,"complete":0,"incomplete":24,"forming":0,"unavailable":0,"written":0,"skipped":24}
+DRYRUN_POLICY={"derivation_policy":"FORWARD_COMPLETE_M1_ONLY","source_complete_policy":"COMPLETE_ONLY"}
+SAMPLE_H4_POLICY={"instrument":"AUD_USD","timeframe":"H4","complete_state":"INCOMPLETE","complete_source_candle_count":110,"incomplete_source_candle_count":0,"actual_source_candle_count":110,"expected_source_candle_count":240,"derivation_policy":"FORWARD_COMPLETE_M1_ONLY","reason_codes":["SOURCE_CANDLE_INCOMPLETE"],"freshness_state":"FRESH"}
+BDIV_GATE_BLOCKED=GOV-FWD-BDIV-001
+BCONST_LOADCONFIG_FAILS_LOUD=ProgrammingError (hermes_candle_feature_config absent; 022 not applied) -> no module-constant fallback
+SAMPLE_FEATURE_GOVERNED={"instrument":"XAU_USD","candle_direction":"DOJI","body_high":4212.075,"body_low":4207.015,"upper_wick_size":23.58,"lower_wick_size":29.59,"complete":true,"complete_state":"COMPLETE","classification_config":{"config_key":"candle_feature_classification:v1","config_id":"seed-v1","config_version":"v1"}}
+NO_MODULE_CONSTANTS=True
+NO_WRITE_PROOF: candles_M30=36377 candles_H4=4737 unchanged; hermes_candle_feature_config table count=0 (022 not applied)

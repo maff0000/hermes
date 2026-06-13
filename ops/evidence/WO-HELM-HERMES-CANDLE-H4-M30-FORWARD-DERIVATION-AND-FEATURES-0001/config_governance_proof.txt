@@ -1,0 +1,6 @@
+B-CONST CONFIG GOVERNANCE PROOF (UTC). No config-in-code; thresholds governed.
+- migrations/022_hermes_candle_feature_config.sql: hermes_candle_feature_config table + v1 row (6 thresholds JSON). NOT applied live (config table count=0 live).
+- utils/candle_features.load_config() FAILS LOUD when governed row absent: ProgrammingError (table absent) / GOV-FEAT-CFG-001 (no enabled row). NO module-constant fallback.
+- NO_MODULE_CONSTANTS=True (DOJI_BODY_TO_RANGE_MAX / FULL_BODY_MIN / LONG_WICK_RATIO_MIN removed).
+- Governed feature build carries provenance: classification_config={"config_key":"candle_feature_classification:v1","config_id":"seed-v1","config_version":"v1"}.
+- Tests: missing/malformed/out-of-range/bad-swing_lookback all fail loud; explicit config changes classification deterministically; fixtures use explicit config (no hidden defaults).
