@@ -79,6 +79,34 @@ STALE — never laundered to FRESH; HERMES does not interpret market hours, that
 **container-internal** schedule. **This WO creates no cron/systemd**; a temporary host scheduler,
 if ever needed, must be explicitly authorised and documented for container absorption.
 
+## Governed classification config (R2D2 **B-CONST**, fixed pre-merge)
+
+Candle classification thresholds (doji / full-body / long-wick / pin-bar / `swing_lookback`)
+**change classification output and are trading-sensitive — not mathematical invariants**, so they
+are **governed config, never module constants**:
+
+- `migrations/022_hermes_candle_feature_config.sql` — `hermes_candle_feature_config` table + a
+  v1 row (`candle_feature_classification:v1`) holding the 6 thresholds as JSON (append-only;
+  CREATE-only / **not applied live in this PR**).
+- `utils/candle_features.load_config(get_conn, key)` reads the enabled row and **fails loud** if
+  missing/disabled (`GOV-FEAT-CFG-001`) / malformed (`GOV-FEAT-CFG-002`) / out-of-range
+  (`GOV-FEAT-CFG-003`) / bad `swing_lookback` (`GOV-FEAT-CFG-004`). **No module-constant
+  fallback** — geometry is config-free, *classification REQUIRES an explicit
+  `CandleFeatureConfig`*. Every feature carries `classification_config` provenance
+  (`config_key`/`config_id`/`config_version`). The old hidden constants are removed (asserted by test).
+
+## Completeness-policy divergence (R2D2 **B-DIV**, made explicit + live-gated)
+
+- **Historical** Phase-2 M30/H4 backfill counted *all* M1 rows → `HISTORICAL_ALL_M1_COUNTED`.
+- **Forward** runner counts **only `complete=1`** M1 → `FORWARD_COMPLETE_M1_ONLY` (stricter).
+- **Risk:** historical and forward `complete=1` rows may mean different things until reconciled.
+- Runner output + run evidence expose `derivation_policy`, `source_complete_policy`,
+  `expected/actual/complete/incomplete/missing_source_candle_count`, and a
+  `historical_policy_note`. Live `--execute` is **machine-blocked** (`GOV-FWD-BDIV-001`) until
+  `reconciliation_ack=True`, which requires one of: **(1)** historical rows re-derived with strict
+  COMPLETE_ONLY, **(2)** historical rows annotated with policy, or **(3)** an architect-approved
+  epoch cutover recorded. Dry-run is always allowed.
+
 ## Live-apply note (Phase 2, gated)
 
 This WO ships code + dry-run evidence only. Running the runner in `--execute --confirm` against

@@ -38,6 +38,10 @@ TARGET_TABLE = {"M30": "candles_M30", "H4": "candles_H4"}
 H4_ANCHOR_UTC = "00,04,08,12,16,20"
 SOURCE = "m1_forward_derive"
 MAX_CATCHUP_BUCKETS = 96
+# R2D2 B-DIV: forward semantics are STRICTER than the Phase-2 historical backfill
+# (HISTORICAL_ALL_M1_COUNTED). Forward derivation counts ONLY complete=1 source M1.
+DERIVATION_POLICY = "FORWARD_COMPLETE_M1_ONLY"
+SOURCE_COMPLETE_POLICY = "COMPLETE_ONLY"
 
 COMPLETE, INCOMPLETE, FORMING, UNAVAILABLE = "COMPLETE", "INCOMPLETE", "FORMING", "UNAVAILABLE"
 FRESH, STALE, DEGRADED = "FRESH", "STALE", "DEGRADED"
@@ -152,13 +156,25 @@ class ForwardDerivationRunner:
                     (instrument, start, end))
                 rows = [{"open": r[0], "high": r[1], "low": r[2], "close": r[3], "volume": r[4]}
                         for r in cur.fetchall()]
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*) FROM canonical_m1 WHERE instrument=%s AND complete=0 "
+                    "AND minute_bucket_utc>=%s AND minute_bucket_utc<%s", (instrument, start, end))
+                incomplete_cnt = int(cur.fetchone()[0])
         cnt = len(rows)
         state, complete = derive_complete_state(cnt, tf, forming)
+        exp = expected_m1(tf)
         res = {"instrument": instrument, "timeframe": tf, "timestamp": bucket_start.isoformat(sep=" "),
-               "complete": complete, "complete_state": state, "source_complete_policy": "COMPLETE_ONLY",
-               "source_complete_m1_count": cnt, "expected_m1": expected_m1(tf),
-               "missing_m1": max(0, expected_m1(tf) - cnt),
+               "complete": complete, "complete_state": state,
+               "derivation_policy": DERIVATION_POLICY, "source_complete_policy": SOURCE_COMPLETE_POLICY,
+               "source_complete_m1_count": cnt, "complete_source_candle_count": cnt,
+               "incomplete_source_candle_count": incomplete_cnt,
+               "actual_source_candle_count": cnt + incomplete_cnt,
+               "expected_source_candle_count": exp, "expected_m1": exp,
+               "missing_source_candle_count": max(0, exp - cnt), "missing_m1": max(0, exp - cnt),
                "h4_anchor_utc": H4_ANCHOR_UTC if tf == "H4" else None, "reason_codes": []}
+        if incomplete_cnt > 0 and state != FORMING:
+            res["reason_codes"].append("SOURCE_M1_INCOMPLETE_PRESENT")
         if state in (UNAVAILABLE, FORMING):
             res["reason_codes"].append("SOURCE_CANDLE_" + ("UNAVAILABLE" if state == UNAVAILABLE else "FORMING"))
             res["ohlcv"] = None
@@ -185,13 +201,23 @@ class ForwardDerivationRunner:
         return [last - timedelta(seconds=TF_SECONDS[tf] * i) for i in range(n)][::-1]
 
     def run_cycle(self, now_utc, mode="dry-run", timeframes=None, lookback_buckets=1,
-                  execute=False, confirm=False):
+                  execute=False, confirm=False, reconciliation_ack=False):
         timeframes = timeframes or TIMEFRAMES
         for tf in timeframes:
             _check_tf(tf)
+        # R2D2 B-DIV live-execution gate: forward COMPLETE_ONLY semantics diverge from the
+        # historical backfill (ALL_M1_COUNTED). Live writes are blocked until the divergence is
+        # reconciled and explicitly acknowledged (architect-approved epoch cutover / re-derive /
+        # annotate). Dry-run is always allowed.
+        if execute and confirm and not reconciliation_ack:
+            raise RuntimeError("GOV-FWD-BDIV-001: live --execute blocked — forward COMPLETE_ONLY "
+                               "policy diverges from historical ALL_M1_COUNTED rows; reconciliation "
+                               "ack required (no silent live write) (fail-loud)")
         instruments = self.load_instruments()
         ev = {"run_id": run_id_for(now_utc, "+".join(timeframes), instruments),
               "generated_at_utc": now_utc.isoformat(), "mode": "execute" if (execute and confirm) else "dry-run",
+              "derivation_policy": DERIVATION_POLICY, "source_complete_policy": SOURCE_COMPLETE_POLICY,
+              "historical_policy_note": "HISTORICAL_ALL_M1_COUNTED (Phase-2 backfill) vs FORWARD_COMPLETE_M1_ONLY",
               "h4_anchor_utc": H4_ANCHOR_UTC, "instruments": instruments, "timeframes": timeframes,
               "results": [], "totals": {"derived": 0, "complete": 0, "incomplete": 0, "forming": 0,
                                         "unavailable": 0, "written": 0, "skipped": 0},

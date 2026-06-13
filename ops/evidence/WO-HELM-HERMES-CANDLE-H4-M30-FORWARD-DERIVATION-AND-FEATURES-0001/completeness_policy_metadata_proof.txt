@@ -1,0 +1,5 @@
+B-DIV COMPLETENESS-POLICY METADATA + LIVE-GATE PROOF (UTC).
+- Run evidence: derivation_policy=FORWARD_COMPLETE_M1_ONLY, source_complete_policy=COMPLETE_ONLY, historical_policy_note="HISTORICAL_ALL_M1_COUNTED ... vs FORWARD_COMPLETE_M1_ONLY".
+- Per-bucket metadata: complete_source_candle_count, incomplete_source_candle_count, actual/expected/missing_source_candle_count, reason_codes (SOURCE_CANDLE_INCOMPLETE, SOURCE_M1_INCOMPLETE_PRESENT).
+  SAMPLE_H4: AUD_USD H4 INCOMPLETE complete=110 incomplete=0 actual=110 expected=240 freshness=FRESH (completeness != freshness).
+- LIVE-EXECUTION GATE: run_cycle(execute=True, confirm=True, reconciliation_ack=False) -> RuntimeError GOV-FWD-BDIV-001 (BDIV_GATE_BLOCKED=GOV-FWD-BDIV-001). Live writes blocked until reconciliation ack (re-derive / annotate / architect epoch cutover).
