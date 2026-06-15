@@ -1,0 +1,4 @@
+git_state (UTC 2026-06-15T20:56:31Z)
+repo maff0000/hermes; base origin/main 556f62e611c49ad194f524faa9e2157f16f11114
+branch wo/WO-HELM-HERMES-STRUCTURE-ENGINE-SEVERANCE-0001
+files: M main.py (remove DEP-2 import + DEP-3 sys.path), + utils/structure_ingest_boundary.py, + tests/test_structure_ingest_boundary.py

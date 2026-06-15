@@ -1,0 +1,8 @@
+DEPENDENCY SCAN BEFORE (R2D2 audit r2d2:audit:hermes:standalone_boundary_truth:20260615:v1).
+LIVE-CODE VIOLATIONS:
+- main.py:30 sys.path.insert(0,'/srv-dev/tradingProteus' if ENV=='DEV' else '/srv/tradingProteus')  [DEP-3]
+- main.py:43 from structure_engine.ingest import build_publisher as _se_build_publisher           [DEP-2]
+- called: main.py:702 state.structure_engine_publisher.publish(tick); main.py:1080 _se_build_publisher()
+structure_engine exists ONLY in /srv-dev/tradingProteus (absent from hermes repo).
+Live flag: STRUCTURE_ENGINE_ENABLED=true (runtime actively pushes into structure_engine).
+Other tradingProteus refs (NON-live): hermes_logging/__init__.py (DEP-1 severance doc comment); tests/test_config_own_db.py + tests/test_tick_backfill_hardening.py (negative guards).

@@ -1,0 +1,6 @@
+IMPLEMENTATION SUMMARY.
+Blueprint r2d2:blueprint:hermes:structure_engine_severance:latest NOT FOUND -> safe implementation was OBVIOUS (proceeded): structure_engine is NOT HERMES-owned (structure/strategy interpretation), default was already NoopPublisher, contract shape simple, mirrors DEP-1 logging severance pattern.
+Replacement type: HERMES-owned fail-loud disabled adapter (feature not HERMES-owned).
+- utils/structure_ingest_boundary.py: PublishResult(ok,error_tag,error_detail) + NoopStructureIngestPublisher.publish->ok + build_publisher(enabled=None): enabled True -> RAISE GOV-SE-SEVERED-001; False -> Noop. enabled=None resolves STRUCTURE_ENGINE_ENABLED via HERMES env_config (governed).
+- main.py: removed sys.path tradingProteus (DEP-3) + structure_engine import (DEP-2); points hook at the HERMES boundary; call sites (publish/init) unchanged (contract preserved); comment updated.
+Behaviour: default false -> no-op (HERMES no longer pushes into structure_engine; structure_engine consumes the HERMES tick contract SQL/Redis). true -> fail loud (cannot re-enable a severed, non-HERMES-owned push). No tradingProteus import, no sys.path hack, no try/except import fallback, no wrapper preserving runtime behaviour.

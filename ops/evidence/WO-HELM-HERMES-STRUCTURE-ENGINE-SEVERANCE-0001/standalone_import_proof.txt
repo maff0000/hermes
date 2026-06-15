@@ -1,0 +1,3 @@
+boundary import OK (no tradingProteus path); NoopPublisher.publish(None).ok = True
+main.py structure_engine imports: 0 | tradingProteus path literals: 0
+STANDALONE_PROOF= PASS
