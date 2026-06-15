@@ -1,0 +1,6 @@
+DEPENDENCY SCAN AFTER.
+LIVE-CODE VIOLATIONS: NONE.
+- main.py: 0 'tradingProteus', 0 structure_engine import-lines, 0 '/srv-dev/tradingProteus' path literals (AST-verified).
+- DEP-3 removed: no sys.path injection to tradingProteus.
+- DEP-2 removed: import now 'from utils.structure_ingest_boundary import build_publisher as _se_build_publisher' (HERMES-owned).
+- structure_engine import across live .py: NONE.

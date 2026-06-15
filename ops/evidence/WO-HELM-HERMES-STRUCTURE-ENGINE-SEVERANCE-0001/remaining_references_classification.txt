@@ -1,0 +1,7 @@
+REMAINING tradingProteus/structure_engine REFERENCES (classified).
+- main.py: NONE (live code clean).
+- utils/structure_ingest_boundary.py: docstring PROSE explaining the severance (mentions the former import/path as text) — NOT an import, NOT a sys.path call. DOC-ONLY.
+- tests/test_structure_ingest_boundary.py: the new severance tests (assert absence). TEST-ONLY.
+- tests/test_config_own_db.py, tests/test_tick_backfill_hardening.py: negative guards (assert NOT present). TEST-ONLY.
+- hermes_logging/__init__.py: DEP-1 logging-severance doc comment. DOC-ONLY.
+CLASSIFICATION: ZERO live-code couplings remain. All remaining references are doc/test-guard only.

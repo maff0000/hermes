@@ -26,8 +26,11 @@ from env_config import BASE_DIR, ENV, get_env, get_env_int
 # Ensure module path is set (using relative path)
 sys.path.insert(0, str(BASE_DIR))
 
-# tradingProteus path retained for structure_engine.ingest only (DEP-2/DEP-3 still blocked); logging severed in WO-HELM-HERMES-LOGGING-VENDOR-0001
-sys.path.insert(0, '/srv-dev/tradingProteus' if ENV == 'DEV' else '/srv/tradingProteus')
+# DEP-2/DEP-3 SEVERED (WO-HELM-HERMES-STRUCTURE-ENGINE-SEVERANCE-0001): HERMES is standalone — no
+# cross-repo sys.path injection and no cross-repo structure-engine package dependency. The
+# structure-ingest hook is now a HERMES-owned boundary (utils.structure_ingest_boundary): no-op by
+# default, fail-loud when STRUCTURE_ENGINE_ENABLED=true. The downstream structure app consumes the
+# HERMES tick contract instead.
 
 from config import load_config, ServiceConfig
 from models.tick import SignalTick, TickSource
@@ -40,7 +43,7 @@ try:
 except ImportError:
     def send_alert(**kwargs): return False
     def send_audit(**kwargs): return False
-from structure_engine.ingest import build_publisher as _se_build_publisher
+from utils.structure_ingest_boundary import build_publisher as _se_build_publisher
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -1073,9 +1076,11 @@ async def lifespan(app: FastAPI):
         mock_url=state.config.oanda.mock_url
     )
 
-    # WO-STRUCT-TICK-PERSISTENCE-0001: Structure Engine publisher init.
-    # STRUCTURE_ENGINE_ENABLED=false -> NoopPublisher (default).
-    # STRUCTURE_ENGINE_ENABLED=true  -> real publisher; init failure is HARD.
+    # Structure-ingest boundary init (HERMES-owned; DEP-2/DEP-3 severed,
+    # WO-HELM-HERMES-STRUCTURE-ENGINE-SEVERANCE-0001).
+    # STRUCTURE_ENGINE_ENABLED=false -> NoopStructureIngestPublisher (default; HERMES does not push).
+    # STRUCTURE_ENGINE_ENABLED=true  -> FAIL LOUD GOV-SE-SEVERED-001 (severed; init failure is HARD).
+    #   structure_engine must consume the HERMES tick contract; HERMES no longer imports it.
     try:
         state.structure_engine_publisher = _se_build_publisher()
         logger.info(

@@ -1,0 +1,1 @@
+NO DB/REDIS MUTATION. No DB writes, no Redis writes, no migrations, no backfill, no forward run, no publisher activation, no scheduler. Boundary module is pure (no I/O). No secret reads.
