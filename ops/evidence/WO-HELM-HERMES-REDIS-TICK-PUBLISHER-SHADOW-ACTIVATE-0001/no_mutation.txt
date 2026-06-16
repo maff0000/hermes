@@ -1,0 +1,6 @@
+runtime_sha=840a07a
+MainPID=1360604
+ActiveEnterTimestamp=Thu 2026-06-11 08:30:16 BST
+STRUCTURE_ENGINE_ENABLED=true
+candles_M30=37525
+candles_H4=4941

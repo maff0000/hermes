@@ -1,0 +1,38 @@
+WO-HELM-HERMES-REDIS-TICK-PUBLISHER-SHADOW-ACTIVATE-0001 — evidence (UTC 2026-06-16T18:21:21.000Z)
+Verdict: SHADOW_ACTIVATED_OK_LIVE_PUBLISH_REMAINS_GATED
+base origin/main: b505fac9a62b366bba745a886bec51bbe9e764c1
+branch: wo/WO-HELM-HERMES-REDIS-TICK-PUBLISHER-SHADOW-ACTIVATE-0001
+
+FILES:
+  utils/tick_shadow_activation_v1.py (JSON serialise/deserialise + SerializingShadowWriter; real client NEVER handed a dict)
+  scripts/shadow_activate_publish.py (bounded operator-run harness; explicit CLI target, no defaults, write->readback->validate->TTL->cleanup)
+  tests/test_tick_shadow_activation_v1.py (23 tests)
+
+JSON SERIALISATION HARD GATE (satisfied):
+  serialize_envelope(dict)->json str (GOV-PUB-SHADOW-SER-001 fail-loud on non-dict); deserialize_envelope(str/bytes)->validates (SER-002 rejects dict).
+  SerializingShadowWriter._write serialises BEFORE client.set and asserts value is str/bytes (GOV-PUB-SHADOW-ACT-004); StrictTypeFakeRedis raises if handed a dict.
+  Proven: real client receives str; SET value is JSON string; deserialised Redis value validates; UTC ms timestamps survive serialisation; roundtrip back==env.
+
+SHADOW ACTIVATION (bounded, real write executed):
+  Target: host=192.168.11.10 (dell-debian LAN IP), port=6380 (proteus-redis-dev, host-published), db=0 — NON-PRODUCTION dev Redis, explicitly SHADOW-ONLY/authorised. NOT the canonical live surface (proteus-redis:6379).
+  Keys written: hermes:shadow:ticks:XAU_USD:latest:v1 , hermes:shadow:ticks:latest:v1  (SET EX 10, JSON string value, payload ttl_seconds=5).
+  Readback: redis_value_type=bytes, value_is_dict=false, deserialised_validates=true, ttl_seconds=10 (in 0<ttl<=10), freshness_state=FRESH.
+  Forbidden-namespace assertions: new_canonical_live_keys=[] ; new_falcon_or_structure_keys=[].
+  Cleanup: harness DEL of both keys (cleanup_deleted=2). Independent dell verify POST: dev(6380) shadow=0, dev(6380) ticks=0, canonical(6379) shadow=0, canonical(6379) ticks=0.
+  Input: synthetic SHADOW_ACTIVATION_SYNTHETIC raw tick (test/shadow-activation marked); no DB read, no tradingSignals.ticks, no Falcon consumer code.
+  Full run record: ops/evidence/.../activation_run.json
+
+TESTS: 23/23 activation; 93/93 full suite (contract+inert+shadow+activation).
+TRIPWIRE: activation module + harness free of tradingProteus/structure_engine/falcon_structure/helios_structures/CHOCH/BOS/order_block/signal/setup/confidence/permission/regime/risk; imports of activation module <= {__future__,json,datetime,utils}.
+
+GATE STATEMENTS:
+  * LIVE PUBLISH REMAINS GATED — no canonical hermes:ticks:* key written; SHADOW-only; live mode rejected by config.
+  * Falcon/Falcon-structure REMAINS BLOCKED from runtime consumption — shadow keys are NON-CONSUMER and were deleted; no consumer authority granted.
+  * Shadow keys are NOT consumer cutover keys.
+  * HERMES still does NOT own interpretive consumer truth (no structure-engine ownership).
+
+NO-MUTATION:
+  runtime 840a07a frozen; signal-service-dev MainPID 1360604 ActiveEnter Thu 2026-06-11 (not restarted); STRUCTURE_ENGINE_ENABLED=true unchanged;
+  no canonical live key written; no production/live publish (proteus-redis:6379 untouched); no Falcon/structure key; candles_M30=37525 candles_H4=4941 unchanged;
+  no DB mutation/migration; no M30 forward; no scheduler/cron/systemd; no endpoint/ACL/TLS; no fabric probe keys; no Python dict handed to real client.set.
+  Note: bounded shadow writes were made to the dev Redis (6380) and DELETED; no shadow keys persist.

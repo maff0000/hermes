@@ -1,0 +1,70 @@
+{
+  "wo": "WO-HELM-HERMES-REDIS-TICK-PUBLISHER-SHADOW-ACTIVATE-0001",
+  "target": {
+    "host": "192.168.11.10",
+    "port": 6380,
+    "db": 0,
+    "shadow_only": true,
+    "production": false
+  },
+  "keys_written": [
+    "hermes:shadow:ticks:XAU_USD:latest:v1",
+    "hermes:shadow:ticks:latest:v1"
+  ],
+  "ex_seconds": 10,
+  "payload_ttl_seconds": 5,
+  "results": [
+    {
+      "key": "hermes:shadow:ticks:XAU_USD:latest:v1",
+      "ex_seconds": 10,
+      "write_mode": "SHADOW_NO_LIVE",
+      "serialised": true,
+      "value_type": "str",
+      "payload_validated": true,
+      "redis_result": true,
+      "generated_at_utc": "2026-06-16T18:20:38.554Z",
+      "valid_until_utc": "2026-06-16T18:20:43.554Z",
+      "freshness_state": "FRESH",
+      "status": "OK",
+      "reason_codes": []
+    },
+    {
+      "key": "hermes:shadow:ticks:latest:v1",
+      "ex_seconds": 10,
+      "write_mode": "SHADOW_NO_LIVE",
+      "serialised": true,
+      "value_type": "str",
+      "payload_validated": true,
+      "redis_result": true,
+      "generated_at_utc": "2026-06-16T18:20:38.554Z",
+      "valid_until_utc": "2026-06-16T18:20:43.554Z",
+      "freshness_state": "FRESH",
+      "status": "OK",
+      "reason_codes": []
+    }
+  ],
+  "readbacks": [
+    {
+      "key": "hermes:shadow:ticks:XAU_USD:latest:v1",
+      "redis_value_type": "bytes",
+      "value_is_dict": false,
+      "deserialised_validates": true,
+      "ttl_seconds": 10,
+      "ttl_in_range": true,
+      "freshness_state": "FRESH"
+    },
+    {
+      "key": "hermes:shadow:ticks:latest:v1",
+      "redis_value_type": "bytes",
+      "value_is_dict": false,
+      "deserialised_validates": true,
+      "ttl_seconds": 10,
+      "ttl_in_range": true,
+      "freshness_state": "FRESH"
+    }
+  ],
+  "new_canonical_live_keys": [],
+  "new_falcon_or_structure_keys": [],
+  "cleanup_deleted": 2,
+  "all_values_json_str": true
+}
