@@ -44,6 +44,9 @@ except ImportError:
     def send_alert(**kwargs): return False
     def send_audit(**kwargs): return False
 from utils.structure_ingest_boundary import build_publisher as _se_build_publisher
+from utils.tick_runtime_shadow_adapter_v1 import (
+    build_runtime_shadow_emitter_from_env as _build_shadow_tick_emitter,
+)
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -84,6 +87,9 @@ class ServiceState:
     oanda_adapter = None
     ibkr_adapter = None
     structure_engine_publisher = None  # WO-STRUCT-TICK-PERSISTENCE-0001
+    # Runtime shadow tick emit boundary (disabled by default; SHADOW-only, non-consumer).
+    # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001
+    shadow_tick_emitter = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -724,6 +730,19 @@ async def oanda_stream_task():
                 # Update latest ticks
                 state.latest_ticks[tick.instrument] = tick
 
+                # Runtime shadow tick emit (disabled by default; writes ONLY hermes:shadow:* when
+                # explicitly enabled+authorised). Never canonical hermes:ticks:*. A shadow-emit fault
+                # must never disrupt the market-truth tick path — log and continue.
+                # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001.
+                if state.shadow_tick_emitter is not None:
+                    try:
+                        state.shadow_tick_emitter.emit_tick(tick)
+                    except Exception as _shadow_emit_exc:
+                        logger.warning(
+                            "[SHADOW_TICK_EMIT_FAIL] instrument=%s error=%r",
+                            tick.instrument, _shadow_emit_exc,
+                        )
+
                 # Record tick for healthcheck metrics
                 record_tick()
 
@@ -1091,6 +1110,26 @@ async def lifespan(app: FastAPI):
         logger.error(
             "[STRUCT_ENGINE_BOOT_FAIL] HERMES boot aborted on init: %r",
             _se_init_exc,
+        )
+        raise
+
+    # Runtime shadow tick emit boundary init (HERMES-owned; SHADOW-only, non-consumer).
+    # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001.
+    # HERMES_SHADOW_TICK_PUBLISH_ENABLED unset/false -> DisabledShadowEmitter (default no-op).
+    # Enabled+fully-configured+authorised -> RuntimeShadowEmitter (writes only hermes:shadow:* via
+    #   the JSON-serialised SerializingShadowWriter; never canonical hermes:ticks:*; LIVE rejected).
+    # Enabled-but-misconfigured -> FAIL LOUD on init (no silent no-op).
+    try:
+        state.shadow_tick_emitter = _build_shadow_tick_emitter()
+        logger.info(
+            "[SHADOW_TICK_BOOT] emitter=%s enabled=%s",
+            type(state.shadow_tick_emitter).__name__,
+            getattr(state.shadow_tick_emitter, "enabled", False),
+        )
+    except Exception as _shadow_init_exc:
+        logger.error(
+            "[SHADOW_TICK_BOOT_FAIL] HERMES boot aborted on shadow-emit init: %r",
+            _shadow_init_exc,
         )
         raise
 
