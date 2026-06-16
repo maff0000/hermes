@@ -1,0 +1,28 @@
+WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-SHADOW-ENABLE-DEV-0001 — PHASE 1 (observability build) evidence (UTC 2026-06-16T20:54:21.000Z)
+Verdict: OBSERVABILITY_BUILT_DEPLOY_BLOCKED_PENDING_R2D2_AUDIT_AND_MERGE
+base origin/main: 0daa6ca655b4b510335e957540e61cc7b5cae5ab
+branch: wo/WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-SHADOW-ENABLE-DEV-0001
+
+PHASE GATE (per WO step 4 + CLOSED-GREEN-before-deploy doctrine):
+  Observability code is NOT yet on main. The WO requires: PR audited by R2D2 -> merged -> verify on main -> THEN deploy/restart.
+  Therefore THIS phase = code+tests+PR ONLY. NO deploy, NO restart, NO env change, NO Redis write performed.
+  Deploy/restart Architect authorisations (AUTHORISE_HERMES_RUNTIME_SHADOW_ENABLE_DEV_DEPLOY_RESTART,
+  AUTHORISE_HERMES_SET_STRUCTURE_ENGINE_ENABLED_FALSE_AT_DEPLOY) are recorded and will be consumed in the deploy phase AFTER merge.
+
+FILES CHANGED:
+  utils/tick_shadow_observability_v1.py (NEW) — ShadowEmitMetrics (attempted/succeeded/failed, last_success/last_failure/reason), warning rate-limit (should_emit_warning), run_recovery_probe (hermes:shadow:* only), reason tags
+  utils/tick_runtime_shadow_adapter_v1.py (EDIT) — emitters carry metrics; RuntimeShadowEmitter.emit_tick (fail-loud + counts), emit_tick_observed (never raises, rate-limited warning), recovery_probe(), status(); Disabled emitter parity
+  main.py (EDIT) — tick loop now calls emit_tick_observed(tick, logger=logger)
+  tests/test_tick_shadow_observability_v1.py (NEW) — 15 tests
+
+OBSERVABILITY DELIVERED: counters (attempt/success/failure); last_success_utc; last_failure_utc; last_failure_reason; governed recovery probe (write/read/delete a hermes:shadow:__recovery_probe__:v1 key, JSON string, never canonical, fail-loud assert_shadow_key); warning rate-limit (one warn/interval, suppressed count surfaced, persistent failure still counted). Reason tags: SHADOW_TICK_EMIT_OK/EMIT_FAIL/BOOT_FAIL/RECOVERY_PROBE_OK/RECOVERY_PROBE_FAIL/RATE_LIMITED_WARNING.
+
+TESTS: 15/15 observability; 129/129 full required suite (contract+inert+shadow+activation+runtime+observability). main.py py_compile OK.
+TRIPWIRE: observability + adapter free of forbidden tokens; obs imports <= {__future__,json,datetime,utils} (no redis at import, no SQL/scheduler).
+
+AUTHORISED RUNTIME CONFIG (for the post-merge deploy phase — NOT applied this phase):
+  HERMES_SHADOW_TICK_PUBLISH_ENABLED=true; WRITE_MODE=SHADOW_RUNTIME_INERT; REDIS_HOST=192.168.11.10; REDIS_PORT=6380; REDIS_DB=0; SHADOW_AUTHORISED=true; NAMESPACE=hermes; SHADOW_PREFIX=hermes:shadow:; REDIS_EX_SECONDS=10; PAYLOAD_TTL_SECONDS=5; TREAT_AS_PRODUCTION=false; DEV_SHADOW=true; STRUCTURE_ENGINE_ENABLED=false.
+
+PRE-DEPLOY STATE (unchanged this phase): runtime 840a07a; signal-service-dev MainPID 1360604 ActiveEnter Thu 2026-06-11 08:30 BST; STRUCTURE_ENGINE_ENABLED=true; shadow flag absent; canonical6379 & dev6380 ticks/shadow all 0.
+
+GATE STATEMENTS: Falcon/Falcon-structure REMAINS BLOCKED; live publish REMAINS GATED; hermes:shadow:* remain non-consumer/non-cutover; HERMES does NOT own interpretive consumer truth.

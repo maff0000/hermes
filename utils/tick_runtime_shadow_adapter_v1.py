@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from utils import tick_contract_v1 as tc
 from utils import tick_shadow_publisher_v1 as sh
 from utils import tick_shadow_activation_v1 as act
+from utils import tick_shadow_observability_v1 as obs
 
 WRITE_MODE_SHADOW_RUNTIME_INERT = "SHADOW_RUNTIME_INERT"
 WRITE_MODE_LIVE = "LIVE"            # named only to be rejected
@@ -105,16 +106,28 @@ class DisabledShadowEmitter:
     def __init__(self, config):
         self.config = config
         self.enabled = False
+        self.metrics = obs.ShadowEmitMetrics()
 
     def emit_tick(self, tick, *, generated_at_utc=None, instrument_registry=None):
+        return {"emitted": False, "reason": "SHADOW_RUNTIME_DISABLED"}
+
+    def emit_tick_observed(self, tick, *, logger=None, generated_at_utc=None, instrument_registry=None):
         return {"emitted": False, "reason": "SHADOW_RUNTIME_DISABLED"}
 
     def emit_aggregate(self, instruments, *, generated_at_utc=None):
         return {"emitted": False, "reason": "SHADOW_RUNTIME_DISABLED"}
 
+    def recovery_probe(self):
+        return False, "SHADOW_RUNTIME_DISABLED", "emitter disabled; no route to probe"
+
+    def status(self):
+        return {"enabled": False, **self.metrics.status()}
+
 
 class RuntimeShadowEmitter:
-    """Enabled emitter — wraps the JSON-serialising real-client writer. Writes only hermes:shadow:*."""
+    """Enabled emitter — wraps the JSON-serialising real-client writer. Writes only hermes:shadow:*.
+    Carries observability: attempt/success/failure counters, last_success/last_failure, a warning
+    rate-limit, and a governed recovery probe."""
 
     def __init__(self, config, writer):
         if not isinstance(writer, act.SerializingShadowWriter):
@@ -123,18 +136,58 @@ class RuntimeShadowEmitter:
         self.config = config
         self.writer = writer
         self.enabled = True
+        self.metrics = obs.ShadowEmitMetrics()
 
     def emit_tick(self, tick, *, generated_at_utc=None, instrument_registry=None):
+        """Fail-loud emit (records attempt + success/failure counters). Raises on GOV/contract
+        faults so callers see them; emit_tick_observed wraps this for the runtime tick path."""
         gen = generated_at_utc or datetime.now(timezone.utc)
-        raw = tick_to_raw_tick(tick)
-        reg = instrument_registry if instrument_registry is not None else {raw.get("instrument")}
-        res = self.writer.publish_tick(raw, generated_at_utc=gen, instrument_registry=reg)
-        return {"emitted": True, **res}
+        self.metrics.record_attempt()
+        try:
+            raw = tick_to_raw_tick(tick)
+            reg = instrument_registry if instrument_registry is not None else {raw.get("instrument")}
+            res = self.writer.publish_tick(raw, generated_at_utc=gen, instrument_registry=reg)
+        except Exception as exc:
+            self.metrics.record_failure(datetime.now(timezone.utc), repr(exc))
+            raise
+        self.metrics.record_success(datetime.now(timezone.utc))
+        return {"emitted": True, "reason": obs.REASON_EMIT_OK, **res}
+
+    def emit_tick_observed(self, tick, *, logger=None, generated_at_utc=None, instrument_registry=None):
+        """Runtime tick-path entrypoint: never raises (a shadow fault must not disrupt the market-truth
+        path), records counters, applies the warning rate-limit, surfaces structured reason tags."""
+        try:
+            res = self.emit_tick(tick, generated_at_utc=generated_at_utc,
+                                 instrument_registry=instrument_registry)
+            if logger is not None:
+                logger.debug("[%s] key=%s", obs.REASON_EMIT_OK, res.get("key"))
+            return res
+        except Exception as exc:  # noqa: BLE001 - bounded: shadow emit never breaks the tick path
+            now = datetime.now(timezone.utc)
+            warn, suppressed = self.metrics.should_emit_warning(now)
+            if logger is not None:
+                if warn:
+                    logger.warning("[%s] reason=%s failed=%d suppressed_since_last=%d error=%r",
+                                   obs.REASON_EMIT_FAIL, self.metrics.last_failure_reason,
+                                   self.metrics.failed, suppressed, exc)
+                else:
+                    logger.debug("[%s] withheld=%d (rate-limited; persistent failure)",
+                                 obs.REASON_RATE_LIMITED, suppressed)
+            return {"emitted": False, "reason": obs.REASON_EMIT_FAIL, "error": repr(exc)}
 
     def emit_aggregate(self, instruments, *, generated_at_utc=None):
         gen = generated_at_utc or datetime.now(timezone.utc)
         res = self.writer.publish_aggregate(list(instruments), generated_at_utc=gen)
         return {"emitted": True, **res}
+
+    def recovery_probe(self):
+        """Governed recovery probe against the configured shadow route (hermes:shadow:* only)."""
+        return obs.run_recovery_probe(redis_client=self.writer.redis_client,
+                                      ex_seconds=self.config.redis_ex_seconds,
+                                      now=datetime.now(timezone.utc))
+
+    def status(self):
+        return {"enabled": True, **self.metrics.status()}
 
 
 # --------------------------------------------------------------------------- factory
