@@ -1,0 +1,25 @@
+WO-HELM-HERMES-REDIS-TICK-CONTRACT-DESIGN-0001 — evidence (UTC 2026-06-16T09:58:51.000Z)
+Architect verdict: DESIGN_ONLY_CONTRACT_DEFINED_RUNTIME_BLOCKED
+base origin/main: 1c119f65b25233d5bdc517eba8d0dc875b764443
+branch: wo/WO-HELM-HERMES-REDIS-TICK-CONTRACT-DESIGN-0001
+
+CANONICAL KEYS:
+  hermes:ticks:{instrument}:latest:v1  (canonical hot-path per-instrument)
+  hermes:ticks:latest:v1               (discovery/dashboard/cockpit catalog only)
+
+FILES:
+  utils/tick_contract_v1.py (builder/validator/freshness; NO Redis I/O)
+  tests/test_tick_contract_v1.py (18 tests)
+  tests/fixtures/tick_contract/{per_instrument_fresh,aggregate_fresh,stale,degraded,unavailable,malformed_invalid}.json
+  docs/contracts/hermes_redis_tick_contract_v1.md
+  docs/contracts/hermes_redis_contract_manifest.md
+
+POLICY: ttl_seconds=5; Redis EX documented=10s; FRESH<=5s; DEGRADED 5<age<=15s or source warning; STALE>15s; UNAVAILABLE on no/bad source/disabled.
+valid_until_utc = generated_at_utc + ttl_seconds (validated).
+seq = null in v1 (no reliable real-time monotonic seq; stored-row ticks.seq is NOT completeness; consumers must not infer completeness).
+OWNERSHIP: publisher=HERMES only; derivation=NONE_RAW_TICK; no structure/regime/signal/risk/cockpit/support-resistance fields (GOV-TICK-CONTRACT-022).
+FALCON: read-only consumer; payload carries no SQL/select/tradingSignals.ticks reference.
+
+PROHIBITIONS HONOURED: no live Redis writes; no publisher activation; no DB migration/mutation; no runtime deploy/restart; no STRUCTURE_ENGINE_ENABLED change; no forward run; no scheduler/cron/systemd; no endpoint/ACL/TLS change; no tradingProteus/structure_engine/Falcon/ARES/HELIOS/SOLO/NEO code; HERMES repo only.
+
+VALIDATION COVERAGE: key format; envelope fields; UTC-ms format; valid_until calc; ttl policy; freshness/status enums; bid/ask/mid/spread sanity; instrument/key consistency; seq nullable + not-completeness; HERMES-only publisher; Falcon read-only boundary; no structure ownership; unavailable + aggregate; fixtures validate (5 valid, 1 malformed fails).
