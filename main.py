@@ -736,7 +736,8 @@ async def oanda_stream_task():
                 # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001.
                 if state.shadow_tick_emitter is not None:
                     try:
-                        state.shadow_tick_emitter.emit_tick(tick)
+                        # Observed emit: records counters + applies warning rate-limit; never raises.
+                        state.shadow_tick_emitter.emit_tick_observed(tick, logger=logger)
                     except Exception as _shadow_emit_exc:
                         logger.warning(
                             "[SHADOW_TICK_EMIT_FAIL] instrument=%s error=%r",

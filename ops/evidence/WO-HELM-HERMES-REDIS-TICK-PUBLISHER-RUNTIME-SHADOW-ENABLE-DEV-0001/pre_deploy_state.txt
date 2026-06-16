@@ -1,0 +1,7 @@
+runtime_sha=840a07a
+MainPID=1360604
+ActiveEnterTimestamp=Thu 2026-06-11 08:30:16 BST
+STRUCTURE_ENGINE_ENABLED=true
+SHADOW_FLAG_in_env=0
+canonical6379_ticks=0 shadow=0
+dev6380_ticks=0 shadow=0
