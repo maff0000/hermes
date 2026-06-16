@@ -1,0 +1,21 @@
+WO-HELM-HERMES-REDIS-TICK-PUBLISHER-INERT-BUILD-0001 — evidence (UTC 2026-06-16T15:11:56.000Z)
+Verdict: INERT_PUBLISHER_BUILT_LIVE_PUBLISH_REMAINS_GATED
+base origin/main: 3b65ac49225bbe9daed9daf1eba15dd9de4c949f
+branch: wo/WO-HELM-HERMES-REDIS-TICK-PUBLISHER-INERT-BUILD-0001
+
+FILES:
+  utils/tick_publisher_v1.py   (inert write-plan builders + no-write sink + fail-loud config; reuses utils.tick_contract_v1; NO Redis/DB/network/live client)
+  tests/test_tick_publisher_v1.py (27 tests)
+
+WRITE-PLAN: {operation:SET, key:hermes:ticks:{instrument}:latest:v1, value:<envelope>, ex_seconds:10, write_mode:INERT_NO_WRITE}; aggregate -> hermes:ticks:latest:v1.
+NO-WRITE SINK: NoWriteTickPublishSink (== CapturingTickPublishSink == InMemoryTickPublishSink) captures plans in memory; build_publish_sink('live') fails loud GOV-PUB-SINK-003; no redis import; module imports <= {__future__,datetime,utils}.
+CONFIG FAIL-LOUD: publisher_enabled explicit bool; namespace=hermes; contract_version=v1; redis_ex_seconds=10; payload ttl_seconds=5; write_mode must be INERT (LIVE rejected GOV-PUB-CFG-006). validate_live_readiness() proves future live needs explicit non-default, authorised, non-localhost-as-prod target (GOV-PUB-LIVE-001/002/003).
+SEQ: stays null; stored-row seq on input REJECTED (GOV-PUB-TICK-004), never propagated.
+TRIPWIRE: publisher module scanned free of tradingProteus/structure_engine/falcon_structure/helios_structures/CHOCH/BOS/order_block/signal/setup/confidence/permission/regime/risk.
+
+GATE STATUS: LIVE PUBLISH REMAINS GATED. Falcon/Falcon-structure REMAINS BLOCKED until a governed shadow/live publisher WO is explicitly authorised.
+
+NO-LIVE-WRITE PROOF: no live Redis client instantiated (test_no_live_redis_client_in_module); all output to in-memory sink only.
+NO DB MUTATION: no DB connection opened by this WO (pure-logic module + tests).
+NO RUNTIME DEPLOY/RESTART: no systemd/cron touched; runtime 840a07a frozen; signal-service-dev not restarted (verified read-only out-of-band).
+PROHIBITIONS HONOURED: no live Redis writes; no proteus-redis writes; no publisher activation; no DB migration/mutation; no M30 forward run; no scheduler/cron/systemd; no endpoint/ACL/TLS; no STRUCTURE_ENGINE_ENABLED change; no consumer cutover; no Falcon-structure impl; no tradingProteus/structure_engine/Falcon/ARES/HELIOS/SOLO/NEO edits; HERMES repo only.
