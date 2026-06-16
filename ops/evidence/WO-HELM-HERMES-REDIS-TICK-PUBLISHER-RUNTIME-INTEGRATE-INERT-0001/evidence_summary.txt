@@ -1,0 +1,42 @@
+WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001 — evidence (UTC 2026-06-16T18:47:59.000Z)
+Verdict: RUNTIME_SEAM_INTEGRATED_DISABLED_BY_DEFAULT_NO_DEPLOY
+base origin/main: 21939f725acd4626ae65b933009e6606603425cc
+branch: wo/WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001
+
+FILES CHANGED:
+  utils/tick_runtime_shadow_adapter_v1.py (NEW) — runtime tick-path shadow emit seam; disabled-by-default; RuntimeShadowConfig + Disabled/Runtime emitters + factory + from-env boot + tick_to_raw_tick
+  utils/tick_shadow_publisher_v1.py (EDIT) — legacy dict-path guard: ShadowTickPublisher now FAILS LOUD (GOV-PUB-SHADOW-PUB-004) if handed a real-client-like object; _looks_like_real_redis_client added
+  main.py (EDIT, +39) — import + state.shadow_tick_emitter field + disabled-by-default boot init + gated try/except emit_tick in oanda_stream_task tick loop
+  tests/test_tick_runtime_shadow_adapter_v1.py (NEW) — 21 tests
+
+RUNTIME INTEGRATION SUMMARY:
+  Tick path = main.py oanda_stream_task(): after state.latest_ticks[instrument]=tick, a gated state.shadow_tick_emitter.emit_tick(tick) runs inside try/except (a shadow fault never disrupts market-truth tick path).
+  Boot builds the emitter via build_runtime_shadow_emitter_from_env() next to the structure-ingest boundary init; DISABLED no-op by default (HERMES_SHADOW_TICK_PUBLISH_ENABLED unset/false).
+  Proven: default boot -> DisabledShadowEmitter (no Redis client constructed); emit_tick -> {emitted:false, reason:SHADOW_RUNTIME_DISABLED}. main.py py_compile OK.
+
+CONFIG GATE SUMMARY (RuntimeShadowConfig + env contract):
+  write_mode=SHADOW_RUNTIME_INERT only (LIVE rejected GOV-PUB-RT-CFG-002); namespace=hermes; shadow_prefix=hermes:shadow:; redis_ex_seconds=10; payload_ttl_seconds=5.
+  Enabled path delegates to the proven ShadowPublisherConfig: explicit host/port/db REQUIRED (CFG-007/008/009), shadow_authorised=true REQUIRED (CFG-010), localhost-as-production rejected (CFG-011).
+  Env contract (documented, fail-loud): HERMES_SHADOW_TICK_PUBLISH_ENABLED(default false), _REDIS_HOST/_PORT/_DB (required when enabled, NO defaults), _AUTHORISED, _TREAT_AS_PRODUCTION, _DEV_SHADOW.
+  No hidden defaults; no hardcoded DEV_REDIS/PROD_REDIS; enabled-without-client/factory FAILS LOUD (GOV-PUB-RT-ADP-001) — never a silent no-op.
+
+LEGACY DICT-PATH GUARD (R2D2 hard requirement — CLOSED):
+  ShadowTickPublisher (dict-to-client) now refuses real-client-like objects fail-loud (GOV-PUB-SHADOW-PUB-004); retained only for in-memory no-write/fake clients.
+  All real-client writes route EXCLUSIVELY through SerializingShadowWriter (JSON-serialised). RuntimeShadowEmitter requires a SerializingShadowWriter (GOV-PUB-RT-ADP-002).
+  _looks_like_real_redis_client flags module-root redis/valkey/rediscluster or connection_pool/execute_command/get_connection/connection_kwargs; in-memory fakes are not flagged.
+
+JSON SERIALISATION / NO-DICT-TO-CLIENT PROOF:
+  Runtime emit goes through SerializingShadowWriter -> json.dumps before client.set; StrictTypeFakeRedis raises on dict; emit value_type=str; readback deserialises+validates; SET EX 10; ttl_seconds=5; seq null; stored-row seq rejected (GOV-PUB-TICK-004).
+
+TESTS: 21/21 runtime adapter; 114/114 full required suite (contract+inert+shadow+activation+runtime).
+TRIPWIRE: adapter free of tradingProteus/structure_engine/falcon_structure/helios_structures/CHOCH/BOS/order_block/signal/setup/confidence/permission/regime/risk; adapter imports <= {__future__,datetime,utils,env_config} (no redis at import, no SQL/legacy); no scheduler/asyncio in adapter.
+
+GATE STATEMENTS:
+  * LIVE PUBLISH REMAINS GATED — no canonical hermes:ticks:* path; LIVE rejected by config; seam writes only hermes:shadow:* when explicitly enabled.
+  * Falcon/Falcon-structure REMAINS BLOCKED from runtime consumption — shadow keys non-consumer; no consumer code; seam disabled by default.
+  * Shadow keys are NOT consumer cutover keys.
+  * HERMES still does NOT own interpretive consumer truth (no structure-engine ownership; no structure-engine push).
+
+NO-MUTATION (code integration only — NO real Redis writes this WO):
+  runtime 840a07a frozen; signal-service-dev MainPID 1360604 ActiveEnter Thu 2026-06-11 (NOT restarted); STRUCTURE_ENGINE_ENABLED=true unchanged; seam DISABLED in running service (not enabled);
+  no real Redis writes; canonical6379 ticks=0/shadow=0; dev6380 shadow=0 (no residue); candles_M30=37525 candles_H4=4941 unchanged; no DB mutation/migration; no M30 forward; no scheduler/cron/systemd; no deploy/restart; no fabric probe keys; no Python dict to real client.set.

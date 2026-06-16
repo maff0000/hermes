@@ -146,9 +146,23 @@ def build_aggregate_shadow_plan(instruments, *, generated_at_utc: datetime, conf
             "ex_seconds": config.redis_ex_seconds, "write_mode": WRITE_MODE_SHADOW}
 
 
+def _looks_like_real_redis_client(client):
+    """True for a real network Redis client (it would receive a dict on the legacy path). In-memory
+    no-write/capturing fakes used in tests do not look like this."""
+    if client is None:
+        return False
+    module_root = (type(client).__module__ or "").split(".")[0]
+    if module_root in ("redis", "valkey", "rediscluster"):
+        return True
+    return any(hasattr(client, attr) for attr in ("connection_pool", "execute_command",
+                                                  "get_connection", "connection_kwargs"))
+
+
 class ShadowTickPublisher:
-    """Writes shadow plans through an INJECTED Redis client (real or in-memory fake). No client is
-    inferred or defaulted; the caller supplies it. Refuses to write any LIVE key."""
+    """Legacy dict-path shadow writer — RETAINED for in-memory no-write/fake clients ONLY (it hands
+    the client a Python dict). A REAL Redis client must NEVER be wired here: real-client writes route
+    exclusively through tick_shadow_activation_v1.SerializingShadowWriter (JSON-serialised). This
+    class fails loud if handed a real-client-like object (closes the PR #24 hygiene note)."""
 
     def __init__(self, *, config, redis_client):
         if not isinstance(config, ShadowPublisherConfig):
@@ -156,6 +170,10 @@ class ShadowTickPublisher:
         if redis_client is None:
             raise ValueError("GOV-PUB-SHADOW-PUB-002: redis_client must be supplied explicitly "
                              "(no default/inferred client)")
+        if _looks_like_real_redis_client(redis_client):
+            raise ValueError("GOV-PUB-SHADOW-PUB-004: ShadowTickPublisher accepts only no-write/fake "
+                             "clients (dict-to-client path). Route real Redis clients through "
+                             "SerializingShadowWriter (JSON-serialised). (fail-loud)")
         self.config = config
         self.redis_client = redis_client
 
