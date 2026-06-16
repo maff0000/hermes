@@ -1,0 +1,35 @@
+{
+  "schema_version": "v1",
+  "service": "HERMES",
+  "domain": "ticks",
+  "contract": "hermes.ticks.latest",
+  "contract_version": "v1",
+  "key": "hermes:ticks:XAU_USD:latest:v1",
+  "generated_at_utc": "2026-06-16T09:58:00.500Z",
+  "valid_until_utc": "2026-06-16T09:58:05.500Z",
+  "ttl_seconds": 5,
+  "freshness_state": "FRESH",
+  "status": "OK",
+  "reason_codes": [],
+  "provenance": {
+    "publisher": "HERMES",
+    "source": "oanda",
+    "source_contract": "HERMES_TICK_SOURCE_V1",
+    "source_received_at_utc": "2026-06-16T09:58:00.000Z",
+    "published_at_utc": "2026-06-16T09:58:00.500Z",
+    "instrument_registry_version": "v1",
+    "runtime_instance": null,
+    "derivation": "NONE_RAW_TICK"
+  },
+  "data": {
+    "instrument": "XAU_USD",
+    "received_at_utc": "2026-06-16T09:58:00.000Z",
+    "bid": 4207.015,
+    "ask": 4207.265,
+    "mid": 4207.14,
+    "spread": 0.25,
+    "source": "oanda",
+    "seq": null,
+    "contract_version": "v1"
+  }
+}
