@@ -1,0 +1,34 @@
+WO-HELM-HERMES-REDIS-TICK-PUBLISHER-SHADOW-BUILD-0001 — evidence (UTC 2026-06-16T16:55:20.000Z)
+Verdict: SHADOW_PUBLISHER_BUILT_LIVE_PUBLISH_REMAINS_GATED
+base origin/main: 95f8c51c7dce91c4de1c9f7a6913705148a759ae
+branch: wo/WO-HELM-HERMES-REDIS-TICK-PUBLISHER-SHADOW-BUILD-0001
+
+FILES:
+  utils/tick_shadow_publisher_v1.py (shadow plan/publish; reuses tick_contract_v1 + tick_publisher_v1; injected Redis client; lazy redis import behind shadow gate only)
+  tests/test_tick_shadow_publisher_v1.py (25 tests; in-memory FakeShadowRedisClient only)
+
+SHADOW KEY STRATEGY (non-consumer, non-cutover, non-production validation keys):
+  hermes:ticks:{instrument}:latest:v1 -> hermes:shadow:ticks:{instrument}:latest:v1
+  hermes:ticks:latest:v1              -> hermes:shadow:ticks:latest:v1
+  Envelope.key field stays the CANONICAL contract identity (so payload validates + later compare); only the Redis storage key is shadowed.
+  assert_shadow_key REFUSES any LIVE key write (GOV-PUB-SHADOW-KEY-002) and any non-shadow key (003) in SHADOW mode.
+
+REDIS TARGET / CONFIG FAIL-LOUD (ShadowPublisherConfig):
+  publisher_enabled explicit bool; write_mode=SHADOW_NO_LIVE only (LIVE rejected GOV-PUB-SHADOW-CFG-002); namespace=hermes; shadow_prefix must start hermes:shadow:; contract_version=v1; redis_ex_seconds=10; payload ttl_seconds=5;
+  redis_host/redis_port/redis_db all REQUIRED args (no default target possible); shadow_authorised must be True (010); localhost-as-production rejected (011); localhost must be explicitly test_only (013).
+  connect_shadow_redis(): explicit-target real client factory, lazy 'import redis' behind the shadow gate; NOT called by tests (which inject FakeShadowRedisClient).
+
+PAYLOAD: SET EX 10; ttl_seconds=5; valid_until=generated+ttl; seq null; stored-row seq rejected (GOV-PUB-TICK-004); malformed fail-loud (GOV-TICK-CONTRACT-003); unsupported instrument fail-loud (GOV-PUB-TICK-003); absent source -> UNAVAILABLE.
+RESULT METADATA exposed: key, ex_seconds, write_mode, payload_validated, redis_result, generated_at_utc, valid_until_utc, freshness_state, status, reason_codes.
+TRIPWIRE: shadow module free of tradingProteus/structure_engine/falcon_structure/helios_structures/CHOCH/BOS/order_block/signal/setup/confidence/permission/regime/risk; imports <= {__future__,datetime,utils,redis(lazy)}; no SQL connector import; no tradingSignals.ticks read.
+
+GATE STATEMENTS:
+  * LIVE PUBLISH REMAINS GATED — no production/live publisher activated; live keys never written.
+  * Falcon/Falcon-structure REMAINS BLOCKED from runtime consumption until a governed shadow/live-consumer WO is Architect-authorised.
+  * Shadow keys are NOT consumer cutover keys — no consumer may read them without a separate authorised consumer-shadow WO.
+  * HERMES still does NOT own interpretive consumer truth (no structure-engine ownership).
+
+NO-MUTATION (this WO = code/build/test only):
+  no live hermes:ticks:* keys written; no production/dev Redis write (in-memory fake only); no real hermes:shadow:* keys created in shared Redis;
+  no DB mutation; no DB migration; no runtime restart/deploy; runtime 840a07a frozen; signal-service-dev not restarted; STRUCTURE_ENGINE_ENABLED=true unchanged;
+  no scheduler/cron/systemd; no endpoint/ACL/TLS; no M30 forward run; no Falcon/structure_engine/tradingProteus edits; no fabric probe keys.
