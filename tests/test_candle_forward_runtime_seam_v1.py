@@ -86,3 +86,19 @@ def test_no_canonical_writer_and_no_proteus_fallback():
         assert False, "canonical must be disabled"
     except ValueError as ex:
         assert "PUBLISH_DISABLED" in str(ex)
+
+
+def test_disabled_emitter_accepts_keyword_candle_call_cleanly(monkeypatch):
+    # WO-...-fix: the disabled seam (default) must accept the runtime hook's emit(candle=candle)
+    # as a CLEAN no-op (not an exception-driven no-op). It must also accept emit(envelope=...) / emit().
+    _clear(monkeypatch)
+    em = seam.build_candle_forward_seam_from_env()           # default -> DisabledCandleEmitter
+    assert isinstance(em, cp.DisabledCandleEmitter)
+    # the previously-broken call shape — must NOT raise
+    r1 = em.emit(candle={"instrument": "XAU_USD", "timeframe": "H4"})
+    r2 = em.emit(envelope={"key": "hermes:candles:XAU_USD:H4:latest:v1"})
+    r3 = em.emit()
+    for r in (r1, r2, r3):
+        assert r["emitted"] is False and r["reason"] == "CANDLE_PUBLISH_DISABLED"
+    # still writes nothing: no redis client / connection constructed
+    assert not any(hasattr(em, a) for a in ("redis_client", "client", "connection", "socket"))
