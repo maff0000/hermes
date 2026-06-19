@@ -1,0 +1,11 @@
+REMAINING GATES (each a separate authorised WO):
+1. Inert/shadow forward producer wiring into the runtime candle path (disabled-by-default seam built;
+   needs main.py wiring + deploy/restart -> HELD; restart forbidden here).
+2. Shadow activation against dev Redis 6380 (needs explicit auth + one bounded write, like the tick chain).
+3. Canonical hermes:candles:* publish (needs publish_enabled+authorised; separate WO).
+4. H4/D source-coverage wiring to real candle source (expected_source_count provided by caller now).
+5. Window/history surface (designed, not built).
+6. Backfill of historical gaps (deferred).
+7. Falcon candle consumer progression (separate; Falcon lane).
+NOTE: pre-existing tests test_canonical_engine/test_m1_deriver/test_redis_publisher fail to COLLECT
+without a configured runtime env (require env vars at import) — pre-existing, unrelated to this WO.

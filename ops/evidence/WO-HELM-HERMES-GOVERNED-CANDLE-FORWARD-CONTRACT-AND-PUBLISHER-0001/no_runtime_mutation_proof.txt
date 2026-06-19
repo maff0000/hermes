@@ -1,0 +1,3 @@
+NO RUNTIME MUTATION: pure code build in worktree on trinity. No deploy, no restart, no env change,
+no main.py wiring. signal-service-dev (recovered, running as hermes_dev) NOT touched by this WO.
+Runtime wiring HELD: build_candle_emitter_from_env returns a DISABLED no-op; NOT added to main.py.

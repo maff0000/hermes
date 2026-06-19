@@ -1,0 +1,10 @@
+PUBLISHER GATING
+- Canonical hermes:candles:* publish: DISABLED unless publish_enabled AND publish_authorised
+  (GOV-CANDLE-PUB-CANON-001 / PUBLISH_DISABLED). Not set in this WO.
+- Shadow hermes:shadow:candles:* publish: requires shadow_publish_enabled AND shadow_authorised AND
+  explicit non-localhost-as-prod target (GOV-CANDLE-PUB-SHADOW-001..004).
+- Shadow writer refuses any canonical key (assert_shadow_key); JSON-serialises before client.set;
+  real client never handed a dict.
+- Runtime seam build_candle_emitter_from_env: DISABLED no-op by default; flags
+  HERMES_CANDLE_PUBLISH_ENABLED/_AUTHORISED + HERMES_CANDLE_SHADOW_PUBLISH_ENABLED/_AUTHORISED.
+  NOT enabled; NOT wired to main.py.

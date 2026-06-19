@@ -1,0 +1,15 @@
+EXISTING CANDLE CODE AUDIT (how used/bypassed)
+- models/candle.py: Timeframe enum {M1,M5,H1,D1} + Candle dataclass + CandleAggregator (tick->candle).
+  Status: CURRENT (runtime aggregator). H4 is a DERIVED table (candles_H4), NOT in the enum.
+  Use: source of forming/closed candles for the new contract; NOT modified here.
+- utils/redis_publisher.publish_candle: emits LEGACY Proteus-era signals:candle:{tf}:{instr}:latest
+  pubsub/hash. Status: PROTEUS-ERA / DEPRECATED. NOT the governed contract. BYPASSED — the new
+  hermes:candles:* contract supersedes it; this WO does not call or extend publish_candle.
+- utils/candle_payload_builders.py: candle FEATURES/context/indicators builders (different domain).
+  Status: current but feature-domain; NOT the raw-candle contract. Not used by this WO.
+- utils/forward_derivation_runner.py: governed derivation doctrine (FORWARD_COMPLETE_M1_ONLY /
+  HISTORICAL_ALL_M1_COUNTED / source_policy_epoch / complete!=fresh). Status: CURRENT doctrine.
+  ALIGNED: candle_contract_v1 mirrors these policy strings + completeness accounting.
+- models + scripts/backfill_candles_h4_m30.py: backfill — OUT OF SCOPE (no backfill this WO).
+Decision: build a NEW governed contract (utils/candle_contract_v1.py) + publisher
+(utils/candle_publisher_v1.py); bypass the legacy signals:candle publisher; reuse derivation doctrine.

@@ -1,0 +1,2 @@
+NO DB MUTATION: no SQL executed by this WO; no migration applied; no candle/tick rows read or written
+from the build. Contract tests use in-memory fixtures only (no DB). Candle tables unchanged.
