@@ -1,0 +1,3 @@
+NO LIVE REDIS WRITE: inert path -> NoWriteCandleSink (in-memory). Shadow path tests -> StrictFakeRedis
+(in-memory). No real Redis client constructed/used. Canonical publish DISABLED by default
+(assert_canonical_allowed requires publish_enabled AND publish_authorised; never set this WO).

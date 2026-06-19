@@ -1,0 +1,3 @@
+BACKFILL DEFERRED (per Architect note). No historical backfill in this WO. Backfill awaits:
+(1) governed candle contract exists [this WO], (2) live forward path works, (3) R2D2 verifies forward
+production, (4) source gaps explicitly identified, (5) backfill writes final schema with provenance.

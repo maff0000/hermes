@@ -1,0 +1,4 @@
+NO CROSS-APP IMPORTS
+candle_contract_v1 imports: {__future__, datetime}.
+candle_publisher_v1 imports: {__future__, json, datetime, utils, env_config(lazy)}.
+Neither imports tradingProteus/falcon/ares/helios/structure_engine/solo/neo (ast-verified; tripwire tests).

@@ -1,0 +1,6 @@
+NO LEGACY signals:candle GOVERNED OUTPUT
+- The governed builders emit ONLY hermes:candles:* (canonical) / hermes:shadow:candles:* (shadow) keys.
+- validate_candle_contract REJECTS any payload containing 'signals:candle' or 'tradingproteus' (GOV-028).
+- Tests: test_tripwire_no_signals_candle_emitted_as_output, test_tripwire_no_signals_candle_in_emitted_plans,
+  test_rejects_legacy_signals_candle_or_proteus_leak.
+- utils/redis_publisher.publish_candle (legacy signals:candle) is NOT called/extended by this WO.

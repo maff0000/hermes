@@ -1,0 +1,18 @@
+GOVERNED CANDLE CONTRACT v1 — DESIGN
+Keys: canonical hermes:candles:{instrument}:{timeframe}:latest:v1 ; shadow
+  hermes:shadow:candles:{instrument}:{timeframe}:latest:v1 ; window (design-only, NOT built)
+  hermes:candles:{instrument}:{timeframe}:window:v1.
+Timeframes: M5,H1,H4,D. TTL policy: validity = one timeframe period (M5 300/H1 3600/H4 14400/D 86400);
+  Redis EX = validity + documented buffer (M5 +60, H1 +300, H4 +900, D +3600). Consumers freshness-gate
+  on valid_until_utc, not key existence.
+Envelope: schema_version/service=HERMES/domain=candles/contract/contract_version/key/generated_at_utc/
+  valid_until_utc/ttl_seconds/freshness_state/status/reason_codes/provenance/data.
+Data: instrument/timeframe/timestamp_utc/open/high/low/close/volume/is_closed/source_timeframe/
+  source_coverage/source_count/expected_source_count/gap_state/derivation_policy/source_policy_epoch/
+  publisher/contract_version.
+Statuses: OK/STALE/FORMING/GAP_DETECTED/SOURCE_INCOMPLETE/NO_SOURCE_DATA/MARKET_CLOSED/PUBLISH_DISABLED.
+Derivation: DIRECT_FROM_SOURCE vs DERIVED_FROM_LOWER_TIMEFRAME; policy FORWARD_COMPLETE_M1_ONLY/
+  HISTORICAL_ALL_M1_COUNTED/NONE_DIRECT + source_policy_epoch.
+H4/D rule (KEY GOVERNANCE): a derived candle with source_count < expected_source_count is NEVER status
+  OK (GOV-CANDLE-CONTRACT-023) and must set gap_state INCOMPLETE/GAP_DETECTED (024). Completeness !=
+  freshness. No hidden incomplete coverage.

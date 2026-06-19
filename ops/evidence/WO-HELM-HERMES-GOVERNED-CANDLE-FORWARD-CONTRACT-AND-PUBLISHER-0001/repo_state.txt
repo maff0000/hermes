@@ -1,0 +1,5 @@
+base/head SHA: 6eeb59077469d41f506e1fa2c18313b27c1ef057
+repo=/srv/trading/hermes-worktrees/wo-candle-contract
+branch=wo/WO-HELM-HERMES-GOVERNED-CANDLE-FORWARD-CONTRACT-AND-PUBLISHER-0001
+base origin/main=6eeb59077469d41f506e1fa2c18313b27c1ef057
+clean tree at start: yes
