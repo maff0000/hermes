@@ -1,16 +1,52 @@
-# HERMES signal service — container isolation deployment.
-# WO-HELM-HERMES-CONTAINER-ISOLATION-0002.
+# HERMES signal service — environment-blind, network-isolated deployment.
+# WO-HELM-HERMES-ENVIRONMENT-BLIND-ISOLATION-0003 (absorbs the WO-...-CONTAINER-ISOLATION-0002 build base).
 #
-# Self-contained, host-decoupled definition for emulating a 4 vCore / 4 GB IONOS M+ VPS:
-#   * resource pinning (cpus / memory limits + reservation + pids cap)
-#   * GELF (Graylog) log shipping
-#   * a dedicated internal bridge network (no host networking, no host bind mounts)
-#   * all config supplied at runtime via .env (image carries NO secrets)
+# "Environment-blind": the stack carries NO host coupling. Every value comes from .env at deploy time;
+# the bundled DB is reachable ONLY on the private bridge (no host port), and logs leave the host
+# out-of-band via GELF to the SIEM Graylog endpoint. Nothing here is applied automatically.
 #
-# DB and Redis are EXTERNAL services reached over the network via .env overrides — this compose does
-# NOT define or mutate the shared proteus DB/Redis lanes. Nothing here is applied automatically.
+# Build base: the `build:` below uses the two-stage zero-leak Dockerfile + .dockerignore from
+# WO-HELM-HERMES-CONTAINER-ISOLATION-0002 (now on main).
 
 services:
+  # ---- Bundled MariaDB: INTERNAL BRIDGE ONLY — zero host port exposure (WO-0003 requirement #2) ----
+  hermes-mariadb:
+    image: mariadb:11.4
+    container_name: hermes-mariadb
+    restart: unless-stopped
+
+    # All credentials supplied at deploy time — never baked in. required:false keeps `config` portable.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-tradingSignals}
+      MARIADB_USER: ${DB_USER:-hermes}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: UTC
+
+    # NO `ports:` — DELIBERATE. The DB is published to NO host interface; only services on hermes_net
+    # (i.e. hermes-signal) can reach it via internal DNS name `hermes-mariadb:3306`. No leak to the host.
+
+    networks:
+      - hermes_net
+
+    # Named volume (not host-bound) so the data lane stays host-decoupled.
+    volumes:
+      - hermes_db_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+  # ---- HERMES signal service ----
   hermes-signal:
     build:
       context: .
@@ -20,36 +56,41 @@ services:
     container_name: hermes-signal
     restart: unless-stopped
 
+    depends_on:
+      hermes-mariadb:
+        condition: service_healthy
+
     # Runtime configuration supplied at deploy time — never baked into the image.
-    # required:false keeps the definition portable (validates without a local .env; loads it when present).
     env_file:
       - path: .env
         required: false
+
+    # Reach the BUNDLED internal DB by service DNS (overrides any host-oriented DB_HOST in .env).
+    environment:
+      DB_HOST: hermes-mariadb
+      DB_PORT: "3306"
 
     # Signal service HTTP port (host:container). Override SIGNAL_PORT/SIGNAL_BIND_PORT via .env.
     ports:
       - "${SIGNAL_BIND_PORT:-8210}:${SIGNAL_PORT:-8210}"
 
     # ---- Resource pinning: emulate a 4 vCore / 4 GB IONOS M+ VPS ----
-    # Top-level runtime limits honoured by `docker compose up` (non-swarm). Kept distinct from the
-    # swarm-only `deploy.resources` block to avoid compose-spec reconciliation conflicts.
     cpus: ${HERMES_CPUS:-4}
     mem_limit: ${HERMES_MEM_LIMIT:-4g}
     mem_reservation: ${HERMES_MEM_RESERVATION:-1g}
     pids_limit: ${HERMES_PIDS_LIMIT:-512}
 
-    # ---- GELF / Graylog log shipping ----
+    # ---- Out-of-band GELF / Graylog log shipping to the SIEM endpoint (WO-0003 requirement #3) ----
+    # Prefer SIEM_GRAYLOG_IP (new canonical), fall back to legacy GRAYLOG_HOST, then loopback. Port 12201.
     logging:
       driver: gelf
       options:
-        gelf-address: "udp://${GRAYLOG_HOST:-127.0.0.1}:${GRAYLOG_PORT:-12201}"
+        gelf-address: "udp://${SIEM_GRAYLOG_IP:-${GRAYLOG_HOST:-127.0.0.1}}:${SIEM_GRAYLOG_PORT:-12201}"
         tag: "hermes-signal"
 
-    # ---- Dedicated internal bridge (no host networking) ----
     networks:
       - hermes_net
 
-    # Persisted, named (not host-bound) so the image/runtime stays host-decoupled.
     volumes:
       - hermes_archive:/data/signal_history
 
@@ -64,6 +105,8 @@ services:
     security_opt:
       - no-new-privileges:true
 
+# Single private bridge — no host networking. The DB rides this bridge with no host port; the signal
+# service uses it for DB egress and still publishes only its own HTTP port.
 networks:
   hermes_net:
     driver: bridge
@@ -72,3 +115,5 @@ networks:
 volumes:
   hermes_archive:
     name: hermes_archive
+  hermes_db_data:
+    name: hermes_db_data

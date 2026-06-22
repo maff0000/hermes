@@ -63,20 +63,21 @@ from utils.exceptions import StreamSilentStallError
 from utils.trading_hours import is_market_open
 
 # WO-0030: Unified logging with GELF streaming (GOV-LOG-001, GOV-LOG-011)
-from hermes_logging import get_logger, LogLevel  # WO-HELM-HERMES-LOGGING-VENDOR-0001: HERMES-owned logging module
+from hermes_logging import get_logger, LogLevel, resolve_gelf_target  # WO-HELM-HERMES-LOGGING-VENDOR-0001: HERMES-owned logging module
 
 # Initialize structured logger with GELF enabled for Graylog streaming
 # Service name includes environment for clear identification in Graylog
-# WO-HELM-HERMES-LOGGING-VENDOR-0001: GELF target is config-driven + fail-loud (no hardcoded host in active path)
-_graylog_host = os.environ.get('GRAYLOG_HOST')
-_graylog_port = os.environ.get('GRAYLOG_PORT')
-if not _graylog_host or not _graylog_port:
-    raise RuntimeError('GOV-LOG-012: GELF enabled but GRAYLOG_HOST/GRAYLOG_PORT not configured — refusing to start (fail-loud)')
+# WO-HELM-HERMES-LOGGING-VENDOR-0001 + WO-HELM-HERMES-ENVIRONMENT-BLIND-ISOLATION-0003:
+# GELF target is config-driven + fail-loud (no hardcoded host in active path). The out-of-band GELF
+# stream ships syslog severities {2,3,4,6,7} (CRITICAL/ERROR/WARNING/INFO/DEBUG — the fixed LogLevel
+# mapping) to the SIEM Graylog endpoint. Target resolves SIEM_GRAYLOG_IP (new canonical), then legacy
+# GRAYLOG_HOST (backward-compatible so existing deployments keep booting); port 12201 default.
+_siem_host, _siem_port = resolve_gelf_target()  # fail-loud (GOV-LOG-012) if no SIEM target configured
 logger = get_logger(
     service=f'hermes-{ENV.lower()}',
     enable_gelf=True,
-    gelf_host=_graylog_host,
-    gelf_port=int(_graylog_port),
+    gelf_host=_siem_host,
+    gelf_port=_siem_port,
 )
 
 

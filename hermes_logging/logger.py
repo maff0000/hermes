@@ -642,3 +642,32 @@ def get_logger(
         logger.add_gelf_handler(host=gelf_host, port=gelf_port)
 
     return logger
+
+
+# ---------------------------------------------------------------------------------------------------
+# WO-HELM-HERMES-ENVIRONMENT-BLIND-ISOLATION-0003: SIEM/Graylog GELF target resolution.
+# Out-of-band GELF stream carries syslog severities {2=CRITICAL, 3=ERROR, 4=WARNING, 6=INFO, 7=DEBUG}
+# (the fixed LogLevel->syslog mapping). LOG_LEVEL governs the emitted floor (DEBUG to include 7).
+DEFAULT_GELF_PORT = 12201
+GOV_LOG_SIEM_FAILLOUD = "GOV-LOG-012"
+
+
+def resolve_gelf_target():
+    """Resolve the GELF/SIEM target (host, port) for the out-of-band Graylog stream, fail-loud.
+
+    Preference order (backward-compatible — existing deployments keep booting):
+      host: SIEM_GRAYLOG_IP  (new canonical)  ->  GRAYLOG_HOST  (legacy)
+      port: SIEM_GRAYLOG_PORT -> GRAYLOG_PORT -> 12201 (default)
+    Raises RuntimeError(GOV-LOG-012) if NO host is configured (no hardcoded host in the active path).
+    """
+    host = os.environ.get("SIEM_GRAYLOG_IP") or os.environ.get("GRAYLOG_HOST")
+    if not host:
+        raise RuntimeError(
+            f"{GOV_LOG_SIEM_FAILLOUD}: GELF enabled but no SIEM target configured — set "
+            "SIEM_GRAYLOG_IP (or legacy GRAYLOG_HOST). Refusing to start (fail-loud).")
+    port = os.environ.get("SIEM_GRAYLOG_PORT") or os.environ.get("GRAYLOG_PORT") or str(DEFAULT_GELF_PORT)
+    try:
+        port = int(port)
+    except (TypeError, ValueError):
+        raise RuntimeError(f"{GOV_LOG_SIEM_FAILLOUD}: invalid GELF port {port!r} (fail-loud).")
+    return host, port
