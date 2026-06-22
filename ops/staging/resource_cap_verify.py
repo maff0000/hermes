@@ -181,15 +181,18 @@ def assert_caps(configured, *, mem_tolerance=0.0):
     """
     lines = []
 
-    # --- effective reads (fail-loud if unreadable) ---
+    # --- effective reads (fail-loud if unreadable OR unparseable) ---
+    # OSError = file missing / not a cgroup-v2 host; ValueError = cgroup file held a non-numeric /
+    # malformed string (int()/float() parse failure). Both map to GOV-STAGE-CAP-002 rather than
+    # escaping as a raw traceback.
     try:
         eff_mem = effective_mem_bytes()
         eff_cpu = effective_cpus()
         eff_pids = effective_pids()
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         raise CapFailure(
             GOV_STAGE_CAP_READ,
-            f"{GOV_STAGE_CAP_READ}: cannot read cgroup v2 limits ({exc}). "
+            f"{GOV_STAGE_CAP_READ}: cannot read/parse cgroup v2 limits ({exc}). "
             f"Run this INSIDE the hermes-signal container on a cgroup-v2 host."
         )
 
