@@ -35,6 +35,10 @@ def resolve_shadow_key_prefix(environ=None):
     configured value supplied zero, one, or many trailing colons (and surrounding whitespace is trimmed),
     so string interpolation `prefix + remainder` can never produce `::` or a missing separator. A value
     that is only colons/whitespace degrades to the legacy default rather than a degenerate ':' prefix.
+
+    Canonical-namespace guard: a configured prefix that resolves into the canonical namespace
+    `hermes:candles:` is REFUSED (fail-loud GOV-CANDLE-PUB-PREFIX-ERR-001) — a spoofed prefix must never
+    let shadow writes leak into the canonical truth keyspace.
     """
     if environ is None:
         from env_config import get_env  # lazy: env_config is the codebase's environment configuration
@@ -44,7 +48,13 @@ def resolve_shadow_key_prefix(environ=None):
     core = raw.rstrip(":")
     if not core:                      # unset, blank, or colons-only -> legacy default
         return SHADOW_PREFIX
-    return core + ":"
+    prefix = core + ":"
+    if prefix.startswith(CANONICAL_PREFIX):
+        raise ValueError(
+            f"GOV-CANDLE-PUB-PREFIX-ERR-001: shadow key prefix {prefix!r} collides with the canonical "
+            f"namespace {CANONICAL_PREFIX!r} — refusing (fail-loud). A shadow prefix must never resolve "
+            "into canonical truth.")
+    return prefix
 
 
 # --------------------------------------------------------------------------- config / fail-loud

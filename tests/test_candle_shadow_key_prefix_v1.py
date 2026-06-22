@@ -44,3 +44,18 @@ def test_shadow_key_prefix_trailing_colon_safety():
     # Degenerate input (colons/whitespace only) degrades to the legacy default, not a bare ':' prefix.
     assert cp.resolve_shadow_key_prefix({cp.SHADOW_KEY_PREFIX_ENV: "   "}) == "hermes:shadow:candles:"
     assert cp.resolve_shadow_key_prefix({cp.SHADOW_KEY_PREFIX_ENV: ":::"}) == "hermes:shadow:candles:"
+
+
+def test_rejects_canonical_spoofing_prefix():
+    # A prefix that resolves into the canonical namespace `hermes:candles:` must fail-loud
+    # (GOV-CANDLE-PUB-PREFIX-ERR-001) — shadow writes can never be spoofed into canonical truth.
+    for spoof in ("hermes:candles:", "hermes:candles", "hermes:candles:prod",
+                  "  hermes:candles::  ", "hermes:candles:XAU_USD"):
+        try:
+            cp.resolve_shadow_key_prefix({cp.SHADOW_KEY_PREFIX_ENV: spoof})
+            assert False, f"expected canonical-spoofing rejection: {spoof!r}"
+        except ValueError as e:
+            assert "GOV-CANDLE-PUB-PREFIX-ERR-001" in str(e)
+    # legitimate shadow prefixes (incl. the legacy default) are unaffected
+    assert cp.resolve_shadow_key_prefix({cp.SHADOW_KEY_PREFIX_ENV: "hermes:shadow:prod:candles"}) == "hermes:shadow:prod:candles:"
+    assert cp.resolve_shadow_key_prefix({}) == "hermes:shadow:candles:"
