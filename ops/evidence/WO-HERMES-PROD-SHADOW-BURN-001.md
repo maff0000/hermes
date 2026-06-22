@@ -17,9 +17,12 @@
 > **This is a DRAFT Work Order for review. It authorises NOTHING.**
 > No deployment, no systemd change, no SSH, no Redis write, no env mutation is performed or implied by
 > the act of writing this document. The configurable shadow-prefix code prerequisite (§5.1) is now
-> **READY_ON_MAIN** (PR #37, R2D2 `GREEN_PR37_AUDITED_CLEAN`); execution remains **blocked** until (1) the
-> prefix param is **deployed** to the target runtime, (2) the **H1 independent validation** (still OPEN —
-> §6, §8) is GREEN, and (3) the Architect grants **explicit, separate** authorisation for writes against
+> **READY_ON_MAIN** (PR #37) and **canonical-spoof-protected** — the namespace isolation guard (PR #40,
+> `GOV-CANDLE-PUB-PREFIX-ERR-001`) is R2D2-verified GREEN
+> (`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1`). The **H1
+> independent validation is now VERIFIED_GREEN** (`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`).
+> Execution remains **blocked** until (1) the prefix param is **deployed** to the target runtime, and (2)
+> the Architect grants **explicit, separate** authorisation for writes against
 > the **production** Redis keyspace (§8). Canonical `hermes:candles:*` **MUST remain completely DARK** for
 > the entire burn (§4). The shadow keyspace prefix this WO targets (`hermes:shadow:prod:candles:*`) is now
 > **supported by the writer on `main`** (env `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX`) — see §5.1.
@@ -39,7 +42,7 @@
 | Target keyspace | `hermes:shadow:prod:candles:{instrument}:{M5|H1}:latest:v1` |
 | Canonical keyspace | `hermes:candles:*` — **DARK / untouched / count must stay 0** |
 | Burn horizon | default **48h**, time-bounded, auto-expiring (§3) |
-| Prerequisites | configurable shadow prefix (**READY_ON_MAIN** — PR #37, on `main` `1802b9c`), H1 independent validation (OPEN), runtime deploy of prefix (PENDING), explicit prod authorisation (NOT given) |
+| Prerequisites | configurable shadow prefix (**READY_ON_MAIN** — PR #37, on `main` `1802b9c`), H1 independent validation (**VERIFIED_GREEN**), runtime deploy of prefix (PENDING), explicit prod authorisation (NOT given) |
 
 ---
 
@@ -59,8 +62,10 @@ full-precision float) to a shadow Redis keyspace while the canonical `hermes:can
   the **higher-fidelity** record — this residual is a storage-representation difference, not a fault.
 - **Telemetry: 0 `CANDLE_VALIDATE_FAIL` / 0 `CANDLE_EMIT_FAIL` / 0 `_log_fail`** to the SIEM.
 - **R2D2 independent validation:** M5 leg `GREEN_M5_INDEPENDENTLY_VERIFIED_ZERO_FAULT`
-  (`r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1`). **H1 independent validation
-  is OPEN.**
+  (`r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1`) **and** H1 leg
+  `GREEN_H1_INDEPENDENTLY_VERIFIED_ZERO_FAULT`
+  (`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`) — **both supported timeframes
+  independently VERIFIED_GREEN, zero-fault** (dev-shadow only).
 
 **Why a production burn.** Dev traffic is thin. Before any canonical cutover the engine must be exercised
 against **LIVE production OANDA market volume** — full instrument mix, real top-of-hour H1 crossovers,
@@ -124,7 +129,12 @@ the entire burn.** This is the master invariant; its breach is an immediate, non
 
 **Resolved.** The previously-flagged design gap (writer hardcoded `hermes:shadow:candles:*`) is closed.
 The configurable prefix shipped via **PR #37** (`WO-HERMES-CANDLE-PREFIX-PARAM`), merged to `main`
-(`1802b9c`), independently audited by R2D2 (`GREEN_PR37_AUDITED_CLEAN`).
+(`1802b9c`). The earlier AMBER **canonical-isolation hole** (R2D2 retro `pr37_candle_shadow_prefix_retro`
+— a prefix of `hermes:candles:` would have leaked shadow writes into canonical truth) is now **CLOSED**:
+PR #40 adds the fail-loud guard `GOV-CANDLE-PUB-PREFIX-ERR-001` (refuses any prefix resolving into
+`hermes:candles:`), **R2D2-verified GREEN** at
+`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` (`GREEN_PR40_CANONICAL_GUARD_VERIFIED`,
+cold-verified, key authored by R2D2).
 
 - **Delivered:** `resolve_shadow_key_prefix()` in `utils/candle_publisher_v1.py` ingests env
   `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` (via `env_config`), defaulting to the legacy
@@ -177,7 +187,9 @@ to prod keyspace are owner-gated; no silent global fallback.)
 
 R2D2-HERMES holds **independent** measurement authority. R2D2 does not trust HELM counters; it re-measures
 in its own process. The dev pattern (cold re-validate keys, recompute deltas) carries forward. R2D2 must
-also close the **still-OPEN H1 independent validation** (§8) as part of accepting the burn.
+applies the same pattern to prod load. The dev **H1 independent validation is already VERIFIED_GREEN**
+(`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`); both M5+H1 dev legs are
+independently confirmed zero-fault.
 
 ### (a) Latency overhead of the shadow emit on the hot path
 
@@ -225,7 +237,7 @@ also close the **still-OPEN H1 independent validation** (§8) as part of accepti
 | Hot-path latency | p99 emit overhead within agreed budget; no tick→candle degradation | budget breach / measurable degradation |
 | Memory | bounded cardinality + memory inside 4 GB cap with margin; no monotonic growth | unbounded growth / cap pressure |
 | Telemetry | 0 / 0 / 0 failures | any failure shipped to SIEM |
-| H1 independent validation | R2D2 H1 leg GREEN (closes the OPEN item) | H1 validation absent or RED |
+| H1 independent validation | **MET** — R2D2 H1 leg `VERIFIED_GREEN` (`…shadow_candle_independent_validation_h1:20260622:v1`) | H1 validation absent or RED |
 
 **Any single NO-GO obligates immediate disarm (§7) and burn invalidation.**
 
@@ -252,22 +264,35 @@ also close the **still-OPEN H1 independent validation** (§8) as part of accepti
 
 | Role | Party | Status |
 |------|-------|--------|
-| Build — configurable prefix §5.1 | **Helm (HERMES)** | **READY_ON_MAIN** — PR #37 merged (`1802b9c`), R2D2 `GREEN_PR37` |
+| Build — configurable prefix §5.1 | **Helm (HERMES)** | **READY_ON_MAIN + spoof-protected** — PR #37 (`1802b9c`) + canonical guard PR #40; R2D2 GREEN `r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` |
+| Staging cap verification (cgroup tests) | **R2D2-HERMES** | **VERIFIED_GREEN** — `r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1`; advisory-gate constraint carried (see below) |
 | Build — burn-engine wiring + runtime deploy | **Helm (HERMES)** | **PENDING** — not built/deployed; WO is a DRAFT only |
 | Independent validation — M5 leg | **R2D2-HERMES** | dev baseline `GREEN_M5_INDEPENDENTLY_VERIFIED_ZERO_FAULT` (carries into burn acceptance) |
-| Independent validation — **H1 leg** | **R2D2-HERMES** | **OPEN** — must be closed GREEN before/within burn acceptance |
+| Independent validation — **H1 leg** | **R2D2-HERMES** | **VERIFIED_GREEN** — `r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1` (zero-fault, 14/14, max Δ 5.0e-06) |
 | Production-keyspace write authorisation | **Architect (Matt)** | **NOT GIVEN** — separate explicit authorisation required (§5.4) |
 | Burn execution authorisation | **Architect (Matt)** | **NOT GIVEN** — this document authorises nothing |
 
 **Outstanding before execution (explicit):**
-1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) implemented and R2D2-audited — **DONE: READY_ON_MAIN** (PR #37, `1802b9c`, `GREEN_PR37`). Runtime **deploy** of it — still PENDING.
-2. **H1 independent (R2D2) validation** — still **OPEN** (§6, baseline §8).
+1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) implemented + **canonical-spoof-protected** — **READY_ON_MAIN** (PR #37 `1802b9c` + PR #40 guard `GOV-CANDLE-PUB-PREFIX-ERR-001`); R2D2 GREEN `r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1`. Runtime **deploy** of it — still PENDING.
+2. **H1 independent (R2D2) validation** — **CLOSED / VERIFIED_GREEN** (`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`).
 3. **Architect authorisation** for the burn AND for production-keyspace writes — **NOT GIVEN** (§5.4, §8).
+
+**Carried operational constraint (PR #36 retro):** the staging resource-cap verification
+(`resource_cap_verify.py`, tests R2D2-GREEN `r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1`) is
+an **advisory** check, **not** a hard runtime boot gate. R2D2's `pr36_staging_resource_cap_verify_retro`
+advisory-gate finding **remains OPEN** as an active operational constraint — to be resolved by wiring the
+cap assertion into the **container healthchecks** during deployment, so a mis-bound cap fails the container
+rather than merely logging. This does not block the WO's DRAFT status but must be closed before the 4 GB
+memory-saturation criterion (§6c) can be relied on under live load.
 
 ---
 
 *Provenance:* `helm:evidence:hermes:candle_shadow_activate_dev:consolidated:v1` (dev baseline 140/140) ·
-`r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1` (M5 independent GREEN; H1 OPEN) ·
+`r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1` (M5 independent GREEN) ·
+`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1` (H1 independent VERIFIED_GREEN) ·
 dev activation evidence `ops/evidence/WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-ACTIVATE-DEV-0001/activation_evidence.md` ·
-prefix prerequisite `helm:build:hermes:candle_prefix_param:v1` (PR #37, READY_ON_MAIN).
-Base SHA `b170335`; prefix prerequisite landed on `main` at `1802b9c`. **DRAFT — NOT AUTHORISED FOR EXECUTION.**
+prefix prerequisite `helm:build:hermes:candle_prefix_param:v1` (PR #37, READY_ON_MAIN) ·
+`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` (canonical-spoof guard GREEN) ·
+`r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1` (cgroup cap tests GREEN).
+Base SHA `b170335`; prefix prerequisite landed on `main` at `1802b9c`, canonical guard at `93fb509`.
+**DRAFT — NOT AUTHORISED FOR EXECUTION.**
