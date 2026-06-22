@@ -17,8 +17,9 @@
 > **This is a DRAFT Work Order for review. It authorises NOTHING.**
 > No deployment, no systemd change, no SSH, no Redis write, no env mutation is performed or implied by
 > the act of writing this document. The configurable shadow-prefix code prerequisite (§5.1) is now
-> **READY_ON_MAIN** (PR #37; R2D2 independent audit of the prefix change is **FORTHCOMING** —
-> `r2d2:audit:hermes:candle_prefix_param_pr37:*`, not yet published; no verdict asserted here). The **H1
+> **READY_ON_MAIN** (PR #37) and **canonical-spoof-protected** — the namespace isolation guard (PR #40,
+> `GOV-CANDLE-PUB-PREFIX-ERR-001`) is R2D2-verified GREEN
+> (`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1`). The **H1
 > independent validation is now VERIFIED_GREEN** (`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`).
 > Execution remains **blocked** until (1) the prefix param is **deployed** to the target runtime, and (2)
 > the Architect grants **explicit, separate** authorisation for writes against
@@ -128,8 +129,12 @@ the entire burn.** This is the master invariant; its breach is an immediate, non
 
 **Resolved.** The previously-flagged design gap (writer hardcoded `hermes:shadow:candles:*`) is closed.
 The configurable prefix shipped via **PR #37** (`WO-HERMES-CANDLE-PREFIX-PARAM`), merged to `main`
-(`1802b9c`). R2D2 independent audit of the prefix change is **FORTHCOMING** — to be recorded at
-`r2d2:audit:hermes:candle_prefix_param_pr37:20260622:v1` (not yet published; **no verdict asserted here**).
+(`1802b9c`). The earlier AMBER **canonical-isolation hole** (R2D2 retro `pr37_candle_shadow_prefix_retro`
+— a prefix of `hermes:candles:` would have leaked shadow writes into canonical truth) is now **CLOSED**:
+PR #40 adds the fail-loud guard `GOV-CANDLE-PUB-PREFIX-ERR-001` (refuses any prefix resolving into
+`hermes:candles:`), **R2D2-verified GREEN** at
+`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` (`GREEN_PR40_CANONICAL_GUARD_VERIFIED`,
+cold-verified, key authored by R2D2).
 
 - **Delivered:** `resolve_shadow_key_prefix()` in `utils/candle_publisher_v1.py` ingests env
   `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` (via `env_config`), defaulting to the legacy
@@ -259,7 +264,8 @@ independently confirmed zero-fault.
 
 | Role | Party | Status |
 |------|-------|--------|
-| Build — configurable prefix §5.1 | **Helm (HERMES)** | **READY_ON_MAIN** — PR #37 merged (`1802b9c`); R2D2 audit **FORTHCOMING** (`r2d2:audit:hermes:candle_prefix_param_pr37:*`, not yet published) |
+| Build — configurable prefix §5.1 | **Helm (HERMES)** | **READY_ON_MAIN + spoof-protected** — PR #37 (`1802b9c`) + canonical guard PR #40; R2D2 GREEN `r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` |
+| Staging cap verification (cgroup tests) | **R2D2-HERMES** | **VERIFIED_GREEN** — `r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1`; advisory-gate constraint carried (see below) |
 | Build — burn-engine wiring + runtime deploy | **Helm (HERMES)** | **PENDING** — not built/deployed; WO is a DRAFT only |
 | Independent validation — M5 leg | **R2D2-HERMES** | dev baseline `GREEN_M5_INDEPENDENTLY_VERIFIED_ZERO_FAULT` (carries into burn acceptance) |
 | Independent validation — **H1 leg** | **R2D2-HERMES** | **VERIFIED_GREEN** — `r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1` (zero-fault, 14/14, max Δ 5.0e-06) |
@@ -267,9 +273,17 @@ independently confirmed zero-fault.
 | Burn execution authorisation | **Architect (Matt)** | **NOT GIVEN** — this document authorises nothing |
 
 **Outstanding before execution (explicit):**
-1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) implemented — **READY_ON_MAIN** (PR #37, `1802b9c`); R2D2 independent audit of it **FORTHCOMING** (`r2d2:audit:hermes:candle_prefix_param_pr37:*`, not yet published). Runtime **deploy** of it — still PENDING.
+1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) implemented + **canonical-spoof-protected** — **READY_ON_MAIN** (PR #37 `1802b9c` + PR #40 guard `GOV-CANDLE-PUB-PREFIX-ERR-001`); R2D2 GREEN `r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1`. Runtime **deploy** of it — still PENDING.
 2. **H1 independent (R2D2) validation** — **CLOSED / VERIFIED_GREEN** (`r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1`).
 3. **Architect authorisation** for the burn AND for production-keyspace writes — **NOT GIVEN** (§5.4, §8).
+
+**Carried operational constraint (PR #36 retro):** the staging resource-cap verification
+(`resource_cap_verify.py`, tests R2D2-GREEN `r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1`) is
+an **advisory** check, **not** a hard runtime boot gate. R2D2's `pr36_staging_resource_cap_verify_retro`
+advisory-gate finding **remains OPEN** as an active operational constraint — to be resolved by wiring the
+cap assertion into the **container healthchecks** during deployment, so a mis-bound cap fails the container
+rather than merely logging. This does not block the WO's DRAFT status but must be closed before the 4 GB
+memory-saturation criterion (§6c) can be relied on under live load.
 
 ---
 
@@ -277,5 +291,8 @@ independently confirmed zero-fault.
 `r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1` (M5 independent GREEN) ·
 `r2d2:audit:hermes:shadow_candle_independent_validation_h1:20260622:v1` (H1 independent VERIFIED_GREEN) ·
 dev activation evidence `ops/evidence/WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-ACTIVATE-DEV-0001/activation_evidence.md` ·
-prefix prerequisite `helm:build:hermes:candle_prefix_param:v1` (PR #37, READY_ON_MAIN).
-Base SHA `b170335`; prefix prerequisite landed on `main` at `1802b9c`. **DRAFT — NOT AUTHORISED FOR EXECUTION.**
+prefix prerequisite `helm:build:hermes:candle_prefix_param:v1` (PR #37, READY_ON_MAIN) ·
+`r2d2:audit:hermes:pr40_canonical_guard_verified:20260622:v1` (canonical-spoof guard GREEN) ·
+`r2d2:audit:hermes:pr41_cgroup_tests_verified:20260622:v1` (cgroup cap tests GREEN).
+Base SHA `b170335`; prefix prerequisite landed on `main` at `1802b9c`, canonical guard at `93fb509`.
+**DRAFT — NOT AUTHORISED FOR EXECUTION.**
