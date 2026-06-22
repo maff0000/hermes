@@ -1,0 +1,74 @@
+# HERMES signal service — container isolation deployment.
+# WO-HELM-HERMES-CONTAINER-ISOLATION-0002.
+#
+# Self-contained, host-decoupled definition for emulating a 4 vCore / 4 GB IONOS M+ VPS:
+#   * resource pinning (cpus / memory limits + reservation + pids cap)
+#   * GELF (Graylog) log shipping
+#   * a dedicated internal bridge network (no host networking, no host bind mounts)
+#   * all config supplied at runtime via .env (image carries NO secrets)
+#
+# DB and Redis are EXTERNAL services reached over the network via .env overrides — this compose does
+# NOT define or mutate the shared proteus DB/Redis lanes. Nothing here is applied automatically.
+
+services:
+  hermes-signal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: hermes-signal:${HERMES_IMAGE_TAG:-local}
+    container_name: hermes-signal
+    restart: unless-stopped
+
+    # Runtime configuration supplied at deploy time — never baked into the image.
+    # required:false keeps the definition portable (validates without a local .env; loads it when present).
+    env_file:
+      - path: .env
+        required: false
+
+    # Signal service HTTP port (host:container). Override SIGNAL_PORT/SIGNAL_BIND_PORT via .env.
+    ports:
+      - "${SIGNAL_BIND_PORT:-8210}:${SIGNAL_PORT:-8210}"
+
+    # ---- Resource pinning: emulate a 4 vCore / 4 GB IONOS M+ VPS ----
+    # Top-level runtime limits honoured by `docker compose up` (non-swarm). Kept distinct from the
+    # swarm-only `deploy.resources` block to avoid compose-spec reconciliation conflicts.
+    cpus: ${HERMES_CPUS:-4}
+    mem_limit: ${HERMES_MEM_LIMIT:-4g}
+    mem_reservation: ${HERMES_MEM_RESERVATION:-1g}
+    pids_limit: ${HERMES_PIDS_LIMIT:-512}
+
+    # ---- GELF / Graylog log shipping ----
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "udp://${GRAYLOG_HOST:-127.0.0.1}:${GRAYLOG_PORT:-12201}"
+        tag: "hermes-signal"
+
+    # ---- Dedicated internal bridge (no host networking) ----
+    networks:
+      - hermes_net
+
+    # Persisted, named (not host-bound) so the image/runtime stays host-decoupled.
+    volumes:
+      - hermes_archive:/data/signal_history
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import os,socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8210'))))==0 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  hermes_net:
+    driver: bridge
+    name: hermes_net
+
+volumes:
+  hermes_archive:
+    name: hermes_archive

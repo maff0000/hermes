@@ -1,0 +1,39 @@
+# Zero-leak build context — WO-HELM-HERMES-CONTAINER-ISOLATION-0002.
+# Keep secrets, VCS, caches, backups, and test/dev cruft OUT of the image.
+
+# Secrets / environment (NEVER baked into the image — provided at runtime via env_file)
+.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Python caches / build artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tests and dev-only material (runtime image does not need them)
+tests/
+mock/
+
+# Operational evidence / backups / local archives (not part of the runtime)
+ops/evidence/
+**/*.pre_*_backup_*
+*.bak
+*.log
+/data/
+signal_history/
+
+# Container/CI meta (not needed inside the image)
+.github/
+docker-compose*.yml
+Dockerfile
+.dockerignore
+README*.md

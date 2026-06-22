@@ -1,0 +1,24 @@
+=== VALIDATION (Docker 29.3.0, Compose 5.1.0) UTC 2026-06-22T09:25:38Z ===
+--- 1) compose config WITHOUT .env (portability/host-decoupling) ---
+PORTABLE_NO_ENV: VALID
+--- 2) compose config WITH rendered .env (full interpolation) ---
+RENDERED: VALID
+--- resolved pins / gelf / network / hardening / image ---
+8:    cpus: 4
+41:      SIGNAL_PORT: "8210"
+48:        - import os,socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8210'))))==0 else 1)
+53:    image: hermes-signal:local
+55:      driver: gelf
+57:        gelf-address: udp://127.0.0.1:12201
+59:    mem_limit: "4294967296"
+60:    mem_reservation: "1073741824"
+63:    pids_limit: 512
+71:      - no-new-privileges:true
+80:    driver: bridge
+--- host-decoupling: any bind mount / host network / host abs path? ---
+NONE -> host-decoupled OK (named volume + bridge only)
+--- 3) Dockerfile build-check (lint, no build) ---
+#5 DONE 0.0s
+Check complete, no warnings found.
+--- 4) .env present in build context? (must be excluded) ---
+.dockerignore present: yes; .env ignored rule: 1
