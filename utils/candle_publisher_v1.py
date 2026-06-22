@@ -238,7 +238,9 @@ class DisabledCandleEmitter:
         self.enabled = False
         self.metrics = CandlePublishMetrics()
 
-    def emit(self, envelope, **_):
+    def emit(self, envelope=None, **_):
+        # Clean no-op for the disabled seam: accepts emit(candle=...) / emit(envelope=...) / emit()
+        # without raising. Writes nothing (no Redis client, no SQL, no shadow/canonical key).
         return {"emitted": False, "reason": "CANDLE_PUBLISH_DISABLED"}
 
     def status(self):

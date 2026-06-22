@@ -1,0 +1,16 @@
+DISABLED EMITTER SIGNATURE FIX (small additive fix on PR #29) — UTC 2026-06-19
+WHAT: utils/candle_publisher_v1.py DisabledCandleEmitter.emit signature changed
+      `def emit(self, envelope, **_)` -> `def emit(self, envelope=None, **_)`.
+WHY:  build_candle_forward_seam_from_env() default path returns cp.DisabledCandleEmitter; main.py:797
+      calls state.candle_forward_emitter.emit(candle=candle). With a required positional `envelope`
+      that raised a caught/debug TypeError (safe but untidy). Now it is a CLEAN no-op: accepts
+      emit(candle=...) / emit(envelope=...) / emit() and returns {emitted:False,reason:CANDLE_PUBLISH_DISABLED}.
+      (Note: the WO guessed the file as candle_runtime_seam_v1.py, but the disabled emitter whose
+      signature the WO specifies — emit(self, envelope=None, **_) — lives in candle_publisher_v1.py;
+      that is the minimal correct fix. The seam module is unchanged.)
+TEST: added tests/test_candle_forward_runtime_seam_v1.py::test_disabled_emitter_accepts_keyword_candle_call_cleanly.
+      Seam suite 7/7; candle foundation+seam 47/47. main.py unchanged (py_compile OK).
+NO MUTATION: no runtime deploy/restart; no .env change; no candle flags enabled; no Redis write; no
+      SQL/DML/migration; no backfill; no shadow/canonical publish; canonical writer still unreachable;
+      shadow activation not enabled; no Falcon/SOLO/NEO/ARES/HELIOS/tradingProteus/structure_engine touch.
+GIT: additive commit on the existing PR #29 branch; NO force-push; NO history rewrite; NO new PR; NO clobber.

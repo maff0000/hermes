@@ -47,6 +47,9 @@ from utils.structure_ingest_boundary import build_publisher as _se_build_publish
 from utils.tick_runtime_shadow_adapter_v1 import (
     build_runtime_shadow_emitter_from_env as _build_shadow_tick_emitter,
 )
+from utils.candle_runtime_seam_v1 import (
+    build_candle_forward_seam_from_env as _build_candle_forward_seam,
+)
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -90,6 +93,9 @@ class ServiceState:
     # Runtime shadow tick emit boundary (disabled by default; SHADOW-only, non-consumer).
     # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001
     shadow_tick_emitter = None
+    # Runtime candle-forward emit seam (INERT; disabled by default; no write).
+    # WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001
+    candle_forward_emitter = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -785,6 +791,12 @@ async def oanda_stream_task():
 
                         if candle_saved:
                             record_candle()
+                            # INERT candle-forward seam (disabled by default -> no-op, writes nothing).
+                            if state.candle_forward_emitter is not None:
+                                try:
+                                    state.candle_forward_emitter.emit(candle=candle)
+                                except Exception as _cfe:
+                                    logger.debug("[CANDLE_FORWARD_INERT] noop emit ignored: %r", _cfe)
                             if candle.timeframe == 'M1' and state.watchdog:
                                 state.watchdog.record_candle_m1(candle.timestamp, instrument=candle.instrument)
                         else:
@@ -1131,6 +1143,23 @@ async def lifespan(app: FastAPI):
         logger.error(
             "[SHADOW_TICK_BOOT_FAIL] HERMES boot aborted on shadow-emit init: %r",
             _shadow_init_exc,
+        )
+        raise
+
+    # WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001 — INERT candle-forward seam.
+    # HERMES_CANDLE_FORWARD_ENABLED unset/false -> DisabledCandleEmitter (default no-op; no write).
+    # Enabled without an explicit no-write sink -> FAIL LOUD (no silent no-op, no Proteus/SQL fallback).
+    try:
+        state.candle_forward_emitter = _build_candle_forward_seam()
+        logger.info(
+            "[CANDLE_FORWARD_BOOT] seam=%s enabled=%s",
+            type(state.candle_forward_emitter).__name__,
+            getattr(state.candle_forward_emitter, "enabled", False),
+        )
+    except Exception as _candle_fwd_init_exc:
+        logger.error(
+            "[CANDLE_FORWARD_BOOT_FAIL] HERMES boot aborted on candle-forward seam init: %r",
+            _candle_fwd_init_exc,
         )
         raise
 
