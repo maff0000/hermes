@@ -30,12 +30,13 @@ GOV-LOG-011: All services streaming to Graylog MUST use GELFHandler.
 
 from .formatters import ConsoleFormatter, JSONFormatter
 from .levels import LogLevel
-from .logger import StructuredLogger, get_logger
+from .logger import StructuredLogger, get_logger, resolve_gelf_target
 from .gelf import GELFHandler, send_gelf, log_to_graylog, get_default_handler
 
 __all__ = [
     "LogLevel",
     "get_logger",
+    "resolve_gelf_target",
     "StructuredLogger",
     "JSONFormatter",
     "ConsoleFormatter",
