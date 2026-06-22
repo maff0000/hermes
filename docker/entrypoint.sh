@@ -6,34 +6,32 @@
 # NEVER boot the application if the effective cgroup v2 caps do not match the configured pins. The cap
 # assertion runs first; only on a clean PASS does control exec into the real command (CMD).
 #
-# Scope: the CONTAINER image only. The bare systemd runtime (which invokes `python main.py` directly,
-# not this script) is unaffected. POSIX sh — no bashisms (slim image ships dash as /bin/sh).
+# The verifier's exit code encodes the GOV class (001->1, 002->2, 003->3), so the case below maps the
+# failure precisely. Scope: CONTAINER image only — the bare systemd runtime (which runs `python main.py`
+# directly, not this script) is unaffected. POSIX sh (slim image ships dash as /bin/sh).
 set -eu
 
-APP_HOME="${APP_HOME:-/app}"
-CAP_VERIFY="${APP_HOME}/ops/staging/resource_cap_verify.py"
-GATE_FAIL_RC=101
+echo "[BOOT-GATE] Initializing infrastructure alignment check..."
 
-echo "[BOOT_GATE] resource-cap verification (HARD gate) — asserting cgroup v2 caps vs configured pins ..." >&2
+# Return-code tracker initialised safely left of the conditional operator (works under `set -e`).
+RC=0
+python3 ops/staging/resource_cap_verify.py || RC=$?
 
-# Cap assertion ONLY (no mock load). Configured caps come from HERMES_CPUS / HERMES_MEM_LIMIT /
-# HERMES_PIDS_LIMIT (env). Non-zero exit => GOV-STAGE-CAP-001 (drift/uncapped) / -002 (unreadable or
-# unparseable cgroup) / -003 (configured cap absent). Capture rc without tripping `set -e`.
-set +e
-gate_output="$(python "${CAP_VERIFY}" 2>&1)"
-gate_rc=$?
-set -e
+if [ "$RC" -ne 0 ]; then
+    echo "=================================================================" >&2
+    echo "[CRITICAL FAULT] CONTAINER INFRASTRUCTURE BREAKOUT OR MISMATCH" >&2
+    echo "Execution aborted by Guard Gate. Diagnostic Signature Below:" >&2
 
-# Surface the verifier's full diagnostics to stderr regardless of outcome.
-printf '%s\n' "${gate_output}" >&2
+    case "$RC" in
+        1) echo "Diagnostic: GOV-STAGE-CAP-001 (Memory Ceiling Breach / CPU Allocation Mismatch)" >&2 ;;
+        2) echo "Diagnostic: GOV-STAGE-CAP-002 (Unparseable or Unreadable Cgroup Core Interface)" >&2 ;;
+        3) echo "Diagnostic: GOV-STAGE-CAP-003 (Missing Compose Specification Parameters)" >&2 ;;
+        *) echo "Diagnostic: GOV-STAGE-CAP-UNKNOWN (Unexpected Verifier Exit Code: $RC)" >&2 ;;
+    esac
 
-if [ "${gate_rc}" -ne 0 ]; then
-    gov_code="$(printf '%s\n' "${gate_output}" | grep -oE 'GOV-STAGE-CAP-00[123]' | head -n1 || true)"
-    [ -n "${gov_code}" ] || gov_code="GOV-STAGE-CAP-UNKNOWN"
-    echo "[BOOT_GATE] ABORT — resource-cap verification FAILED (${gov_code}); refusing to boot the" >&2
-    echo "[BOOT_GATE] application under a cap violation. Exiting RC=${GATE_FAIL_RC}." >&2
-    exit "${GATE_FAIL_RC}"
+    echo "=================================================================" >&2
+    exit 101
 fi
 
-echo "[BOOT_GATE] PASS — effective caps bound to configured pins; launching application." >&2
+echo "[BOOT-GATE] Verification passed cleanly. Handing off to runtime..."
 exec "$@"

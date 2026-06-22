@@ -121,3 +121,33 @@ def test_missing_configured_cap_flags_003(monkeypatch):
         rcv.assert_caps({"cpus": None, "mem_bytes": _GIB4, "pids": 512}); assert False
     except rcv.CapFailure as e:
         assert e.code == rcv.GOV_STAGE_CAP_PARSE
+
+
+# ------------------------------------------------------------------ main() exit-code contract -------
+# WO-HERMES-OPS-BOOT-GATE-ENFORCEMENT: main() exit code ENCODES the GOV class (001->1, 002->2, 003->3)
+# so the boot gate (docker/entrypoint.sh) maps the failure precisely from the return code.
+def _main_exit(monkeypatch, *, mem, cpu, pids, argv):
+    _patch_reads(monkeypatch, mem=mem, cpu=cpu, pids=pids)
+    for v in ("HERMES_CPUS", "HERMES_MEM_LIMIT", "HERMES_PIDS_LIMIT"):
+        monkeypatch.delenv(v, raising=False)
+    return rcv.main(argv)
+
+
+_OK_ARGV = ["--cpus", "4", "--mem", "4g", "--pids", "512", "--compose-file", "/nonexistent-compose.yml"]
+
+
+def test_main_exit0_on_match(monkeypatch):
+    assert _main_exit(monkeypatch, mem=str(_GIB4), cpu="400000 100000", pids="512", argv=_OK_ARGV) == 0
+
+
+def test_main_exit1_on_mismatch(monkeypatch):  # GOV-STAGE-CAP-001
+    assert _main_exit(monkeypatch, mem=str(2 * 1024 ** 3), cpu="400000 100000", pids="512", argv=_OK_ARGV) == 1
+
+
+def test_main_exit2_on_unparseable(monkeypatch):  # GOV-STAGE-CAP-002
+    assert _main_exit(monkeypatch, mem="potato", cpu="400000 100000", pids="512", argv=_OK_ARGV) == 2
+
+
+def test_main_exit3_on_missing_config(monkeypatch):  # GOV-STAGE-CAP-003 (no --pids, compose absent)
+    argv = ["--cpus", "4", "--mem", "4g", "--compose-file", "/nonexistent-compose.yml"]
+    assert _main_exit(monkeypatch, mem=str(_GIB4), cpu="400000 100000", pids="512", argv=argv) == 3

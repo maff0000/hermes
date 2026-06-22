@@ -357,6 +357,7 @@ def main(argv=None):
     print("=" * 70)
 
     overall_pass = True
+    fail_code = None
 
     if not args.skip_assert:
         configured = resolve_configured(args)
@@ -371,6 +372,7 @@ def main(argv=None):
             print(f"[assert]  CAP ASSERTION: FAIL")
             print(f"          {exc.message}", file=sys.stderr)
             overall_pass = False
+            fail_code = exc.code
     else:
         print("[assert]  SKIPPED (--skip-assert) — load-only smoke, NOT valid for sign-off.")
 
@@ -389,8 +391,11 @@ def main(argv=None):
     if overall_pass:
         print("RESULT: PASS")
         return 0
-    print(f"RESULT: FAIL ({GOV_STAGE_CAP_MISMATCH} / see reason code above)")
-    return 1
+    # Exit code ENCODES the GOV class (001->1, 002->2, 003->3) so a wrapping boot gate can map the
+    # failure class straight from the return code — every failure no longer collapses to exit 1.
+    exit_code = {GOV_STAGE_CAP_MISMATCH: 1, GOV_STAGE_CAP_READ: 2, GOV_STAGE_CAP_PARSE: 3}.get(fail_code, 1)
+    print(f"RESULT: FAIL ({fail_code or GOV_STAGE_CAP_MISMATCH}) -> exit {exit_code}")
+    return exit_code
 
 
 if __name__ == "__main__":
