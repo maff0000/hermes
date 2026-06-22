@@ -16,12 +16,13 @@
 >
 > **This is a DRAFT Work Order for review. It authorises NOTHING.**
 > No deployment, no systemd change, no SSH, no Redis write, no env mutation is performed or implied by
-> the act of writing this document. Execution is **blocked** until (1) the configurable shadow-prefix
-> code prerequisite (§5.1) is implemented **and** R2D2-audited, (2) the **H1 independent validation**
-> (still OPEN — §6, §8) is GREEN, and (3) the Architect grants **explicit, separate** authorisation for
-> writes against the **production** Redis keyspace (§8). Canonical `hermes:candles:*` **MUST remain
-> completely DARK** for the entire burn (§4). The shadow keyspace prefix this WO targets
-> (`hermes:shadow:prod:candles:*`) **does not yet exist in the writer** — see §5.1.
+> the act of writing this document. The configurable shadow-prefix code prerequisite (§5.1) is now
+> **READY_ON_MAIN** (PR #37, R2D2 `GREEN_PR37_AUDITED_CLEAN`); execution remains **blocked** until (1) the
+> prefix param is **deployed** to the target runtime, (2) the **H1 independent validation** (still OPEN —
+> §6, §8) is GREEN, and (3) the Architect grants **explicit, separate** authorisation for writes against
+> the **production** Redis keyspace (§8). Canonical `hermes:candles:*` **MUST remain completely DARK** for
+> the entire burn (§4). The shadow keyspace prefix this WO targets (`hermes:shadow:prod:candles:*`) is now
+> **supported by the writer on `main`** (env `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX`) — see §5.1.
 
 ---
 
@@ -38,7 +39,7 @@
 | Target keyspace | `hermes:shadow:prod:candles:{instrument}:{M5|H1}:latest:v1` |
 | Canonical keyspace | `hermes:candles:*` — **DARK / untouched / count must stay 0** |
 | Burn horizon | default **48h**, time-bounded, auto-expiring (§3) |
-| Prerequisites | configurable shadow prefix (NOT done), H1 independent validation (OPEN), explicit prod authorisation (NOT given) |
+| Prerequisites | configurable shadow prefix (**READY_ON_MAIN** — PR #37, on `main` `1802b9c`), H1 independent validation (OPEN), runtime deploy of prefix (PENDING), explicit prod authorisation (NOT given) |
 
 ---
 
@@ -113,28 +114,28 @@ the entire burn.** This is the master invariant; its breach is an immediate, non
 
 ---
 
-## 5. Prerequisites (code + config — NOT yet done)
+## 5. Prerequisites (code + config)
 
-> **None of the following is implemented or authorised by this WO.** They are gating prerequisites the
-> WO records honestly. Execution cannot begin until 5.1 ships + is R2D2-audited, 5.3/H1 validation is
-> GREEN, and 5.4 explicit authorisation is granted.
+> **5.1 is now satisfied on `main`; the remainder are still gating.** Execution cannot begin until 5.1 is
+> **deployed** to the target runtime, the H1 independent validation is GREEN, and 5.4 explicit
+> authorisation is granted.
 
-### 5.1 Configurable shadow-prefix parameter — **REQUIRED CODE PREREQUISITE (NOT IMPLEMENTED)**
+### 5.1 Configurable shadow-prefix parameter — **READY_ON_MAIN** ✅
 
-**Design gap — flagged honestly.** The burn targets the **NEW** shadow keyspace prefix
-`hermes:shadow:prod:candles:*`, but **the current writer emits `hermes:shadow:candles:*`** (no `prod`
-segment — see dev baseline keys `hermes:shadow:candles:{instrument}:{M5|H1}:latest:v1`). The `prod`
-segment **does not exist** in the writer today.
+**Resolved.** The previously-flagged design gap (writer hardcoded `hermes:shadow:candles:*`) is closed.
+The configurable prefix shipped via **PR #37** (`WO-HERMES-CANDLE-PREFIX-PARAM`), merged to `main`
+(`1802b9c`), independently audited by R2D2 (`GREEN_PR37_AUDITED_CLEAN`).
 
-- **Required change:** introduce a **configurable shadow key-prefix parameter** (e.g. an env
-  `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` consumed by the writer when constructing keys), defaulting to
-  the existing `hermes:shadow:candles` for backward compatibility, settable to `hermes:shadow:prod:candles`
-  for this burn.
-- **Status:** **NOT IMPLEMENTED.** This WO does **not** implement it. It must be built under its own WO,
-  then **R2D2-audited** (structural + key-construction + backward-compat) **before** the burn is armed.
-- **Acceptance for the prerequisite:** writer constructs keys solely from the configured prefix; default
-  preserves dev behaviour bit-for-bit; canonical prefix remains unreachable from the shadow seam
-  (`FAULT_WRITE_FORBIDDEN` still holds).
+- **Delivered:** `resolve_shadow_key_prefix()` in `utils/candle_publisher_v1.py` ingests env
+  `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` (via `env_config`), defaulting to the legacy
+  `hermes:shadow:candles:` when unset; trailing-colon normalised to exactly one `:`. Set it to
+  `hermes:shadow:prod:candles` for this burn. `build_shadow_write_plan()` applies it to both key build
+  and the canonical-write guard.
+- **Status:** **READY_ON_MAIN** (code on `main`, **not yet deployed** to the target runtime — deploy is a
+  separate gated step; runtime remains frozen at `ed07173`).
+- **Acceptance (met):** writer constructs keys solely from the configured prefix; unset default preserves
+  dev behaviour byte-for-byte; canonical prefix remains unreachable from the shadow seam
+  (`GOV-CANDLE-PUB-KEY-002` guard verified intact under a custom prefix; `FAULT_WRITE_FORBIDDEN` still holds).
 
 ### 5.2 Env contract for a prod-6379 shadow target (exact names)
 
@@ -148,7 +149,7 @@ segment **does not exist** in the writer today.
 | `HERMES_CANDLE_FORWARD_SHADOW_AUTHORISED` | `true` | **must be true** — hard gate |
 | `HERMES_CANDLE_FORWARD_SHADOW_TREAT_AS_PRODUCTION` | `true` | **set deliberately** — this is a real production target; declare it as such, do not leave the default `false` |
 | `HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW` | `false` (default) | **NOT set** — only required when host is loopback |
-| `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` | `hermes:shadow:prod:candles` | **depends on 5.1** (NOT yet implemented) |
+| `HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX` | `hermes:shadow:prod:candles` | **READY_ON_MAIN** (PR #37); unset → legacy `hermes:shadow:candles:` |
 
 **Loopback guard `GOV-CANDLE-PUB-SHADOW-003`:** rejects a loopback host when `TREAT_AS_PRODUCTION` is set
 without `DEV_SHADOW`. Production Redis on `:6379` is a **real, non-loopback** docker-proxy target, so this
@@ -251,14 +252,15 @@ also close the **still-OPEN H1 independent validation** (§8) as part of accepti
 
 | Role | Party | Status |
 |------|-------|--------|
-| Build (engine, shadow seam, configurable prefix §5.1) | **Helm (HERMES)** | **PENDING** — configurable shadow-prefix parameter NOT yet implemented; this WO is a DRAFT only |
+| Build — configurable prefix §5.1 | **Helm (HERMES)** | **READY_ON_MAIN** — PR #37 merged (`1802b9c`), R2D2 `GREEN_PR37` |
+| Build — burn-engine wiring + runtime deploy | **Helm (HERMES)** | **PENDING** — not built/deployed; WO is a DRAFT only |
 | Independent validation — M5 leg | **R2D2-HERMES** | dev baseline `GREEN_M5_INDEPENDENTLY_VERIFIED_ZERO_FAULT` (carries into burn acceptance) |
 | Independent validation — **H1 leg** | **R2D2-HERMES** | **OPEN** — must be closed GREEN before/within burn acceptance |
 | Production-keyspace write authorisation | **Architect (Matt)** | **NOT GIVEN** — separate explicit authorisation required (§5.4) |
 | Burn execution authorisation | **Architect (Matt)** | **NOT GIVEN** — this document authorises nothing |
 
 **Outstanding before execution (explicit):**
-1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) **implemented and R2D2-audited** — NOT done (§5.1).
+1. Configurable shadow-prefix parameter (`hermes:shadow:prod:candles:*`) implemented and R2D2-audited — **DONE: READY_ON_MAIN** (PR #37, `1802b9c`, `GREEN_PR37`). Runtime **deploy** of it — still PENDING.
 2. **H1 independent (R2D2) validation** — still **OPEN** (§6, baseline §8).
 3. **Architect authorisation** for the burn AND for production-keyspace writes — **NOT GIVEN** (§5.4, §8).
 
@@ -266,5 +268,6 @@ also close the **still-OPEN H1 independent validation** (§8) as part of accepti
 
 *Provenance:* `helm:evidence:hermes:candle_shadow_activate_dev:consolidated:v1` (dev baseline 140/140) ·
 `r2d2:audit:hermes:shadow_candle_independent_validation_m5:20260622:v1` (M5 independent GREEN; H1 OPEN) ·
-dev activation evidence `ops/evidence/WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-ACTIVATE-DEV-0001/activation_evidence.md`.
-Base SHA `b170335`. **DRAFT — NOT AUTHORISED FOR EXECUTION.**
+dev activation evidence `ops/evidence/WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-ACTIVATE-DEV-0001/activation_evidence.md` ·
+prefix prerequisite `helm:build:hermes:candle_prefix_param:v1` (PR #37, READY_ON_MAIN).
+Base SHA `b170335`; prefix prerequisite landed on `main` at `1802b9c`. **DRAFT — NOT AUTHORISED FOR EXECUTION.**
