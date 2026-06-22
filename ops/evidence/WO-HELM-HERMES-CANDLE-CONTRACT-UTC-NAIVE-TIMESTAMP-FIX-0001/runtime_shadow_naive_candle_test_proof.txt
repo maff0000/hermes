@@ -1,0 +1,4 @@
+SEAM NAIVE TESTS: naive M5 + naive H1 runtime candles emit valid shadow payloads (fake redis);
+validate_candle_contract=True; source_count=expected=1; coverage=1.0; DIRECT_FROM_SOURCE/NONE_DIRECT;
+M1/M15/D1/D/H4 still skip UNSUPPORTED_TIMEFRAME (no write); only hermes:shadow:candles:* keys.
+Live-deployed smoke earlier: tz-naive Candle now emits OK (previously TypeError).

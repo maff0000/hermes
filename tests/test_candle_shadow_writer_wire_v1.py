@@ -231,8 +231,8 @@ def test_no_cross_app_or_legacy_imports():
             imp.update(a.name.split(".")[0] for a in n.names)
         elif isinstance(n, ast.ImportFrom) and n.module:
             imp.add(n.module.split(".")[0])
-    # stdlib datetime + HERMES utils (top-level); env_config + redis are LAZY (inside functions only)
-    assert imp <= {"datetime", "utils", "env_config", "redis"}
+    # stdlib datetime/logging + HERMES utils (top-level); env_config + redis are LAZY (inside functions)
+    assert imp <= {"datetime", "logging", "utils", "env_config", "redis"}
     assert not (imp & {"tradingProteus", "falcon", "ares", "helios", "structure_engine", "solo", "neo"})
     # redis must be imported lazily, not at module top-level (no real client at import)
     top = ast.parse(open(SEAM_MODULE).read()).body

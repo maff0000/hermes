@@ -1,0 +1,3 @@
+CONTRACT NAIVE TESTS (test_candle_utc_naive_fix_v1): naive ts + aware gen no-raise+validates;
+aware-only works; naive gen normalised; both-naive works; output UTC Z; FRESH/STALE with naive;
+FORMING-never-OK with naive; OHLC sanity still enforced; normalise_utc naive=assume-UTC + aware=convert.

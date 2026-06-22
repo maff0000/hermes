@@ -1,0 +1,2 @@
+REMAINING GATES: R2D2 PR audit -> merge -> deploy/restart -> re-run shadow activation -> R2D2 activation
+audit -> canonical publish -> Falcon consumer -> H4 derivation -> D anchor -> backfill -> candle truth restored.

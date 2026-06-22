@@ -1,0 +1,3 @@
+base origin/main = eda0e1acd6dce2ce752b6cc436f6aaaa77e715fd
+branch = wo/WO-HELM-HERMES-CANDLE-CONTRACT-UTC-NAIVE-TIMESTAMP-FIX-0001
+head = eda0e1acd6dce2ce752b6cc436f6aaaa77e715fd
