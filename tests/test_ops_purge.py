@@ -51,8 +51,8 @@ def test_gate_proceed_only_with_exact_true():
 
 # ----------------------------------------------------------------- config / injection --------------
 def test_parse_table_specs_valid():
-    assert purge.parse_table_specs("ticks:received_at, candles_M1:timestamp") == [
-        ("ticks", "received_at"), ("candles_M1", "timestamp")]
+    assert purge.parse_table_specs("ticks:received_at, candles_M5:timestamp, candles_H1:timestamp") == [
+        ("ticks", "received_at"), ("candles_M5", "timestamp"), ("candles_H1", "timestamp")]
 
 
 def test_parse_table_specs_rejects_injection():
@@ -62,6 +62,22 @@ def test_parse_table_specs_rejects_injection():
             assert False, f"expected reject: {bad!r}"
         except ValueError as e:
             assert purge.GOV_PURGE_CONFIG in str(e)
+
+
+def test_parse_table_specs_rejects_non_allowlisted_table():
+    # well-formed identifiers that are NOT in the hardcoded allowlist must be refused (GOV-PURGE-004),
+    # so a config typo or a critical downstream state table can never be wiped.
+    for bad in ("candles_M1:timestamp", "candles_D1:timestamp", "users:created_at",
+                "signals:ts", "ticks:received_at,positions:ts"):
+        try:
+            purge.parse_table_specs(bad)
+            assert False, f"expected allowlist reject: {bad!r}"
+        except ValueError as e:
+            assert purge.GOV_PURGE_TABLE_DENY in str(e)
+
+
+def test_allowlist_is_exactly_the_canonical_three():
+    assert purge.ALLOWED_PURGE_TABLES == frozenset({"ticks", "candles_M5", "candles_H1"})
 
 
 def test_load_config_requires_retention_and_tables():
@@ -88,6 +104,19 @@ def test_load_config_defaults_and_bounds():
         assert purge.GOV_PURGE_CONFIG in str(e)
 
 
+def test_sleep_floor_rejects_zero_and_allows_one():
+    # FIX-1: PURGE_BATCH_SLEEP_MS floor is 1 — a non-zero micro-sleep is structurally forced.
+    try:
+        purge.load_config({"PURGE_RETENTION_DAYS": "30", "PURGE_TABLES": "ticks:ts",
+                           "PURGE_BATCH_SLEEP_MS": "0"})
+        assert False, "sleep=0 must fail-loud"
+    except ValueError as e:
+        assert purge.GOV_PURGE_CONFIG in str(e)
+    cfg = purge.load_config({"PURGE_RETENTION_DAYS": "30", "PURGE_TABLES": "ticks:ts",
+                             "PURGE_BATCH_SLEEP_MS": "1"})
+    assert cfg["batch_sleep_ms"] == 1
+
+
 # ----------------------------------------------------------------- UTC cutoff ----------------------
 def test_compute_cutoff_utc():
     now = datetime(2026, 6, 22, 12, 0, 0, tzinfo=timezone.utc)
@@ -109,13 +138,28 @@ class _FakeExec:
         self.remaining = rows
         self.batch = batch
         self.calls = 0
+        self.last_sql = None
 
     def __call__(self, sql, params):
         self.calls += 1
+        self.last_sql = sql
         assert "ORDER BY" in sql and "LIMIT" in sql  # bounded, ordered (oldest first)
         n = min(self.batch, self.remaining)
         self.remaining -= n
         return n
+
+
+def test_delete_sql_is_single_source_no_drift():
+    # FIX-3: the SQL the pure purge path executes is byte-identical to the shared generator that the
+    # live _real_purge_table() also uses — so tests and the destructive path can never drift.
+    ex = _FakeExec(rows=3, batch=10)
+    purge.purge_table(ex, "ticks", "received_at", "c", 10, sleep_fn=lambda: None,
+                      max_batches=0, emit_fn=lambda *a, **k: None)
+    assert ex.last_sql == purge.build_delete_sql("ticks", "received_at")
+    # and the live path's source string is the same generator (string equality of the contract)
+    import inspect
+    src = inspect.getsource(purge._real_purge_table)
+    assert "build_delete_sql(table, ts_col)" in src
 
 
 def test_purge_table_chunks_and_sleeps_between_only():
@@ -151,10 +195,10 @@ def test_purge_table_respects_max_batches_cap():
 def test_purge_table_emits_progress_fields():
     ex = _FakeExec(rows=10, batch=10)
     emits = []
-    purge.purge_table(ex, "candles_M1", "timestamp", "2026-05-23 00:00:00", 10,
+    purge.purge_table(ex, "candles_M5", "timestamp", "2026-05-23 00:00:00", 10,
                       sleep_fn=lambda: None, max_batches=0, emit_fn=lambda ev, **f: emits.append(f))
     f = emits[0]
-    assert f["table"] == "candles_M1" and f["rows"] == 10 and f["cumulative"] == 10
+    assert f["table"] == "candles_M5" and f["rows"] == 10 and f["cumulative"] == 10
     assert f["cutoff_utc"] == "2026-05-23 00:00:00"
 
 

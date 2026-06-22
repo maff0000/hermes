@@ -38,6 +38,12 @@ if _REPO_ROOT not in sys.path:
 GOV_PURGE_DISABLED = "GOV-PURGE-001"       # prod but explicit enable toggle missing
 GOV_PURGE_CONFIG = "GOV-PURGE-002"         # required config missing / invalid
 GOV_PURGE_DB = "GOV-PURGE-003"             # DB connection / execution failure
+GOV_PURGE_TABLE_DENY = "GOV-PURGE-004"     # target table outside the hardcoded allowlist
+
+# Hardcoded destination allowlist — the engine may ONLY purge these canonical HERMES data tables. A
+# config typo naming a critical downstream state table is rejected before any connection is opened.
+# Deliberately narrow; extend ONLY with explicit owner sign-off (a wider blast radius needs authorisation).
+ALLOWED_PURGE_TABLES = frozenset({"ticks", "candles_M5", "candles_H1"})
 
 # Gate decisions
 BYPASS = "BYPASS"     # non-production -> clean no-op exit 0
@@ -45,6 +51,12 @@ BLOCKED = "BLOCKED"   # production but not explicitly enabled -> fail-loud exit 
 PROCEED = "PROCEED"   # production + explicitly enabled -> run
 
 _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")  # SQL identifier allowlist (no injection from env)
+
+
+def build_delete_sql(table, ts_col):
+    """Single source of truth for the chunked-delete SQL. Used by BOTH the pure purge_table() and the
+    live _real_purge_table() so the tested string and the destructive string can never drift apart."""
+    return f"DELETE FROM `{table}` WHERE `{ts_col}` < %s ORDER BY `{ts_col}` ASC LIMIT %s"
 
 
 # ----------------------------------------------------------------------------- pure helpers --------
@@ -86,6 +98,10 @@ def parse_table_specs(spec: str):
         table, ts_col = (p.strip() for p in item.split(":", 1))
         if not _IDENT_RE.match(table) or not _IDENT_RE.match(ts_col):
             raise ValueError(f"{GOV_PURGE_CONFIG}: illegal identifier in {item!r} — refusing (fail-loud).")
+        if table not in ALLOWED_PURGE_TABLES:
+            raise ValueError(f"{GOV_PURGE_TABLE_DENY}: table {table!r} is not in the purge allowlist "
+                             f"{sorted(ALLOWED_PURGE_TABLES)} — refusing (fail-loud). A typo or a critical "
+                             "downstream state table will NEVER be purged.")
         out.append((table, ts_col))
     if not out:
         raise ValueError(f"{GOV_PURGE_CONFIG}: PURGE_TABLES parsed to empty — nothing to purge.")
@@ -127,7 +143,9 @@ def load_config(environ):
         "retention_days": _req_int("PURGE_RETENTION_DAYS", 1),
         "tables": parse_table_specs(environ.get("PURGE_TABLES", "")),
         "batch_size": _opt_int("PURGE_BATCH_SIZE", 5000, 1),
-        "batch_sleep_ms": _opt_int("PURGE_BATCH_SLEEP_MS", 200, 0),
+        # Sleep FLOOR is 1ms (not 0): a non-zero micro-sleep structurally forces a context-switch/yield
+        # between chunks so the hot-path market-data writers are never lock-starved. 0 -> fail-loud.
+        "batch_sleep_ms": _opt_int("PURGE_BATCH_SLEEP_MS", 200, 1),
         # Safety backstop against a runaway loop; 0 = unlimited (still chunked + sleeping).
         "max_batches_per_table": _opt_int("PURGE_MAX_BATCHES_PER_TABLE", 100000, 0),
     }
@@ -141,7 +159,7 @@ def purge_table(execute_fn, table, ts_col, cutoff_utc, batch_size, sleep_fn, max
     a micro-sleep between batches so concurrent hot-path writers are never lock-starved. The sleep runs
     ONLY between batches (never after the final batch), so a single drained batch sleeps zero times.
     """
-    sql = f"DELETE FROM `{table}` WHERE `{ts_col}` < %s ORDER BY `{ts_col}` ASC LIMIT %s"
+    sql = build_delete_sql(table, ts_col)  # shared generator — no drift vs tests
     total = 0
     batches = 0
     capped = False
@@ -188,7 +206,7 @@ def _emit(logger):
 def _real_purge_table(cursor, conn, table, ts_col, cutoff_utc, cfg, emit):
     """Bridge the pure purge_table() to a live pymysql cursor/connection with real per-batch commit
     and the configured micro-sleep between chunks."""
-    sql = f"DELETE FROM `{table}` WHERE `{ts_col}` < %s ORDER BY `{ts_col}` ASC LIMIT %s"
+    sql = build_delete_sql(table, ts_col)  # shared generator — no drift vs tests
     sleep_s = cfg["batch_sleep_ms"] / 1000.0
     total = batches = 0
     capped = False

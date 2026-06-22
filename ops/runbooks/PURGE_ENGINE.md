@@ -22,9 +22,9 @@ must set `RUN_ENV=PRODUCTION` explicitly; otherwise the engine safely bypasses.
 | Var | Req | Default | Meaning |
 |-----|-----|---------|---------|
 | `PURGE_RETENTION_DAYS` | yes | — | rows strictly older than `now_utc - N days` are eligible |
-| `PURGE_TABLES` | yes | — | `table:timestamp_column` comma list; identifiers allowlist-validated |
+| `PURGE_TABLES` | yes | — | `table:timestamp_column` list; **hardcoded allowlist** `{ticks, candles_M5, candles_H1}` (else `GOV-PURGE-004`) |
 | `PURGE_BATCH_SIZE` | no | 5000 | rows per chunk (`LIMIT`) |
-| `PURGE_BATCH_SLEEP_MS` | no | 200 | micro-sleep between chunks (lock yield) |
+| `PURGE_BATCH_SLEEP_MS` | no | 200 | micro-sleep between chunks (lock yield); **floor=1**, `0` -> fail-loud |
 | `PURGE_MAX_BATCHES_PER_TABLE` | no | 100000 | runaway backstop per table (0 = unlimited) |
 
 ## Mechanics
@@ -35,7 +35,7 @@ must set `RUN_ENV=PRODUCTION` explicitly; otherwise the engine safely bypasses.
   (+ `PURGE_BATCH_CAP` if a table hits the backstop).
 
 ## Reason codes
-`GOV-PURGE-001` enable-toggle missing · `GOV-PURGE-002` config missing/invalid · `GOV-PURGE-003` DB error.
+`GOV-PURGE-001` enable-toggle missing · `GOV-PURGE-002` config missing/invalid · `GOV-PURGE-003` DB error · `GOV-PURGE-004` target table outside the hardcoded allowlist.
 
 ## Doctrine
 Deletes outside PLUTUS are guarded. This engine is the mechanism; executing it against production is a
