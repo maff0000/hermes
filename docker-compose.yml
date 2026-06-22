@@ -66,9 +66,15 @@ services:
         required: false
 
     # Reach the BUNDLED internal DB by service DNS (overrides any host-oriented DB_HOST in .env).
+    # HERMES_CPUS/MEM_LIMIT/PIDS_LIMIT are also surfaced into the container env so the boot gate
+    # (docker/entrypoint.sh -> resource_cap_verify.py) can read the configured pins to assert against
+    # the effective cgroup caps. Must mirror the resource-pin values below.
     environment:
       DB_HOST: hermes-mariadb
       DB_PORT: "3306"
+      HERMES_CPUS: ${HERMES_CPUS:-4}
+      HERMES_MEM_LIMIT: ${HERMES_MEM_LIMIT:-4g}
+      HERMES_PIDS_LIMIT: ${HERMES_PIDS_LIMIT:-512}
 
     # Signal service HTTP port (host:container). Override SIGNAL_PORT/SIGNAL_BIND_PORT via .env.
     ports:
