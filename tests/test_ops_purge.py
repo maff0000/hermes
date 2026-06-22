@@ -67,8 +67,8 @@ def test_parse_table_specs_rejects_injection():
 def test_parse_table_specs_rejects_non_allowlisted_table():
     # well-formed identifiers that are NOT in the hardcoded allowlist must be refused (GOV-PURGE-004),
     # so a config typo or a critical downstream state table can never be wiped.
-    for bad in ("candles_M1:timestamp", "candles_D1:timestamp", "users:created_at",
-                "signals:ts", "ticks:received_at,positions:ts"):
+    for bad in ("users:created_at", "signals:ts", "positions:ts",
+                "candles_H4:timestamp", "ticks:received_at,orders:ts"):
         try:
             purge.parse_table_specs(bad)
             assert False, f"expected allowlist reject: {bad!r}"
@@ -76,8 +76,14 @@ def test_parse_table_specs_rejects_non_allowlisted_table():
             assert purge.GOV_PURGE_TABLE_DENY in str(e)
 
 
-def test_allowlist_is_exactly_the_canonical_three():
-    assert purge.ALLOWED_PURGE_TABLES == frozenset({"ticks", "candles_M5", "candles_H1"})
+def test_allowlist_is_exactly_the_structural_candle_suite():
+    assert purge.ALLOWED_PURGE_TABLES == frozenset(
+        {"ticks", "candles_M1", "candles_M5", "candles_M15", "candles_H1", "candles_D1"})
+
+
+def test_full_candle_suite_accepted():
+    specs = "candles_M1:timestamp,candles_M5:timestamp,candles_M15:timestamp,candles_H1:timestamp,candles_D1:timestamp,ticks:received_at"
+    assert len(purge.parse_table_specs(specs)) == 6
 
 
 def test_load_config_requires_retention_and_tables():

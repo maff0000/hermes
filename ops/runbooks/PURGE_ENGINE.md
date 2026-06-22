@@ -22,7 +22,7 @@ must set `RUN_ENV=PRODUCTION` explicitly; otherwise the engine safely bypasses.
 | Var | Req | Default | Meaning |
 |-----|-----|---------|---------|
 | `PURGE_RETENTION_DAYS` | yes | — | rows strictly older than `now_utc - N days` are eligible |
-| `PURGE_TABLES` | yes | — | `table:timestamp_column` list; **hardcoded allowlist** `{ticks, candles_M5, candles_H1}` (else `GOV-PURGE-004`) |
+| `PURGE_TABLES` | yes | — | `table:timestamp_column` list; **hardcoded allowlist** `{ticks, candles_M1, candles_M5, candles_M15, candles_H1, candles_D1}` (else `GOV-PURGE-004`) |
 | `PURGE_BATCH_SIZE` | no | 5000 | rows per chunk (`LIMIT`) |
 | `PURGE_BATCH_SLEEP_MS` | no | 200 | micro-sleep between chunks (lock yield); **floor=1**, `0` -> fail-loud |
 | `PURGE_MAX_BATCHES_PER_TABLE` | no | 100000 | runaway backstop per table (0 = unlimited) |

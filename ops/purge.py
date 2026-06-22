@@ -43,7 +43,7 @@ GOV_PURGE_TABLE_DENY = "GOV-PURGE-004"     # target table outside the hardcoded 
 # Hardcoded destination allowlist — the engine may ONLY purge these canonical HERMES data tables. A
 # config typo naming a critical downstream state table is rejected before any connection is opened.
 # Deliberately narrow; extend ONLY with explicit owner sign-off (a wider blast radius needs authorisation).
-ALLOWED_PURGE_TABLES = frozenset({"ticks", "candles_M5", "candles_H1"})
+ALLOWED_PURGE_TABLES = frozenset({"ticks", "candles_M1", "candles_M5", "candles_M15", "candles_H1", "candles_D1"})
 
 # Gate decisions
 BYPASS = "BYPASS"     # non-production -> clean no-op exit 0
