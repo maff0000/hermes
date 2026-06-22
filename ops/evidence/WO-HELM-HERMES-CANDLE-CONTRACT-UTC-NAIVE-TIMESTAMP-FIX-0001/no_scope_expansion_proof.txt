@@ -1,0 +1,3 @@
+NO SCOPE EXPANSION: SUPPORTED_TF still ("M5","H1"); M1/M15/D1/D/H4 still skip; no H4 derivation; no D
+anchor; canonical gates unchanged (assert_canonical_allowed PUBLISH_DISABLED); no new timeframes; no
+contract field changes beyond timezone normalisation.

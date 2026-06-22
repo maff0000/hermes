@@ -1,0 +1,3 @@
+NO CROSS-APP IMPORTS: candle_contract_v1 {__future__,datetime}; candle_runtime_seam_v1 top-level
+{logging,datetime,utils} + lazy {env_config,redis}; no tradingProteus/falcon/ares/helios/structure_engine/
+solo/neo; no signals:candle output (ast tripwire tests).

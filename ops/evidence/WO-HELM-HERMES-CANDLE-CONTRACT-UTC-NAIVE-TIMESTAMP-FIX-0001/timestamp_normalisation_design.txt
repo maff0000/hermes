@@ -1,0 +1,5 @@
+FIX: added normalise_utc(dt) to candle_contract_v1: naive -> assume UTC (replace tzinfo=utc; NEVER
+localise to system/NY/London); aware -> astimezone(UTC). build_candle_contract now normalises BOTH
+timestamp_utc and generated_at_utc at the top, before any arithmetic. _fmt also routes through it.
+Behaviour preserved for already-aware timestamps; freshness/stale/forming/coverage/OHLC/scope unchanged.
+Validation NOT loosened — only the timezone bug fixed.

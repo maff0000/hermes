@@ -1,0 +1,5 @@
+ROOT CAUSE: utils/candle_contract_v1.build_candle_contract computed age = (generated_at_utc[aware] -
+close_time[naive]) where close_time = timestamp_utc + ttl. The runtime aggregator (models.candle.Candle)
+emits tz-NAIVE timestamps -> naive-vs-aware subtraction -> TypeError -> ShadowCandleForwardSeam.emit
+caught it and returned a CANDLE_VALIDATE_FAIL dict (NOT raised) -> main.py logged nothing -> silent
+failure -> zero hermes:shadow:candles:* runtime keys (AMBER_SHADOW_ACTIVATED_PAYLOAD_GAP).

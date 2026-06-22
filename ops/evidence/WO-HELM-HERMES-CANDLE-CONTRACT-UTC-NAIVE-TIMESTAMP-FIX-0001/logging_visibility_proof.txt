@@ -1,0 +1,5 @@
+FAILURE VISIBILITY: ShadowCandleForwardSeam now logs (rate-limited WARNING via stdlib logger
+"hermes.candle_forward") on CANDLE_VALIDATE_FAIL and CANDLE_EMIT_FAIL with instrument/timeframe/count/
+error (no secrets, error truncated). 1st occurrence per reason logs, then every 50th (suppressed count
+in counter). Tests: test_validate_fail_is_logged, test_emit_fail_is_logged, test_fail_log_rate_limited
+(5 fails -> 1 log line, counter=5). Failure path writes NO redis. Counters preserved.

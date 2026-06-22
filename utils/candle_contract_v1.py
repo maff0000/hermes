@@ -80,11 +80,17 @@ def _assert_inst_tf(instrument, tf):
     _assert_tf(tf)
 
 
+def normalise_utc(dt):
+    """Normalise a datetime to timezone-aware UTC. A NAIVE datetime is ASSUMED to be UTC (the runtime
+    aggregator emits naive UTC candle timestamps) — never localised to the system/NY/London timezone.
+    An aware datetime is converted to UTC. This makes all contract arithmetic aware-UTC only."""
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _fmt(dt):
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    dt = dt.astimezone(timezone.utc)
-    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
+    return normalise_utc(dt).strftime("%Y-%m-%dT%H:%M:%S.") + f"{normalise_utc(dt).microsecond // 1000:03d}Z"
 
 
 def aggregate_ohlc(source_candles):
@@ -112,6 +118,10 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
         raise ValueError(f"GOV-CANDLE-CONTRACT-004: derivation must be one of {DERIVATIONS}")
     if derivation_policy not in DERIVATION_POLICIES:
         raise ValueError(f"GOV-CANDLE-CONTRACT-005: derivation_policy must be one of {DERIVATION_POLICIES}")
+    # Normalise BOTH timestamps to aware-UTC before any arithmetic. Runtime candles arrive tz-naive
+    # (assumed UTC); mixing naive/aware previously raised TypeError -> silent CANDLE_VALIDATE_FAIL.
+    timestamp_utc = normalise_utc(timestamp_utc)
+    generated_at_utc = normalise_utc(generated_at_utc)
     ttl = TF_SECONDS[timeframe]
     valid_until = generated_at_utc + timedelta(seconds=ttl)
     close_time = timestamp_utc + timedelta(seconds=ttl)

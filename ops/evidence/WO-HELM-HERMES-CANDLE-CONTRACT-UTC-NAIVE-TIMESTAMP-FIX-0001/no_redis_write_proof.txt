@@ -1,0 +1,2 @@
+NO LIVE REDIS WRITE: code+tests only; tests use in-memory fake/StrictFakeRedis. No real client built.
+No runtime activation, no .env change, no shadow enable. dev6380 hermes:shadow:candles:* remains 0.

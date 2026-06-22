@@ -22,10 +22,16 @@ no legacy candle pubsub output, no shared-code import. ALL timestamps UTC.
 
 This module wires the writer path; it does NOT enable it (no live .env flags set here).
 """
+import logging
 from datetime import datetime, timezone
 
 from utils import candle_publisher_v1 as cp
 from utils import candle_contract_v1 as cc
+
+# Failure visibility: emit faults were previously swallowed into in-process counters only. Log them
+# (rate-limited) so a future silent failure is observable in the journal (stdlib WARNING -> stderr).
+_LOG = logging.getLogger("hermes.candle_forward")
+_FAIL_LOG_EVERY = 50   # log 1st occurrence per reason, then every Nth, with suppressed count
 
 FAULT_NO_SINK = "GOV-CANDLE-FWD-SEAM-001"          # enabled without explicit sink mode
 FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # canonical/live/prod (or unknown) sink requested
@@ -100,9 +106,18 @@ class ShadowCandleForwardSeam:
         self.write_mode = cp.WRITE_MODE_SHADOW
         self.metrics = {"candles_shadow_published": {}, "candles_skipped_unsupported_tf": {},
                         "candle_validate_fail": 0, "candle_emit_fail": 0}
+        self._fail_log_counts = {}
 
     def _bump(self, bucket, tf):
         self.metrics[bucket][tf] = self.metrics[bucket].get(tf, 0) + 1
+
+    def _log_fail(self, reason, instrument, timeframe, error):
+        # Rate-limited WARNING (1st per reason, then every Nth) so silent failures become visible.
+        n = self._fail_log_counts.get(reason, 0) + 1
+        self._fail_log_counts[reason] = n
+        if n == 1 or n % _FAIL_LOG_EVERY == 0:
+            _LOG.warning("[%s] instrument=%s timeframe=%s count=%d error=%s",
+                         reason, instrument, timeframe, n, error)
 
     def emit(self, candle=None, *, generated_at_utc=None, **_):
         if candle is None:
@@ -115,14 +130,18 @@ class ShadowCandleForwardSeam:
         try:
             envelope = runtime_candle_to_contract(candle, generated_at_utc=now)
             cc.validate_candle_contract(envelope)
-        except Exception as exc:  # noqa: BLE001 - bounded; surfaced, not swallowed
+        except Exception as exc:  # noqa: BLE001 - bounded; surfaced (counter + rate-limited log), not swallowed
             self.metrics["candle_validate_fail"] += 1
+            self._log_fail("CANDLE_VALIDATE_FAIL", getattr(candle, "instrument", None), tf,
+                           f"{type(exc).__name__}: {str(exc)[:160]}")
             return {"emitted": False, "wrote": False, "reason": "CANDLE_VALIDATE_FAIL",
                     "error": repr(exc), "timeframe": tf}
         try:
             res = self.writer.publish(envelope)   # JSON-serialised; shadow key only; assert_shadow_key
         except Exception as exc:  # noqa: BLE001
             self.metrics["candle_emit_fail"] += 1
+            self._log_fail("CANDLE_EMIT_FAIL", getattr(candle, "instrument", None), tf,
+                           f"{type(exc).__name__}: {str(exc)[:160]}")
             return {"emitted": False, "wrote": False, "reason": "CANDLE_EMIT_FAIL",
                     "error": repr(exc), "timeframe": tf}
         self._bump("candles_shadow_published", tf)
