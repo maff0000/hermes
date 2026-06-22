@@ -20,9 +20,31 @@ WRITE_MODE_SHADOW = "SHADOW_NO_LIVE"
 WRITE_MODE_CANONICAL = "CANONICAL_LIVE"          # named only to be gated/rejected here
 OPERATION_SET = "SET"
 NAMESPACE = "hermes"
-SHADOW_PREFIX = "hermes:shadow:candles:"
+SHADOW_PREFIX = "hermes:shadow:candles:"          # legacy hardcoded default (fallback)
 CANONICAL_PREFIX = "hermes:candles:"
 _NON_PROD_HOSTS = ("localhost", "127.0.0.1", "::1", "")
+SHADOW_KEY_PREFIX_ENV = "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX"
+
+
+def resolve_shadow_key_prefix(environ=None):
+    """Resolve the shadow keyspace prefix, ingesting HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX from the
+    environment. Falls back GRACEFULLY to the legacy hardcoded default `hermes:shadow:candles:` when the
+    variable is unset/blank — so existing runtimes are byte-for-byte unchanged.
+
+    Trailing-colon safety: the returned prefix always ends with EXACTLY one ':' regardless of whether the
+    configured value supplied zero, one, or many trailing colons (and surrounding whitespace is trimmed),
+    so string interpolation `prefix + remainder` can never produce `::` or a missing separator. A value
+    that is only colons/whitespace degrades to the legacy default rather than a degenerate ':' prefix.
+    """
+    if environ is None:
+        from env_config import get_env  # lazy: env_config is the codebase's environment configuration
+        raw = (get_env(SHADOW_KEY_PREFIX_ENV, default="") or "").strip()
+    else:
+        raw = (environ.get(SHADOW_KEY_PREFIX_ENV) or "").strip()
+    core = raw.rstrip(":")
+    if not core:                      # unset, blank, or colons-only -> legacy default
+        return SHADOW_PREFIX
+    return core + ":"
 
 
 # --------------------------------------------------------------------------- config / fail-loud
@@ -79,18 +101,23 @@ class CandlePublisherConfig:
 
 
 # --------------------------------------------------------------------------- shadow key transform
-def to_shadow_key(canonical):
-    """hermes:candles:... -> hermes:shadow:candles:..."""
+def to_shadow_key(canonical, prefix=None):
+    """hermes:candles:... -> <shadow_prefix>... . `prefix` defaults to the env-resolved shadow prefix
+    (legacy `hermes:shadow:candles:` when unset), so behaviour is unchanged unless configured."""
     if not isinstance(canonical, str) or not canonical.startswith(CANONICAL_PREFIX):
         raise ValueError(f"GOV-CANDLE-PUB-KEY-001: cannot shadow non-canonical key {canonical!r}")
-    return SHADOW_PREFIX + canonical[len(CANONICAL_PREFIX):]
+    prefix = prefix or resolve_shadow_key_prefix()
+    return prefix + canonical[len(CANONICAL_PREFIX):]
 
 
-def assert_shadow_key(key):
-    if key.startswith(CANONICAL_PREFIX) and not key.startswith(SHADOW_PREFIX):
+def assert_shadow_key(key, prefix=None):
+    """Guard: a shadow-mode write may only target the (configurable) shadow prefix, never canonical.
+    `prefix` defaults to the env-resolved shadow prefix (legacy default when unset)."""
+    prefix = prefix or resolve_shadow_key_prefix()
+    if key.startswith(CANONICAL_PREFIX) and not key.startswith(prefix):
         raise ValueError(f"GOV-CANDLE-PUB-KEY-002: refusing to write canonical key {key!r} in shadow mode")
-    if not key.startswith(SHADOW_PREFIX):
-        raise ValueError(f"GOV-CANDLE-PUB-KEY-003: shadow mode writes only {SHADOW_PREFIX}* (got {key!r})")
+    if not key.startswith(prefix):
+        raise ValueError(f"GOV-CANDLE-PUB-KEY-003: shadow mode writes only {prefix}* (got {key!r})")
     return True
 
 
@@ -109,8 +136,9 @@ def build_inert_write_plan(envelope):
 def build_shadow_write_plan(envelope):
     """Validated SHADOW write plan (re-keyed to the shadow namespace)."""
     cc.validate_candle_contract(envelope)
-    skey = to_shadow_key(envelope["key"])
-    assert_shadow_key(skey)
+    prefix = resolve_shadow_key_prefix()          # resolve once, apply consistently to build + guard
+    skey = to_shadow_key(envelope["key"], prefix=prefix)
+    assert_shadow_key(skey, prefix=prefix)
     return {"operation": OPERATION_SET, "key": skey, "value": envelope,
             "ex_seconds": _ex_for(envelope), "write_mode": WRITE_MODE_SHADOW}
 
