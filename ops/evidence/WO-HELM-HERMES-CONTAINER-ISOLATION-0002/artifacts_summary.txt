@@ -1,0 +1,13 @@
+WO-HELM-HERMES-CONTAINER-ISOLATION-0002 — artifacts (UTC 2026-06-22T09:26:12Z)
+base origin/main=eda0e1acd6dce2ce752b6cc436f6aaaa77e715fd (PR #31 still OPEN — independent candle fix; branched off current green main)
+branch=feature/wo-hermes-container-isolation-0002
+
+ARTIFACTS (repo root, new):
+  Dockerfile        — two-stage (builder wheels -> slim runtime); non-root uid 10001; NO build tools/secrets in final image; UTC; healthcheck on SIGNAL_PORT; ENTRYPOINT python main.py
+  docker-compose.yml— service hermes-signal; build .; env_file .env (required:false, portable); GELF logging udp://GRAYLOG_HOST:PORT; resource pins cpus=4/mem=4g/mem_reservation=1g/pids=512 (IONOS M+ 4vCore/4GB); dedicated bridge hermes_net; named volume hermes_archive (NO host binds); no-new-privileges; DB/Redis EXTERNAL via env (shared proteus lanes NOT defined/mutated)
+  .dockerignore     — zero-leak build context: excludes .env/.env.* (keeps .env.example), .git, __pycache__, tests/, mock/, ops/evidence/, *.pre_*_backup_*, logs, /data
+  .env.example      — EXTENDED (existing keys preserved): added container-deployment section (HERMES_IMAGE_TAG/SIGNAL_BIND_PORT/HERMES_CPUS/MEM_LIMIT/MEM_RESERVATION/PIDS_LIMIT); redacted pre-existing REDIS_PASSWORD real-looking value -> placeholder (zero-leak hygiene)
+
+VALIDATION: docker compose config VALID (portable + rendered); host-decoupled (no binds/host-net/host-paths); Dockerfile build-check clean; .env excluded from context. See validation.txt.
+
+ZERO RUNTIME MUTATION: trinity worktree only; no dell runtime touched; no docker build/up executed (config/--check only); no shared proteus DB/Redis/infra change; signal-service-dev untouched.
