@@ -61,5 +61,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD python -c "import os,socket,sys; s=socket.socket(); s.settimeout(3); \
 sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8210'))))==0 else 1)"
 
-ENTRYPOINT ["python"]
-CMD ["main.py"]
+# HARD resource-cap boot gate runs BEFORE the app: the entrypoint asserts cgroup caps and aborts
+# (RC=101) on any GOV-STAGE-CAP violation, otherwise exec's the CMD. See docker/entrypoint.sh.
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
+CMD ["python", "main.py"]
