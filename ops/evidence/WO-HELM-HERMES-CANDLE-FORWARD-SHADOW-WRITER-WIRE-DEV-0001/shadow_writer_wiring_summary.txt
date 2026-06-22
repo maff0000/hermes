@@ -1,0 +1,9 @@
+SHADOW WRITER WIRING: utils/candle_runtime_seam_v1.py adds:
+- HERMES_CANDLE_FORWARD_SINK='shadow' path -> _shadow_config_from_env (explicit host/port/db/auth,
+  fail-loud) -> assert_shadow_allowed -> _real_shadow_redis_client (lazy redis) -> build_shadow_seam.
+- ShadowCandleForwardSeam.emit(candle): maps runtime Candle -> candle_contract_v1 envelope (M5/H1
+  via build_candle_contract, DIRECT_FROM_SOURCE/NONE_DIRECT/DIRECT_NATIVE_V1), validates, then
+  SerializingCandleShadowWriter.publish -> JSON string -> assert_shadow_key -> hermes:shadow:candles:*
+  on dev Redis. Unsupported tf skipped UNSUPPORTED_TIMEFRAME. Observability counters surfaced.
+- canonical/live/prod sink -> GOV-CANDLE-FWD-SEAM-002 fail-loud. none/inert -> no-write (unchanged).
+- Disabled by default; NO live .env flag set by this PR.

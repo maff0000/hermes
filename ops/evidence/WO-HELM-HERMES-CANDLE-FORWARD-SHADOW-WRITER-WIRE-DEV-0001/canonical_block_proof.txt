@@ -1,0 +1,1 @@
+canonical/live/prod sink fail-loud GOV-CANDLE-FWD-SEAM-002; assert_canonical_allowed PUBLISH_DISABLED; no canonical writer class wired

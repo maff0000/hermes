@@ -1,0 +1,1 @@
+imports {datetime,utils} top-level + lazy {env_config,redis}; no tradingProteus/falcon/ares/helios/structure_engine/solo/neo (test_no_cross_app_or_legacy_imports)

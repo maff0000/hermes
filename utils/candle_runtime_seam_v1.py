@@ -1,31 +1,73 @@
-"""HERMES runtime candle-forward emit seam — INERT / disabled-by-default.
+"""HERMES runtime candle-forward emit seam — disabled-by-default; INERT or governed dev-SHADOW.
 
-WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001.
+WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001 (inert seam) +
+WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-WRITER-WIRE-DEV-0001 (dev shadow writer wiring).
 
-Makes the HERMES runtime structurally aware of the governed candle-forward producer/publisher foundation
-(utils/candle_contract_v1, utils/candle_publisher_v1) WITHOUT writing anything. Default DISABLED ->
-DisabledCandleEmitter (no sink, no Redis/SQL write, no warning spam, normal tick path unaffected).
+Makes the HERMES runtime structurally aware of the governed candle-forward foundation
+(utils/candle_contract_v1, utils/candle_publisher_v1). Default DISABLED -> DisabledCandleEmitter
+(no sink, no write). When explicitly enabled, an explicit sink mode is REQUIRED (no hidden default):
 
-Master gate: HERMES_CANDLE_FORWARD_ENABLED (default false).
-When enabled, an explicit forward sink mode is REQUIRED (HERMES_CANDLE_FORWARD_SINK) with NO hidden default:
-  - 'none' / 'inert'  -> governed NoWriteCandleSink (no-write seam; this WO)
-  - anything else (e.g. shadow/canonical/live) -> FAIL LOUD (no write path is permitted in this WO).
-No Proteus fallback, no canonical writer, no stale-SQL fallback, no shadow runtime write. UTC only.
-HERMES owns market truth and stays standalone (no legacy-monolith import, no shared code).
+  HERMES_CANDLE_FORWARD_SINK:
+    'none' / 'inert'        -> governed NoWriteCandleSink (no-write inert seam)
+    'shadow'               -> dev SHADOW writer: SerializingCandleShadowWriter -> dev Redis 6380,
+                              writes ONLY hermes:shadow:candles:{instrument}:{M5|H1}:latest:v1
+    'canonical'/'live'/'prod' -> FAIL LOUD (canonical publish is a separate gated WO)
+
+R2D2 design ruling GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY: first scope is the
+DIRECT-NATIVE timeframes M5 and H1 only (source_count=expected=1, coverage=1.0, DIRECT_FROM_SOURCE,
+NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1). Unsupported runtime timeframes (M1/M15/D1/H4/D)
+are SKIPPED with reason UNSUPPORTED_TIMEFRAME — never silently remapped, never derived from stale SQL.
+H4 derivation and D anchor ratification are deferred to later WOs. Canonical stays dark; no Proteus,
+no legacy candle pubsub output, no shared-code import. ALL timestamps UTC.
+
+This module wires the writer path; it does NOT enable it (no live .env flags set here).
 """
+from datetime import datetime, timezone
+
 from utils import candle_publisher_v1 as cp
+from utils import candle_contract_v1 as cc
 
 FAULT_NO_SINK = "GOV-CANDLE-FWD-SEAM-001"          # enabled without explicit sink mode
-FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # a write sink requested in an inert WO
-ALLOWED_INERT_SINKS = ("none", "inert")            # this WO: no-write only
+FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # canonical/live/prod (or unknown) sink requested
+FAULT_SHADOW_CLIENT = "GOV-CANDLE-FWD-SEAM-003"    # shadow enabled but no redis client constructed
+
+ALLOWED_INERT_SINKS = ("none", "inert")
+SHADOW_SINK = "shadow"
+CANONICAL_SINKS = ("canonical", "live", "prod")
+
+# DIRECT-NATIVE first scope (R2D2 ruling). Everything else is skipped UNSUPPORTED_TIMEFRAME.
+SUPPORTED_TF = ("M5", "H1")
+REASON_UNSUPPORTED_TF = "UNSUPPORTED_TIMEFRAME"
+DIRECT_NATIVE_EPOCH = "DIRECT_NATIVE_V1"
 
 
 def _disabled_config():
-    # All publish/shadow flags explicitly False; no endpoints required (nothing can write).
     return cp.CandlePublisherConfig(
         publish_enabled=False, publish_authorised=False,
         shadow_publish_enabled=False, shadow_authorised=False,
         namespace="hermes", contract_version="v1")
+
+
+def _tf_name(candle):
+    tf = getattr(candle, "timeframe", None)
+    return tf.name if hasattr(tf, "name") else str(tf)
+
+
+def runtime_candle_to_contract(candle, *, generated_at_utc):
+    """Map a runtime Candle (DIRECT-NATIVE M5/H1 only) to a candle_contract_v1 envelope.
+    Caller MUST have verified the timeframe is supported. complete=False -> FORMING (never OK)."""
+    tf = _tf_name(candle)
+    if tf not in SUPPORTED_TF:
+        raise ValueError(f"{REASON_UNSUPPORTED_TF}: {tf} is not a DIRECT-NATIVE shadow timeframe")
+    return cc.build_candle_contract(
+        instrument=candle.instrument, timeframe=tf, timestamp_utc=candle.timestamp,
+        ohlc={"open": candle.open, "high": candle.high, "low": candle.low,
+              "close": candle.close, "volume": getattr(candle, "volume", 0)},
+        is_closed=bool(getattr(candle, "complete", True)),
+        generated_at_utc=generated_at_utc, source_timeframe=tf,
+        source_count=1, expected_source_count=1,
+        derivation=cc.DERIVATION_DIRECT, derivation_policy=cc.DERIVATION_POLICY_DIRECT,
+        source_policy_epoch=DIRECT_NATIVE_EPOCH, market_open=True)
 
 
 class InertCandleForwardSeam:
@@ -33,29 +75,120 @@ class InertCandleForwardSeam:
 
     def __init__(self, sink):
         self.sink = sink
-        self.enabled = False  # inert: never writes in this WO
+        self.enabled = False
         self.write_mode = cp.WRITE_MODE_INERT
 
-    def emit(self, envelope=None, **_):
-        # No-op: builds nothing live, writes nothing. Returns an explicit inert marker.
+    def emit(self, candle=None, *, generated_at_utc=None, **_):
         return {"emitted": False, "wrote": False, "reason": "CANDLE_FORWARD_INERT"}
 
     def status(self):
         return {"enabled": False, "write_mode": self.write_mode, "sink": type(self.sink).__name__}
 
 
+class ShadowCandleForwardSeam:
+    """Dev-SHADOW writer seam. Builds a governed candle envelope for DIRECT-NATIVE M5/H1 and writes a
+    JSON-serialised payload to hermes:shadow:candles:* on dev Redis ONLY. Unsupported timeframes are
+    skipped (UNSUPPORTED_TIMEFRAME). No canonical key, no Redis 6379, no legacy pubsub. Observability
+    counters are surfaced; writer errors are never silently swallowed."""
+
+    def __init__(self, writer):
+        if not isinstance(writer, cp.SerializingCandleShadowWriter):
+            raise ValueError("GOV-CANDLE-FWD-SEAM-004: ShadowCandleForwardSeam requires a "
+                             "SerializingCandleShadowWriter (the only governed real-client write path)")
+        self.writer = writer
+        self.enabled = True
+        self.write_mode = cp.WRITE_MODE_SHADOW
+        self.metrics = {"candles_shadow_published": {}, "candles_skipped_unsupported_tf": {},
+                        "candle_validate_fail": 0, "candle_emit_fail": 0}
+
+    def _bump(self, bucket, tf):
+        self.metrics[bucket][tf] = self.metrics[bucket].get(tf, 0) + 1
+
+    def emit(self, candle=None, *, generated_at_utc=None, **_):
+        if candle is None:
+            return {"emitted": False, "wrote": False, "reason": "NO_CANDLE"}
+        tf = _tf_name(candle)
+        if tf not in SUPPORTED_TF:
+            self._bump("candles_skipped_unsupported_tf", tf)
+            return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}
+        now = generated_at_utc or datetime.now(timezone.utc)
+        try:
+            envelope = runtime_candle_to_contract(candle, generated_at_utc=now)
+            cc.validate_candle_contract(envelope)
+        except Exception as exc:  # noqa: BLE001 - bounded; surfaced, not swallowed
+            self.metrics["candle_validate_fail"] += 1
+            return {"emitted": False, "wrote": False, "reason": "CANDLE_VALIDATE_FAIL",
+                    "error": repr(exc), "timeframe": tf}
+        try:
+            res = self.writer.publish(envelope)   # JSON-serialised; shadow key only; assert_shadow_key
+        except Exception as exc:  # noqa: BLE001
+            self.metrics["candle_emit_fail"] += 1
+            return {"emitted": False, "wrote": False, "reason": "CANDLE_EMIT_FAIL",
+                    "error": repr(exc), "timeframe": tf}
+        self._bump("candles_shadow_published", tf)
+        return {"emitted": True, "wrote": True, "key": res["key"], "timeframe": tf,
+                "status": envelope["status"], "freshness_state": envelope["freshness_state"],
+                "gap_state": envelope["data"]["gap_state"]}
+
+    def status(self):
+        return {"enabled": True, "write_mode": self.write_mode, **self.metrics}
+
+
+def build_shadow_seam(*, config, redis_client):
+    """Construct the dev-shadow seam from an explicit config + injected Redis client. The writer
+    validates shadow config (assert_shadow_allowed: explicit host/port/db, dev-shadow, not
+    localhost-as-prod) and refuses canonical keys. Injectable for tests (fake client)."""
+    writer = cp.SerializingCandleShadowWriter(config=config, redis_client=redis_client)
+    return ShadowCandleForwardSeam(writer)
+
+
+def _shadow_config_from_env(get_env, get_env_bool, get_env_int):
+    """Build the shadow CandlePublisherConfig from the explicit env contract (fail-loud, no defaults).
+      HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST/PORT/DB   (required when shadow enabled)
+      HERMES_CANDLE_FORWARD_SHADOW_AUTHORISED           (must be true)
+      HERMES_CANDLE_FORWARD_SHADOW_TREAT_AS_PRODUCTION  (default false)
+      HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW           (default false; required when host is loopback)
+    """
+    return cp.CandlePublisherConfig(
+        publish_enabled=False, publish_authorised=False,
+        shadow_publish_enabled=True,
+        shadow_authorised=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_AUTHORISED", False),
+        namespace="hermes", contract_version="v1",
+        redis_host=get_env("HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST", required=True),
+        redis_port=get_env_int("HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT", required=True),
+        redis_db=get_env_int("HERMES_CANDLE_FORWARD_SHADOW_REDIS_DB", required=True),
+        treat_as_production=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_TREAT_AS_PRODUCTION", False),
+        dev_shadow=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW", False))
+
+
+def _real_shadow_redis_client(config):
+    """Explicit-target real Redis client for the shadow writer (lazy import; only built when the
+    shadow sink is enabled). NEVER called by tests (which inject a fake)."""
+    import redis  # lazy; only on the shadow path
+    return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
+                       socket_timeout=5)
+
+
 def build_candle_forward_seam_from_env():
-    """Boot factory for the runtime candle-forward seam. Default DISABLED no-op; fail-loud when enabled
-    without an explicit (no-write) sink mode. NEVER returns a writing emitter in this WO."""
-    from env_config import get_env, get_env_bool  # lazy; HERMES-owned config only
+    """Boot factory. Default DISABLED. Enabled requires an explicit sink mode:
+    none/inert -> no-write; shadow -> dev shadow writer (fail-loud on missing/unsafe config);
+    canonical/live/prod or unknown -> FAIL LOUD. Never enables anything by itself."""
+    from env_config import get_env, get_env_bool, get_env_int  # lazy; HERMES-owned config only
     if not get_env_bool("HERMES_CANDLE_FORWARD_ENABLED", False):
         return cp.DisabledCandleEmitter(_disabled_config())
-    # Enabled: explicit sink mode REQUIRED (no hidden default -> fail loud if missing).
     sink_mode = get_env("HERMES_CANDLE_FORWARD_SINK", required=True)
     sink_mode = (sink_mode or "").strip().lower()
-    if sink_mode not in ALLOWED_INERT_SINKS:
-        raise ValueError(
-            f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' is forbidden in the inert wire WO "
-            f"(allowed: {ALLOWED_INERT_SINKS}). No shadow/canonical/live write; no Proteus or stale-SQL fallback.")
-    # inert no-write sink (the governed NoWriteCandleSink never holds a live client)
-    return InertCandleForwardSeam(cp.NoWriteCandleSink())
+    if sink_mode in ALLOWED_INERT_SINKS:
+        return InertCandleForwardSeam(cp.NoWriteCandleSink())
+    if sink_mode == SHADOW_SINK:
+        config = _shadow_config_from_env(get_env, get_env_bool, get_env_int)
+        config.assert_shadow_allowed()                 # fail-loud on missing/unsafe target
+        client = _real_shadow_redis_client(config)
+        if client is None:
+            raise ValueError(f"{FAULT_SHADOW_CLIENT}: shadow sink requires a Redis client (none constructed)")
+        return build_shadow_seam(config=config, redis_client=client)
+    if sink_mode in CANONICAL_SINKS:
+        raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' (canonical/live/prod) "
+                         "is NOT permitted — canonical publish is a separate gated WO. Shadow-only here.")
+    raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: unknown candle-forward sink '{sink_mode}' "
+                     f"(allowed: {ALLOWED_INERT_SINKS + (SHADOW_SINK,)}).")

@@ -1,0 +1,1 @@
+M5+H1 payloads validate_candle_contract=True (see m5_h1_mapping_samples.txt + tests test_m5/h1_*_writes_valid_shadow_key)

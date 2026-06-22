@@ -1,0 +1,6 @@
+DESIGN RULING APPLIED: GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY
+Scope = DIRECT-NATIVE M5 + H1 ONLY. source_count=expected_source_count=1, coverage=1.0,
+derivation=DIRECT_FROM_SOURCE, derivation_policy=NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1.
+DEFERRED: H4 (no runtime aggregator + needs derivation/gap policy; never faked from stale SQL),
+D (runtime D1 NY-5PM-anchored; contract D needs ratified NY_1700_FOREX anchor), M1/M15 (unsupported
+contract timeframes). All deferred/unsupported runtime tf SKIPPED with UNSUPPORTED_TIMEFRAME (no remap).

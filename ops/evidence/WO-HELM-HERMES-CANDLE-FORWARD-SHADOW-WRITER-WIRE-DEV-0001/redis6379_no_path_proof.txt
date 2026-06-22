@@ -1,0 +1,1 @@
+shadow target is explicit dev host/port/db only; no 6379/canonical write path; tests use in-memory fake; no real client in tests

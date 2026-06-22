@@ -47,10 +47,11 @@ def test_enabled_without_sink_fails_loud(monkeypatch):
     assert raised, "enabled without sink must fail loud"
 
 
-def test_enabled_with_write_sink_forbidden(monkeypatch):
+def test_canonical_live_prod_sink_forbidden(monkeypatch):
+    # canonical/live/prod (and unknown) sinks still FAIL LOUD; 'shadow' is now a separate allowed path.
     _clear(monkeypatch)
     monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
-    for bad in ("shadow", "canonical", "live", "redis"):
+    for bad in ("canonical", "live", "prod", "redis", "bogus"):
         monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", bad)
         try:
             seam.build_candle_forward_seam_from_env()
@@ -71,14 +72,15 @@ def test_enabled_inert_sink_is_no_write(monkeypatch):
     assert out["wrote"] is False and out["emitted"] is False
 
 
-def test_no_canonical_writer_and_no_proteus_fallback():
+def test_no_proteus_no_canonical_writer_path():
     src = open(seam.__file__).read()
-    # no monolith / proteus fallback, no stale-SQL fallback, no dev path
+    # no proteus fallback, no stale-SQL fallback, no consumer-lane reference
     assert ("trading" + "Proteus") not in src
     assert ("/srv" + "-dev") not in src
     assert "structure_engine" not in src
-    # the seam never constructs a writing/canonical sink
-    assert "SerializingCandleShadowWriter" not in src
+    # the ONLY real-client writer wired is the governed shadow writer (no canonical writer class)
+    assert "SerializingCandleShadowWriter" in src      # shadow writer IS wired (this WO)
+    assert "CanonicalCandleWriter" not in src and "publish_canonical" not in src
     # canonical publish remains disabled-by-default in the underlying config
     cfg = seam._disabled_config()
     try:

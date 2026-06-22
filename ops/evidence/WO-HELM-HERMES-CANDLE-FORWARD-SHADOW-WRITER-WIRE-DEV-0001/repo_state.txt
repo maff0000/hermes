@@ -1,0 +1,3 @@
+base origin/main = ee425edfe4ab071241a0aceb343da9f13310c470
+branch = wo/WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-WRITER-WIRE-DEV-0001
+head = ee425edfe4ab071241a0aceb343da9f13310c470
