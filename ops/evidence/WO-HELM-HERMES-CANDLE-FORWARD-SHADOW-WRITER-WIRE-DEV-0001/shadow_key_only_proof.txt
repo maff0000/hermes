@@ -1,0 +1,1 @@
+writes only hermes:shadow:candles:* (test_only_shadow_keys_no_canonical_no_6379); assert_shadow_key blocks canonical (test_assert_shadow_key_blocks_canonical)

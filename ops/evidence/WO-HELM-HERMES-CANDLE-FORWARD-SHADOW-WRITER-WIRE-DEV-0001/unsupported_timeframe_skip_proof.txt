@@ -1,0 +1,1 @@
+M1/M15/D1/H4/D -> emitted False reason UNSUPPORTED_TIMEFRAME, no write, counters incremented (test_unsupported_timeframes_skipped_no_write, test_no_silent_remap_of_unsupported)

@@ -1,0 +1,1 @@
+seam module contains no SQL/backfill/candles_M30/candles_H4 source; no DB call (test_no_legacy_candle_pubsub_or_sql_in_module)

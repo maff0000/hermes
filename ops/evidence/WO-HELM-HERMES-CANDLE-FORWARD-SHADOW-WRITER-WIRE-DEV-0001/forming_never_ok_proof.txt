@@ -1,0 +1,1 @@
+complete=False -> status FORMING, freshness FORMING, never OK (test_forming_candle_is_forming_never_ok; contract GOV gate enforces incomplete!=OK)

@@ -1,0 +1,7 @@
+ENV/CONFIG GATES: HERMES_CANDLE_FORWARD_ENABLED=false/absent -> disabled. enabled+no sink -> fail loud.
+sink=none/inert -> no-write. sink=shadow -> requires HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST/PORT/DB
+(required, no defaults) + _AUTHORISED=true (assert_shadow_allowed GOV-CANDLE-PUB-SHADOW-001..004);
+localhost-as-production -> fail loud. sink=canonical/live/prod -> GOV-CANDLE-FWD-SEAM-002 fail loud.
+No silent fallback to inert when shadow misconfigured. Tests: test_from_env_default_disabled,
+test_from_env_shadow_missing_redis_config_fails_loud, test_from_env_canonical_sink_fails_loud,
+test_shadow_seam_requires_shadow_auth/explicit_target, test_localhost_as_production_fails_loud.

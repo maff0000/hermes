@@ -1,0 +1,1 @@
+R2D2 audit -> merge -> deploy -> shadow activation/verify -> canonical publish -> Falcon consumer -> H4 derivation -> D anchor -> backfill -> candle-truth-restored

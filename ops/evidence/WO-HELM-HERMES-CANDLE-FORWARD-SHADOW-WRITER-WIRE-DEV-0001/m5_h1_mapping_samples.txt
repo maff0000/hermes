@@ -1,0 +1,9 @@
+=== M5 ===  key=hermes:shadow:candles:XAU_USD:M5:latest:v1  ex=360  validates=True
+  status=OK freshness=FRESH gap=NONE cov=1.0 src=1/1 deriv=DIRECT_FROM_SOURCE policy=NONE_DIRECT epoch=DIRECT_NATIVE_V1
+=== H1 ===  key=hermes:shadow:candles:XAU_USD:H1:latest:v1  ex=3900  validates=True
+  status=OK freshness=FRESH gap=NONE cov=1.0 src=1/1 deriv=DIRECT_FROM_SOURCE policy=NONE_DIRECT epoch=DIRECT_NATIVE_V1
+=== M1 === skipped: emitted=False reason=UNSUPPORTED_TIMEFRAME
+=== M15 === skipped: emitted=False reason=UNSUPPORTED_TIMEFRAME
+=== D1 === skipped: emitted=False reason=UNSUPPORTED_TIMEFRAME
+=== H4 === skipped: emitted=False reason=UNSUPPORTED_TIMEFRAME
+metrics: {'M5': 1, 'H1': 1} skipped: {'M1': 1, 'M15': 1, 'D1': 1, 'H4': 1}
