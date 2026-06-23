@@ -33,5 +33,28 @@ if [ "$RC" -ne 0 ]; then
     exit 101
 fi
 
-echo "[BOOT-GATE] Verification passed cleanly. Handing off to runtime..."
+echo "[BOOT-GATE] Verification passed cleanly."
+
+# Automated outage backfill recovery — runs AFTER the gate clears, BEFORE the live runtime spawns, so a
+# container restarting after an outage mends the candle telemetry hole before processing new ticks.
+# Disabled-by-default (no-op clean unless HERMES_BACKFILL_RECOVERY_ENABLED=true). Non-zero is ADVISORY:
+# the live engine advances under AMBER rather than halting the container.
+echo "[RECOVERY-ENGINE] Checking historical telemetry synchronization holes..."
+BACKFILL_RC=0
+python3 tools/backfill_recovery_engine.py || BACKFILL_RC=$?
+if [ "$BACKFILL_RC" -ne 0 ]; then
+    if [ "$BACKFILL_RC" -eq 20 ]; then
+        # Invariant A: terminal NO-GO. >24h (or no baseline) unbounded drift must NOT fall through to
+        # live processing with an unresolved data hole. Halt the container hard.
+        echo "=================================================================" >&2
+        echo "[CRITICAL ABORT] RECOVERY ENGINE DETECTED UNBOUNDED DRIFT (>24H)" >&2
+        echo "Automated backfill halted. Live processing forbidden." >&2
+        echo "=================================================================" >&2
+        exit 102
+    fi
+    echo "[RECOVERY-WARN] Automated backfill process exited with errors (RC=$BACKFILL_RC)." >&2
+    echo "[RECOVERY-WARN] Advancing to real-time engine under AMBER conditions." >&2
+fi
+
+echo "[BOOT-GATE] Handoff to live real-time runtime..."
 exec "$@"
