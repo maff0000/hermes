@@ -33,5 +33,18 @@ if [ "$RC" -ne 0 ]; then
     exit 101
 fi
 
-echo "[BOOT-GATE] Verification passed cleanly. Handing off to runtime..."
+echo "[BOOT-GATE] Verification passed cleanly."
+
+# Automated outage backfill recovery — runs AFTER the gate clears, BEFORE the live runtime spawns, so a
+# container restarting after an outage mends the candle telemetry hole before processing new ticks.
+# Disabled-by-default (no-op clean unless HERMES_BACKFILL_RECOVERY_ENABLED=true). Non-zero is ADVISORY:
+# the live engine advances under AMBER rather than halting the container.
+echo "[RECOVERY-ENGINE] Checking historical telemetry synchronization holes..."
+BACKFILL_RC=0
+python3 tools/backfill_recovery_engine.py || BACKFILL_RC=$?
+if [ "$BACKFILL_RC" -ne 0 ]; then
+    echo "[RECOVERY-WARN] Automated backfill exited non-zero (RC=$BACKFILL_RC); advancing to real-time under AMBER conditions." >&2
+fi
+
+echo "[BOOT-GATE] Handoff to live real-time runtime..."
 exec "$@"
