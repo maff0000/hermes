@@ -9,11 +9,15 @@
 # WO-HELM-HERMES-CONTAINER-ISOLATION-0002 (now on main).
 
 services:
-  # ---- Bundled MariaDB: INTERNAL BRIDGE ONLY — zero host port exposure (WO-0003 requirement #2) ----
+  # ---- Bundled MariaDB: PROD-SILOED profile ONLY — NOT started for dev. ----
+  # Dev uses the existing shared proteus-mariadb-dev via .env routing (DB_HOST/DB_PORT). The bundled,
+  # internal-bridge DB (env-blind/prod-siloed design, WO-...-ISOLATION-0003) is preserved here behind the
+  # `siloed` compose profile for the future production deployment (`docker compose --profile siloed up`).
   hermes-mariadb:
     image: mariadb:11.4
     container_name: hermes-mariadb
     restart: unless-stopped
+    profiles: ["siloed"]
 
     # All credentials supplied at deploy time — never baked in. required:false keeps `config` portable.
     env_file:
@@ -56,29 +60,33 @@ services:
     container_name: hermes-signal
     restart: unless-stopped
 
-    depends_on:
-      hermes-mariadb:
-        condition: service_healthy
+    # (No depends_on: dev targets the EXTERNAL shared DB; the bundled `siloed`-profile DB is brought up
+    #  separately for prod. The boot gate + app fail-loud if the configured DB is unreachable.)
 
     # Runtime configuration supplied at deploy time — never baked into the image.
     env_file:
       - path: .env
         required: false
 
-    # Reach the BUNDLED internal DB by service DNS (overrides any host-oriented DB_HOST in .env).
-    # HERMES_CPUS/MEM_LIMIT/PIDS_LIMIT are also surfaced into the container env so the boot gate
-    # (docker/entrypoint.sh -> resource_cap_verify.py) can read the configured pins to assert against
-    # the effective cgroup caps. Must mirror the resource-pin values below.
+    # Config-driven targets. env_config (ENVIRONMENT=DEV) resolves the DEV_-prefixed vars, so the clean
+    # .env names (DB_HOST/DB_PORT/REDIS_HOST/REDIS_PORT) are mapped here to the DEV_-prefixed container env
+    # the app actually reads. Dev -> shared instances (proteus-mariadb-dev :3307, proteus-redis-dev :6380).
+    # Defaults are env-blind (container-DNS / dev sandbox), never host-coupled; .env supplies real values.
+    # HERMES_CPUS/MEM_LIMIT/PIDS_LIMIT feed the boot gate (resource_cap_verify.py) — mirror the pins below.
     environment:
-      DB_HOST: hermes-mariadb
-      DB_PORT: "3306"
+      DEV_DB_HOST: ${DB_HOST:-hermes-mariadb}
+      DEV_DB_PORT: ${DB_PORT:-3306}
+      DEV_REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
+      DEV_REDIS_PORT: ${REDIS_PORT:-6380}
+      RUN_ENV: ${RUN_ENV:-STAGING}
+      SIGNAL_PORT: ${SIGNAL_PORT:-8211}
       HERMES_CPUS: ${HERMES_CPUS:-4}
       HERMES_MEM_LIMIT: ${HERMES_MEM_LIMIT:-4g}
       HERMES_PIDS_LIMIT: ${HERMES_PIDS_LIMIT:-512}
 
     # Signal service HTTP port (host:container). Override SIGNAL_PORT/SIGNAL_BIND_PORT via .env.
     ports:
-      - "${SIGNAL_BIND_PORT:-8210}:${SIGNAL_PORT:-8210}"
+      - "${SIGNAL_BIND_PORT:-8211}:${SIGNAL_PORT:-8211}"
 
     # ---- Resource pinning: emulate a 4 vCore / 4 GB IONOS M+ VPS ----
     cpus: ${HERMES_CPUS:-4}
@@ -102,7 +110,7 @@ services:
 
     healthcheck:
       test: ["CMD", "python", "-c",
-             "import os,socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8210'))))==0 else 1)"]
+             "import os,socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8211'))))==0 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
