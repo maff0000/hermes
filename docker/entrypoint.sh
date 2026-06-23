@@ -43,7 +43,17 @@ echo "[RECOVERY-ENGINE] Checking historical telemetry synchronization holes..."
 BACKFILL_RC=0
 python3 tools/backfill_recovery_engine.py || BACKFILL_RC=$?
 if [ "$BACKFILL_RC" -ne 0 ]; then
-    echo "[RECOVERY-WARN] Automated backfill exited non-zero (RC=$BACKFILL_RC); advancing to real-time under AMBER conditions." >&2
+    if [ "$BACKFILL_RC" -eq 20 ]; then
+        # Invariant A: terminal NO-GO. >24h (or no baseline) unbounded drift must NOT fall through to
+        # live processing with an unresolved data hole. Halt the container hard.
+        echo "=================================================================" >&2
+        echo "[CRITICAL ABORT] RECOVERY ENGINE DETECTED UNBOUNDED DRIFT (>24H)" >&2
+        echo "Automated backfill halted. Live processing forbidden." >&2
+        echo "=================================================================" >&2
+        exit 102
+    fi
+    echo "[RECOVERY-WARN] Automated backfill process exited with errors (RC=$BACKFILL_RC)." >&2
+    echo "[RECOVERY-WARN] Advancing to real-time engine under AMBER conditions." >&2
 fi
 
 echo "[BOOT-GATE] Handoff to live real-time runtime..."

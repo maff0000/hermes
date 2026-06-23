@@ -13,12 +13,15 @@ import tempfile
 _ENTRY = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "docker", "entrypoint.sh"))
 
 
-def _run(stub_body):
+def _run(stub_body, backfill_body="import sys; sys.exit(0)\n"):
     app = tempfile.mkdtemp()
     try:
         os.makedirs(os.path.join(app, "ops", "staging"))
+        os.makedirs(os.path.join(app, "tools"))
         with open(os.path.join(app, "ops", "staging", "resource_cap_verify.py"), "w") as fh:
             fh.write(stub_body)
+        with open(os.path.join(app, "tools", "backfill_recovery_engine.py"), "w") as fh:
+            fh.write(backfill_body)
         return subprocess.run(["sh", _ENTRY, "echo", "APP-BOOTED"],
                               capture_output=True, text=True, cwd=app)
     finally:
@@ -35,6 +38,22 @@ def test_boot_gate_aborts_rc101_and_maps_exit2_to_cap002():
 
 
 def test_boot_gate_execs_command_on_pass():
-    r = _run("print('RESULT: PASS')\n")  # exit 0
+    r = _run("print('RESULT: PASS')\n")  # cap pass + backfill clean (exit 0)
+    assert r.returncode == 0, r.stderr
+    assert "APP-BOOTED" in r.stdout
+
+
+def test_entrypoint_terminal_halts_rc102_on_backfill_rc20():
+    # Invariant A: cap gate passes, but the recovery engine returns 20 (>24h / no baseline) -> the
+    # container must TERMINAL-HALT with RC=102 and NEVER exec the app.
+    r = _run("print('RESULT: PASS')\n", backfill_body="import sys; sys.exit(20)\n")
+    assert r.returncode == 102, r.stderr
+    assert "CRITICAL ABORT" in r.stderr and "UNBOUNDED DRIFT" in r.stderr
+    assert "APP-BOOTED" not in r.stdout       # live processing forbidden
+
+
+def test_entrypoint_advances_on_other_backfill_nonzero():
+    # a non-20 backfill error is ADVISORY -> advance to live under AMBER
+    r = _run("print('RESULT: PASS')\n", backfill_body="import sys; sys.exit(1)\n")
     assert r.returncode == 0, r.stderr
     assert "APP-BOOTED" in r.stdout

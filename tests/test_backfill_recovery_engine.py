@@ -115,3 +115,40 @@ def test_missing_webhook_does_not_block_or_alter_recovery():
     # And under AMBER, a muted alert still yields RC=20 with NO backfill (cascade still prevented).
     rc2, calls2 = _run(alert_fn=lambda c, s: False, last_ts_fn=lambda: _utc(hours=72))
     assert rc2 == 20 and calls2["backfill"] == []
+
+
+# --------------------------------------------------------------- activation matrix (Invariant B/C) -
+def test_activation_inert_when_not_strict_true():
+    assert eng.resolve_activation({}) == (eng.INERT, None)
+    assert eng.resolve_activation({eng.ENABLE_ENV: "true"})[0] == eng.INERT     # lowercase != strict TRUE
+    assert eng.resolve_activation({eng.ENABLE_ENV: "FALSE"})[0] == eng.INERT
+    assert eng.resolve_activation({eng.ENABLE_ENV: "1"})[0] == eng.INERT
+    # RUN_ENV=PRODUCTION alone (enable not TRUE) stays inert — no abort spam on normal prod boots
+    assert eng.resolve_activation({"RUN_ENV": "PRODUCTION"})[0] == eng.INERT
+
+
+def test_activation_abort_when_matrix_incomplete():
+    base = {eng.ENABLE_ENV: "TRUE"}
+    assert eng.resolve_activation(base) == (eng.ABORT, eng.GOV_MISSING_PARAMS)              # no RUN_ENV/sig
+    assert eng.resolve_activation({**base, "RUN_ENV": "PRODUCTION"})[0] == eng.ABORT         # no signature
+    assert eng.resolve_activation({**base, eng.SIGNATURE_ENV: "sig"})[0] == eng.ABORT        # not PRODUCTION
+    assert eng.resolve_activation({**base, "RUN_ENV": "DEV", eng.SIGNATURE_ENV: "s"})[0] == eng.ABORT
+
+
+def test_activation_active_only_with_full_signed_matrix():
+    env = {eng.ENABLE_ENV: "TRUE", "RUN_ENV": "PRODUCTION", eng.SIGNATURE_ENV: "arch-sig-xyz"}
+    assert eng.resolve_activation(env) == (eng.ACTIVE, None)
+
+
+# --------------------------------------------------------------- Fix 3: alert isolation -------------
+def test_safe_alert_suppresses_raising_alert():
+    def boom(code, summary):
+        raise RuntimeError("discord blew up")
+    eng._safe_alert(boom, "GOV", "s")  # must NOT raise
+
+
+def test_run_proceeds_even_if_alert_raises():
+    def boom(code, summary):
+        raise OSError("discord transport exploded")
+    rc, calls = _run(alert_fn=boom, last_ts_fn=lambda: _utc(hours=2))
+    assert rc == 0 and calls["backfill"] == [(_utc(hours=2), _NOW)]   # alert error never interrupts state

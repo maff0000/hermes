@@ -44,6 +44,41 @@ AMBER_STOP = "AMBER_STOP"
 ENABLE_ENV = "HERMES_BACKFILL_RECOVERY_ENABLED"
 WINDOW_ENV = "HERMES_BACKFILL_MAX_WINDOW_HOURS"
 WEBHOOK_ENV = "ROGUE_ALLIANCE_DISCORD_WEBHOOK"
+SIGNATURE_ENV = "HERMES_ARCHITECT_RECOVERY_SIGNATURE"
+RUN_ENV_VAR = "RUN_ENV"
+
+# Purge-grade activation (Invariant B): strict, case-sensitive enable string (mirrors the purge engine).
+ENABLE_VALUE = "TRUE"
+# Architect-mandated reason code for a missing/incomplete activation matrix (before any delta compute).
+GOV_MISSING_PARAMS = "GOV-STAGE-CAP-003"
+
+# Activation states
+INERT = "INERT"      # master switch off -> inert dead-code, clean no-op
+ABORT = "ABORT"      # armed but matrix incomplete/malformed -> hard fail before delta compute
+ACTIVE = "ACTIVE"    # full architect-signed activation matrix satisfied
+
+
+def resolve_activation(environ):
+    """Purge-grade activation matrix — ALL THREE required to arm (Invariant B). Returns (state, gov_code).
+      INERT  : ENABLE_ENV != 'TRUE' (master switch off, case-sensitive) -> inert dead-code, no-op.
+      ABORT  : armed (ENABLE_ENV=='TRUE') but RUN_ENV!=PRODUCTION or signature missing -> GOV-STAGE-CAP-003.
+      ACTIVE : RUN_ENV==PRODUCTION AND ENABLE_ENV=='TRUE' AND HERMES_ARCHITECT_RECOVERY_SIGNATURE present.
+    A configuration change to ENABLE_ENV alone can NEVER flip this active (Invariant C)."""
+    if (environ.get(ENABLE_ENV) or "").strip() != ENABLE_VALUE:
+        return (INERT, None)
+    run_env = (environ.get(RUN_ENV_VAR) or "").strip()
+    signature = (environ.get(SIGNATURE_ENV) or "").strip()
+    if run_env != "PRODUCTION" or not signature:
+        return (ABORT, GOV_MISSING_PARAMS)
+    return (ACTIVE, None)
+
+
+def _safe_alert(alert_fn, code, summary):
+    """Fix 3 — absolute isolation: a raising alert/telemetry path can NEVER interrupt recovery state."""
+    try:
+        alert_fn(code, summary)
+    except Exception as exc:  # noqa: BLE001 — out-of-band telemetry must not leak into the recovery loop
+        print(f"[RECOVERY][ALERT-MUTE] alert dispatch error suppressed ({code}): {exc}", file=sys.stderr)
 
 
 # ----------------------------------------------------------------------------- pure decision --------
@@ -75,7 +110,7 @@ def run(*, enabled, now_fn, last_ts_fn, backfill_fn, alert_fn, window_hours=DEFA
         now = now_fn()
         last = last_ts_fn()
     except Exception as exc:                             # fail-LOUD during execution
-        alert_fn(GOV_EXEC, f"recovery aborted before backfill: {exc}")
+        _safe_alert(alert_fn, GOV_EXEC, f"recovery aborted before backfill: {exc}")
         print(f"[RECOVERY][FAIL] {GOV_EXEC}: could not read destination baseline: {exc}", file=sys.stderr)
         return 1
 
@@ -88,16 +123,16 @@ def run(*, enabled, now_fn, last_ts_fn, backfill_fn, alert_fn, window_hours=DEFA
     if state == AMBER_STOP:
         summary = (f"Outage gap Δt={delta} exceeds bounded window ({window_hours}h) or has no baseline "
                    f"({code}). Auto-backfill HALTED — operator override required; live engine proceeds.")
-        alert_fn(code, summary)                          # decoupled, fail-silent
+        _safe_alert(alert_fn, code, summary)             # decoupled, fail-silent
         print(f"[RECOVERY][AMBER] {code}: {summary}", file=sys.stderr)
         return 20
 
     # PROCEED — bounded, idempotent backfill of ONLY the missing interval
     try:
-        alert_fn(GOV_RECOVER, f"Bounded automated backfill of Δt={delta} (≤{window_hours}h).")
+        _safe_alert(alert_fn, GOV_RECOVER, f"Bounded automated backfill of Δt={delta} (≤{window_hours}h).")
         backfill_fn(since=last, until=now)
     except Exception as exc:                             # fail-LOUD during execution
-        alert_fn(GOV_EXEC, f"bounded backfill failed: {exc}")
+        _safe_alert(alert_fn, GOV_EXEC, f"bounded backfill failed: {exc}")
         print(f"[RECOVERY][FAIL] {GOV_EXEC}: bounded backfill failed: {exc}", file=sys.stderr)
         return 1
 
@@ -137,7 +172,18 @@ def _delegate_backfill(*, since, until):
 
 def main(argv=None):
     import os
-    enabled = (os.environ.get(ENABLE_ENV) or "").strip().lower() == "true"
+    # Invariant B/C: purge-grade activation matrix evaluated BEFORE any delta computation / verification.
+    state, gov = resolve_activation(os.environ)
+    if state == INERT:
+        print(f"[RECOVERY] inert — {ENABLE_ENV} != '{ENABLE_VALUE}'; recovery is dead-code (no-op).")
+        return 0
+    if state == ABORT:
+        print(f"[RECOVERY][ABORT] {gov} (Missing Parameters): activation requires RUN_ENV=PRODUCTION + "
+              f"{ENABLE_ENV}={ENABLE_VALUE} + {SIGNATURE_ENV} — incomplete/malformed. Refusing before delta "
+              "computation (fail-loud).", file=sys.stderr)
+        return 1
+
+    # ACTIVE — full architect-signed activation matrix satisfied.
     try:
         window_hours = int(os.environ.get(WINDOW_ENV) or DEFAULT_WINDOW_HOURS)
     except (TypeError, ValueError):
@@ -153,7 +199,7 @@ def main(argv=None):
         dispatch_rogue_alert(webhook, code, summary)
 
     return run(
-        enabled=enabled,
+        enabled=True,
         now_fn=lambda: datetime.now(timezone.utc),
         last_ts_fn=_query_last_canonical_ts,
         backfill_fn=_delegate_backfill,
