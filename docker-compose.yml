@@ -70,14 +70,16 @@ services:
 
     # Config-driven targets. env_config (ENVIRONMENT=DEV) resolves the DEV_-prefixed vars, so the clean
     # .env names (DB_HOST/DB_PORT/REDIS_HOST/REDIS_PORT) are mapped here to the DEV_-prefixed container env
-    # the app actually reads. Dev -> shared instances (proteus-mariadb-dev :3307, proteus-redis-dev :6380).
-    # Defaults are env-blind (container-DNS / dev sandbox), never host-coupled; .env supplies real values.
+    # the app actually reads. Dev -> shared instances: proteus-mariadb-dev :3307 + proteus-redis :6379.
+    # NOTE: :6379 is the SHARED dev/staging platform bus (NEO SUBSCRIBE hermes:signals, Falcon polls
+    # hermes:price, Solo reads hermes:market_map) — confirmed by cross-service consumer audit. Do NOT
+    # route dev off :6379 without migrating those consumers. .env supplies real values; no host-coupling.
     # HERMES_CPUS/MEM_LIMIT/PIDS_LIMIT feed the boot gate (resource_cap_verify.py) — mirror the pins below.
     environment:
       DEV_DB_HOST: ${DB_HOST:-hermes-mariadb}
       DEV_DB_PORT: ${DB_PORT:-3306}
       DEV_REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
-      DEV_REDIS_PORT: ${REDIS_PORT:-6380}
+      DEV_REDIS_PORT: ${REDIS_PORT:-6379}
       RUN_ENV: ${RUN_ENV:-STAGING}
       SIGNAL_PORT: ${SIGNAL_PORT:-8211}
       HERMES_CPUS: ${HERMES_CPUS:-4}
