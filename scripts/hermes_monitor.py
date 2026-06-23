@@ -24,7 +24,30 @@ except Exception:
 
 GRAYLOG_HOST = os.getenv("MONITOR_GRAYLOG_HOST", os.getenv("GRAYLOG_HOST", "127.0.0.1"))
 GRAYLOG_PORT = int(os.getenv("MONITOR_GRAYLOG_PORT", os.getenv("GRAYLOG_PORT", "12201")))
-DISCORD_WEBHOOK_URL = os.getenv("MONITOR_DISCORD_WEBHOOK") or os.getenv("ROGUE_ALLIANCE_DISCORD_WEBHOOK")
+
+
+def _read_governed_webhook():
+    """Resolve the #the-rogue-alliance webhook from a GOVERNED external secret file at runtime — no local
+    copy, no secret sprawl. The path + key are env-driven pointers (NOT the secret), so the tracked script
+    carries no host-coupled path and no value. The webhook value is NEVER printed, logged, or committed."""
+    src = os.getenv("MONITOR_DISCORD_WEBHOOK_SOURCE_FILE")
+    key = os.getenv("MONITOR_DISCORD_WEBHOOK_SOURCE_KEY", "ARES_CALENDAR_DISCORD_WEBHOOK")
+    if not src or not os.path.isfile(src):
+        return None
+    try:
+        for line in open(src, encoding="utf-8"):
+            line = line.strip()
+            if line.startswith(key + "="):
+                return (line.split("=", 1)[1].strip().strip('"').strip("'")) or None
+    except Exception:
+        return None
+    return None
+
+
+# Resolution order: explicit MONITOR_DISCORD_WEBHOOK -> ROGUE_ALLIANCE_DISCORD_WEBHOOK -> governed source.
+DISCORD_WEBHOOK_URL = (os.getenv("MONITOR_DISCORD_WEBHOOK")
+                       or os.getenv("ROGUE_ALLIANCE_DISCORD_WEBHOOK")
+                       or _read_governed_webhook())
 REDIS_HOST = os.getenv("DEV_REDIS_HOST", "192.168.11.10")
 REDIS_PORT = int(os.getenv("DEV_REDIS_PORT", "6379"))
 EXPECTED_INSTRUMENTS = int(os.getenv("MONITOR_EXPECTED_INSTRUMENTS", "14"))
