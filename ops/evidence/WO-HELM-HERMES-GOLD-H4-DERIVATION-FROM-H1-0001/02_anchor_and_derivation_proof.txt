@@ -1,0 +1,28 @@
+=== NY-5PM H4 anchor (fixed 22:00 UTC boundary) ===
+anchor open hours UTC: (22, 2, 6, 10, 14, 18) | day boundary: 22
+  2026-06-01 22:00Z -> bucket 2026-06-01 22:00Z
+  2026-06-01 23:30Z -> bucket 2026-06-01 22:00Z
+  2026-06-02 01:00Z -> bucket 2026-06-01 22:00Z
+  2026-06-02 02:00Z -> bucket 2026-06-02 02:00Z
+  2026-06-02 21:59Z -> bucket 2026-06-02 18:00Z
+
+=== complete 4/4 H4 derivation (XAU_USD, 02:00 bucket) ===
+  status=OK tf=H4 OHLC o=2000.0 h=2012.0 l=1990.0 c=2006.0 v=40
+  derivation=DERIVED_FROM_LOWER_TIMEFRAME source_tf=H1 policy=DERIVED_H4_FROM_H1
+  source_count=4/4 coverage=1.0 gap=NONE dir=UP
+  geometry: body_high<=high=True wick_high!=high=True range>=body=True
+  meta child epochs: [1780365600, 1780369200, 1780372800, 1780376400]
+
+=== completeness honesty ===
+  children=4 closed=True -> status=OK coverage=1.0 gap=NONE (OK? True)
+  children=3 closed=True -> status=SOURCE_INCOMPLETE coverage=0.75 gap=INCOMPLETE (OK? False)
+  children=2 closed=False -> status=FORMING coverage=0.5 gap=INCOMPLETE (OK? False)
+  children=0 closed=True -> status=NO_SOURCE_DATA coverage=0.0 gap=GAP_DETECTED (OK? False)
+
+=== history key topology (H4 supported, D1 rejected) ===
+  H4 history key: hermes:candles:XAU_USD:H4:history:v1:1780365600
+  H4 index: hermes:candles:XAU_USD:H4:history:v1:index
+  H4 expected opens (NY-5PM): [2, 6, 10, 14, 18, 22]
+  D1 rejected: GOV-CANDLE-HIST-TGT-006
+  H4-latest rejected: GOV-CANDLE-HIST-TGT-002
+  XAUUSD rejected: GOV-CANDLE-HIST-TGT-004
