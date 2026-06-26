@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+rootdir: /srv/trading/hermes-worktrees/wo-window-contract
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 18 items
+
+tests/test_candle_history_v1.py::test_history_key_generation_for_grid PASSED [  5%]
+tests/test_candle_history_v1.py::test_history_key_accepts_datetime_open PASSED [ 11%]
+tests/test_candle_history_v1.py::test_latest_key_rejected_by_target_guard PASSED [ 16%]
+tests/test_candle_history_v1.py::test_non_history_key_rejected PASSED    [ 22%]
+tests/test_candle_history_v1.py::test_xauusd_alias_rejected_as_output PASSED [ 27%]
+tests/test_candle_history_v1.py::test_non_xau_instrument_rejected PASSED [ 33%]
+tests/test_candle_history_v1.py::test_h4_d1_rejected PASSED              [ 38%]
+tests/test_candle_history_v1.py::test_unversioned_history_key_rejected PASSED [ 44%]
+tests/test_candle_history_v1.py::test_history_envelope_is_valid_v1_plus_history_block PASSED [ 50%]
+tests/test_candle_history_v1.py::test_no_regime_fields_anywhere PASSED   [ 55%]
+tests/test_candle_history_v1.py::test_validator_still_required_before_write PASSED [ 61%]
+tests/test_candle_history_v1.py::test_write_plan_ttl_index_and_target PASSED [ 66%]
+tests/test_candle_history_v1.py::test_idempotent_same_candle_same_key_and_member PASSED [ 72%]
+tests/test_candle_history_v1.py::test_retention_cutoff_epoch PASSED      [ 77%]
+tests/test_candle_history_v1.py::test_gap_profile_full_coverage_weekday PASSED [ 83%]
+tests/test_candle_history_v1.py::test_gap_profile_weekend_explanation_and_samples PASSED [ 88%]
+tests/test_candle_history_v1.py::test_gap_profile_partial_weekday_investigate PASSED [ 94%]
+tests/test_candle_history_v1.py::test_expected_counts_per_tf PASSED      [100%]
+
+============================== 18 passed in 0.02s ==============================
