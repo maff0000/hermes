@@ -1,0 +1,27 @@
+=== HISTORY KEY SCHEMA ===
+  hermes:candles:XAU_USD:M1:history:v1:1780300800
+  hermes:candles:XAU_USD:M5:history:v1:1780300800
+  hermes:candles:XAU_USD:M15:history:v1:1780300800
+  hermes:candles:XAU_USD:H1:history:v1:1780300800
+ index: hermes:candles:XAU_USD:M5:history:v1:index
+
+=== TARGET ASSERTION (must REJECT all of these) ===
+  LIVE latest    -> GOV-CANDLE-HIST-TGT-002
+  XAUUSD alias   -> GOV-CANDLE-HIST-TGT-004
+  non-XAU        -> GOV-CANDLE-HIST-TGT-005
+  H4             -> GOV-CANDLE-HIST-TGT-006
+  D1             -> GOV-CANDLE-HIST-TGT-006
+  unversioned    -> GOV-CANDLE-HIST-TGT-003
+  non-history    -> GOV-CANDLE-HIST-TGT-003
+  GOOD history key -> ACCEPTED
+
+=== RETENTION ===  HISTORY_TTL_SECONDS = 3024000 (= 35 days)
+
+=== SAMPLE HISTORY ENVELOPE (history block) ===
+  validates: True | status: OK
+  history: {"history_contract_version": "v1", "backfill_run_id": "bf_20260626T120000Z_0001", "backfill_inserted_at_utc": "2026-06-26T12:00:00.000Z", "source_table": "candles_M5", "source_timestamp_utc": "2026-06-01T08:00:00.000Z"}
+  write_plan: key=hermes:candles:XAU_USD:M5:history:v1:1780300800 ttl=3024000s index=hermes:candles:XAU_USD:M5:history:v1:index score=1780300800 member=1780300800 (NO WRITE: HISTORY_INERT_NO_WRITE)
+
+=== DRY-RUN GAP PROFILE SAMPLES (per-day/per-TF) ===
+  Sat H1 (no data): {"timeframe": "H1", "day_utc": "2026-06-06T00:00:00.000Z", "expected_count": 24, "actual_count": 0, "missing_count": 24, "coverage_pct": 0.0, "first_actual_utc": null, "last_actual_utc": null, "gap_explanation": "WEEKEND_MARKET_CLOSED", "sampled_missing_utc": ["2026-06-06T00:00:00.000Z", "2026-06-06T01:00:00.000Z", "2026-06-06T02:00:00.000Z"]}
+  Mon H1 (full): {"timeframe": "H1", "day_utc": "2026-06-01T00:00:00.000Z", "expected_count": 24, "actual_count": 24, "missing_count": 0, "coverage_pct": 100.0, "first_actual_utc": "2026-06-01T00:00:00.000Z", "last_actual_utc": "2026-06-01T23:00:00.000Z", "gap_explanation": "FULL_COVERAGE", "sampled_missing_utc": []}
