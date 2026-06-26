@@ -24,10 +24,11 @@ HISTORY_CONTRACT_VERSION = "v1"
 CANDLE_PREFIX = "hermes:candles:"               # shared root with canonical/latest
 HISTORY_MARKER = "history"
 
-# Fail-closed allowlists (this WO). Instruments are CANONICAL ids only — the alias XAUUSD is denied as
-# OUTPUT (callers must canonicalise first). H4/D1 are excluded from the history grid.
+# Fail-closed allowlists. Instruments are CANONICAL ids only — the alias XAUUSD is denied as OUTPUT
+# (callers must canonicalise first). H4 is now a governed (derived, NY-5PM aligned) history timeframe;
+# D1/D remain excluded from the history grid.
 HISTORY_INSTRUMENTS = ("XAU_USD",)
-HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1")
+HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
 _ALIAS_DENY = ("XAUUSD",)
 
 # Retention: EXPLICIT bounded policy for dev canonical history — 35 days (4 weeks + operational buffer).
@@ -52,7 +53,7 @@ def _assert_inst_tf(instrument, timeframe):
                          f"{HISTORY_INSTRUMENTS} (fail-closed)")
     if timeframe not in HISTORY_TIMEFRAMES:
         raise ValueError(f"GOV-CANDLE-HIST-003: timeframe {timeframe!r} not in history grid "
-                         f"{HISTORY_TIMEFRAMES} (H4/D1 excluded)")
+                         f"{HISTORY_TIMEFRAMES} (D1/D excluded)")
 
 
 def _to_open_epoch(value):
@@ -166,8 +167,11 @@ def expected_opens_for_day(timeframe, day_start_utc):
     weekend/holiday absence is surfaced as a gap, never silently expected away)."""
     if timeframe not in HISTORY_TIMEFRAMES:
         raise ValueError(f"GOV-CANDLE-HIST-003: timeframe {timeframe!r} not in history grid")
-    step = cc.TF_SECONDS[timeframe]
     day = cc.normalise_utc(day_start_utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    if timeframe == "H4":
+        # NY-5PM aligned H4 grid (fixed 22:00 UTC boundary): opens 02,06,10,14,18,22 UTC within the day.
+        return [day + timedelta(hours=hh) for hh in (2, 6, 10, 14, 18, 22)]
+    step = cc.TF_SECONDS[timeframe]
     return [day + timedelta(seconds=i * step) for i in range(86400 // step)]
 
 

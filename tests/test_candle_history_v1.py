@@ -81,14 +81,19 @@ def test_non_xau_instrument_rejected():
             assert "GOV-CANDLE-HIST-TGT-005" in str(e)
 
 
-def test_h4_d1_rejected():
-    for tf in ("H4", "D1", "D"):
+def test_h4_now_accepted_d1_still_rejected():
+    ep = int(_TS.timestamp())
+    # H4 is now a governed (derived) history timeframe -> accepted
+    assert h.history_key("XAU_USD", "H4", ep) == f"hermes:candles:XAU_USD:H4:history:v1:{ep}"
+    assert h.assert_history_target(f"hermes:candles:XAU_USD:H4:history:v1:{ep}") is True
+    # D1/D remain rejected
+    for tf in ("D1", "D"):
         try:
-            h.history_key("XAU_USD", tf, int(_TS.timestamp())); assert False, tf
+            h.history_key("XAU_USD", tf, ep); assert False, tf
         except ValueError as e:
             assert "GOV-CANDLE-HIST-003" in str(e)
         try:
-            h.assert_history_target(f"hermes:candles:XAU_USD:{tf}:history:v1:{int(_TS.timestamp())}"); assert False
+            h.assert_history_target(f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}"); assert False
         except ValueError as e:
             assert "GOV-CANDLE-HIST-TGT-006" in str(e)
 
