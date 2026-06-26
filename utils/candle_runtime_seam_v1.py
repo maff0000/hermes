@@ -10,13 +10,15 @@ Makes the HERMES runtime structurally aware of the governed candle-forward found
   HERMES_CANDLE_FORWARD_SINK:
     'none' / 'inert'        -> governed NoWriteCandleSink (no-write inert seam)
     'shadow'               -> dev SHADOW writer: SerializingCandleShadowWriter -> dev Redis 6380,
-                              writes ONLY hermes:shadow:candles:{instrument}:{M5|H1}:latest:v1
+                              writes ONLY hermes:shadow:candles:{instrument}:{M1|M5|M15|H1}:latest:v1
     'canonical'/'live'/'prod' -> FAIL LOUD (canonical publish is a separate gated WO)
 
-R2D2 design ruling GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY: first scope is the
-DIRECT-NATIVE timeframes M5 and H1 only (source_count=expected=1, coverage=1.0, DIRECT_FROM_SOURCE,
-NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1). Unsupported runtime timeframes (M1/M15/D1/H4/D)
-are SKIPPED with reason UNSUPPORTED_TIMEFRAME — never silently remapped, never derived from stale SQL.
+DIRECT-NATIVE shadow grid (WO-...-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001, extending the original
+R2D2 M5/H1 ruling): timeframes M1, M5, M15, H1 (source_count=expected=1, coverage=1.0,
+DIRECT_FROM_SOURCE, NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1). Unsupported runtime
+timeframes (D1/H4/D) are SKIPPED with reason UNSUPPORTED_TIMEFRAME — never silently remapped,
+never derived from stale SQL. Instruments are canonicalised (XAUUSD -> XAU_USD); only the canonical
+id is published, never the alias, never both.
 H4 derivation and D anchor ratification are deferred to later WOs. Canonical stays dark; no Proteus,
 no legacy candle pubsub output, no shared-code import. ALL timestamps UTC.
 
@@ -41,10 +43,21 @@ ALLOWED_INERT_SINKS = ("none", "inert")
 SHADOW_SINK = "shadow"
 CANONICAL_SINKS = ("canonical", "live", "prod")
 
-# DIRECT-NATIVE first scope (R2D2 ruling). Everything else is skipped UNSUPPORTED_TIMEFRAME.
-SUPPORTED_TF = ("M5", "H1")
+# DIRECT-NATIVE shadow grid (GOLD-MTF extension of the R2D2 ruling). Everything else (D1/H4/D) is
+# skipped UNSUPPORTED_TIMEFRAME — never remapped, never derived from stale SQL.
+SUPPORTED_TF = ("M1", "M5", "M15", "H1")
 REASON_UNSUPPORTED_TF = "UNSUPPORTED_TIMEFRAME"
 DIRECT_NATIVE_EPOCH = "DIRECT_NATIVE_V1"
+
+# Broker-alias -> canonical instrument id. Publish ONLY the canonical form; NEVER dual-publish the
+# alias. Extend deliberately (one entry per proven alias) — no fuzzy normalisation.
+INSTRUMENT_ALIASES = {"XAUUSD": "XAU_USD"}
+
+
+def canonical_instrument(instrument):
+    """Map a known broker alias to its canonical instrument id (e.g. XAUUSD -> XAU_USD). Unknown ids
+    pass through unchanged. The alias form is never published and never dual-written."""
+    return INSTRUMENT_ALIASES.get(instrument, instrument)
 
 
 def _disabled_config():
@@ -60,13 +73,13 @@ def _tf_name(candle):
 
 
 def runtime_candle_to_contract(candle, *, generated_at_utc):
-    """Map a runtime Candle (DIRECT-NATIVE M5/H1 only) to a candle_contract_v1 envelope.
+    """Map a runtime Candle (DIRECT-NATIVE M1/M5/M15/H1 only) to a candle_contract_v1 envelope.
     Caller MUST have verified the timeframe is supported. complete=False -> FORMING (never OK)."""
     tf = _tf_name(candle)
     if tf not in SUPPORTED_TF:
         raise ValueError(f"{REASON_UNSUPPORTED_TF}: {tf} is not a DIRECT-NATIVE shadow timeframe")
     return cc.build_candle_contract(
-        instrument=candle.instrument, timeframe=tf, timestamp_utc=candle.timestamp,
+        instrument=canonical_instrument(candle.instrument), timeframe=tf, timestamp_utc=candle.timestamp,
         ohlc={"open": candle.open, "high": candle.high, "low": candle.low,
               "close": candle.close, "volume": getattr(candle, "volume", 0)},
         is_closed=bool(getattr(candle, "complete", True)),

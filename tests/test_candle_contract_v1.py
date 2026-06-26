@@ -46,7 +46,7 @@ def test_canonical_and_shadow_keys():
 
 
 def test_bad_timeframe_fails_loud():
-    for bad in ("M1", "M30", "W"):
+    for bad in ("M30", "M3", "W"):
         try:
             cc.canonical_key("XAU_USD", bad); assert False
         except ValueError as e:
@@ -54,8 +54,9 @@ def test_bad_timeframe_fails_loud():
 
 
 def test_ttl_policy_per_timeframe():
-    assert cc.TF_SECONDS == {"M5": 300, "H1": 3600, "H4": 14400, "D": 86400}
+    assert cc.TF_SECONDS == {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
     assert cc.redis_ex_seconds("M5") == 360 and cc.redis_ex_seconds("D") == 90000
+    assert cc.redis_ex_seconds("M1") == 90 and cc.redis_ex_seconds("M15") == 1080
 
 
 # ---------- builds for all timeframes ----------

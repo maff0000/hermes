@@ -110,23 +110,23 @@ def test_forming_candle_is_forming_never_ok():
     assert env["freshness_state"] == "FORMING"
 
 
-# ---------------- unsupported timeframes skipped ----------------
+# ---------------- unsupported timeframes skipped (D1/H4/D — M1/M15 are now DIRECT-NATIVE) ----------------
 def test_unsupported_timeframes_skipped_no_write():
     sh = _shadow_seam()
-    for tf in ("M1", "M15", "D1", "H4", "D"):
+    for tf in ("D1", "H4", "D"):
         res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen("M5"))
         assert res["emitted"] is False and res["wrote"] is False
         assert res["reason"] == "UNSUPPORTED_TIMEFRAME" and res["timeframe"] == tf
     assert sh.writer.redis_client.sets == []   # nothing written
-    for tf in ("M1", "M15", "D1", "H4", "D"):
+    for tf in ("D1", "H4", "D"):
         assert sh.metrics["candles_skipped_unsupported_tf"][tf] == 1
 
 
 def test_no_silent_remap_of_unsupported():
     sh = _shadow_seam()
-    sh.emit(_Candle(tf="M1"), generated_at_utc=_gen("M5"))
-    # an M1 candle never produces an M5/H1 shadow key
-    assert all("M1" not in k for k in sh.writer.redis_client.store)
+    sh.emit(_Candle(tf="H4"), generated_at_utc=_gen("M5"))
+    # an unsupported (H4) candle never produces a supported-grid shadow key, nor any write
+    assert all("H4" not in k for k in sh.writer.redis_client.store)
     assert sh.writer.redis_client.store == {}
 
 

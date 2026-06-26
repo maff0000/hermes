@@ -1,0 +1,545 @@
+diff --git a/.env.example b/.env.example
+index 74b39ce..cc1942e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -97,8 +97,8 @@ HERMES_PIDS_LIMIT=512
+ HERMES_CANDLE_FORWARD_ENABLED=false
+ # HERMES_CANDLE_FORWARD_SINK=inert   # required ONLY if enabled. Modes: none|inert (no-write) | shadow (dev)
+ #                                    # canonical|live|prod -> FAIL LOUD (separate gated WO)
+-# Shadow mode (HERMES_CANDLE_FORWARD_SINK=shadow) — dev Redis 6380 only; writes ONLY M5/H1
+-# hermes:shadow:candles:*; NOT enabled here. All required, no defaults:
++# Shadow mode (HERMES_CANDLE_FORWARD_SINK=shadow) — dev Redis 6380 only; writes ONLY M1/M5/M15/H1
++# hermes:shadow:candles:{instrument}:{M1|M5|M15|H1}:latest:v1; NOT enabled here. All required, no defaults:
+ # HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST=192.168.11.10
+ # HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT=6380
+ # HERMES_CANDLE_FORWARD_SHADOW_REDIS_DB=0
+diff --git a/ops/config/candle_forward_runtime_seam.md b/ops/config/candle_forward_runtime_seam.md
+index d5e6a72..5b8068f 100644
+--- a/ops/config/candle_forward_runtime_seam.md
++++ b/ops/config/candle_forward_runtime_seam.md
+@@ -5,11 +5,13 @@
+ | Key | Default | Description | Activation gate |
+ |-----|---------|-------------|-----------------|
+ | `HERMES_CANDLE_FORWARD_ENABLED` | `false` | Master gate for the runtime candle-forward emit seam. When false (default) the runtime constructs a no-op `DisabledCandleEmitter` — structurally aware, writes nothing, requires no sink config. | Architect-authorised activation only (and even enabled, this WO emits nothing). |
+-| `HERMES_CANDLE_FORWARD_SINK` | *(none — required iff enabled)* | Explicit forward sink mode. No hidden default — if `HERMES_CANDLE_FORWARD_ENABLED=true` and this is unset, the runtime FAILS LOUD. Modes: `none`/`inert` (governed `NoWriteCandleSink`, no write); `shadow` (dev `SerializingCandleShadowWriter` → dev Redis 6380, **M5/H1 only**, `hermes:shadow:candles:*`); `canonical`/`live`/`prod` → FAIL LOUD `GOV-CANDLE-FWD-SEAM-002`. | Shadow activation and canonical publish each require a separate, authorised, R2D2-audited WO. |
++| `HERMES_CANDLE_FORWARD_SINK` | *(none — required iff enabled)* | Explicit forward sink mode. No hidden default — if `HERMES_CANDLE_FORWARD_ENABLED=true` and this is unset, the runtime FAILS LOUD. Modes: `none`/`inert` (governed `NoWriteCandleSink`, no write); `shadow` (dev `SerializingCandleShadowWriter` → dev Redis 6380, **M1/M5/M15/H1 only**, `hermes:shadow:candles:*`); `canonical`/`live`/`prod` → FAIL LOUD `GOV-CANDLE-FWD-SEAM-002`. | Shadow activation and canonical publish each require a separate, authorised, R2D2-audited WO. |
+ 
+-### Shadow sink (`HERMES_CANDLE_FORWARD_SINK=shadow`) — dev only, M5/H1 only
++### Shadow sink (`HERMES_CANDLE_FORWARD_SINK=shadow`) — dev only, M1/M5/M15/H1
+ 
+-Wired by `WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-WRITER-WIRE-DEV-0001`. R2D2 ruling `GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY`: first scope is **DIRECT-NATIVE M5 and H1 only** (`source_count=expected=1`, `coverage=1.0`, `DIRECT_FROM_SOURCE`, `NONE_DIRECT`, `source_policy_epoch=DIRECT_NATIVE_V1`). Unsupported runtime timeframes (`M1`/`M15`/`D1`/`H4`/`D`) are **skipped** with `UNSUPPORTED_TIMEFRAME` (counter+log), never remapped, never derived from stale SQL. Writes **only** `hermes:shadow:candles:{instrument}:{M5|H1}:latest:v1` to dev Redis 6380 (JSON string, `SET EX` per timeframe). Canonical stays dark. **Not enabled in this PR.**
++Wired by `WO-HELM-HERMES-CANDLE-FORWARD-SHADOW-WRITER-WIRE-DEV-0001`; the DIRECT-NATIVE grid was extended to **M1/M5/M15/H1** by `WO-HELM-HERMES-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001` (R2D2 ruling `GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY`, GOLD-MTF extension). DIRECT-NATIVE means `source_count=expected=1`, `coverage=1.0`, `DIRECT_FROM_SOURCE`, `NONE_DIRECT`, `source_policy_epoch=DIRECT_NATIVE_V1`. Deferred runtime timeframes (`D1`/`H4`/`D`) are **skipped** with `UNSUPPORTED_TIMEFRAME` (counter+log), never remapped, never derived from stale SQL. Writes **only** `hermes:shadow:candles:{instrument}:{M1|M5|M15|H1}:latest:v1` to dev Redis 6380 (JSON string, `SET EX` per timeframe; M1=90s, M5=360s, M15=1080s, H1=3900s). Instruments are canonicalised (`XAUUSD`→`XAU_USD`), canonical id only, never dual-written. The contract also carries deterministic geometry (`body_high`/`body_low`/`body_size`/`range_size`/`wick_high`/`wick_low`/`candle_direction`) — raw market-truth only, **no regime**. Canonical stays dark. **Not enabled in this PR.**
++
++> **M15 production note:** the contract + seam are M15-ready, but the live `CandleAggregator` (`models/candle.Timeframe`) is intentionally left unchanged in this PR — it produces M1/M5/H1/D1. Wiring M15 aggregation is a future activation WO; nothing here activates it.
+ 
+ | Key | Default | Required when shadow | Notes |
+ |-----|---------|----------------------|-------|
+@@ -27,8 +29,8 @@ H4 derivation and D-anchor ratification (`NY_1700_FOREX`) are deferred to later
+   "llm_reasoning": "The candle-forward path is trading-sensitive market-truth publication and must never be enabled by a hidden default. The shadow sink is now wired (DIRECT-NATIVE M5/H1 only, dev Redis 6380, hermes:shadow:candles:* only) but remains disabled-by-default and is NOT activated by this build PR. Enabling without an explicit sink mode fails loud; shadow requires explicit host/port/db + authorisation (no defaults, no localhost-as-prod); canonical/live/prod fail loud. Unsupported timeframes are skipped, never remapped or stale-SQL-derived. No Proteus, no legacy candle pubsub, no canonical writer.",
+   "owner": "HELM/HERMES",
+   "default_disabled": true,
+-  "shadow_supported_timeframes": ["M5", "H1"],
+-  "deferred": ["H4_derivation", "D_anchor_NY_1700_FOREX", "canonical_publish", "backfill", "falcon_consumer"],
++  "shadow_supported_timeframes": ["M1", "M5", "M15", "H1"],
++  "deferred": ["M15_aggregator_production", "H4_derivation", "D_anchor_NY_1700_FOREX", "canonical_publish", "backfill", "falcon_consumer"],
+   "fault_codes": ["GOV-CANDLE-FWD-SEAM-001", "GOV-CANDLE-FWD-SEAM-002", "GOV-CANDLE-FWD-SEAM-003", "GOV-CANDLE-FWD-SEAM-004", "GOV-CANDLE-PUB-SHADOW-001..004"]
+ }
+ ```
+diff --git a/tests/test_candle_contract_v1.py b/tests/test_candle_contract_v1.py
+index 279ba6b..64913d4 100644
+--- a/tests/test_candle_contract_v1.py
++++ b/tests/test_candle_contract_v1.py
+@@ -46,7 +46,7 @@ def test_canonical_and_shadow_keys():
+ 
+ 
+ def test_bad_timeframe_fails_loud():
+-    for bad in ("M1", "M30", "W"):
++    for bad in ("M30", "M3", "W"):
+         try:
+             cc.canonical_key("XAU_USD", bad); assert False
+         except ValueError as e:
+@@ -54,8 +54,9 @@ def test_bad_timeframe_fails_loud():
+ 
+ 
+ def test_ttl_policy_per_timeframe():
+-    assert cc.TF_SECONDS == {"M5": 300, "H1": 3600, "H4": 14400, "D": 86400}
++    assert cc.TF_SECONDS == {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
+     assert cc.redis_ex_seconds("M5") == 360 and cc.redis_ex_seconds("D") == 90000
++    assert cc.redis_ex_seconds("M1") == 90 and cc.redis_ex_seconds("M15") == 1080
+ 
+ 
+ # ---------- builds for all timeframes ----------
+diff --git a/tests/test_candle_gold_mtf_contract_v1.py b/tests/test_candle_gold_mtf_contract_v1.py
+new file mode 100644
+index 0000000..d3cca84
+--- /dev/null
++++ b/tests/test_candle_gold_mtf_contract_v1.py
+@@ -0,0 +1,244 @@
++"""GOLD MTF candle-contract extension — M1/M5/M15/H1 DIRECT-NATIVE grid + fixed wick semantics.
++WO-HELM-HERMES-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001.
++
++Shadow-first, code-only. No live Redis/SQL, no backfill, no activation. In-memory fake Redis only.
++
++Proves:
++  * the contract recognises and TTLs M1/M5/M15/H1 (and the deferred H4/D),
++  * the deterministic geometry block (body/range/wick/direction) is present + correct,
++  * wick semantics are FIXED: wick_high = high-body_high (NOT the high price), wick_low = body_low-low,
++  * the validator recomputes the geometry and fails loud on aliasing / tampering,
++  * the shadow seam writes ONLY versioned shadow keys for M1/M5/M15/H1 and skips D1/H4/D,
++  * XAUUSD is canonicalised to XAU_USD with no dual-publish,
++  * no interpretive/regime field can leak (forbidden-token scan).
++"""
++import json
++from datetime import datetime, timedelta, timezone
++
++from utils import candle_contract_v1 as cc
++from utils import candle_runtime_seam_v1 as seam
++from utils import candle_publisher_v1 as cp
++
++_TS = datetime(2026, 6, 26, 8, 0, tzinfo=timezone.utc)
++_DIRECT_GRID = ("M1", "M5", "M15", "H1")
++_EXPECTED_TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600}
++_EXPECTED_EX = {"M1": 90, "M5": 360, "M15": 1080, "H1": 3900}
++
++
++def _direct(tf="M5", *, instrument="XAU_USD", o=2000.0, h=2010.0, low=1995.0, c=2005.0,
++            is_closed=True, market_open=True):
++    gen = _TS + timedelta(seconds=cc.TF_SECONDS[tf] + 0.5)
++    return cc.build_candle_contract(
++        instrument=instrument, timeframe=tf, timestamp_utc=_TS,
++        ohlc={"open": o, "high": h, "low": low, "close": c, "volume": 100},
++        is_closed=is_closed, generated_at_utc=gen, source_timeframe=tf,
++        source_count=1, expected_source_count=1,
++        derivation=cc.DERIVATION_DIRECT, derivation_policy=cc.DERIVATION_POLICY_DIRECT,
++        source_policy_epoch="DIRECT_NATIVE_V1", market_open=market_open)
++
++
++# ---------------- timeframe grid ----------------
++def test_direct_native_grid_recognised_and_ttld():
++    assert all(tf in cc.TIMEFRAMES for tf in _DIRECT_GRID)
++    for tf in _DIRECT_GRID:
++        assert cc.TF_SECONDS[tf] == _EXPECTED_TF_SECONDS[tf]
++        assert cc.redis_ex_seconds(tf) == _EXPECTED_EX[tf]
++
++
++def test_each_grid_tf_builds_and_validates():
++    for tf in _DIRECT_GRID:
++        p = _direct(tf)
++        assert cc.validate_candle_contract(p) is True
++        assert p["ttl_seconds"] == _EXPECTED_TF_SECONDS[tf]
++        assert p["key"] == f"hermes:candles:XAU_USD:{tf}:latest:v1"
++        assert p["data"]["timeframe"] == tf
++
++
++# ---------------- geometry: correct + present ----------------
++def test_geometry_block_present_and_correct_bullish():
++    d = _direct("M5", o=2000.0, h=2010.0, low=1995.0, c=2005.0)["data"]
++    assert d["body_high"] == 2005.0 and d["body_low"] == 2000.0      # max/min(open,close)
++    assert d["body_size"] == 5.0                                     # abs(close-open)
++    assert d["range_size"] == 15.0                                   # high-low
++    assert d["wick_high"] == 5.0                                     # high-body_high (2010-2005)
++    assert d["wick_low"] == 5.0                                      # body_low-low (2000-1995)
++    assert d["candle_direction"] == "UP"
++
++
++def test_geometry_bearish_and_flat_directions():
++    down = _direct("M5", o=2005.0, h=2010.0, low=1995.0, c=2000.0)["data"]
++    assert down["candle_direction"] == "DOWN"
++    assert down["body_high"] == 2005.0 and down["body_low"] == 2000.0
++    flat = _direct("M15", o=2000.0, h=2003.0, low=1998.0, c=2000.0)["data"]
++    assert flat["candle_direction"] == "FLAT"
++    assert flat["body_size"] == 0.0
++    assert flat["wick_high"] == 3.0 and flat["wick_low"] == 2.0
++
++
++# ---------------- the wick-semantics fix: NO high/low aliasing ----------------
++def test_wick_high_is_not_the_high_price():
++    d = _direct("H1", o=2000.0, h=2010.0, low=1995.0, c=2005.0)["data"]
++    assert d["wick_high"] != d["high"]          # wick_high is a SIZE, never the high price
++    assert d["wick_low"] != d["low"]
++    assert d["wick_high"] == d["high"] - d["body_high"]
++    assert d["wick_low"] == d["body_low"] - d["low"]
++
++
++def test_marubozu_zero_wicks_are_zero_not_aliased():
++    # open==low, close==high -> both wicks zero (NOT aliased to high/low)
++    d = _direct("M1", o=1995.0, h=2005.0, low=1995.0, c=2005.0)["data"]
++    assert d["wick_high"] == 0.0 and d["wick_low"] == 0.0
++    assert d["range_size"] == d["body_size"] == 10.0
++
++
++# ---------------- validator recomputes / fails loud on tampering ----------------
++def _tamper(field, value):
++    p = _direct("M5")
++    p["data"][field] = value
++    return p
++
++
++def test_validator_rejects_wick_aliased_to_high():
++    p = _tamper("wick_high", _direct("M5")["data"]["high"])   # alias wick_high -> high price
++    try:
++        cc.validate_candle_contract(p); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-035" in str(e)
++
++
++def test_validator_rejects_negative_wick():
++    try:
++        cc.validate_candle_contract(_tamper("wick_low", -1.0)); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-031" in str(e)
++
++
++def test_validator_rejects_body_bigger_than_range():
++    try:
++        cc.validate_candle_contract(_tamper("body_size", 999.0)); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-033" in str(e)
++
++
++def test_validator_rejects_bad_direction():
++    try:
++        cc.validate_candle_contract(_tamper("candle_direction", "BULLISH")); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-038" in str(e) or "GOV-CANDLE-CONTRACT-037" in str(e)
++
++
++def test_validator_rejects_missing_geometry_field():
++    p = _direct("M5")
++    del p["data"]["wick_high"]
++    try:
++        cc.validate_candle_contract(p); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-012" in str(e)   # missing data field caught first
++
++
++# ---------------- unpriced candle: geometry present-but-None, still valid ----------------
++def test_market_closed_geometry_is_none_and_valid():
++    p = _direct("H1", market_open=False)
++    d = p["data"]
++    assert p["status"] == "MARKET_CLOSED"
++    for f in ("body_high", "body_low", "body_size", "range_size", "wick_high", "wick_low",
++              "candle_direction"):
++        assert d[f] is None
++    assert cc.validate_candle_contract(p) is True
++
++
++# ---------------- no interpretive/regime leakage ----------------
++def test_no_forbidden_regime_field_can_leak():
++    p = _direct("M5")
++    p["data"]["regime"] = "TREND"
++    try:
++        cc.validate_candle_contract(p); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-029" in str(e)
++
++
++# ============================ shadow seam ============================
++class _TF:
++    def __init__(self, name):
++        self.name = name
++
++
++class _Candle:
++    def __init__(self, instrument="XAU_USD", tf="M5", complete=True,
++                 o=2000.0, h=2010.0, low=1995.0, c=2005.0, volume=120):
++        self.instrument = instrument
++        self.timeframe = _TF(tf)
++        self.timestamp = _TS
++        self.open, self.high, self.low, self.close = o, h, low, c
++        self.volume = volume
++        self.complete = complete
++
++
++class StrictFakeRedis:
++    def __init__(self):
++        self.store = {}
++        self.sets = []
++
++    def set(self, key, value, ex=None):
++        assert isinstance(value, (str, bytes)), "shadow writer must serialise (no dict to client)"
++        self.store[key] = (value, ex)
++        self.sets.append((key, value, ex))
++        return True
++
++
++def _shadow_cfg(**over):
++    base = dict(publish_enabled=False, publish_authorised=False, shadow_publish_enabled=True,
++                shadow_authorised=True, namespace="hermes", contract_version="v1",
++                redis_host="192.168.11.10", redis_port=6380, redis_db=0,
++                treat_as_production=False, dev_shadow=True)
++    base.update(over)
++    return cp.CandlePublisherConfig(**base)
++
++
++def _seam(client=None):
++    return seam.build_shadow_seam(config=_shadow_cfg(), redis_client=client or StrictFakeRedis())
++
++
++def _gen(tf):
++    return _TS + timedelta(seconds=cc.TF_SECONDS[tf] + 0.5)
++
++
++def test_seam_supports_full_direct_grid():
++    assert seam.SUPPORTED_TF == ("M1", "M5", "M15", "H1")
++    for tf in _DIRECT_GRID:
++        sh = _seam()
++        res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen(tf))
++        assert res["emitted"] is True and res["wrote"] is True
++        assert res["key"] == f"hermes:shadow:candles:XAU_USD:{tf}:latest:v1"
++        key, value, ex = sh.writer.redis_client.sets[0]
++        assert ex == cc.redis_ex_seconds(tf)
++        assert cc.validate_candle_contract(json.loads(value)) is True
++
++
++def test_seam_skips_deferred_timeframes():
++    for tf in ("D1", "H4", "D"):
++        sh = _seam()
++        res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen("M5"))
++        assert res["emitted"] is False and res["reason"] == "UNSUPPORTED_TIMEFRAME"
++        assert sh.writer.redis_client.sets == []
++
++
++def test_every_shadow_key_is_versioned_v1():
++    sh = _seam()
++    for tf in _DIRECT_GRID:
++        sh.emit(_Candle(tf=tf), generated_at_utc=_gen(tf))
++    assert sh.writer.redis_client.store, "expected shadow writes"
++    for k in sh.writer.redis_client.store:
++        assert k.startswith("hermes:shadow:candles:") and k.endswith(":latest:v1")
++        assert not (k.startswith("hermes:candles:") and not k.startswith("hermes:shadow:"))
++
++
++def test_xauusd_alias_canonicalised_no_dual_publish():
++    assert seam.canonical_instrument("XAUUSD") == "XAU_USD"
++    assert seam.canonical_instrument("XAU_USD") == "XAU_USD"
++    sh = _seam()
++    res = sh.emit(_Candle(instrument="XAUUSD", tf="M5"), generated_at_utc=_gen("M5"))
++    assert res["key"] == "hermes:shadow:candles:XAU_USD:M5:latest:v1"
++    # the alias form is NEVER written (no dual-publish)
++    assert all("XAUUSD" not in k for k in sh.writer.redis_client.store)
++    assert len(sh.writer.redis_client.store) == 1
+diff --git a/tests/test_candle_shadow_writer_wire_v1.py b/tests/test_candle_shadow_writer_wire_v1.py
+index c94cd12..23e1fb3 100644
+--- a/tests/test_candle_shadow_writer_wire_v1.py
++++ b/tests/test_candle_shadow_writer_wire_v1.py
+@@ -110,23 +110,23 @@ def test_forming_candle_is_forming_never_ok():
+     assert env["freshness_state"] == "FORMING"
+ 
+ 
+-# ---------------- unsupported timeframes skipped ----------------
++# ---------------- unsupported timeframes skipped (D1/H4/D — M1/M15 are now DIRECT-NATIVE) ----------------
+ def test_unsupported_timeframes_skipped_no_write():
+     sh = _shadow_seam()
+-    for tf in ("M1", "M15", "D1", "H4", "D"):
++    for tf in ("D1", "H4", "D"):
+         res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen("M5"))
+         assert res["emitted"] is False and res["wrote"] is False
+         assert res["reason"] == "UNSUPPORTED_TIMEFRAME" and res["timeframe"] == tf
+     assert sh.writer.redis_client.sets == []   # nothing written
+-    for tf in ("M1", "M15", "D1", "H4", "D"):
++    for tf in ("D1", "H4", "D"):
+         assert sh.metrics["candles_skipped_unsupported_tf"][tf] == 1
+ 
+ 
+ def test_no_silent_remap_of_unsupported():
+     sh = _shadow_seam()
+-    sh.emit(_Candle(tf="M1"), generated_at_utc=_gen("M5"))
+-    # an M1 candle never produces an M5/H1 shadow key
+-    assert all("M1" not in k for k in sh.writer.redis_client.store)
++    sh.emit(_Candle(tf="H4"), generated_at_utc=_gen("M5"))
++    # an unsupported (H4) candle never produces a supported-grid shadow key, nor any write
++    assert all("H4" not in k for k in sh.writer.redis_client.store)
+     assert sh.writer.redis_client.store == {}
+ 
+ 
+diff --git a/tests/test_candle_utc_naive_fix_v1.py b/tests/test_candle_utc_naive_fix_v1.py
+index dc94b9d..963f7a0 100644
+--- a/tests/test_candle_utc_naive_fix_v1.py
++++ b/tests/test_candle_utc_naive_fix_v1.py
+@@ -142,7 +142,7 @@ def test_naive_h1_runtime_candle_emits_valid_shadow():
+ 
+ def test_unsupported_timeframes_still_skip_with_naive():
+     sh = _shadow()
+-    for tf in ("M1", "M15", "D1", "D", "H4"):
++    for tf in ("D1", "D", "H4"):
+         r = sh.emit(candle=_Candle(tf), generated_at_utc=datetime(2026, 6, 16, 8, 0, tzinfo=timezone.utc))
+         assert r["emitted"] is False and r["reason"] == "UNSUPPORTED_TIMEFRAME"
+     assert sh.writer.redis_client.sets == []
+diff --git a/utils/candle_contract_v1.py b/utils/candle_contract_v1.py
+index 41a2eaf..c6ef3dc 100644
+--- a/utils/candle_contract_v1.py
++++ b/utils/candle_contract_v1.py
+@@ -24,11 +24,13 @@ DOMAIN = "candles"
+ CONTRACT = "hermes.candles.latest"
+ CONTRACT_VERSION = "v1"
+ 
+-TIMEFRAMES = ("M5", "H1", "H4", "D")
++# M1/M5/M15/H1 are the DIRECT-NATIVE shadow grid (WO-...-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001).
++# H4/D remain recognised for the (deferred) derived path; the shadow seam still skips them.
++TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D")
+ # candle validity = one timeframe period (a closed "latest" candle is valid until the next forms)
+-TF_SECONDS = {"M5": 300, "H1": 3600, "H4": 14400, "D": 86400}
++TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
+ # documented Redis EX buffers (grace beyond validity; consumers freshness-gate on valid_until_utc)
+-TTL_BUFFER_SECONDS = {"M5": 60, "H1": 300, "H4": 900, "D": 3600}
++TTL_BUFFER_SECONDS = {"M1": 30, "M5": 60, "M15": 180, "H1": 300, "H4": 900, "D": 3600}
+ 
+ # governed derivation policies (mirror utils.forward_derivation_runner — single doctrine)
+ DERIVATION_POLICY_FORWARD = "FORWARD_COMPLETE_M1_ONLY"
+@@ -106,6 +108,31 @@ def aggregate_ohlc(source_candles):
+     return {"open": o, "high": hi, "low": lo, "close": c, "volume": vol}
+ 
+ 
++# Deterministic candle geometry — HERMES owns RAW market truth only (architect Option-A: candle-state/
++# features, NOT regime). Fixed wick semantics (no high/low aliasing):
++#   body_high = max(open, close)   body_low = min(open, close)   body_size = abs(close - open)
++#   range_size = high - low        wick_high = high - body_high   wick_low = body_low - low
++#   candle_direction = UP if close>open else DOWN if close<open else FLAT  (pure sign; no thresholds)
++# wick_high is the UPPER WICK SIZE (== features.candle_geometry upper_wick_size), NEVER the high price.
++_GEOM_FIELDS = ("body_high", "body_low", "body_size", "range_size",
++                "wick_high", "wick_low", "candle_direction")
++
++
++def _candle_geometry(price):
++    """Return the deterministic geometry block for a price dict. All-None when unpriced
++    (NO_SOURCE_DATA / MARKET_CLOSED) so the keys are always present but never fabricated."""
++    o, h, lo, c = price["open"], price["high"], price["low"], price["close"]
++    if None in (o, h, lo, c):
++        return {k: None for k in _GEOM_FIELDS}
++    body_high, body_low = max(o, c), min(o, c)
++    return {
++        "body_high": round(body_high, 6), "body_low": round(body_low, 6),
++        "body_size": round(abs(c - o), 6), "range_size": round(h - lo, 6),
++        "wick_high": round(h - body_high, 6), "wick_low": round(body_low - lo, 6),
++        "candle_direction": "UP" if c > o else ("DOWN" if c < o else "FLAT"),
++    }
++
++
+ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_closed,
+                           generated_at_utc, source_timeframe, source_count, expected_source_count,
+                           derivation, derivation_policy, source_policy_epoch,
+@@ -172,6 +199,8 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
+             if price["high"] < max(price["open"], price["close"]) or price["low"] > min(price["open"], price["close"]) or price["high"] < price["low"]:
+                 raise ValueError(f"GOV-CANDLE-CONTRACT-006: invalid OHLC {price} (fail-loud)")
+ 
++    geom = _candle_geometry(price)
++
+     return {
+         "schema_version": SCHEMA_VERSION, "service": SERVICE, "domain": DOMAIN,
+         "contract": CONTRACT, "contract_version": CONTRACT_VERSION, "key": key,
+@@ -183,7 +212,7 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
+                        "generated_at_utc": _fmt(generated_at_utc),
+                        "source_policy_epoch": source_policy_epoch},
+         "data": {"instrument": instrument, "timeframe": timeframe,
+-                 "timestamp_utc": _fmt(timestamp_utc), **price, "is_closed": is_closed,
++                 "timestamp_utc": _fmt(timestamp_utc), **price, **geom, "is_closed": is_closed,
+                  "source_timeframe": source_timeframe, "source_coverage": coverage,
+                  "source_count": source_count, "expected_source_count": expected_source_count,
+                  "gap_state": gap_state, "derivation_policy": derivation_policy,
+@@ -220,7 +249,8 @@ _ENVELOPE_KEYS = ("schema_version", "service", "domain", "contract", "contract_v
+                   "generated_at_utc", "valid_until_utc", "ttl_seconds", "freshness_state",
+                   "status", "reason_codes", "provenance", "data")
+ _DATA_KEYS = ("instrument", "timeframe", "timestamp_utc", "open", "high", "low", "close", "volume",
+-              "is_closed", "source_timeframe", "source_coverage", "source_count",
++              "body_high", "body_low", "body_size", "range_size", "wick_high", "wick_low",
++              "candle_direction", "is_closed", "source_timeframe", "source_coverage", "source_count",
+               "expected_source_count", "gap_state", "derivation_policy", "source_policy_epoch",
+               "publisher", "contract_version")
+ 
+@@ -274,6 +304,29 @@ def validate_candle_contract(payload):
+             raise ValueError("GOV-CANDLE-CONTRACT-025: priced candle missing OHLC")
+         if h < max(o, c) or lo > min(o, c) or h < lo:
+             raise ValueError(f"GOV-CANDLE-CONTRACT-026: invalid OHLC o={o} h={h} l={lo} c={c}")
++        # Geometry block: present + sign-consistent + recomputed (recomputation is the no-alias guard:
++        # wick_high MUST equal high-body_high, NOT the high price; wick_low MUST equal body_low-low).
++        bh, bl, bs = d["body_high"], d["body_low"], d["body_size"]
++        rs, wh, wl, cd = d["range_size"], d["wick_high"], d["wick_low"], d["candle_direction"]
++        if None in (bh, bl, bs, rs, wh, wl) or cd is None:
++            raise ValueError("GOV-CANDLE-CONTRACT-030: priced candle missing geometry fields")
++        if wh < 0 or wl < 0 or rs < 0:
++            raise ValueError(f"GOV-CANDLE-CONTRACT-031: negative wick/range wick_high={wh} wick_low={wl} range_size={rs}")
++        if bh > h or bl < lo:
++            raise ValueError(f"GOV-CANDLE-CONTRACT-032: body outside high/low (bh={bh} bl={bl} h={h} l={lo})")
++        if bs - rs > 1e-6:
++            raise ValueError(f"GOV-CANDLE-CONTRACT-033: body_size {bs} > range_size {rs}")
++        if abs(bh - max(o, c)) > 1e-6 or abs(bl - min(o, c)) > 1e-6:
++            raise ValueError(f"GOV-CANDLE-CONTRACT-034: body_high/body_low inconsistent with open/close")
++        if abs(wh - (h - bh)) > 1e-6 or abs(wl - (bl - lo)) > 1e-6:
++            raise ValueError("GOV-CANDLE-CONTRACT-035: wick_high/wick_low not recomputable from OHLC "
++                             "(high/low aliasing or miscompute)")
++        if abs(rs - (h - lo)) > 1e-6:
++            raise ValueError(f"GOV-CANDLE-CONTRACT-036: range_size {rs} != high-low {h - lo}")
++        if cd not in ("UP", "DOWN", "FLAT"):
++            raise ValueError(f"GOV-CANDLE-CONTRACT-037: bad candle_direction {cd}")
++        if (cd == "UP") != (c > o) or (cd == "DOWN") != (c < o):
++            raise ValueError(f"GOV-CANDLE-CONTRACT-038: candle_direction {cd} inconsistent with open/close")
+     for rc in payload["reason_codes"]:
+         if rc not in REASON_VOCAB:
+             raise ValueError(f"GOV-CANDLE-CONTRACT-027: unknown reason_code {rc}")
+diff --git a/utils/candle_runtime_seam_v1.py b/utils/candle_runtime_seam_v1.py
+index 426df1c..cd6b085 100644
+--- a/utils/candle_runtime_seam_v1.py
++++ b/utils/candle_runtime_seam_v1.py
+@@ -10,13 +10,15 @@ Makes the HERMES runtime structurally aware of the governed candle-forward found
+   HERMES_CANDLE_FORWARD_SINK:
+     'none' / 'inert'        -> governed NoWriteCandleSink (no-write inert seam)
+     'shadow'               -> dev SHADOW writer: SerializingCandleShadowWriter -> dev Redis 6380,
+-                              writes ONLY hermes:shadow:candles:{instrument}:{M5|H1}:latest:v1
++                              writes ONLY hermes:shadow:candles:{instrument}:{M1|M5|M15|H1}:latest:v1
+     'canonical'/'live'/'prod' -> FAIL LOUD (canonical publish is a separate gated WO)
+ 
+-R2D2 design ruling GREEN_DESIGN_RULING_SHADOW_WRITER_DIRECT_NATIVE_ONLY: first scope is the
+-DIRECT-NATIVE timeframes M5 and H1 only (source_count=expected=1, coverage=1.0, DIRECT_FROM_SOURCE,
+-NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1). Unsupported runtime timeframes (M1/M15/D1/H4/D)
+-are SKIPPED with reason UNSUPPORTED_TIMEFRAME — never silently remapped, never derived from stale SQL.
++DIRECT-NATIVE shadow grid (WO-...-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001, extending the original
++R2D2 M5/H1 ruling): timeframes M1, M5, M15, H1 (source_count=expected=1, coverage=1.0,
++DIRECT_FROM_SOURCE, NONE_DIRECT, source_policy_epoch=DIRECT_NATIVE_V1). Unsupported runtime
++timeframes (D1/H4/D) are SKIPPED with reason UNSUPPORTED_TIMEFRAME — never silently remapped,
++never derived from stale SQL. Instruments are canonicalised (XAUUSD -> XAU_USD); only the canonical
++id is published, never the alias, never both.
+ H4 derivation and D anchor ratification are deferred to later WOs. Canonical stays dark; no Proteus,
+ no legacy candle pubsub output, no shared-code import. ALL timestamps UTC.
+ 
+@@ -41,11 +43,22 @@ ALLOWED_INERT_SINKS = ("none", "inert")
+ SHADOW_SINK = "shadow"
+ CANONICAL_SINKS = ("canonical", "live", "prod")
+ 
+-# DIRECT-NATIVE first scope (R2D2 ruling). Everything else is skipped UNSUPPORTED_TIMEFRAME.
+-SUPPORTED_TF = ("M5", "H1")
++# DIRECT-NATIVE shadow grid (GOLD-MTF extension of the R2D2 ruling). Everything else (D1/H4/D) is
++# skipped UNSUPPORTED_TIMEFRAME — never remapped, never derived from stale SQL.
++SUPPORTED_TF = ("M1", "M5", "M15", "H1")
+ REASON_UNSUPPORTED_TF = "UNSUPPORTED_TIMEFRAME"
+ DIRECT_NATIVE_EPOCH = "DIRECT_NATIVE_V1"
+ 
++# Broker-alias -> canonical instrument id. Publish ONLY the canonical form; NEVER dual-publish the
++# alias. Extend deliberately (one entry per proven alias) — no fuzzy normalisation.
++INSTRUMENT_ALIASES = {"XAUUSD": "XAU_USD"}
++
++
++def canonical_instrument(instrument):
++    """Map a known broker alias to its canonical instrument id (e.g. XAUUSD -> XAU_USD). Unknown ids
++    pass through unchanged. The alias form is never published and never dual-written."""
++    return INSTRUMENT_ALIASES.get(instrument, instrument)
++
+ 
+ def _disabled_config():
+     return cp.CandlePublisherConfig(
+@@ -60,13 +73,13 @@ def _tf_name(candle):
+ 
+ 
+ def runtime_candle_to_contract(candle, *, generated_at_utc):
+-    """Map a runtime Candle (DIRECT-NATIVE M5/H1 only) to a candle_contract_v1 envelope.
++    """Map a runtime Candle (DIRECT-NATIVE M1/M5/M15/H1 only) to a candle_contract_v1 envelope.
+     Caller MUST have verified the timeframe is supported. complete=False -> FORMING (never OK)."""
+     tf = _tf_name(candle)
+     if tf not in SUPPORTED_TF:
+         raise ValueError(f"{REASON_UNSUPPORTED_TF}: {tf} is not a DIRECT-NATIVE shadow timeframe")
+     return cc.build_candle_contract(
+-        instrument=candle.instrument, timeframe=tf, timestamp_utc=candle.timestamp,
++        instrument=canonical_instrument(candle.instrument), timeframe=tf, timestamp_utc=candle.timestamp,
+         ohlc={"open": candle.open, "high": candle.high, "low": candle.low,
+               "close": candle.close, "volume": getattr(candle, "volume", 0)},
+         is_closed=bool(getattr(candle, "complete", True)),

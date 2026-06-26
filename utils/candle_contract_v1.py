@@ -24,11 +24,13 @@ DOMAIN = "candles"
 CONTRACT = "hermes.candles.latest"
 CONTRACT_VERSION = "v1"
 
-TIMEFRAMES = ("M5", "H1", "H4", "D")
+# M1/M5/M15/H1 are the DIRECT-NATIVE shadow grid (WO-...-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001).
+# H4/D remain recognised for the (deferred) derived path; the shadow seam still skips them.
+TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D")
 # candle validity = one timeframe period (a closed "latest" candle is valid until the next forms)
-TF_SECONDS = {"M5": 300, "H1": 3600, "H4": 14400, "D": 86400}
+TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
 # documented Redis EX buffers (grace beyond validity; consumers freshness-gate on valid_until_utc)
-TTL_BUFFER_SECONDS = {"M5": 60, "H1": 300, "H4": 900, "D": 3600}
+TTL_BUFFER_SECONDS = {"M1": 30, "M5": 60, "M15": 180, "H1": 300, "H4": 900, "D": 3600}
 
 # governed derivation policies (mirror utils.forward_derivation_runner — single doctrine)
 DERIVATION_POLICY_FORWARD = "FORWARD_COMPLETE_M1_ONLY"
@@ -106,6 +108,31 @@ def aggregate_ohlc(source_candles):
     return {"open": o, "high": hi, "low": lo, "close": c, "volume": vol}
 
 
+# Deterministic candle geometry — HERMES owns RAW market truth only (architect Option-A: candle-state/
+# features, NOT regime). Fixed wick semantics (no high/low aliasing):
+#   body_high = max(open, close)   body_low = min(open, close)   body_size = abs(close - open)
+#   range_size = high - low        wick_high = high - body_high   wick_low = body_low - low
+#   candle_direction = UP if close>open else DOWN if close<open else FLAT  (pure sign; no thresholds)
+# wick_high is the UPPER WICK SIZE (== features.candle_geometry upper_wick_size), NEVER the high price.
+_GEOM_FIELDS = ("body_high", "body_low", "body_size", "range_size",
+                "wick_high", "wick_low", "candle_direction")
+
+
+def _candle_geometry(price):
+    """Return the deterministic geometry block for a price dict. All-None when unpriced
+    (NO_SOURCE_DATA / MARKET_CLOSED) so the keys are always present but never fabricated."""
+    o, h, lo, c = price["open"], price["high"], price["low"], price["close"]
+    if None in (o, h, lo, c):
+        return {k: None for k in _GEOM_FIELDS}
+    body_high, body_low = max(o, c), min(o, c)
+    return {
+        "body_high": round(body_high, 6), "body_low": round(body_low, 6),
+        "body_size": round(abs(c - o), 6), "range_size": round(h - lo, 6),
+        "wick_high": round(h - body_high, 6), "wick_low": round(body_low - lo, 6),
+        "candle_direction": "UP" if c > o else ("DOWN" if c < o else "FLAT"),
+    }
+
+
 def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_closed,
                           generated_at_utc, source_timeframe, source_count, expected_source_count,
                           derivation, derivation_policy, source_policy_epoch,
@@ -172,6 +199,8 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
             if price["high"] < max(price["open"], price["close"]) or price["low"] > min(price["open"], price["close"]) or price["high"] < price["low"]:
                 raise ValueError(f"GOV-CANDLE-CONTRACT-006: invalid OHLC {price} (fail-loud)")
 
+    geom = _candle_geometry(price)
+
     return {
         "schema_version": SCHEMA_VERSION, "service": SERVICE, "domain": DOMAIN,
         "contract": CONTRACT, "contract_version": CONTRACT_VERSION, "key": key,
@@ -183,7 +212,7 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
                        "generated_at_utc": _fmt(generated_at_utc),
                        "source_policy_epoch": source_policy_epoch},
         "data": {"instrument": instrument, "timeframe": timeframe,
-                 "timestamp_utc": _fmt(timestamp_utc), **price, "is_closed": is_closed,
+                 "timestamp_utc": _fmt(timestamp_utc), **price, **geom, "is_closed": is_closed,
                  "source_timeframe": source_timeframe, "source_coverage": coverage,
                  "source_count": source_count, "expected_source_count": expected_source_count,
                  "gap_state": gap_state, "derivation_policy": derivation_policy,
@@ -220,7 +249,8 @@ _ENVELOPE_KEYS = ("schema_version", "service", "domain", "contract", "contract_v
                   "generated_at_utc", "valid_until_utc", "ttl_seconds", "freshness_state",
                   "status", "reason_codes", "provenance", "data")
 _DATA_KEYS = ("instrument", "timeframe", "timestamp_utc", "open", "high", "low", "close", "volume",
-              "is_closed", "source_timeframe", "source_coverage", "source_count",
+              "body_high", "body_low", "body_size", "range_size", "wick_high", "wick_low",
+              "candle_direction", "is_closed", "source_timeframe", "source_coverage", "source_count",
               "expected_source_count", "gap_state", "derivation_policy", "source_policy_epoch",
               "publisher", "contract_version")
 
@@ -274,6 +304,29 @@ def validate_candle_contract(payload):
             raise ValueError("GOV-CANDLE-CONTRACT-025: priced candle missing OHLC")
         if h < max(o, c) or lo > min(o, c) or h < lo:
             raise ValueError(f"GOV-CANDLE-CONTRACT-026: invalid OHLC o={o} h={h} l={lo} c={c}")
+        # Geometry block: present + sign-consistent + recomputed (recomputation is the no-alias guard:
+        # wick_high MUST equal high-body_high, NOT the high price; wick_low MUST equal body_low-low).
+        bh, bl, bs = d["body_high"], d["body_low"], d["body_size"]
+        rs, wh, wl, cd = d["range_size"], d["wick_high"], d["wick_low"], d["candle_direction"]
+        if None in (bh, bl, bs, rs, wh, wl) or cd is None:
+            raise ValueError("GOV-CANDLE-CONTRACT-030: priced candle missing geometry fields")
+        if wh < 0 or wl < 0 or rs < 0:
+            raise ValueError(f"GOV-CANDLE-CONTRACT-031: negative wick/range wick_high={wh} wick_low={wl} range_size={rs}")
+        if bh > h or bl < lo:
+            raise ValueError(f"GOV-CANDLE-CONTRACT-032: body outside high/low (bh={bh} bl={bl} h={h} l={lo})")
+        if bs - rs > 1e-6:
+            raise ValueError(f"GOV-CANDLE-CONTRACT-033: body_size {bs} > range_size {rs}")
+        if abs(bh - max(o, c)) > 1e-6 or abs(bl - min(o, c)) > 1e-6:
+            raise ValueError(f"GOV-CANDLE-CONTRACT-034: body_high/body_low inconsistent with open/close")
+        if abs(wh - (h - bh)) > 1e-6 or abs(wl - (bl - lo)) > 1e-6:
+            raise ValueError("GOV-CANDLE-CONTRACT-035: wick_high/wick_low not recomputable from OHLC "
+                             "(high/low aliasing or miscompute)")
+        if abs(rs - (h - lo)) > 1e-6:
+            raise ValueError(f"GOV-CANDLE-CONTRACT-036: range_size {rs} != high-low {h - lo}")
+        if cd not in ("UP", "DOWN", "FLAT"):
+            raise ValueError(f"GOV-CANDLE-CONTRACT-037: bad candle_direction {cd}")
+        if (cd == "UP") != (c > o) or (cd == "DOWN") != (c < o):
+            raise ValueError(f"GOV-CANDLE-CONTRACT-038: candle_direction {cd} inconsistent with open/close")
     for rc in payload["reason_codes"]:
         if rc not in REASON_VOCAB:
             raise ValueError(f"GOV-CANDLE-CONTRACT-027: unknown reason_code {rc}")

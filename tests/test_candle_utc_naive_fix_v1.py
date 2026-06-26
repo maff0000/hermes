@@ -142,7 +142,7 @@ def test_naive_h1_runtime_candle_emits_valid_shadow():
 
 def test_unsupported_timeframes_still_skip_with_naive():
     sh = _shadow()
-    for tf in ("M1", "M15", "D1", "D", "H4"):
+    for tf in ("D1", "D", "H4"):
         r = sh.emit(candle=_Candle(tf), generated_at_utc=datetime(2026, 6, 16, 8, 0, tzinfo=timezone.utc))
         assert r["emitted"] is False and r["reason"] == "UNSUPPORTED_TIMEFRAME"
     assert sh.writer.redis_client.sets == []
