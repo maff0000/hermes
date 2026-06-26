@@ -25,9 +25,10 @@ CANONICAL_PREFIX = "hermes:candles:"
 _NON_PROD_HOSTS = ("localhost", "127.0.0.1", "::1", "")
 SHADOW_KEY_PREFIX_ENV = "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX"
 
-# Canonical publish grid (GOLD MTF). H4/D1/D are NEVER published by the canonical writer even though
-# the contract recognises them. Broker aliases must be canonicalised BEFORE the writer sees the key.
-CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1")
+# Canonical publish grid (GOLD MTF). H4 is published ONLY via the governed derived-H4 path
+# (candle_h4_publish_wire_v1) — never as a stale direct candle. D1/D remain NEVER published. Broker
+# aliases must be canonicalised BEFORE the writer sees the key.
+CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
 _CANONICAL_ALIAS_DENY = ("XAUUSD",)
 
 

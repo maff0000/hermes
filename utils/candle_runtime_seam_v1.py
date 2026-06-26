@@ -52,8 +52,12 @@ FORBIDDEN_CANONICAL_ALIASES = ("live", "prod")
 
 # DIRECT-NATIVE shadow grid (GOLD-MTF extension of the R2D2 ruling). Everything else (D1/H4/D) is
 # skipped UNSUPPORTED_TIMEFRAME — never remapped, never derived from stale SQL.
-SUPPORTED_TF = ("M1", "M5", "M15", "H1")
+SUPPORTED_TF = ("M1", "M5", "M15", "H1")          # DIRECT-NATIVE grid (the seam's direct emit path)
 REASON_UNSUPPORTED_TF = "UNSUPPORTED_TIMEFRAME"
+# H4 is a DERIVED timeframe — published ONLY via the governed derived-H4 producer
+# (candle_h4_publish_wire_v1), NEVER as a stale direct candle through this seam's direct emit path.
+DERIVED_TF = ("H4",)
+REASON_DERIVED_PATH_ONLY = "H4_DERIVED_PATH_ONLY"
 DIRECT_NATIVE_EPOCH = "DIRECT_NATIVE_V1"
 
 # Broker-alias -> canonical instrument id. Publish ONLY the canonical form; NEVER dual-publish the
@@ -244,7 +248,7 @@ class CanonicalCandleForwardSeam:
         self.enabled = True
         self.write_mode = cp.WRITE_MODE_CANONICAL
         self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
-                        "candles_skipped_not_allowlisted": {},
+                        "candles_skipped_not_allowlisted": {}, "candles_skipped_derived_tf": {},
                         "candle_validate_fail": 0, "candle_emit_fail": 0}
         self._fail_log_counts = {}
 
@@ -262,6 +266,10 @@ class CanonicalCandleForwardSeam:
         if candle is None:
             return {"emitted": False, "wrote": False, "reason": "NO_CANDLE"}
         tf = _tf_name(candle)
+        if tf in DERIVED_TF:
+            # H4 is derived-only — the direct emit path must NEVER publish it (no stale direct candle).
+            self._bump("candles_skipped_derived_tf", tf)
+            return {"emitted": False, "wrote": False, "reason": REASON_DERIVED_PATH_ONLY, "timeframe": tf}
         if tf not in SUPPORTED_TF:
             self._bump("candles_skipped_unsupported_tf", tf)
             return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}

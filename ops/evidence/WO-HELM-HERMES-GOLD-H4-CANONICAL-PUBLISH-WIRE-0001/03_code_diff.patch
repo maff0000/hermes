@@ -1,0 +1,466 @@
+diff --git a/main.py b/main.py
+index 27fa155..43b9c72 100644
+--- a/main.py
++++ b/main.py
+@@ -50,6 +50,9 @@ from utils.tick_runtime_shadow_adapter_v1 import (
+ from utils.candle_runtime_seam_v1 import (
+     build_candle_forward_seam_from_env as _build_candle_forward_seam,
+ )
++from utils.candle_h4_publish_wire_v1 import (
++    build_h4_producer_from_env as _build_h4_producer,
++)
+ from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
+ from utils.level_engine import LevelEngine
+ from utils.watchdog import (
+@@ -97,6 +100,9 @@ class ServiceState:
+     # Runtime candle-forward emit seam (INERT; disabled by default; no write).
+     # WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001
+     candle_forward_emitter = None
++    # Derived-H4 canonical producer (gated by HERMES_CANDLE_H4_PUBLISH_ENABLED; disabled -> no-op).
++    # WO-HELM-HERMES-GOLD-H4-CANONICAL-PUBLISH-WIRE-0001
++    candle_h4_producer = None
+ 
+     # Current active source
+     active_source: TickSource = TickSource.OANDA
+@@ -798,6 +804,13 @@ async def oanda_stream_task():
+                                     state.candle_forward_emitter.emit(candle=candle)
+                                 except Exception as _cfe:
+                                     logger.debug("[CANDLE_FORWARD_INERT] noop emit ignored: %r", _cfe)
++                            # Derived-H4: feed completed H1 candles to the H4 producer (gated; no-op when
++                            # disabled). Seals + publishes the prior NY-5PM H4 bucket on roll-over.
++                            if candle.timeframe == 'H1' and state.candle_h4_producer is not None:
++                                try:
++                                    state.candle_h4_producer.on_h1_close(candle)
++                                except Exception as _h4e:
++                                    logger.debug("[CANDLE_H4_NOOP] h4 producer ignored: %r", _h4e)
+                             if candle.timeframe == 'M1' and state.watchdog:
+                                 state.watchdog.record_candle_m1(candle.timestamp, instrument=candle.instrument)
+                         else:
+@@ -1157,6 +1170,13 @@ async def lifespan(app: FastAPI):
+             type(state.candle_forward_emitter).__name__,
+             getattr(state.candle_forward_emitter, "enabled", False),
+         )
++        # Derived-H4 producer (gated; default DisabledH4Producer -> no-op). Shares the canonical controls.
++        state.candle_h4_producer = _build_h4_producer()
++        logger.info(
++            "[CANDLE_H4_BOOT] producer=%s enabled=%s",
++            type(state.candle_h4_producer).__name__,
++            getattr(state.candle_h4_producer, "enabled", False),
++        )
+     except Exception as _candle_fwd_init_exc:
+         logger.error(
+             "[CANDLE_FORWARD_BOOT_FAIL] HERMES boot aborted on candle-forward seam init: %r",
+diff --git a/tests/test_candle_canonical_allowlist_and_rounding_v1.py b/tests/test_candle_canonical_allowlist_and_rounding_v1.py
+index 9e19e3b..1f412f4 100644
+--- a/tests/test_candle_canonical_allowlist_and_rounding_v1.py
++++ b/tests/test_candle_canonical_allowlist_and_rounding_v1.py
+@@ -110,9 +110,13 @@ def test_allowlist_alias_entry_normalises_to_canonical_only():
+     assert all("XAUUSD" not in k for k in sh.writer.redis_client.store)
+ 
+ 
+-def test_only_grid_tfs_published_h4_d1_rejected():
++def test_direct_seam_refuses_h4_and_d1():
+     sh = _seam()
+-    for tf in ("H4", "D1", "D"):
++    # H4 is derived-only: the DIRECT seam path must refuse it (never a stale direct candle).
++    r = sh.emit(_Candle(instrument="XAU_USD", tf="H4"), generated_at_utc=_gen("M5"))
++    assert r["emitted"] is False and r["reason"] == "H4_DERIVED_PATH_ONLY"
++    # D1/D remain plain unsupported in the direct seam.
++    for tf in ("D1", "D"):
+         r = sh.emit(_Candle(instrument="XAU_USD", tf=tf), generated_at_utc=_gen("M5"))
+         assert r["emitted"] is False and r["reason"] == "UNSUPPORTED_TIMEFRAME"
+     assert sh.writer.redis_client.sets == []
+diff --git a/tests/test_candle_canonical_writer_and_wire_v1.py b/tests/test_candle_canonical_writer_and_wire_v1.py
+index 669a74d..8d9e2f5 100644
+--- a/tests/test_candle_canonical_writer_and_wire_v1.py
++++ b/tests/test_candle_canonical_writer_and_wire_v1.py
+@@ -107,15 +107,20 @@ def test_writer_requires_enabled_and_authorised():
+             assert "GOV-CANDLE-PUB-CANON-001" in str(e)
+ 
+ 
+-def test_writer_rejects_h4_and_d1():
+-    for tf in ("H4", "D"):
+-        r = FakeRedis()
+-        w = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r)
++def test_writer_accepts_h4_rejects_d1():
++    # H4 is now a publish-grid timeframe (published ONLY via the derived-H4 producer); D/D1 still rejected.
++    r = FakeRedis()
++    w = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r)
++    res = w.publish(_envelope("H4"))
++    assert res["key"] == "hermes:candles:XAU_USD:H4:latest:v1" and len(r.sets) == 1
++    for tf in ("D",):
++        r2 = FakeRedis()
++        w2 = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r2)
+         try:
+-            w.publish(_envelope(tf)); assert False, f"{tf} must not be published"
++            w2.publish(_envelope(tf)); assert False, f"{tf} must not be published"
+         except ValueError as e:
+             assert "GOV-CANDLE-PUB-CANON-KEY-005" in str(e)
+-        assert r.sets == []
++        assert r2.sets == []
+ 
+ 
+ def test_writer_guard_rejects_unversioned_key():
+@@ -180,7 +185,10 @@ def test_seam_publishes_grid_and_skips_deferred():
+         assert res["emitted"] is True and res["wrote"] is True
+         assert res["key"] == f"hermes:candles:XAU_USD:{tf}:latest:v1"
+         assert sh.metrics["candles_canonical_published"][tf] == 1
+-    for tf in ("D1", "H4", "D"):
++    # H4 is derived-only (refused by the DIRECT seam path); D1/D remain plain unsupported.
++    sh = _canon_seam()
++    assert sh.emit(_Candle(tf="H4"), generated_at_utc=_gen("M5"))["reason"] == "H4_DERIVED_PATH_ONLY"
++    for tf in ("D1", "D"):
+         sh = _canon_seam()
+         res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen("M5"))
+         assert res["emitted"] is False and res["reason"] == "UNSUPPORTED_TIMEFRAME"
+diff --git a/tests/test_candle_h4_publish_wire_v1.py b/tests/test_candle_h4_publish_wire_v1.py
+new file mode 100644
+index 0000000..183207c
+--- /dev/null
++++ b/tests/test_candle_h4_publish_wire_v1.py
+@@ -0,0 +1,161 @@
++"""HERMES H4 canonical publish wiring (derived from H1) — code-only, in-memory fake Redis.
++WO-HELM-HERMES-GOLD-H4-CANONICAL-PUBLISH-WIRE-0001.
++"""
++import json
++from datetime import datetime, timedelta, timezone
++
++import utils.candle_h4_publish_wire_v1 as wire
++import utils.candle_publisher_v1 as cp
++import utils.candle_contract_v1 as cc
++
++UTC = timezone.utc
++_BO = datetime(2026, 6, 2, 2, 0, tzinfo=UTC)        # an H4 bucket open (02:00 UTC)
++
++
++class FakeRedis:
++    def __init__(self): self.store = {}; self.sets = []
++    def set(self, k, v, ex=None):
++        assert isinstance(v, (str, bytes)); self.store[k] = (v, ex); self.sets.append((k, v, ex)); return True
++
++
++class _H1:
++    def __init__(self, open_dt, o=2000.0, hi=2008.0, lo=1998.0, c=2004.0, v=10, instrument="XAU_USD"):
++        self.instrument = instrument; self.timeframe = "H1"; self.timestamp = open_dt
++        self.open, self.high, self.low, self.close, self.volume = o, hi, lo, c, v
++
++
++def _cfg():
++    return cp.CandlePublisherConfig(publish_enabled=True, publish_authorised=True, shadow_publish_enabled=False,
++                                    shadow_authorised=False, namespace="hermes", contract_version="v1",
++                                    redis_host="192.168.11.10", redis_port=6379, redis_db=0)
++
++
++def _producer(client=None, allowed=("XAU_USD",)):
++    w = cp.SerializingCandleCanonicalWriter(config=_cfg(), redis_client=client or FakeRedis())
++    return wire.CanonicalH4Producer(w, allowed_instruments=allowed)
++
++
++# ---------------- writer key grid: H4 accepted, forbidden rejected ----------------
++def test_assert_canonical_key_accepts_h4_xau():
++    assert cp.assert_canonical_key("hermes:candles:XAU_USD:H4:latest:v1") is True
++
++
++def test_assert_canonical_key_rejects_xauusd_d1_unversioned_h4():
++    # writer-level key guard: alias (004), D1 not in publish grid (005), unversioned (002).
++    # (non-XAU instruments are rejected at the producer/seam allowlist, not this key guard.)
++    for k, code in (("hermes:candles:XAUUSD:H4:latest:v1", "GOV-CANDLE-PUB-CANON-KEY-004"),
++                    ("hermes:candles:XAU_USD:D1:latest:v1", "GOV-CANDLE-PUB-CANON-KEY-005"),
++                    ("hermes:candles:XAU_USD:H4:latest", "GOV-CANDLE-PUB-CANON-KEY-002")):
++        try:
++            cp.assert_canonical_key(k); assert False, k
++        except ValueError as e:
++            assert code in str(e)
++
++
++# ---------------- producer: derive from 4 H1 children, publish H4 latest ----------------
++def test_producer_publishes_complete_h4_on_roll():
++    r = FakeRedis(); p = _producer(r)
++    for hh in range(4):                                  # 02,03,04,05 -> bucket 02:00
++        assert p.on_h1_close(_H1(_BO + timedelta(hours=hh)))["published"] is False
++    res = p.on_h1_close(_H1(_BO + timedelta(hours=4)))   # 06:00 opens next bucket -> seals 02:00
++    assert res["published"] is True and res["status"] == "OK"
++    assert res["key"] == "hermes:candles:XAU_USD:H4:latest:v1"
++    assert res["source_count"] == 4 and res["source_coverage"] == 1.0
++    env = json.loads(r.store["hermes:candles:XAU_USD:H4:latest:v1"][0])
++    assert cc.validate_candle_contract(env) is True
++    d = env["data"]
++    assert d["timeframe"] == "H4" and d["instrument"] == "XAU_USD"
++    assert env["provenance"]["derivation"] == cc.DERIVATION_DERIVED
++    assert env["provenance"]["source_timeframe"] == "H1"
++    assert d["derivation_policy"] == cc.DERIVATION_POLICY_H4_FROM_H1
++    assert p.metrics["h4_published_ok"] == 1
++
++
++def test_published_h4_anchor_is_ny5pm():
++    r = FakeRedis(); p = _producer(r)
++    for hh in range(4):
++        p.on_h1_close(_H1(_BO + timedelta(hours=hh)))
++    p.on_h1_close(_H1(_BO + timedelta(hours=4)))
++    env = json.loads(r.store["hermes:candles:XAU_USD:H4:latest:v1"][0])
++    # data.timestamp_utc open hour must be one of the ratified anchors
++    hour = int(env["data"]["timestamp_utc"][11:13])
++    assert hour in (22, 2, 6, 10, 14, 18)
++
++
++def test_incomplete_3of4_published_never_ok():
++    r = FakeRedis(); p = _producer(r)
++    for hh in range(3):                                  # only 02,03,04 -> 3 children
++        p.on_h1_close(_H1(_BO + timedelta(hours=hh)))
++    res = p.on_h1_close(_H1(_BO + timedelta(hours=4)))   # seals 02:00 with 3 children
++    assert res["published"] is True and res["status"] == "SOURCE_INCOMPLETE" and res["status"] != "OK"
++    assert res["source_count"] == 3 and res["source_coverage"] == 0.75 and res["gap_state"] == "INCOMPLETE"
++    assert p.metrics["h4_published_incomplete"] == 1
++
++
++def test_no_publish_until_bucket_rolls():
++    r = FakeRedis(); p = _producer(r)
++    for hh in range(4):
++        assert p.on_h1_close(_H1(_BO + timedelta(hours=hh)))["published"] is False
++    assert r.sets == []                                  # nothing written until the next bucket starts
++
++
++# ---------------- guards / scope ----------------
++def test_non_h1_candle_ignored():
++    p = _producer()
++    c = _H1(_BO); c.timeframe = "M5"
++    assert p.on_h1_close(c)["reason"] == "NOT_H1" and p.metrics["h4_skipped_non_h1"] == 1
++
++
++def test_non_allowlisted_instrument_skipped():
++    r = FakeRedis(); p = _producer(r, allowed=("XAU_USD",))
++    # feed two buckets of a non-allowlisted instrument; nothing publishes
++    p.on_h1_close(_H1(_BO, instrument="EUR_USD"))
++    res = p.on_h1_close(_H1(_BO + timedelta(hours=4), instrument="EUR_USD"))
++    assert res["reason"] == "INSTRUMENT_NOT_ALLOWLISTED" and r.sets == []
++    assert p.metrics["h4_skipped_not_allowlisted"] >= 1
++
++
++def test_xauusd_alias_canonicalised_publishes_xau_key():
++    r = FakeRedis(); p = _producer(r, allowed=("XAU_USD",))
++    for hh in range(4):
++        p.on_h1_close(_H1(_BO + timedelta(hours=hh), instrument="XAUUSD"))
++    res = p.on_h1_close(_H1(_BO + timedelta(hours=4), instrument="XAUUSD"))
++    assert res["published"] is True and res["key"] == "hermes:candles:XAU_USD:H4:latest:v1"
++    assert all("XAUUSD" not in k for k in r.store)
++
++
++def test_producer_requires_nonempty_allowlist():
++    try:
++        _producer(allowed=()); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-H4-WIRE-002" in str(e)
++
++
++def test_disabled_producer_is_noop():
++    d = wire.DisabledH4Producer()
++    assert d.enabled is False
++    assert d.on_h1_close(_H1(_BO))["reason"] == "H4_PUBLISH_DISABLED"
++    assert d.status() == {"enabled": False}
++
++
++def test_from_env_disabled_by_default(monkeypatch):
++    for k in ("HERMES_CANDLE_FORWARD_ENABLED", "HERMES_CANDLE_FORWARD_SINK", "HERMES_CANDLE_H4_PUBLISH_ENABLED"):
++        monkeypatch.delenv(k, raising=False)
++    assert isinstance(wire.build_h4_producer_from_env(), wire.DisabledH4Producer)
++
++
++def test_from_env_disabled_when_h4_flag_off(monkeypatch):
++    monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
++    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "canonical")
++    monkeypatch.delenv("HERMES_CANDLE_H4_PUBLISH_ENABLED", raising=False)   # H4 flag off
++    assert isinstance(wire.build_h4_producer_from_env(), wire.DisabledH4Producer)
++
++
++def test_no_sql_no_stale_table_no_m15_no_regime_in_code():
++    # check CODE literals (not the docstring's negative prose): no DB/SQL, no stale-table/M15/regime usage.
++    src = open(wire.__file__).read()
++    assert "pymysql" not in src and ".execute(" not in src          # producer takes H1 candles; no DB query
++    assert '"candles_H4"' not in src and "'candles_H4'" not in src  # no stale direct-table literal
++    assert '"M15"' not in src and "'M15'" not in src                # no M15 fallback literal
++    assert '"regime"' not in src and "regime_confidence" not in src
++    assert wire.h4d.H1_TIMEFRAME == "H1"                            # derives from H1 only
+diff --git a/utils/candle_h4_publish_wire_v1.py b/utils/candle_h4_publish_wire_v1.py
+new file mode 100644
+index 0000000..3a3b185
+--- /dev/null
++++ b/utils/candle_h4_publish_wire_v1.py
+@@ -0,0 +1,122 @@
++"""HERMES governed H4 canonical publish wiring (derived from H1).
++WO-HELM-HERMES-GOLD-H4-CANONICAL-PUBLISH-WIRE-0001.
++
++Observes completed H1 candles, rolls NY-5PM-aligned (fixed 22:00 UTC) H4 buckets, and on bucket roll-over
++derives the sealed bucket via `candle_h4_derivation_v1.derive_h4` and routes the governed H4 envelope
++through the existing canonical writer (`SerializingCandleCanonicalWriter`). The writer's
++`assert_canonical_key` (publish grid now includes H4) + `validate_candle_contract` are the governed gate.
++
++DERIVED FROM H1 ONLY — no direct `candles_H4`, no Proteus, no M15 fallback, no synthesis. XAU_USD only.
++Completeness is honest: a sealed 4/4 bucket publishes status OK; a sealed <4 bucket publishes
++SOURCE_INCOMPLETE (never OK) with honest source_coverage/gap_state. Gated by
++`HERMES_CANDLE_H4_PUBLISH_ENABLED` (default false) ON TOP OF the canonical publish controls — so deploying
++this code does NOT auto-activate H4. No Redis I/O at import; disabled -> no-op.
++"""
++from __future__ import annotations
++from datetime import datetime, timedelta, timezone
++
++from utils import candle_publisher_v1 as cp
++from utils import candle_h4_derivation_v1 as h4d
++from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical config/allowlist/client
++
++H4_PUBLISH_ENABLED_ENV = "HERMES_CANDLE_H4_PUBLISH_ENABLED"
++
++
++def _tf_name(candle):
++    tf = getattr(candle, "timeframe", None)
++    return tf.name if hasattr(tf, "name") else str(tf)
++
++
++class CanonicalH4Producer:
++    """Live derived-H4 producer. Feed it completed H1 candles via `on_h1_close`; it seals a bucket when
++    the next bucket's first H1 arrives (so the published H4 is always the most recently CLOSED bucket)."""
++
++    def __init__(self, writer, allowed_instruments):
++        if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
++            raise ValueError("GOV-CANDLE-H4-WIRE-001: CanonicalH4Producer requires a SerializingCandleCanonicalWriter")
++        allowed = frozenset(allowed_instruments or ())
++        if not allowed:
++            raise ValueError("GOV-CANDLE-H4-WIRE-002: non-empty instrument allowlist required (fail-closed)")
++        self.writer = writer
++        self.allowed_instruments = allowed
++        self.enabled = True
++        self.metrics = {"h4_published_ok": 0, "h4_published_incomplete": 0, "h4_skipped_not_allowlisted": 0,
++                        "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0}
++        self._buf = {}        # instrument -> {bucket_open_epoch: [h1_candle, ...]}
++        self._current = {}    # instrument -> current (open) bucket_open_epoch
++
++    def on_h1_close(self, h1_candle, **_):
++        """Process a completed H1 candle. Returns a dict describing whether a prior bucket was published."""
++        if h1_candle is None:
++            return {"published": False, "reason": "NO_CANDLE"}
++        if _tf_name(h1_candle) != h4d.H1_TIMEFRAME:        # only H1 drives H4
++            self.metrics["h4_skipped_non_h1"] += 1
++            return {"published": False, "reason": "NOT_H1", "timeframe": _tf_name(h1_candle)}
++        inst = seam.canonical_instrument(getattr(h1_candle, "instrument", None))
++        if inst not in self.allowed_instruments:
++            self.metrics["h4_skipped_not_allowlisted"] += 1
++            return {"published": False, "reason": "INSTRUMENT_NOT_ALLOWLISTED", "instrument": inst}
++        bo_ep = int(h4d.h4_bucket_open(h1_candle.timestamp).timestamp())
++        prev = self._current.get(inst)
++        result = {"published": False, "reason": "BUFFERED", "bucket_open_epoch": bo_ep}
++        if prev is not None and prev != bo_ep:
++            result = self._seal_and_publish(inst, prev)     # a new bucket started -> seal+publish the previous
++        self._buf.setdefault(inst, {}).setdefault(bo_ep, []).append(h1_candle)
++        self._current[inst] = bo_ep
++        return result
++
++    def _seal_and_publish(self, instrument, bucket_epoch):
++        children = self._buf.get(instrument, {}).pop(bucket_epoch, [])
++        self.metrics["h4_buckets_sealed"] += 1
++        bo = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
++        try:
++            env, meta = h4d.derive_h4(
++                instrument=instrument, h4_open=bo, h1_children=children,
++                generated_at_utc=bo + timedelta(seconds=h4d.H4_SECONDS), is_closed=True)
++            res = self.writer.publish(env)                  # assert_canonical_key (H4 grid) + validate + SET EX
++        except Exception as exc:  # noqa: BLE001 - surfaced (counter + return), never silently swallowed
++            self.metrics["h4_emit_fail"] += 1
++            return {"published": False, "reason": "H4_EMIT_FAIL", "error": repr(exc),
++                    "bucket_open_epoch": bucket_epoch}
++        d = env["data"]
++        if env["status"] == "OK":
++            self.metrics["h4_published_ok"] += 1
++        else:
++            self.metrics["h4_published_incomplete"] += 1    # honest SOURCE_INCOMPLETE (never OK)
++        return {"published": True, "key": res["key"], "status": env["status"],
++                "source_count": d["source_count"], "source_coverage": d["source_coverage"],
++                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch}
++
++    def status(self):
++        return {"enabled": True, **self.metrics}
++
++
++class DisabledH4Producer:
++    """No-op H4 producer (default). Writes nothing; constructs no Redis client."""
++    enabled = False
++
++    def on_h1_close(self, *a, **k):
++        return {"published": False, "reason": "H4_PUBLISH_DISABLED"}
++
++    def status(self):
++        return {"enabled": False}
++
++
++def build_h4_producer_from_env():
++    """Boot factory. Returns DisabledH4Producer (no-op) UNLESS canonical forwarding is on (SINK=canonical)
++    AND HERMES_CANDLE_H4_PUBLISH_ENABLED=true. Gated by the SAME canonical controls (publish enabled+
++    authorised, XAU_USD allowlist, explicit bus target). Missing governed config when H4 is enabled FAILS
++    LOUD (no hidden defaults). Deploying this code with canonical live but H4 flag unset keeps H4 dark."""
++    from env_config import get_env, get_env_bool, get_env_int   # lazy; HERMES-owned config only
++    if not get_env_bool("HERMES_CANDLE_FORWARD_ENABLED", False):
++        return DisabledH4Producer()
++    if (get_env("HERMES_CANDLE_FORWARD_SINK", default="") or "").strip().lower() != seam.CANONICAL_SINK:
++        return DisabledH4Producer()
++    if not get_env_bool(H4_PUBLISH_ENABLED_ENV, False):
++        return DisabledH4Producer()
++    config = seam._canonical_config_from_env(get_env, get_env_bool, get_env_int)
++    config.assert_canonical_allowed()                          # publish_enabled AND authorised (fail-loud)
++    allowed = seam.parse_canonical_allowlist(get_env(seam.CANONICAL_ALLOWLIST_ENV, required=True))  # fail-closed
++    client = seam._real_canonical_redis_client(config)
++    writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=client)
++    return CanonicalH4Producer(writer, allowed_instruments=allowed)
+diff --git a/utils/candle_publisher_v1.py b/utils/candle_publisher_v1.py
+index fe08388..1242b2a 100644
+--- a/utils/candle_publisher_v1.py
++++ b/utils/candle_publisher_v1.py
+@@ -25,9 +25,10 @@ CANONICAL_PREFIX = "hermes:candles:"
+ _NON_PROD_HOSTS = ("localhost", "127.0.0.1", "::1", "")
+ SHADOW_KEY_PREFIX_ENV = "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX"
+ 
+-# Canonical publish grid (GOLD MTF). H4/D1/D are NEVER published by the canonical writer even though
+-# the contract recognises them. Broker aliases must be canonicalised BEFORE the writer sees the key.
+-CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1")
++# Canonical publish grid (GOLD MTF). H4 is published ONLY via the governed derived-H4 path
++# (candle_h4_publish_wire_v1) — never as a stale direct candle. D1/D remain NEVER published. Broker
++# aliases must be canonicalised BEFORE the writer sees the key.
++CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
+ _CANONICAL_ALIAS_DENY = ("XAUUSD",)
+ 
+ 
+diff --git a/utils/candle_runtime_seam_v1.py b/utils/candle_runtime_seam_v1.py
+index e56c871..790ab4f 100644
+--- a/utils/candle_runtime_seam_v1.py
++++ b/utils/candle_runtime_seam_v1.py
+@@ -52,8 +52,12 @@ FORBIDDEN_CANONICAL_ALIASES = ("live", "prod")
+ 
+ # DIRECT-NATIVE shadow grid (GOLD-MTF extension of the R2D2 ruling). Everything else (D1/H4/D) is
+ # skipped UNSUPPORTED_TIMEFRAME — never remapped, never derived from stale SQL.
+-SUPPORTED_TF = ("M1", "M5", "M15", "H1")
++SUPPORTED_TF = ("M1", "M5", "M15", "H1")          # DIRECT-NATIVE grid (the seam's direct emit path)
+ REASON_UNSUPPORTED_TF = "UNSUPPORTED_TIMEFRAME"
++# H4 is a DERIVED timeframe — published ONLY via the governed derived-H4 producer
++# (candle_h4_publish_wire_v1), NEVER as a stale direct candle through this seam's direct emit path.
++DERIVED_TF = ("H4",)
++REASON_DERIVED_PATH_ONLY = "H4_DERIVED_PATH_ONLY"
+ DIRECT_NATIVE_EPOCH = "DIRECT_NATIVE_V1"
+ 
+ # Broker-alias -> canonical instrument id. Publish ONLY the canonical form; NEVER dual-publish the
+@@ -244,7 +248,7 @@ class CanonicalCandleForwardSeam:
+         self.enabled = True
+         self.write_mode = cp.WRITE_MODE_CANONICAL
+         self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
+-                        "candles_skipped_not_allowlisted": {},
++                        "candles_skipped_not_allowlisted": {}, "candles_skipped_derived_tf": {},
+                         "candle_validate_fail": 0, "candle_emit_fail": 0}
+         self._fail_log_counts = {}
+ 
+@@ -262,6 +266,10 @@ class CanonicalCandleForwardSeam:
+         if candle is None:
+             return {"emitted": False, "wrote": False, "reason": "NO_CANDLE"}
+         tf = _tf_name(candle)
++        if tf in DERIVED_TF:
++            # H4 is derived-only — the direct emit path must NEVER publish it (no stale direct candle).
++            self._bump("candles_skipped_derived_tf", tf)
++            return {"emitted": False, "wrote": False, "reason": REASON_DERIVED_PATH_ONLY, "timeframe": tf}
+         if tf not in SUPPORTED_TF:
+             self._bump("candles_skipped_unsupported_tf", tf)
+             return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}

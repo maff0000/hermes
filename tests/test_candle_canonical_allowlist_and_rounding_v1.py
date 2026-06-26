@@ -110,9 +110,13 @@ def test_allowlist_alias_entry_normalises_to_canonical_only():
     assert all("XAUUSD" not in k for k in sh.writer.redis_client.store)
 
 
-def test_only_grid_tfs_published_h4_d1_rejected():
+def test_direct_seam_refuses_h4_and_d1():
     sh = _seam()
-    for tf in ("H4", "D1", "D"):
+    # H4 is derived-only: the DIRECT seam path must refuse it (never a stale direct candle).
+    r = sh.emit(_Candle(instrument="XAU_USD", tf="H4"), generated_at_utc=_gen("M5"))
+    assert r["emitted"] is False and r["reason"] == "H4_DERIVED_PATH_ONLY"
+    # D1/D remain plain unsupported in the direct seam.
+    for tf in ("D1", "D"):
         r = sh.emit(_Candle(instrument="XAU_USD", tf=tf), generated_at_utc=_gen("M5"))
         assert r["emitted"] is False and r["reason"] == "UNSUPPORTED_TIMEFRAME"
     assert sh.writer.redis_client.sets == []
