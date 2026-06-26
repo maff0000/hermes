@@ -2,7 +2,7 @@
 Candle models and aggregation logic
 EPIC-D002: Standalone Signal Service
 
-Aggregates ticks into M1, M5, H1, D1 candles for DB persistence.
+Aggregates ticks into M1, M5, M15, H1, D1 candles for DB persistence.
 
 D1 candles are aligned to NY 5PM (forex convention):
 - Winter (EST): 5PM NY = 22:00 UTC
@@ -28,6 +28,7 @@ class Timeframe(Enum):
     """Supported timeframes"""
     M1 = 1      # 1 minute
     M5 = 5      # 5 minutes
+    M15 = 15    # 15 minutes (GOLD MTF — WO-...-CANONICAL-WRITER-AND-WIRE-0001)
     H1 = 60     # 1 hour
     D1 = 1440   # 1 day (24 * 60)
 
@@ -178,6 +179,9 @@ class CandleAggregator:
             return dt.replace(second=0, microsecond=0)
         elif tf == Timeframe.M5:
             minute = (dt.minute // 5) * 5
+            return dt.replace(minute=minute, second=0, microsecond=0)
+        elif tf == Timeframe.M15:
+            minute = (dt.minute // 15) * 15
             return dt.replace(minute=minute, second=0, microsecond=0)
         elif tf == Timeframe.H1:
             return dt.replace(minute=0, second=0, microsecond=0)

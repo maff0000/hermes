@@ -279,7 +279,8 @@ class TestCandleAggregator:
 
         # Flush should return all current candles
         flushed = agg.flush_all()
-        assert len(flushed) == 4  # M1, M5, H1, D1
+        assert len(flushed) == 5  # M1, M5, M15, H1, D1 (M15 added by GOLD MTF)
+        assert {c.timeframe.name for c in flushed} == {"M1", "M5", "M15", "H1", "D1"}
         for candle in flushed:
             assert candle.complete is True
 
