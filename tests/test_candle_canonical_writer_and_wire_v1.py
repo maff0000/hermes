@@ -107,15 +107,20 @@ def test_writer_requires_enabled_and_authorised():
             assert "GOV-CANDLE-PUB-CANON-001" in str(e)
 
 
-def test_writer_rejects_h4_and_d1():
-    for tf in ("H4", "D"):
-        r = FakeRedis()
-        w = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r)
+def test_writer_accepts_h4_rejects_d1():
+    # H4 is now a publish-grid timeframe (published ONLY via the derived-H4 producer); D/D1 still rejected.
+    r = FakeRedis()
+    w = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r)
+    res = w.publish(_envelope("H4"))
+    assert res["key"] == "hermes:candles:XAU_USD:H4:latest:v1" and len(r.sets) == 1
+    for tf in ("D",):
+        r2 = FakeRedis()
+        w2 = cp.SerializingCandleCanonicalWriter(config=_canon_cfg(), redis_client=r2)
         try:
-            w.publish(_envelope(tf)); assert False, f"{tf} must not be published"
+            w2.publish(_envelope(tf)); assert False, f"{tf} must not be published"
         except ValueError as e:
             assert "GOV-CANDLE-PUB-CANON-KEY-005" in str(e)
-        assert r.sets == []
+        assert r2.sets == []
 
 
 def test_writer_guard_rejects_unversioned_key():
@@ -180,7 +185,10 @@ def test_seam_publishes_grid_and_skips_deferred():
         assert res["emitted"] is True and res["wrote"] is True
         assert res["key"] == f"hermes:candles:XAU_USD:{tf}:latest:v1"
         assert sh.metrics["candles_canonical_published"][tf] == 1
-    for tf in ("D1", "H4", "D"):
+    # H4 is derived-only (refused by the DIRECT seam path); D1/D remain plain unsupported.
+    sh = _canon_seam()
+    assert sh.emit(_Candle(tf="H4"), generated_at_utc=_gen("M5"))["reason"] == "H4_DERIVED_PATH_ONLY"
+    for tf in ("D1", "D"):
         sh = _canon_seam()
         res = sh.emit(_Candle(tf=tf), generated_at_utc=_gen("M5"))
         assert res["emitted"] is False and res["reason"] == "UNSUPPORTED_TIMEFRAME"

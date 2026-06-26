@@ -1,0 +1,18 @@
+=== BLOCKER 1 reproduction (now FIXED): assert_canonical_key on H4 ===
+  CANONICAL_PUBLISH_TIMEFRAMES = ('M1', 'M5', 'M15', 'H1', 'H4')
+  H4 latest key -> ACCEPTED
+  rejected ['XAUUSD', 'H4'] -> GOV-CANDLE-PUB-CANON-KEY-004
+  rejected ['XAU_USD', 'D1'] -> GOV-CANDLE-PUB-CANON-KEY-005
+  rejected ['XAU_USD', 'H4'] -> GOV-CANDLE-PUB-CANON-KEY-002
+
+=== BLOCKER 2 (seam): direct emit refuses H4 (derived-only) ===
+  DERIVED_TF = ('H4',) | direct H4 skip reason = H4_DERIVED_PATH_ONLY
+
+=== H4 PUBLISH PATH (producer derives 4xH1 -> canonical writer) ===
+  published: True key: hermes:candles:XAU_USD:H4:latest:v1 status: OK
+  open=2026-06-02T02:00:00.000Z (anchor hour 02) src=4/4 cov=1.0 gap=NONE dir=UP
+  provenance: DERIVED_FROM_LOWER_TIMEFRAME from H1 policy DERIVED_H4_FROM_H1
+  validates: True
+
+=== GATING: build_h4_producer_from_env disabled by default ===
+  default -> DisabledH4Producer

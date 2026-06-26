@@ -50,6 +50,9 @@ from utils.tick_runtime_shadow_adapter_v1 import (
 from utils.candle_runtime_seam_v1 import (
     build_candle_forward_seam_from_env as _build_candle_forward_seam,
 )
+from utils.candle_h4_publish_wire_v1 import (
+    build_h4_producer_from_env as _build_h4_producer,
+)
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -97,6 +100,9 @@ class ServiceState:
     # Runtime candle-forward emit seam (INERT; disabled by default; no write).
     # WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001
     candle_forward_emitter = None
+    # Derived-H4 canonical producer (gated by HERMES_CANDLE_H4_PUBLISH_ENABLED; disabled -> no-op).
+    # WO-HELM-HERMES-GOLD-H4-CANONICAL-PUBLISH-WIRE-0001
+    candle_h4_producer = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -798,6 +804,13 @@ async def oanda_stream_task():
                                     state.candle_forward_emitter.emit(candle=candle)
                                 except Exception as _cfe:
                                     logger.debug("[CANDLE_FORWARD_INERT] noop emit ignored: %r", _cfe)
+                            # Derived-H4: feed completed H1 candles to the H4 producer (gated; no-op when
+                            # disabled). Seals + publishes the prior NY-5PM H4 bucket on roll-over.
+                            if candle.timeframe == 'H1' and state.candle_h4_producer is not None:
+                                try:
+                                    state.candle_h4_producer.on_h1_close(candle)
+                                except Exception as _h4e:
+                                    logger.debug("[CANDLE_H4_NOOP] h4 producer ignored: %r", _h4e)
                             if candle.timeframe == 'M1' and state.watchdog:
                                 state.watchdog.record_candle_m1(candle.timestamp, instrument=candle.instrument)
                         else:
@@ -1156,6 +1169,13 @@ async def lifespan(app: FastAPI):
             "[CANDLE_FORWARD_BOOT] seam=%s enabled=%s",
             type(state.candle_forward_emitter).__name__,
             getattr(state.candle_forward_emitter, "enabled", False),
+        )
+        # Derived-H4 producer (gated; default DisabledH4Producer -> no-op). Shares the canonical controls.
+        state.candle_h4_producer = _build_h4_producer()
+        logger.info(
+            "[CANDLE_H4_BOOT] producer=%s enabled=%s",
+            type(state.candle_h4_producer).__name__,
+            getattr(state.candle_h4_producer, "enabled", False),
         )
     except Exception as _candle_fwd_init_exc:
         logger.error(
