@@ -1,0 +1,11 @@
+clean payload validates -> True
+----------------------------------------------------------------------
+wick_high aliased to high price            -> GOV-CANDLE-CONTRACT-035
+negative wick_low                          -> GOV-CANDLE-CONTRACT-031
+negative range_size                        -> GOV-CANDLE-CONTRACT-031
+body_size > range_size                     -> GOV-CANDLE-CONTRACT-033
+body_high above high                       -> GOV-CANDLE-CONTRACT-032
+non-deterministic direction value          -> GOV-CANDLE-CONTRACT-037
+direction inconsistent with o/c            -> GOV-CANDLE-CONTRACT-038
+missing geometry field                     -> GOV-CANDLE-CONTRACT-012
+interpretive 'regime' field leak           -> GOV-CANDLE-CONTRACT-029

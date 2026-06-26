@@ -1,0 +1,235 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+rootdir: /srv/trading/hermes-worktrees/wo-gold-mtf
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 172 items
+
+tests/test_candle_gold_mtf_contract_v1.py::test_direct_native_grid_recognised_and_ttld PASSED [  0%]
+tests/test_candle_gold_mtf_contract_v1.py::test_each_grid_tf_builds_and_validates PASSED [  1%]
+tests/test_candle_gold_mtf_contract_v1.py::test_geometry_block_present_and_correct_bullish PASSED [  1%]
+tests/test_candle_gold_mtf_contract_v1.py::test_geometry_bearish_and_flat_directions PASSED [  2%]
+tests/test_candle_gold_mtf_contract_v1.py::test_wick_high_is_not_the_high_price PASSED [  2%]
+tests/test_candle_gold_mtf_contract_v1.py::test_marubozu_zero_wicks_are_zero_not_aliased PASSED [  3%]
+tests/test_candle_gold_mtf_contract_v1.py::test_validator_rejects_wick_aliased_to_high PASSED [  4%]
+tests/test_candle_gold_mtf_contract_v1.py::test_validator_rejects_negative_wick PASSED [  4%]
+tests/test_candle_gold_mtf_contract_v1.py::test_validator_rejects_body_bigger_than_range PASSED [  5%]
+tests/test_candle_gold_mtf_contract_v1.py::test_validator_rejects_bad_direction PASSED [  5%]
+tests/test_candle_gold_mtf_contract_v1.py::test_validator_rejects_missing_geometry_field PASSED [  6%]
+tests/test_candle_gold_mtf_contract_v1.py::test_market_closed_geometry_is_none_and_valid PASSED [  6%]
+tests/test_candle_gold_mtf_contract_v1.py::test_no_forbidden_regime_field_can_leak PASSED [  7%]
+tests/test_candle_gold_mtf_contract_v1.py::test_seam_supports_full_direct_grid PASSED [  8%]
+tests/test_candle_gold_mtf_contract_v1.py::test_seam_skips_deferred_timeframes PASSED [  8%]
+tests/test_candle_gold_mtf_contract_v1.py::test_every_shadow_key_is_versioned_v1 PASSED [  9%]
+tests/test_candle_gold_mtf_contract_v1.py::test_xauusd_alias_canonicalised_no_dual_publish PASSED [  9%]
+tests/test_candle_contract_v1.py::test_canonical_and_shadow_keys PASSED  [ 10%]
+tests/test_candle_contract_v1.py::test_bad_timeframe_fails_loud PASSED   [ 11%]
+tests/test_candle_contract_v1.py::test_ttl_policy_per_timeframe PASSED   [ 11%]
+tests/test_candle_contract_v1.py::test_builds_all_timeframes_validate PASSED [ 12%]
+tests/test_candle_contract_v1.py::test_valid_until_equals_generated_plus_ttl PASSED [ 12%]
+tests/test_candle_contract_v1.py::test_missing_envelope_field_fails PASSED [ 13%]
+tests/test_candle_contract_v1.py::test_missing_data_field_fails PASSED   [ 13%]
+tests/test_candle_contract_v1.py::test_malformed_timestamp_rejected PASSED [ 14%]
+tests/test_candle_contract_v1.py::test_forming_candle_state PASSED       [ 15%]
+tests/test_candle_contract_v1.py::test_stale_candle_state PASSED         [ 15%]
+tests/test_candle_contract_v1.py::test_h4_derived_complete_is_ok PASSED  [ 16%]
+tests/test_candle_contract_v1.py::test_h4_derived_incomplete_is_never_ok PASSED [ 16%]
+tests/test_candle_contract_v1.py::test_validator_rejects_incomplete_marked_ok PASSED [ 17%]
+tests/test_candle_contract_v1.py::test_d_candle_direct_and_derived PASSED [ 18%]
+tests/test_candle_contract_v1.py::test_no_source_data_unavailable PASSED [ 18%]
+tests/test_candle_contract_v1.py::test_market_closed_state PASSED        [ 19%]
+tests/test_candle_contract_v1.py::test_ohlc_sanity_enforced PASSED       [ 19%]
+tests/test_candle_contract_v1.py::test_aggregate_ohlc_deterministic PASSED [ 20%]
+tests/test_candle_contract_v1.py::test_publisher_is_hermes_only PASSED   [ 20%]
+tests/test_candle_contract_v1.py::test_no_interpretive_fields_rejected PASSED [ 21%]
+tests/test_candle_contract_v1.py::test_rejects_legacy_signals_candle_or_proteus_leak PASSED [ 22%]
+tests/test_candle_contract_v1.py::test_tripwire_no_tradingproteus_import PASSED [ 22%]
+tests/test_candle_contract_v1.py::test_tripwire_no_signals_candle_emitted_as_output PASSED [ 23%]
+tests/test_candle_contract_v1.py::test_tripwire_required_fields_present_in_output PASSED [ 23%]
+tests/test_candle_shadow_writer_wire_v1.py::test_m5_closed_writes_valid_shadow_key PASSED [ 24%]
+tests/test_candle_shadow_writer_wire_v1.py::test_h1_closed_writes_valid_shadow_key PASSED [ 25%]
+tests/test_candle_shadow_writer_wire_v1.py::test_payload_is_json_string_not_dict PASSED [ 25%]
+tests/test_candle_shadow_writer_wire_v1.py::test_forming_candle_is_forming_never_ok PASSED [ 26%]
+tests/test_candle_shadow_writer_wire_v1.py::test_unsupported_timeframes_skipped_no_write PASSED [ 26%]
+tests/test_candle_shadow_writer_wire_v1.py::test_no_silent_remap_of_unsupported PASSED [ 27%]
+tests/test_candle_shadow_writer_wire_v1.py::test_only_shadow_keys_no_canonical_no_6379 PASSED [ 27%]
+tests/test_candle_shadow_writer_wire_v1.py::test_assert_shadow_key_blocks_canonical PASSED [ 28%]
+tests/test_candle_shadow_writer_wire_v1.py::test_ttl_per_timeframe PASSED [ 29%]
+tests/test_candle_shadow_writer_wire_v1.py::test_shadow_seam_requires_shadow_auth PASSED [ 29%]
+tests/test_candle_shadow_writer_wire_v1.py::test_shadow_seam_requires_explicit_target PASSED [ 30%]
+tests/test_candle_shadow_writer_wire_v1.py::test_localhost_as_production_fails_loud PASSED [ 30%]
+tests/test_candle_shadow_writer_wire_v1.py::test_shadow_seam_requires_writer_type PASSED [ 31%]
+tests/test_candle_shadow_writer_wire_v1.py::test_from_env_default_disabled PASSED [ 31%]
+tests/test_candle_shadow_writer_wire_v1.py::test_from_env_shadow_missing_redis_config_fails_loud PASSED [ 32%]
+tests/test_candle_shadow_writer_wire_v1.py::test_from_env_canonical_sink_fails_loud PASSED [ 33%]
+tests/test_candle_shadow_writer_wire_v1.py::test_no_cross_app_or_legacy_imports PASSED [ 33%]
+tests/test_candle_shadow_writer_wire_v1.py::test_no_legacy_candle_pubsub_or_sql_in_module PASSED [ 34%]
+tests/test_candle_utc_naive_fix_v1.py::test_normalise_utc_naive_assumed_utc PASSED [ 34%]
+tests/test_candle_utc_naive_fix_v1.py::test_normalise_utc_aware_converted PASSED [ 35%]
+tests/test_candle_utc_naive_fix_v1.py::test_naive_timestamp_aware_generated_does_not_raise PASSED [ 36%]
+tests/test_candle_utc_naive_fix_v1.py::test_aware_timestamp_still_works PASSED [ 36%]
+tests/test_candle_utc_naive_fix_v1.py::test_naive_generated_normalised PASSED [ 37%]
+tests/test_candle_utc_naive_fix_v1.py::test_both_naive_works PASSED      [ 37%]
+tests/test_candle_utc_naive_fix_v1.py::test_output_timestamps_are_utc_z PASSED [ 38%]
+tests/test_candle_utc_naive_fix_v1.py::test_freshness_fresh_and_stale_with_naive PASSED [ 38%]
+tests/test_candle_utc_naive_fix_v1.py::test_forming_never_ok_with_naive PASSED [ 39%]
+tests/test_candle_utc_naive_fix_v1.py::test_ohlc_sanity_still_enforced PASSED [ 40%]
+tests/test_candle_utc_naive_fix_v1.py::test_naive_m5_runtime_candle_emits_valid_shadow PASSED [ 40%]
+tests/test_candle_utc_naive_fix_v1.py::test_naive_h1_runtime_candle_emits_valid_shadow PASSED [ 41%]
+tests/test_candle_utc_naive_fix_v1.py::test_unsupported_timeframes_still_skip_with_naive PASSED [ 41%]
+tests/test_candle_utc_naive_fix_v1.py::test_no_canonical_key_emitted PASSED [ 42%]
+tests/test_candle_utc_naive_fix_v1.py::test_validate_fail_is_logged PASSED [ 43%]
+tests/test_candle_utc_naive_fix_v1.py::test_emit_fail_is_logged PASSED   [ 43%]
+tests/test_candle_utc_naive_fix_v1.py::test_fail_log_rate_limited PASSED [ 44%]
+tests/test_candle_features.py::test_bullish_geometry_pure PASSED         [ 44%]
+tests/test_candle_features.py::test_zero_range_safe PASSED               [ 45%]
+tests/test_candle_features.py::test_malformed_fail_loud PASSED           [ 45%]
+tests/test_candle_features.py::test_classify_requires_config PASSED      [ 46%]
+tests/test_candle_features.py::test_classify_bullish_bearish_doji PASSED [ 47%]
+tests/test_candle_features.py::test_explicit_config_changes_outcome_deterministically PASSED [ 47%]
+tests/test_candle_features.py::test_classification_provenance_present PASSED [ 48%]
+tests/test_candle_features.py::test_config_missing_keys_fail_loud PASSED [ 48%]
+tests/test_candle_features.py::test_config_malformed_json_fail_loud PASSED [ 49%]
+tests/test_candle_features.py::test_config_out_of_range_fail_loud PASSED [ 50%]
+tests/test_candle_features.py::test_config_invalid_swing_lookback_fail_loud PASSED [ 50%]
+tests/test_candle_features.py::test_no_module_constants_on_live_path PASSED [ 51%]
+tests/test_candle_features.py::test_load_config_fail_loud_when_absent PASSED [ 51%]
+tests/test_candle_features.py::test_previous_break_inside_outside PASSED [ 52%]
+tests/test_candle_features.py::test_swing_status_and_lookback_governed PASSED [ 52%]
+tests/test_candle_features.py::test_build_feature_requires_config PASSED [ 53%]
+tests/test_candle_features.py::test_build_feature_full_complete_with_config_and_provenance PASSED [ 54%]
+tests/test_candle_features.py::test_completeness_block_fail_closed PASSED [ 54%]
+tests/test_candle_derivation_policy.py::test_migration_023_append_only_with_required_columns PASSED [ 55%]
+tests/test_candle_derivation_policy.py::test_annotation_dry_run_counts_no_commit PASSED [ 55%]
+tests/test_candle_derivation_policy.py::test_annotation_fail_loud_when_columns_missing PASSED [ 56%]
+tests/test_candle_derivation_policy.py::test_annotation_sets_only_policy_columns_no_ohlc PASSED [ 56%]
+tests/test_candle_derivation_policy.py::test_annotation_historical_values PASSED [ 57%]
+tests/test_candle_derivation_policy.py::test_forward_upsert_includes_policy_columns PASSED [ 58%]
+tests/test_candle_derivation_policy.py::test_forward_constants PASSED    [ 58%]
+tests/test_candle_derivation_policy.py::test_verify_reconciliation_true_when_annotated PASSED [ 59%]
+tests/test_candle_derivation_policy.py::test_verify_reconciliation_false_when_unannotated PASSED [ 59%]
+tests/test_candle_derivation_policy.py::test_verify_reconciliation_false_when_columns_missing PASSED [ 60%]
+tests/test_candle_derivation_policy.py::test_gate_bdiv001_without_ack PASSED [ 61%]
+tests/test_candle_derivation_policy.py::test_gate_bdiv002_ack_but_not_verified PASSED [ 61%]
+tests/test_candle_derivation_policy.py::test_feature_payload_exposes_policy_meta_no_strategy PASSED [ 62%]
+tests/test_candle_publisher_v1.py::test_inert_plan_shape_canonical_key PASSED [ 62%]
+tests/test_candle_publisher_v1.py::test_no_write_sink_captures_inert_only PASSED [ 63%]
+tests/test_candle_publisher_v1.py::test_shadow_key_transform_and_refusal PASSED [ 63%]
+tests/test_candle_publisher_v1.py::test_shadow_plan_rekeys_to_shadow_namespace PASSED [ 64%]
+tests/test_candle_publisher_v1.py::test_canonical_publish_disabled_by_default PASSED [ 65%]
+tests/test_candle_publisher_v1.py::test_canonical_requires_both_enabled_and_authorised PASSED [ 65%]
+tests/test_candle_publisher_v1.py::test_shadow_requires_auth_and_explicit_target PASSED [ 66%]
+tests/test_candle_publisher_v1.py::test_shadow_writer_serialises_and_never_dict PASSED [ 66%]
+tests/test_candle_publisher_v1.py::test_shadow_writer_only_shadow_keys PASSED [ 67%]
+tests/test_candle_publisher_v1.py::test_shadow_writer_requires_shadow_auth PASSED [ 68%]
+tests/test_candle_publisher_v1.py::test_metrics_counters_and_gap_tracking PASSED [ 68%]
+tests/test_candle_publisher_v1.py::test_warning_rate_limit PASSED        [ 69%]
+tests/test_candle_publisher_v1.py::test_from_env_returns_disabled_emitter PASSED [ 69%]
+tests/test_candle_publisher_v1.py::test_tripwire_publisher_no_cross_app_imports PASSED [ 70%]
+tests/test_candle_publisher_v1.py::test_tripwire_no_signals_candle_in_emitted_plans PASSED [ 70%]
+tests/test_candle_publisher_v1.py::test_tripwire_no_live_redis_write_in_tests PASSED [ 71%]
+tests/test_candle_forward_runtime_seam_v1.py::test_disabled_by_default_returns_no_op_emitter PASSED [ 72%]
+tests/test_candle_forward_runtime_seam_v1.py::test_disabled_mode_requires_no_sink_config PASSED [ 72%]
+tests/test_candle_forward_runtime_seam_v1.py::test_enabled_without_sink_fails_loud PASSED [ 73%]
+tests/test_candle_forward_runtime_seam_v1.py::test_canonical_live_prod_sink_forbidden PASSED [ 73%]
+tests/test_candle_forward_runtime_seam_v1.py::test_enabled_inert_sink_is_no_write PASSED [ 74%]
+tests/test_candle_forward_runtime_seam_v1.py::test_no_proteus_no_canonical_writer_path PASSED [ 75%]
+tests/test_candle_forward_runtime_seam_v1.py::test_disabled_emitter_accepts_keyword_candle_call_cleanly PASSED [ 75%]
+tests/test_candle_shadow_key_prefix_v1.py::test_shadow_key_prefix_interpolation PASSED [ 76%]
+tests/test_candle_shadow_key_prefix_v1.py::test_shadow_key_prefix_trailing_colon_safety PASSED [ 76%]
+tests/test_candle_shadow_key_prefix_v1.py::test_rejects_canonical_spoofing_prefix PASSED [ 77%]
+tests/test_candles_h4_m30.py::test_m30_h4_registered PASSED              [ 77%]
+tests/test_candles_h4_m30.py::test_expected_m1_counts PASSED             [ 78%]
+tests/test_candles_h4_m30.py::test_m30_bucket_alignment PASSED           [ 79%]
+tests/test_candles_h4_m30.py::test_h4_bucket_alignment_utc_00_anchor PASSED [ 79%]
+tests/test_candles_h4_m30.py::test_aggregate_ohlcv_correct PASSED        [ 80%]
+tests/test_candles_h4_m30.py::test_aggregate_empty_fail_loud PASSED      [ 80%]
+tests/test_candles_h4_m30.py::test_is_complete_only_when_full PASSED     [ 81%]
+tests/test_candles_h4_m30.py::test_last_closed_bucket_excludes_current PASSED [ 81%]
+tests/test_candles_h4_m30.py::test_upsert_is_idempotent_and_never_downgrades_complete PASSED [ 82%]
+tests/test_candles_h4_m30.py::test_target_tables_are_hermes_owned_candle_tables PASSED [ 83%]
+tests/test_candles_h4_m30.py::test_dry_run_does_not_write PASSED         [ 83%]
+tests/test_candle_payload_builders.py::test_features_latest_serves_complete PASSED [ 84%]
+tests/test_candle_payload_builders.py::test_features_latest_incomplete_recent_degrades PASSED [ 84%]
+tests/test_candle_payload_builders.py::test_features_latest_never_serves_incomplete_as_complete PASSED [ 85%]
+tests/test_candle_payload_builders.py::test_context_active_forming_lastclosed_complete PASSED [ 86%]
+tests/test_candle_payload_builders.py::test_context_lastclosed_incomplete_degrades PASSED [ 86%]
+tests/test_candle_payload_builders.py::test_indicators_complete_only_degrades_on_incomplete PASSED [ 87%]
+tests/test_candle_payload_builders.py::test_indicators_complete_serves_ema_state PASSED [ 87%]
+tests/test_candle_payload_builders.py::test_indicators_invalid_ema_state_fail_loud PASSED [ 88%]
+tests/test_candle_payload_builders.py::test_forbidden_key_rejected PASSED [ 88%]
+tests/test_candle_payload_builders.py::test_forbidden_field_token_rejected PASSED [ 89%]
+tests/test_candle_payload_builders.py::test_all_keys_are_hermes_namespaced PASSED [ 90%]
+tests/test_models.py::TestSignalTick::test_tick_creation PASSED          [ 90%]
+tests/test_models.py::TestSignalTick::test_tick_derived_fields PASSED    [ 91%]
+tests/test_models.py::TestSignalTick::test_tick_to_dict PASSED           [ 91%]
+tests/test_models.py::TestSignalTick::test_tick_from_dict PASSED         [ 92%]
+tests/test_models.py::TestSignalTick::test_tick_to_json PASSED           [ 93%]
+tests/test_models.py::TestSignalTick::test_tick_redis_hash PASSED        [ 93%]
+tests/test_models.py::TestSignalTick::test_tick_latency PASSED           [ 94%]
+tests/test_models.py::TestCandle::test_candle_creation PASSED            [ 94%]
+tests/test_models.py::TestCandle::test_candle_update PASSED              [ 95%]
+tests/test_models.py::TestCandle::test_candle_to_dict PASSED             [ 95%]
+tests/test_models.py::TestTimeframe::test_timeframe_values PASSED        [ 96%]
+tests/test_models.py::TestTimeframe::test_timeframe_table_names PASSED   [ 97%]
+tests/test_models.py::TestCandleAggregator::test_aggregator_creation PASSED [ 97%]
+tests/test_models.py::TestCandleAggregator::test_process_first_tick PASSED [ 98%]
+tests/test_models.py::TestCandleAggregator::test_candle_completion PASSED [ 98%]
+tests/test_models.py::TestCandleAggregator::test_flush_all PASSED        [ 99%]
+tests/test_models.py::TestCandleAggregator::test_candle_callback PASSED  [100%]
+
+=============================== warnings summary ===============================
+tests/test_models.py::TestSignalTick::test_tick_creation
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:29: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_derived_fields
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:43: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_to_dict
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:51: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ts = datetime.utcnow()
+
+tests/test_models.py::TestSignalTick::test_tick_to_json
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:86: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_redis_hash
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:109: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    source_time = datetime.utcnow() - timedelta(milliseconds=50)
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:110: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    received_time = datetime.utcnow()
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:115: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_creation
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:132: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_update
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:147: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_to_dict
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandleAggregator::test_process_first_tick
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:228: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandleAggregator::test_flush_all
+  /srv/trading/hermes-worktrees/wo-gold-mtf/tests/test_models.py:275: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 172 passed, 13 warnings in 0.12s =======================

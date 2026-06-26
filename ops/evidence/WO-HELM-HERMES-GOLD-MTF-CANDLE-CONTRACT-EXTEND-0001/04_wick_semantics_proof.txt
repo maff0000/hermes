@@ -1,0 +1,7 @@
+INPUT  open=2000.0 high=2010.0 low=1995.0 close=2005.0
+FORMULAS: body_high=max(o,c) body_low=min(o,c) body_size=abs(c-o)
+          range_size=high-low wick_high=high-body_high wick_low=body_low-low
+OUTPUT : {'body_high': 2005.0, 'body_low': 2000.0, 'body_size': 5.0, 'range_size': 15.0, 'wick_high': 5.0, 'wick_low': 5.0, 'candle_direction': 'UP'}
+CHECK  : wick_high(5.0) == high-body_high (5.0) -> True
+CHECK  : wick_high(5.0) != high price(2010.0)   -> True (NO ALIAS)
+CHECK  : wick_low(5.0)  != low price(1995.0)    -> True (NO ALIAS)
