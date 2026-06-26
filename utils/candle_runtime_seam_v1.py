@@ -36,12 +36,16 @@ _LOG = logging.getLogger("hermes.candle_forward")
 _FAIL_LOG_EVERY = 50   # log 1st occurrence per reason, then every Nth, with suppressed count
 
 FAULT_NO_SINK = "GOV-CANDLE-FWD-SEAM-001"          # enabled without explicit sink mode
-FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # canonical/live/prod (or unknown) sink requested
+FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # live/prod (or unknown) sink requested
 FAULT_SHADOW_CLIENT = "GOV-CANDLE-FWD-SEAM-003"    # shadow enabled but no redis client constructed
+FAULT_CANONICAL_CLIENT = "GOV-CANDLE-FWD-SEAM-005" # canonical enabled but no redis client constructed
 
 ALLOWED_INERT_SINKS = ("none", "inert")
 SHADOW_SINK = "shadow"
-CANONICAL_SINKS = ("canonical", "live", "prod")
+CANONICAL_SINK = "canonical"                        # the ONLY governed canonical selector
+# 'live'/'prod' imply production intent and are NOT accepted selectors — use 'canonical' with explicit
+# governed dev config (host/port/db + publish_enabled + publish_authorised).
+FORBIDDEN_CANONICAL_ALIASES = ("live", "prod")
 
 # DIRECT-NATIVE shadow grid (GOLD-MTF extension of the R2D2 ruling). Everything else (D1/H4/D) is
 # skipped UNSUPPORTED_TIMEFRAME — never remapped, never derived from stale SQL.
@@ -201,10 +205,107 @@ def _real_shadow_redis_client(config):
                        socket_timeout=5)
 
 
+class CanonicalCandleForwardSeam:
+    """CANONICAL writer seam (GOLD MTF). Builds a governed candle envelope for DIRECT-NATIVE
+    M1/M5/M15/H1 and writes the JSON-serialised payload to the canonical key
+    hermes:candles:{instrument}:{tf}:latest:v1 on the configured canonical bus. Unsupported timeframes
+    (D1/H4/D) are skipped (UNSUPPORTED_TIMEFRAME) — never published. Instruments are canonicalised
+    (XAUUSD->XAU_USD, never dual-published). Observability counters are surfaced; writer errors are
+    never silently swallowed. Requires a SerializingCandleCanonicalWriter (enabled AND authorised)."""
+
+    def __init__(self, writer):
+        if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
+            raise ValueError("GOV-CANDLE-FWD-SEAM-006: CanonicalCandleForwardSeam requires a "
+                             "SerializingCandleCanonicalWriter (the only governed canonical write path)")
+        self.writer = writer
+        self.enabled = True
+        self.write_mode = cp.WRITE_MODE_CANONICAL
+        self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
+                        "candle_validate_fail": 0, "candle_emit_fail": 0}
+        self._fail_log_counts = {}
+
+    def _bump(self, bucket, tf):
+        self.metrics[bucket][tf] = self.metrics[bucket].get(tf, 0) + 1
+
+    def _log_fail(self, reason, instrument, timeframe, error):
+        n = self._fail_log_counts.get(reason, 0) + 1
+        self._fail_log_counts[reason] = n
+        if n == 1 or n % _FAIL_LOG_EVERY == 0:
+            _LOG.warning("[%s] instrument=%s timeframe=%s count=%d error=%s",
+                         reason, instrument, timeframe, n, error)
+
+    def emit(self, candle=None, *, generated_at_utc=None, **_):
+        if candle is None:
+            return {"emitted": False, "wrote": False, "reason": "NO_CANDLE"}
+        tf = _tf_name(candle)
+        if tf not in SUPPORTED_TF:
+            self._bump("candles_skipped_unsupported_tf", tf)
+            return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}
+        now = generated_at_utc or datetime.now(timezone.utc)
+        try:
+            envelope = runtime_candle_to_contract(candle, generated_at_utc=now)
+            cc.validate_candle_contract(envelope)
+        except Exception as exc:  # noqa: BLE001 - bounded; surfaced (counter + rate-limited log), not swallowed
+            self.metrics["candle_validate_fail"] += 1
+            self._log_fail("CANDLE_VALIDATE_FAIL", getattr(candle, "instrument", None), tf,
+                           f"{type(exc).__name__}: {str(exc)[:160]}")
+            return {"emitted": False, "wrote": False, "reason": "CANDLE_VALIDATE_FAIL",
+                    "error": repr(exc), "timeframe": tf}
+        try:
+            res = self.writer.publish(envelope)   # JSON-serialised; canonical key only; assert_canonical_key
+        except Exception as exc:  # noqa: BLE001
+            self.metrics["candle_emit_fail"] += 1
+            self._log_fail("CANDLE_EMIT_FAIL", getattr(candle, "instrument", None), tf,
+                           f"{type(exc).__name__}: {str(exc)[:160]}")
+            return {"emitted": False, "wrote": False, "reason": "CANDLE_EMIT_FAIL",
+                    "error": repr(exc), "timeframe": tf}
+        self._bump("candles_canonical_published", tf)
+        return {"emitted": True, "wrote": True, "key": res["key"], "timeframe": tf,
+                "status": envelope["status"], "freshness_state": envelope["freshness_state"],
+                "gap_state": envelope["data"]["gap_state"]}
+
+    def status(self):
+        return {"enabled": True, "write_mode": self.write_mode, **self.metrics}
+
+
+def build_canonical_seam(*, config, redis_client):
+    """Construct the canonical seam from an explicit config + injected Redis client. The writer
+    validates canonical config (assert_canonical_allowed: publish_enabled AND publish_authorised) and
+    publishes only versioned canonical keys for the M1/M5/M15/H1 grid. Injectable for tests."""
+    writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=redis_client)
+    return CanonicalCandleForwardSeam(writer)
+
+
+def _canonical_config_from_env(get_env, get_env_bool, get_env_int):
+    """Build the canonical CandlePublisherConfig from the explicit env contract (fail-loud, no defaults).
+      HERMES_CANDLE_PUBLISH_ENABLED      (must be true)   -- canonical master enable
+      HERMES_CANDLE_PUBLISH_AUTHORISED   (must be true)   -- canonical authorisation
+      HERMES_CANDLE_CANONICAL_REDIS_HOST/PORT/DB          (required; explicit canonical bus target)
+    Both flags AND the explicit bus target are required; any missing -> fail loud (no accidental
+    canonical selection, no hidden defaults)."""
+    return cp.CandlePublisherConfig(
+        publish_enabled=get_env_bool("HERMES_CANDLE_PUBLISH_ENABLED", False),
+        publish_authorised=get_env_bool("HERMES_CANDLE_PUBLISH_AUTHORISED", False),
+        shadow_publish_enabled=False, shadow_authorised=False,
+        namespace="hermes", contract_version="v1",
+        redis_host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
+        redis_port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
+        redis_db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True))
+
+
+def _real_canonical_redis_client(config):
+    """Explicit-target real Redis client for the canonical writer (lazy import; only built when the
+    canonical sink is enabled). NEVER called by tests (which inject a fake)."""
+    import redis  # lazy; only on the canonical path
+    return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
+                       socket_timeout=5)
+
+
 def build_candle_forward_seam_from_env():
     """Boot factory. Default DISABLED. Enabled requires an explicit sink mode:
     none/inert -> no-write; shadow -> dev shadow writer (fail-loud on missing/unsafe config);
-    canonical/live/prod or unknown -> FAIL LOUD. Never enables anything by itself."""
+    canonical -> canonical writer (fail-loud unless enabled AND authorised AND explicit bus config);
+    live/prod or unknown -> FAIL LOUD. Never enables anything by itself."""
     from env_config import get_env, get_env_bool, get_env_int  # lazy; HERMES-owned config only
     if not get_env_bool("HERMES_CANDLE_FORWARD_ENABLED", False):
         return cp.DisabledCandleEmitter(_disabled_config())
@@ -219,8 +320,15 @@ def build_candle_forward_seam_from_env():
         if client is None:
             raise ValueError(f"{FAULT_SHADOW_CLIENT}: shadow sink requires a Redis client (none constructed)")
         return build_shadow_seam(config=config, redis_client=client)
-    if sink_mode in CANONICAL_SINKS:
-        raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' (canonical/live/prod) "
-                         "is NOT permitted — canonical publish is a separate gated WO. Shadow-only here.")
+    if sink_mode == CANONICAL_SINK:
+        config = _canonical_config_from_env(get_env, get_env_bool, get_env_int)
+        config.assert_canonical_allowed()              # fail-loud unless publish_enabled AND authorised
+        client = _real_canonical_redis_client(config)
+        if client is None:
+            raise ValueError(f"{FAULT_CANONICAL_CLIENT}: canonical sink requires a Redis client (none constructed)")
+        return build_canonical_seam(config=config, redis_client=client)
+    if sink_mode in FORBIDDEN_CANONICAL_ALIASES:
+        raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' is NOT a permitted "
+                         "selector — use 'canonical' with explicit governed config (no production-implying sinks).")
     raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: unknown candle-forward sink '{sink_mode}' "
-                     f"(allowed: {ALLOWED_INERT_SINKS + (SHADOW_SINK,)}).")
+                     f"(allowed: {ALLOWED_INERT_SINKS + (SHADOW_SINK, CANONICAL_SINK)}).")

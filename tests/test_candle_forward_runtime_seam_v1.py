@@ -47,17 +47,36 @@ def test_enabled_without_sink_fails_loud(monkeypatch):
     assert raised, "enabled without sink must fail loud"
 
 
-def test_canonical_live_prod_sink_forbidden(monkeypatch):
-    # canonical/live/prod (and unknown) sinks still FAIL LOUD; 'shadow' is now a separate allowed path.
+def test_live_prod_unknown_sink_forbidden(monkeypatch):
+    # 'live'/'prod' (production-implying) and unknown sinks FAIL LOUD; 'shadow' and 'canonical' are
+    # now separate governed paths (canonical requires explicit config — see the canonical tests).
     _clear(monkeypatch)
     monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
-    for bad in ("canonical", "live", "prod", "redis", "bogus"):
+    for bad in ("live", "prod", "redis", "bogus"):
         monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", bad)
         try:
             seam.build_candle_forward_seam_from_env()
             assert False, f"sink {bad} must be rejected"
         except ValueError as e:
             assert seam.FAULT_WRITE_FORBIDDEN in str(e)
+
+
+def test_canonical_sink_without_config_fails_loud(monkeypatch):
+    # canonical is a GOVERNED path now, but with no flags/config it must FAIL LOUD (never accidental).
+    _clear(monkeypatch)
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "canonical")
+    for k in ("HERMES_CANDLE_PUBLISH_ENABLED", "HERMES_CANDLE_PUBLISH_AUTHORISED",
+              "HERMES_CANDLE_CANONICAL_REDIS_HOST", "HERMES_CANDLE_CANONICAL_REDIS_PORT",
+              "HERMES_CANDLE_CANONICAL_REDIS_DB"):
+        monkeypatch.delenv(k, raising=False)
+    try:
+        seam.build_candle_forward_seam_from_env()
+        assert False, "canonical without governed config must fail loud"
+    except ValueError as e:
+        # either required-config missing, or the canonical-disabled guard
+        assert ("required" in str(e).lower() or "PUBLISH_DISABLED" in str(e)
+                or "GOV-CANDLE-PUB-CANON-001" in str(e))
 
 
 def test_enabled_inert_sink_is_no_write(monkeypatch):
@@ -72,20 +91,25 @@ def test_enabled_inert_sink_is_no_write(monkeypatch):
     assert out["wrote"] is False and out["emitted"] is False
 
 
-def test_no_proteus_no_canonical_writer_path():
+def test_no_proteus_no_stale_sql_no_cross_lane():
     src = open(seam.__file__).read()
     # no proteus fallback, no stale-SQL fallback, no consumer-lane reference
     assert ("trading" + "Proteus") not in src
     assert ("/srv" + "-dev") not in src
     assert "structure_engine" not in src
-    # the ONLY real-client writer wired is the governed shadow writer (no canonical writer class)
-    assert "SerializingCandleShadowWriter" in src      # shadow writer IS wired (this WO)
-    assert "CanonicalCandleWriter" not in src and "publish_canonical" not in src
-    # canonical publish remains disabled-by-default in the underlying config
+    # both governed real-client writers are wired (shadow + canonical), no legacy pubsub
+    assert "SerializingCandleShadowWriter" in src
+    assert "SerializingCandleCanonicalWriter" in src
+    assert "signals:candle" not in src
+
+
+def test_canonical_disabled_by_default_in_config():
+    # the canonical writer EXISTS now, but canonical publish remains gated: the disabled config
+    # (publish_enabled/authorised both false) must still fail the canonical guard.
     cfg = seam._disabled_config()
     try:
         cfg.assert_canonical_allowed()
-        assert False, "canonical must be disabled"
+        assert False, "canonical must be disabled by default"
     except ValueError as ex:
         assert "PUBLISH_DISABLED" in str(ex)
 

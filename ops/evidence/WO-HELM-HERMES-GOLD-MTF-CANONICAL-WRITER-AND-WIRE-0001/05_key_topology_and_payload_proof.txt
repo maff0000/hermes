@@ -1,0 +1,11 @@
+=== Canonical writer — in-memory FAKE redis (no live/dev write) ===
+hermes:candles:XAU_USD:M1:latest:v1  TTL(ex)=90s  dir=UP  wick_high=5.0 (=high-body_high, !=high True)
+hermes:candles:XAU_USD:M5:latest:v1  TTL(ex)=360s  dir=UP  wick_high=5.0 (=high-body_high, !=high True)
+hermes:candles:XAU_USD:M15:latest:v1  TTL(ex)=1080s  dir=UP  wick_high=5.0 (=high-body_high, !=high True)
+hermes:candles:XAU_USD:H1:latest:v1  TTL(ex)=3900s  dir=UP  wick_high=5.0 (=high-body_high, !=high True)
+
+=== Deferred/forbidden are skipped or rejected ===
+H4: emitted=False reason=UNSUPPORTED_TIMEFRAME writes=0
+D1: emitted=False reason=UNSUPPORTED_TIMEFRAME writes=0
+D: emitted=False reason=UNSUPPORTED_TIMEFRAME writes=0
+XAUUSD alias -> key=hermes:candles:XAU_USD:M5:latest:v1 ; XAUUSD-key-written=False

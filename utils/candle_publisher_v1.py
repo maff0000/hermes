@@ -25,6 +25,11 @@ CANONICAL_PREFIX = "hermes:candles:"
 _NON_PROD_HOSTS = ("localhost", "127.0.0.1", "::1", "")
 SHADOW_KEY_PREFIX_ENV = "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX"
 
+# Canonical publish grid (GOLD MTF). H4/D1/D are NEVER published by the canonical writer even though
+# the contract recognises them. Broker aliases must be canonicalised BEFORE the writer sees the key.
+CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1")
+_CANONICAL_ALIAS_DENY = ("XAUUSD",)
+
 
 def resolve_shadow_key_prefix(environ=None):
     """Resolve the shadow keyspace prefix, ingesting HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX from the
@@ -131,6 +136,30 @@ def assert_shadow_key(key, prefix=None):
     return True
 
 
+def assert_canonical_key(key):
+    """Guard: a canonical write may target ONLY a versioned canonical key
+    hermes:candles:{instrument}:{tf}:latest:v1, with a publish-allowed timeframe (M1/M5/M15/H1) and a
+    non-alias instrument. Fail-loud on unversioned keys, H4/D1/D, or broker-alias instruments — the
+    last line of defence even if an upstream caller misbuilds the key."""
+    if not isinstance(key, str) or not key.startswith(CANONICAL_PREFIX):
+        raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-001: not a canonical key {key!r}")
+    suffix = f":latest:{cc.CONTRACT_VERSION}"
+    if not key.endswith(suffix):
+        raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-002: canonical key must end {suffix!r} "
+                         f"(no unversioned keys) — got {key!r}")
+    parts = key.split(":")          # hermes:candles:{instrument}:{tf}:latest:v1 -> 6 parts
+    if len(parts) != 6:
+        raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-003: malformed canonical key {key!r}")
+    instrument, tf = parts[2], parts[3]
+    if instrument in _CANONICAL_ALIAS_DENY:
+        raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-004: broker-alias instrument {instrument!r} must be "
+                         "canonicalised before publish (no alias keys)")
+    if tf not in CANONICAL_PUBLISH_TIMEFRAMES:
+        raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-005: timeframe {tf!r} not publish-allowed "
+                         f"(canonical grid {CANONICAL_PUBLISH_TIMEFRAMES}; H4/D1/D never published)")
+    return True
+
+
 # --------------------------------------------------------------------------- write-plan builders
 def _ex_for(envelope):
     return cc.redis_ex_seconds(envelope["data"]["timeframe"])
@@ -151,6 +180,17 @@ def build_shadow_write_plan(envelope):
     assert_shadow_key(skey, prefix=prefix)
     return {"operation": OPERATION_SET, "key": skey, "value": envelope,
             "ex_seconds": _ex_for(envelope), "write_mode": WRITE_MODE_SHADOW}
+
+
+def build_canonical_write_plan(envelope):
+    """Validated CANONICAL write plan (writes the governed canonical key as-is — NOT re-keyed).
+    Re-validates the governed v1 contract (rejecting invalid OHLC/geometry/forbidden fields) and
+    guards the key (versioned, publish-allowed timeframe, non-alias instrument) before any write."""
+    cc.validate_candle_contract(envelope)
+    key = envelope["key"]
+    assert_canonical_key(key)
+    return {"operation": OPERATION_SET, "key": key, "value": envelope,
+            "ex_seconds": _ex_for(envelope), "write_mode": WRITE_MODE_CANONICAL}
 
 
 # --------------------------------------------------------------------------- no-write sink (inert)
@@ -203,6 +243,36 @@ class SerializingCandleShadowWriter:
         json_value = serialize_envelope(plan["value"])
         if not isinstance(json_value, (str, bytes)):
             raise ValueError("GOV-CANDLE-PUB-WR-003: Redis value must be JSON str/bytes, never a dict")
+        result = self.redis_client.set(plan["key"], json_value, ex=plan["ex_seconds"])
+        v = plan["value"]
+        return {"key": plan["key"], "ex_seconds": plan["ex_seconds"], "write_mode": plan["write_mode"],
+                "serialised": True, "value_type": type(json_value).__name__, "redis_result": result,
+                "status": v["status"], "freshness_state": v["freshness_state"],
+                "gap_state": v["data"]["gap_state"], "source_coverage": v["data"]["source_coverage"]}
+
+
+class SerializingCandleCanonicalWriter:
+    """Real-client CANONICAL write path (GOLD MTF). Requires BOTH publish_enabled AND
+    publish_authorised (assert_canonical_allowed) — a misconfigured caller can NEVER publish silently.
+    JSON-serialises before client.set (a real client is NEVER handed a Python dict); writes ONLY
+    versioned canonical hermes:candles:{instr}:{M1|M5|M15|H1}:latest:v1 keys; fail-loud on
+    validation/guard failure; Redis write errors PROPAGATE to the caller (never swallowed here)."""
+
+    def __init__(self, *, config, redis_client):
+        if not isinstance(config, CandlePublisherConfig):
+            raise ValueError("GOV-CANDLE-PUB-CANON-WR-001: CandlePublisherConfig required")
+        config.assert_canonical_allowed()            # fail-loud unless enabled AND authorised
+        if redis_client is None:
+            raise ValueError("GOV-CANDLE-PUB-CANON-WR-002: redis_client must be supplied explicitly")
+        self.config = config
+        self.redis_client = redis_client
+
+    def publish(self, envelope):
+        plan = build_canonical_write_plan(envelope)   # validates + guards key (version/tf/alias)
+        assert_canonical_key(plan["key"])             # belt-and-braces before the write
+        json_value = serialize_envelope(plan["value"])
+        if not isinstance(json_value, (str, bytes)):
+            raise ValueError("GOV-CANDLE-PUB-CANON-WR-003: Redis value must be JSON str/bytes, never a dict")
         result = self.redis_client.set(plan["key"], json_value, ex=plan["ex_seconds"])
         v = plan["value"]
         return {"key": plan["key"], "ex_seconds": plan["ex_seconds"], "write_mode": plan["write_mode"],

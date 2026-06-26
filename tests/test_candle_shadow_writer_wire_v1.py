@@ -212,14 +212,21 @@ def test_from_env_shadow_missing_redis_config_fails_loud(monkeypatch):
         assert "HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST" in str(e) or "required" in str(e).lower()
 
 
-def test_from_env_canonical_sink_fails_loud(monkeypatch):
+def test_from_env_canonical_sink_without_config_fails_loud(monkeypatch):
+    # canonical is now a governed path, but with no flags/bus config it must STILL fail loud
+    # (missing required config or the canonical-disabled guard) — never an accidental no-op write.
     _clear_env(monkeypatch)
+    for k in ("HERMES_CANDLE_PUBLISH_ENABLED", "HERMES_CANDLE_PUBLISH_AUTHORISED",
+              "HERMES_CANDLE_CANONICAL_REDIS_HOST", "HERMES_CANDLE_CANONICAL_REDIS_PORT",
+              "HERMES_CANDLE_CANONICAL_REDIS_DB"):
+        monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
     monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "canonical")
     try:
         seam.build_candle_forward_seam_from_env(); assert False
     except ValueError as e:
-        assert seam.FAULT_WRITE_FORBIDDEN in str(e)
+        assert ("required" in str(e).lower() or "PUBLISH_DISABLED" in str(e)
+                or "GOV-CANDLE-PUB-CANON-001" in str(e))
 
 
 # ---------------- tripwires ----------------
