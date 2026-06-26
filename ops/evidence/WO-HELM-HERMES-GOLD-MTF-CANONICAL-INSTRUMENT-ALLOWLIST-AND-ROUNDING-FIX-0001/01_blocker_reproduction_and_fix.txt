@@ -1,0 +1,10 @@
+=== BLOCKER 2 (rounding): EUR_GBP float-hair high=0.8626849999999999 close=0.862685 ===
+  validates: True | body_high 0.862685 <= high 0.862685 = True
+  wick_high 0.0 (>=0, != high) | wick_low 5e-05
+
+=== BLOCKER 1 (allowlist): fail-closed, XAU_USD only ===
+  XAU_USD -> hermes:candles:XAU_USD:M5:latest:v1
+  AUD_USD -> INSTRUMENT_NOT_ALLOWLISTED (no write)
+  XAUUSD  -> hermes:candles:XAU_USD:M5:latest:v1 (canonicalised; no XAUUSD key)
+  missing allowlist -> GOV-CANDLE-FWD-SEAM-007
+  empty allowlist -> GOV-CANDLE-FWD-SEAM-007

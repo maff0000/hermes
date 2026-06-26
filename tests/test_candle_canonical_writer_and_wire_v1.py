@@ -65,8 +65,9 @@ def _canon_cfg(**over):
     return cp.CandlePublisherConfig(**base)
 
 
-def _canon_seam(client=None):
-    return seam.build_canonical_seam(config=_canon_cfg(), redis_client=client or FakeRedis())
+def _canon_seam(client=None, allowed=("XAU_USD",)):
+    return seam.build_canonical_seam(config=_canon_cfg(), redis_client=client or FakeRedis(),
+                                     allowed_instruments=allowed)
 
 
 def _gen(tf):

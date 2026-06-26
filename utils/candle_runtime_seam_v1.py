@@ -39,6 +39,9 @@ FAULT_NO_SINK = "GOV-CANDLE-FWD-SEAM-001"          # enabled without explicit si
 FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # live/prod (or unknown) sink requested
 FAULT_SHADOW_CLIENT = "GOV-CANDLE-FWD-SEAM-003"    # shadow enabled but no redis client constructed
 FAULT_CANONICAL_CLIENT = "GOV-CANDLE-FWD-SEAM-005" # canonical enabled but no redis client constructed
+FAULT_CANONICAL_ALLOWLIST = "GOV-CANDLE-FWD-SEAM-007"  # canonical enabled but allowlist missing/empty/invalid
+REASON_NOT_ALLOWLISTED = "INSTRUMENT_NOT_ALLOWLISTED"
+CANONICAL_ALLOWLIST_ENV = "HERMES_CANDLE_CANONICAL_INSTRUMENTS"
 
 ALLOWED_INERT_SINKS = ("none", "inert")
 SHADOW_SINK = "shadow"
@@ -62,6 +65,21 @@ def canonical_instrument(instrument):
     """Map a known broker alias to its canonical instrument id (e.g. XAUUSD -> XAU_USD). Unknown ids
     pass through unchanged. The alias form is never published and never dual-written."""
     return INSTRUMENT_ALIASES.get(instrument, instrument)
+
+
+def parse_canonical_allowlist(raw):
+    """Parse the governed canonical instrument allowlist (comma-separated) into a frozenset of CANONICAL
+    instrument ids. FAIL-CLOSED: a missing (None) or empty/whitespace-only allowlist raises — canonical
+    publishing must never fan out to all instruments by default. Alias entries (e.g. XAUUSD) are
+    canonicalised to XAU_USD for matching, so the set holds canonical ids only and an alias can never
+    become an output key. Used to gate which instruments may publish canonical candle keys."""
+    if raw is None:
+        raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: {CANONICAL_ALLOWLIST_ENV} is required when canonical "
+                         "publishing is enabled (fail-closed — no default fan-out to all instruments)")
+    items = [x.strip() for x in str(raw).split(",") if x.strip()]
+    if not items:
+        raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: {CANONICAL_ALLOWLIST_ENV} is empty (fail-closed)")
+    return frozenset(canonical_instrument(x) for x in items)
 
 
 def _disabled_config():
@@ -213,14 +231,20 @@ class CanonicalCandleForwardSeam:
     (XAUUSD->XAU_USD, never dual-published). Observability counters are surfaced; writer errors are
     never silently swallowed. Requires a SerializingCandleCanonicalWriter (enabled AND authorised)."""
 
-    def __init__(self, writer):
+    def __init__(self, writer, allowed_instruments):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-FWD-SEAM-006: CanonicalCandleForwardSeam requires a "
                              "SerializingCandleCanonicalWriter (the only governed canonical write path)")
+        allowed = frozenset(allowed_instruments or ())
+        if not allowed:
+            raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: CanonicalCandleForwardSeam requires a non-empty "
+                             "instrument allowlist (fail-closed)")
         self.writer = writer
+        self.allowed_instruments = allowed     # canonical ids only; non-allowlisted candles are skipped
         self.enabled = True
         self.write_mode = cp.WRITE_MODE_CANONICAL
         self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
+                        "candles_skipped_not_allowlisted": {},
                         "candle_validate_fail": 0, "candle_emit_fail": 0}
         self._fail_log_counts = {}
 
@@ -241,6 +265,13 @@ class CanonicalCandleForwardSeam:
         if tf not in SUPPORTED_TF:
             self._bump("candles_skipped_unsupported_tf", tf)
             return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}
+        # Fail-closed instrument allowlist: only authorised canonical instruments may publish. Skips are
+        # observable via a per-instrument counter (no log spam) — never an exception, never a write.
+        inst = canonical_instrument(getattr(candle, "instrument", None))
+        if inst not in self.allowed_instruments:
+            self._bump("candles_skipped_not_allowlisted", inst)
+            return {"emitted": False, "wrote": False, "reason": REASON_NOT_ALLOWLISTED,
+                    "instrument": inst, "timeframe": tf}
         now = generated_at_utc or datetime.now(timezone.utc)
         try:
             envelope = runtime_candle_to_contract(candle, generated_at_utc=now)
@@ -268,12 +299,14 @@ class CanonicalCandleForwardSeam:
         return {"enabled": True, "write_mode": self.write_mode, **self.metrics}
 
 
-def build_canonical_seam(*, config, redis_client):
-    """Construct the canonical seam from an explicit config + injected Redis client. The writer
-    validates canonical config (assert_canonical_allowed: publish_enabled AND publish_authorised) and
-    publishes only versioned canonical keys for the M1/M5/M15/H1 grid. Injectable for tests."""
+def build_canonical_seam(*, config, redis_client, allowed_instruments):
+    """Construct the canonical seam from an explicit config + injected Redis client + non-empty
+    instrument allowlist. The writer validates canonical config (assert_canonical_allowed:
+    publish_enabled AND publish_authorised) and publishes only versioned canonical keys for the
+    M1/M5/M15/H1 grid; the seam additionally restricts publication to allowlisted instruments.
+    Injectable for tests."""
     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=redis_client)
-    return CanonicalCandleForwardSeam(writer)
+    return CanonicalCandleForwardSeam(writer, allowed_instruments=allowed_instruments)
 
 
 def _canonical_config_from_env(get_env, get_env_bool, get_env_int):
@@ -323,10 +356,11 @@ def build_candle_forward_seam_from_env():
     if sink_mode == CANONICAL_SINK:
         config = _canonical_config_from_env(get_env, get_env_bool, get_env_int)
         config.assert_canonical_allowed()              # fail-loud unless publish_enabled AND authorised
+        allowed = parse_canonical_allowlist(get_env(CANONICAL_ALLOWLIST_ENV, required=True))  # fail-closed
         client = _real_canonical_redis_client(config)
         if client is None:
             raise ValueError(f"{FAULT_CANONICAL_CLIENT}: canonical sink requires a Redis client (none constructed)")
-        return build_canonical_seam(config=config, redis_client=client)
+        return build_canonical_seam(config=config, redis_client=client, allowed_instruments=allowed)
     if sink_mode in FORBIDDEN_CANONICAL_ALIASES:
         raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' is NOT a permitted "
                          "selector — use 'canonical' with explicit governed config (no production-implying sinks).")

@@ -1,0 +1,400 @@
+diff --git a/tests/test_candle_canonical_allowlist_and_rounding_v1.py b/tests/test_candle_canonical_allowlist_and_rounding_v1.py
+new file mode 100644
+index 0000000..9e19e3b
+--- /dev/null
++++ b/tests/test_candle_canonical_allowlist_and_rounding_v1.py
+@@ -0,0 +1,219 @@
++"""GOLD MTF canonical instrument allowlist + geometry rounding fix.
++WO-HELM-HERMES-GOLD-MTF-CANONICAL-INSTRUMENT-ALLOWLIST-AND-ROUNDING-FIX-0001.
++
++Code-only. No live Redis/SQL — in-memory fake client only. Nothing activates.
++
++Fix 1: fail-closed canonical instrument allowlist (only XAU_USD authorised here).
++Fix 2: OHLC quantised to governed precision before bounds/geometry validation, so float-hair
++       (high a few ulps under max(open,close)) can no longer trip GOV-CANDLE-CONTRACT-006/032.
++"""
++import json
++from datetime import datetime, timedelta, timezone
++
++from utils import candle_contract_v1 as cc
++from utils import candle_publisher_v1 as cp
++from utils import candle_runtime_seam_v1 as seam
++
++_TS = datetime(2026, 6, 26, 9, 0, tzinfo=timezone.utc)
++
++
++class _TF:
++    def __init__(self, name): self.name = name
++
++
++class _Candle:
++    def __init__(self, instrument="XAU_USD", tf="M5", o=2000.0, h=2010.0, low=1995.0, c=2005.0):
++        self.instrument = instrument
++        self.timeframe = _TF(tf)
++        self.timestamp = _TS
++        self.open, self.high, self.low, self.close = o, h, low, c
++        self.volume = 9
++        self.complete = True
++
++
++class FakeRedis:
++    def __init__(self): self.store = {}; self.sets = []
++    def set(self, k, v, ex=None):
++        assert isinstance(v, (str, bytes)); self.store[k] = (v, ex); self.sets.append((k, v, ex)); return True
++
++
++def _cfg(**o):
++    base = dict(publish_enabled=True, publish_authorised=True, shadow_publish_enabled=False,
++                shadow_authorised=False, namespace="hermes", contract_version="v1",
++                redis_host="192.168.11.10", redis_port=6379, redis_db=0)
++    base.update(o)
++    return cp.CandlePublisherConfig(**base)
++
++
++def _seam(allowed=("XAU_USD",), client=None):
++    return seam.build_canonical_seam(config=_cfg(), redis_client=client or FakeRedis(),
++                                     allowed_instruments=allowed)
++
++
++def _gen(tf): return _TS + timedelta(seconds=cc.TF_SECONDS[tf] + 0.5)
++
++
++# =========================== Fix 1 — instrument allowlist ===========================
++def test_publishes_allowlisted_xau_usd():
++    sh = _seam()
++    for tf in ("M1", "M5", "M15", "H1"):
++        r = sh.emit(_Candle(instrument="XAU_USD", tf=tf), generated_at_utc=_gen(tf))
++        assert r["emitted"] is True and r["key"] == f"hermes:candles:XAU_USD:{tf}:latest:v1"
++
++
++def test_skips_non_allowlisted_instruments_no_write():
++    sh = _seam()
++    for inst in ("AUD_USD", "EUR_USD", "GBP_USD", "USD_JPY", "XAG_USD"):
++        r = sh.emit(_Candle(instrument=inst, tf="M5"), generated_at_utc=_gen("M5"))
++        assert r["emitted"] is False and r["wrote"] is False
++        assert r["reason"] == "INSTRUMENT_NOT_ALLOWLISTED" and r["instrument"] == inst
++    assert sh.writer.redis_client.sets == []                      # nothing written
++    assert sh.metrics["candles_skipped_not_allowlisted"]["AUD_USD"] == 1   # observable, no spam
++
++
++def test_missing_allowlist_fails_loud():
++    try:
++        seam.parse_canonical_allowlist(None); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-FWD-SEAM-007" in str(e)
++
++
++def test_empty_allowlist_fails_loud():
++    for raw in ("", "   ", " , , "):
++        try:
++            seam.parse_canonical_allowlist(raw); assert False, raw
++        except ValueError as e:
++            assert "GOV-CANDLE-FWD-SEAM-007" in str(e)
++
++
++def test_seam_requires_nonempty_allowlist():
++    try:
++        _seam(allowed=()); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-FWD-SEAM-007" in str(e)
++
++
++def test_xauusd_input_canonicalises_but_never_publishes_alias_key():
++    sh = _seam(allowed=("XAU_USD",))
++    r = sh.emit(_Candle(instrument="XAUUSD", tf="M5"), generated_at_utc=_gen("M5"))
++    assert r["emitted"] is True and r["key"] == "hermes:candles:XAU_USD:M5:latest:v1"
++    assert all("XAUUSD" not in k for k in sh.writer.redis_client.store)
++
++
++def test_allowlist_alias_entry_normalises_to_canonical_only():
++    # an allowlist given as the alias XAUUSD must authorise XAU_USD (canonical), never emit XAUUSD keys
++    al = seam.parse_canonical_allowlist("XAUUSD")
++    assert al == frozenset({"XAU_USD"})
++    sh = _seam(allowed=al)
++    r = sh.emit(_Candle(instrument="XAU_USD", tf="M5"), generated_at_utc=_gen("M5"))
++    assert r["key"] == "hermes:candles:XAU_USD:M5:latest:v1"
++    assert all("XAUUSD" not in k for k in sh.writer.redis_client.store)
++
++
++def test_only_grid_tfs_published_h4_d1_rejected():
++    sh = _seam()
++    for tf in ("H4", "D1", "D"):
++        r = sh.emit(_Candle(instrument="XAU_USD", tf=tf), generated_at_utc=_gen("M5"))
++        assert r["emitted"] is False and r["reason"] == "UNSUPPORTED_TIMEFRAME"
++    assert sh.writer.redis_client.sets == []
++
++
++def test_unversioned_key_still_rejected_by_writer_guard():
++    try:
++        cp.assert_canonical_key("hermes:candles:XAU_USD:M5:latest"); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-PUB-CANON-KEY-002" in str(e)
++
++
++def test_from_env_canonical_requires_allowlist(monkeypatch):
++    for k in ("HERMES_CANDLE_FORWARD_ENABLED", "HERMES_CANDLE_FORWARD_SINK",
++              "HERMES_CANDLE_PUBLISH_ENABLED", "HERMES_CANDLE_PUBLISH_AUTHORISED",
++              "HERMES_CANDLE_CANONICAL_REDIS_HOST", "HERMES_CANDLE_CANONICAL_REDIS_PORT",
++              "HERMES_CANDLE_CANONICAL_REDIS_DB", "HERMES_CANDLE_CANONICAL_INSTRUMENTS"):
++        monkeypatch.delenv(k, raising=False)
++    monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
++    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "canonical")
++    monkeypatch.setenv("HERMES_CANDLE_PUBLISH_ENABLED", "true")
++    monkeypatch.setenv("HERMES_CANDLE_PUBLISH_AUTHORISED", "true")
++    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_HOST", "192.168.11.10")
++    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_PORT", "6379")
++    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_DB", "0")
++    # allowlist deliberately unset -> must fail loud (required), never default fan-out
++    try:
++        seam.build_candle_forward_seam_from_env(); assert False
++    except ValueError as e:
++        assert "required" in str(e).lower() or "GOV-CANDLE-FWD-SEAM-007" in str(e)
++
++
++# =========================== Fix 2 — geometry rounding ===========================
++def _build(instrument="XAU_USD", tf="M5", o=2000.0, h=2010.0, low=1995.0, c=2005.0):
++    return cc.build_candle_contract(
++        instrument=instrument, timeframe=tf, timestamp_utc=_TS,
++        ohlc={"open": o, "high": h, "low": low, "close": c, "volume": 1}, is_closed=True,
++        generated_at_utc=_gen(tf), source_timeframe=tf, source_count=1, expected_source_count=1,
++        derivation=cc.DERIVATION_DIRECT, derivation_policy=cc.DERIVATION_POLICY_DIRECT,
++        source_policy_epoch="DIRECT_NATIVE_V1")
++
++
++def test_eur_gbp_float_hair_now_validates():
++    # the exact activation failure: high a few ulps under close (which rounds up to 0.862685)
++    p = _build(instrument="EUR_GBP", tf="M1", o=0.862680, h=0.8626849999999999, low=0.86263, c=0.862685)
++    assert cc.validate_candle_contract(p) is True
++    d = p["data"]
++    assert d["body_high"] <= d["high"] and d["body_low"] >= d["low"]
++    assert d["wick_high"] >= 0 and d["wick_low"] >= 0
++
++
++def test_body_within_high_low_across_float_hair_fuzz():
++    cases = []
++    for base in (0.862685, 2000.123456, 150.123456, 1.234567, 5000.12, 19.995):
++        for k in (-2, -1, 0, 1, 2):
++            hv = base + k * 1e-16
++            cases.append((base, max(base, hv), base - 0.001, hv))
++    for o, h, lo, c in cases:
++        p = _build(o=o, h=h, low=lo, c=c)
++        assert cc.validate_candle_contract(p) is True
++        d = p["data"]
++        assert d["body_high"] <= d["high"], (d["body_high"], d["high"])
++        assert d["body_low"] >= d["low"]
++        assert d["range_size"] >= d["body_size"] - 1e-9
++
++
++def test_wick_still_sizes_not_aliases_after_rounding():
++    d = _build(o=2000.0, h=2010.0, low=1995.0, c=2005.0)["data"]
++    assert d["wick_high"] == d["high"] - d["body_high"] and d["wick_high"] != d["high"]
++    assert d["wick_low"] == d["body_low"] - d["low"] and d["wick_low"] != d["low"]
++
++
++def test_wick_aliasing_still_fails_loud():
++    p = _build()
++    p["data"]["wick_high"] = p["data"]["high"]      # alias tamper
++    try:
++        cc.validate_candle_contract(p); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-035" in str(e)
++
++
++def test_direction_unchanged_after_rounding():
++    assert _build(o=2000.0, c=2005.0)["data"]["candle_direction"] == "UP"
++    assert _build(o=2005.0, c=2000.0, h=2010.0, low=1995.0)["data"]["candle_direction"] == "DOWN"
++    assert _build(o=2000.0, c=2000.0, h=2003.0, low=1998.0)["data"]["candle_direction"] == "FLAT"
++
++
++def test_no_validator_tolerance_masks_real_geometry_error():
++    # a GENUINE (not float-hair) geometry violation must still fail loud
++    p = _build()
++    p["data"]["body_high"] = p["data"]["high"] + 0.5     # real overshoot
++    try:
++        cc.validate_candle_contract(p); assert False
++    except ValueError as e:
++        assert "GOV-CANDLE-CONTRACT-03" in str(e)   # 032/034 family, not silently tolerated
++
++
++def test_serialised_payload_preserves_invariants():
++    sh = _seam()
++    sh.emit(_Candle(instrument="XAU_USD", tf="M1"), generated_at_utc=_gen("M1"))
++    blob = sh.writer.redis_client.store["hermes:candles:XAU_USD:M1:latest:v1"][0]
++    d = json.loads(blob)["data"]
++    assert d["body_high"] <= d["high"] and d["body_low"] >= d["low"]
++    assert cc.validate_candle_contract(json.loads(blob)) is True
+diff --git a/tests/test_candle_canonical_writer_and_wire_v1.py b/tests/test_candle_canonical_writer_and_wire_v1.py
+index 82da31e..669a74d 100644
+--- a/tests/test_candle_canonical_writer_and_wire_v1.py
++++ b/tests/test_candle_canonical_writer_and_wire_v1.py
+@@ -65,8 +65,9 @@ def _canon_cfg(**over):
+     return cp.CandlePublisherConfig(**base)
+ 
+ 
+-def _canon_seam(client=None):
+-    return seam.build_canonical_seam(config=_canon_cfg(), redis_client=client or FakeRedis())
++def _canon_seam(client=None, allowed=("XAU_USD",)):
++    return seam.build_canonical_seam(config=_canon_cfg(), redis_client=client or FakeRedis(),
++                                     allowed_instruments=allowed)
+ 
+ 
+ def _gen(tf):
+diff --git a/utils/candle_contract_v1.py b/utils/candle_contract_v1.py
+index c6ef3dc..71b0c2b 100644
+--- a/utils/candle_contract_v1.py
++++ b/utils/candle_contract_v1.py
+@@ -117,18 +117,30 @@ def aggregate_ohlc(source_candles):
+ _GEOM_FIELDS = ("body_high", "body_low", "body_size", "range_size",
+                 "wick_high", "wick_low", "candle_direction")
+ 
++# Governed price precision. OHLC is quantised to this many decimals BEFORE bounds/geometry validation so
++# raw float-hair (e.g. high=0.8626849999999999 vs close=0.862685) cannot violate high>=max(open,close)
++# or make a rounded body_high exceed high. Rounding is monotonic, so quantising O/H/L/C preserves every
++# invariant (round(open)<=round(high), etc.); geometry is then derived from the SAME quantised values.
++_PRICE_DP = 6
++
++
++def _q(v):
++    """Quantise a price to the governed precision (None passes through)."""
++    return round(float(v), _PRICE_DP) if v is not None else None
++
+ 
+ def _candle_geometry(price):
+-    """Return the deterministic geometry block for a price dict. All-None when unpriced
+-    (NO_SOURCE_DATA / MARKET_CLOSED) so the keys are always present but never fabricated."""
++    """Return the deterministic geometry block for a price dict whose OHLC are ALREADY quantised to
++    _PRICE_DP. All-None when unpriced (NO_SOURCE_DATA / MARKET_CLOSED). Because O/H/L/C are quantised,
++    body_high=max(o,c)<=high and body_low=min(o,c)>=low hold exactly (no float-hair violations)."""
+     o, h, lo, c = price["open"], price["high"], price["low"], price["close"]
+     if None in (o, h, lo, c):
+         return {k: None for k in _GEOM_FIELDS}
+     body_high, body_low = max(o, c), min(o, c)
+     return {
+-        "body_high": round(body_high, 6), "body_low": round(body_low, 6),
+-        "body_size": round(abs(c - o), 6), "range_size": round(h - lo, 6),
+-        "wick_high": round(h - body_high, 6), "wick_low": round(body_low - lo, 6),
++        "body_high": round(body_high, _PRICE_DP), "body_low": round(body_low, _PRICE_DP),
++        "body_size": round(abs(c - o), _PRICE_DP), "range_size": round(h - lo, _PRICE_DP),
++        "wick_high": round(h - body_high, _PRICE_DP), "wick_low": round(body_low - lo, _PRICE_DP),
+         "candle_direction": "UP" if c > o else ("DOWN" if c < o else "FLAT"),
+     }
+ 
+@@ -193,8 +205,11 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
+ 
+     price = {"open": None, "high": None, "low": None, "close": None, "volume": None}
+     if status not in ("NO_SOURCE_DATA", "MARKET_CLOSED"):
+-        price = {"open": ohlc["open"], "high": ohlc["high"], "low": ohlc["low"],
+-                 "close": ohlc["close"], "volume": ohlc.get("volume", 0)}
++        # Quantise OHLC to the governed precision BEFORE the bounds check, so sub-precision float-hair
++        # (high a few ulps under max(open,close)) cannot trip GOV-006/026. Rounding is monotonic, so
++        # the bound high>=max(open,close) and low<=min(open,close) survive quantisation.
++        price = {"open": _q(ohlc["open"]), "high": _q(ohlc["high"]), "low": _q(ohlc["low"]),
++                 "close": _q(ohlc["close"]), "volume": ohlc.get("volume", 0)}
+         if None not in (price["open"], price["high"], price["low"], price["close"]):
+             if price["high"] < max(price["open"], price["close"]) or price["low"] > min(price["open"], price["close"]) or price["high"] < price["low"]:
+                 raise ValueError(f"GOV-CANDLE-CONTRACT-006: invalid OHLC {price} (fail-loud)")
+diff --git a/utils/candle_runtime_seam_v1.py b/utils/candle_runtime_seam_v1.py
+index 045445d..e56c871 100644
+--- a/utils/candle_runtime_seam_v1.py
++++ b/utils/candle_runtime_seam_v1.py
+@@ -39,6 +39,9 @@ FAULT_NO_SINK = "GOV-CANDLE-FWD-SEAM-001"          # enabled without explicit si
+ FAULT_WRITE_FORBIDDEN = "GOV-CANDLE-FWD-SEAM-002"  # live/prod (or unknown) sink requested
+ FAULT_SHADOW_CLIENT = "GOV-CANDLE-FWD-SEAM-003"    # shadow enabled but no redis client constructed
+ FAULT_CANONICAL_CLIENT = "GOV-CANDLE-FWD-SEAM-005" # canonical enabled but no redis client constructed
++FAULT_CANONICAL_ALLOWLIST = "GOV-CANDLE-FWD-SEAM-007"  # canonical enabled but allowlist missing/empty/invalid
++REASON_NOT_ALLOWLISTED = "INSTRUMENT_NOT_ALLOWLISTED"
++CANONICAL_ALLOWLIST_ENV = "HERMES_CANDLE_CANONICAL_INSTRUMENTS"
+ 
+ ALLOWED_INERT_SINKS = ("none", "inert")
+ SHADOW_SINK = "shadow"
+@@ -64,6 +67,21 @@ def canonical_instrument(instrument):
+     return INSTRUMENT_ALIASES.get(instrument, instrument)
+ 
+ 
++def parse_canonical_allowlist(raw):
++    """Parse the governed canonical instrument allowlist (comma-separated) into a frozenset of CANONICAL
++    instrument ids. FAIL-CLOSED: a missing (None) or empty/whitespace-only allowlist raises — canonical
++    publishing must never fan out to all instruments by default. Alias entries (e.g. XAUUSD) are
++    canonicalised to XAU_USD for matching, so the set holds canonical ids only and an alias can never
++    become an output key. Used to gate which instruments may publish canonical candle keys."""
++    if raw is None:
++        raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: {CANONICAL_ALLOWLIST_ENV} is required when canonical "
++                         "publishing is enabled (fail-closed — no default fan-out to all instruments)")
++    items = [x.strip() for x in str(raw).split(",") if x.strip()]
++    if not items:
++        raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: {CANONICAL_ALLOWLIST_ENV} is empty (fail-closed)")
++    return frozenset(canonical_instrument(x) for x in items)
++
++
+ def _disabled_config():
+     return cp.CandlePublisherConfig(
+         publish_enabled=False, publish_authorised=False,
+@@ -213,14 +231,20 @@ class CanonicalCandleForwardSeam:
+     (XAUUSD->XAU_USD, never dual-published). Observability counters are surfaced; writer errors are
+     never silently swallowed. Requires a SerializingCandleCanonicalWriter (enabled AND authorised)."""
+ 
+-    def __init__(self, writer):
++    def __init__(self, writer, allowed_instruments):
+         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
+             raise ValueError("GOV-CANDLE-FWD-SEAM-006: CanonicalCandleForwardSeam requires a "
+                              "SerializingCandleCanonicalWriter (the only governed canonical write path)")
++        allowed = frozenset(allowed_instruments or ())
++        if not allowed:
++            raise ValueError(f"{FAULT_CANONICAL_ALLOWLIST}: CanonicalCandleForwardSeam requires a non-empty "
++                             "instrument allowlist (fail-closed)")
+         self.writer = writer
++        self.allowed_instruments = allowed     # canonical ids only; non-allowlisted candles are skipped
+         self.enabled = True
+         self.write_mode = cp.WRITE_MODE_CANONICAL
+         self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
++                        "candles_skipped_not_allowlisted": {},
+                         "candle_validate_fail": 0, "candle_emit_fail": 0}
+         self._fail_log_counts = {}
+ 
+@@ -241,6 +265,13 @@ class CanonicalCandleForwardSeam:
+         if tf not in SUPPORTED_TF:
+             self._bump("candles_skipped_unsupported_tf", tf)
+             return {"emitted": False, "wrote": False, "reason": REASON_UNSUPPORTED_TF, "timeframe": tf}
++        # Fail-closed instrument allowlist: only authorised canonical instruments may publish. Skips are
++        # observable via a per-instrument counter (no log spam) — never an exception, never a write.
++        inst = canonical_instrument(getattr(candle, "instrument", None))
++        if inst not in self.allowed_instruments:
++            self._bump("candles_skipped_not_allowlisted", inst)
++            return {"emitted": False, "wrote": False, "reason": REASON_NOT_ALLOWLISTED,
++                    "instrument": inst, "timeframe": tf}
+         now = generated_at_utc or datetime.now(timezone.utc)
+         try:
+             envelope = runtime_candle_to_contract(candle, generated_at_utc=now)
+@@ -268,12 +299,14 @@ class CanonicalCandleForwardSeam:
+         return {"enabled": True, "write_mode": self.write_mode, **self.metrics}
+ 
+ 
+-def build_canonical_seam(*, config, redis_client):
+-    """Construct the canonical seam from an explicit config + injected Redis client. The writer
+-    validates canonical config (assert_canonical_allowed: publish_enabled AND publish_authorised) and
+-    publishes only versioned canonical keys for the M1/M5/M15/H1 grid. Injectable for tests."""
++def build_canonical_seam(*, config, redis_client, allowed_instruments):
++    """Construct the canonical seam from an explicit config + injected Redis client + non-empty
++    instrument allowlist. The writer validates canonical config (assert_canonical_allowed:
++    publish_enabled AND publish_authorised) and publishes only versioned canonical keys for the
++    M1/M5/M15/H1 grid; the seam additionally restricts publication to allowlisted instruments.
++    Injectable for tests."""
+     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=redis_client)
+-    return CanonicalCandleForwardSeam(writer)
++    return CanonicalCandleForwardSeam(writer, allowed_instruments=allowed_instruments)
+ 
+ 
+ def _canonical_config_from_env(get_env, get_env_bool, get_env_int):
+@@ -323,10 +356,11 @@ def build_candle_forward_seam_from_env():
+     if sink_mode == CANONICAL_SINK:
+         config = _canonical_config_from_env(get_env, get_env_bool, get_env_int)
+         config.assert_canonical_allowed()              # fail-loud unless publish_enabled AND authorised
++        allowed = parse_canonical_allowlist(get_env(CANONICAL_ALLOWLIST_ENV, required=True))  # fail-closed
+         client = _real_canonical_redis_client(config)
+         if client is None:
+             raise ValueError(f"{FAULT_CANONICAL_CLIENT}: canonical sink requires a Redis client (none constructed)")
+-        return build_canonical_seam(config=config, redis_client=client)
++        return build_canonical_seam(config=config, redis_client=client, allowed_instruments=allowed)
+     if sink_mode in FORBIDDEN_CANONICAL_ALIASES:
+         raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' is NOT a permitted "
+                          "selector — use 'canonical' with explicit governed config (no production-implying sinks).")

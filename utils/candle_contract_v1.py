@@ -117,18 +117,30 @@ def aggregate_ohlc(source_candles):
 _GEOM_FIELDS = ("body_high", "body_low", "body_size", "range_size",
                 "wick_high", "wick_low", "candle_direction")
 
+# Governed price precision. OHLC is quantised to this many decimals BEFORE bounds/geometry validation so
+# raw float-hair (e.g. high=0.8626849999999999 vs close=0.862685) cannot violate high>=max(open,close)
+# or make a rounded body_high exceed high. Rounding is monotonic, so quantising O/H/L/C preserves every
+# invariant (round(open)<=round(high), etc.); geometry is then derived from the SAME quantised values.
+_PRICE_DP = 6
+
+
+def _q(v):
+    """Quantise a price to the governed precision (None passes through)."""
+    return round(float(v), _PRICE_DP) if v is not None else None
+
 
 def _candle_geometry(price):
-    """Return the deterministic geometry block for a price dict. All-None when unpriced
-    (NO_SOURCE_DATA / MARKET_CLOSED) so the keys are always present but never fabricated."""
+    """Return the deterministic geometry block for a price dict whose OHLC are ALREADY quantised to
+    _PRICE_DP. All-None when unpriced (NO_SOURCE_DATA / MARKET_CLOSED). Because O/H/L/C are quantised,
+    body_high=max(o,c)<=high and body_low=min(o,c)>=low hold exactly (no float-hair violations)."""
     o, h, lo, c = price["open"], price["high"], price["low"], price["close"]
     if None in (o, h, lo, c):
         return {k: None for k in _GEOM_FIELDS}
     body_high, body_low = max(o, c), min(o, c)
     return {
-        "body_high": round(body_high, 6), "body_low": round(body_low, 6),
-        "body_size": round(abs(c - o), 6), "range_size": round(h - lo, 6),
-        "wick_high": round(h - body_high, 6), "wick_low": round(body_low - lo, 6),
+        "body_high": round(body_high, _PRICE_DP), "body_low": round(body_low, _PRICE_DP),
+        "body_size": round(abs(c - o), _PRICE_DP), "range_size": round(h - lo, _PRICE_DP),
+        "wick_high": round(h - body_high, _PRICE_DP), "wick_low": round(body_low - lo, _PRICE_DP),
         "candle_direction": "UP" if c > o else ("DOWN" if c < o else "FLAT"),
     }
 
@@ -193,8 +205,11 @@ def build_candle_contract(*, instrument, timeframe, timestamp_utc, ohlc, is_clos
 
     price = {"open": None, "high": None, "low": None, "close": None, "volume": None}
     if status not in ("NO_SOURCE_DATA", "MARKET_CLOSED"):
-        price = {"open": ohlc["open"], "high": ohlc["high"], "low": ohlc["low"],
-                 "close": ohlc["close"], "volume": ohlc.get("volume", 0)}
+        # Quantise OHLC to the governed precision BEFORE the bounds check, so sub-precision float-hair
+        # (high a few ulps under max(open,close)) cannot trip GOV-006/026. Rounding is monotonic, so
+        # the bound high>=max(open,close) and low<=min(open,close) survive quantisation.
+        price = {"open": _q(ohlc["open"]), "high": _q(ohlc["high"]), "low": _q(ohlc["low"]),
+                 "close": _q(ohlc["close"]), "volume": ohlc.get("volume", 0)}
         if None not in (price["open"], price["high"], price["low"], price["close"]):
             if price["high"] < max(price["open"], price["close"]) or price["low"] > min(price["open"], price["close"]) or price["high"] < price["low"]:
                 raise ValueError(f"GOV-CANDLE-CONTRACT-006: invalid OHLC {price} (fail-loud)")
