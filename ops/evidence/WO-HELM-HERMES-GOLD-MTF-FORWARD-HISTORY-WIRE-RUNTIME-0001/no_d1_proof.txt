@@ -1,0 +1,6 @@
+# NO-D1 PROOF
+- H4 hook fires only on a sealed COMPLETE 4/4 H4 bucket; no D1 path exists or is added.
+- The forward writer + history contract reject D1 at every layer (parse 005, write 014, target TGT-006).
+- Factory fails loud if HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES contains D1
+  (test_factory_history_d1_timeframe_fails_loud -> GOV-CANDLE-HIST-FWD-005).
+- grep: no ":D1:" key is ever produced (test_no_regime_or_d1_in_any_written_key_or_payload).

@@ -1,0 +1,7 @@
+# Changed files — WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WIRE-RUNTIME-0001 (code-only)
+M  utils/candle_runtime_seam_v1.py        (+post-publish history hook on CanonicalCandleForwardSeam; build_canonical_seam + from_env pass-through; default no-op)
+M  utils/candle_h4_publish_wire_v1.py     (+post-seal history hook on CanonicalH4Producer for COMPLETE 4/4 only; from_env pass-through; default no-op)
+A  tests/test_candle_forward_history_wire_runtime_v1.py  (294 lines, 19 tests)
+A  ops/evidence/WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WIRE-RUNTIME-0001/*  evidence
+
+Latest publication behaviour unchanged. No new module; writer module from PR #53 reused as-is.

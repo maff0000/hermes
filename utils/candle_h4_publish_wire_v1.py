@@ -31,7 +31,7 @@ class CanonicalH4Producer:
     """Live derived-H4 producer. Feed it completed H1 candles via `on_h1_close`; it seals a bucket when
     the next bucket's first H1 arrives (so the published H4 is always the most recently CLOSED bucket)."""
 
-    def __init__(self, writer, allowed_instruments):
+    def __init__(self, writer, allowed_instruments, history_forward_writer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-H4-WIRE-001: CanonicalH4Producer requires a SerializingCandleCanonicalWriter")
         allowed = frozenset(allowed_instruments or ())
@@ -39,9 +39,15 @@ class CanonicalH4Producer:
             raise ValueError("GOV-CANDLE-H4-WIRE-002: non-empty instrument allowlist required (fail-closed)")
         self.writer = writer
         self.allowed_instruments = allowed
+        # Optional governed forward-history writer. None (default) -> H4 latest-only. When attached + enabled,
+        # ONLY a COMPLETE 4/4 sealed bucket (status OK) is appended to history; warmup/SOURCE_INCOMPLETE never
+        # enters history. A history fault is surfaced and never breaks the H4 latest publish.
+        self.history_forward_writer = history_forward_writer
         self.enabled = True
         self.metrics = {"h4_published_ok": 0, "h4_published_incomplete": 0, "h4_skipped_not_allowlisted": 0,
-                        "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0}
+                        "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0,
+                        "h4_history_forward_written": 0, "h4_history_forward_skipped": 0,
+                        "h4_history_forward_fail": 0}
         self._buf = {}        # instrument -> {bucket_open_epoch: [h1_candle, ...]}
         self._current = {}    # instrument -> current (open) bucket_open_epoch
 
@@ -79,16 +85,39 @@ class CanonicalH4Producer:
             return {"published": False, "reason": "H4_EMIT_FAIL", "error": repr(exc),
                     "bucket_open_epoch": bucket_epoch}
         d = env["data"]
+        history = {"attempted": False, "reason": "H4_INCOMPLETE_NOT_HISTORY"}
         if env["status"] == "OK":
             self.metrics["h4_published_ok"] += 1
+            history = self._forward_history(env)            # ONLY complete 4/4 enters history
         else:
             self.metrics["h4_published_incomplete"] += 1    # honest SOURCE_INCOMPLETE (never OK)
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
-                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch}
+                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch, "history_forward": history}
+
+    def _forward_history(self, env):
+        """Append a sealed COMPLETE H4 bucket to governed history. No-op unless an enabled writer is attached.
+        The writer re-enforces closed+status-OK+target guards; warmup/incomplete is skipped there too. A fault
+        is counted and never breaks the H4 latest publish (already done)."""
+        hw = self.history_forward_writer
+        if hw is None or not getattr(hw, "enabled", False):
+            return {"attempted": False, "reason": "HISTORY_FORWARD_DISABLED"}
+        try:
+            res = hw.on_h4_sealed(env, inserted_at_utc=datetime.now(timezone.utc))
+        except Exception as exc:  # noqa: BLE001 - surfaced via counter, never breaks latest
+            self.metrics["h4_history_forward_fail"] += 1
+            return {"attempted": True, "wrote": False, "reason": "H4_HISTORY_FORWARD_FAIL", "error": repr(exc)}
+        if res.get("wrote"):
+            self.metrics["h4_history_forward_written"] += 1
+        else:
+            self.metrics["h4_history_forward_skipped"] += 1
+        return {"attempted": True, **res}
 
     def status(self):
-        return {"enabled": True, **self.metrics}
+        hw = self.history_forward_writer
+        return {"enabled": True,
+                "history_forward_enabled": bool(hw is not None and getattr(hw, "enabled", False)),
+                **self.metrics}
 
 
 class DisabledH4Producer:
@@ -119,4 +148,8 @@ def build_h4_producer_from_env():
     allowed = seam.parse_canonical_allowlist(get_env(seam.CANONICAL_ALLOWLIST_ENV, required=True))  # fail-closed
     client = seam._real_canonical_redis_client(config)
     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=client)
-    return CanonicalH4Producer(writer, allowed_instruments=allowed)
+    # Governed forward-history writer: default DISABLED (own gates), so attaching it changes nothing unless
+    # HERMES_CANDLE_HISTORY_FORWARD_ENABLED + AUTHORISED + allowlists are set. Lazy import avoids a cycle.
+    from utils import candle_history_forward_writer_v1 as hfw   # lazy; only on the H4 canonical path
+    history_writer = hfw.build_history_forward_writer_from_env()
+    return CanonicalH4Producer(writer, allowed_instruments=allowed, history_forward_writer=history_writer)

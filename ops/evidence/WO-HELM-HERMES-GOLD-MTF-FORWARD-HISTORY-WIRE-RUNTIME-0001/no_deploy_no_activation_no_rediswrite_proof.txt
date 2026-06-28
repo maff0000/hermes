@@ -1,0 +1,9 @@
+# NO-DEPLOY / NO-ACTIVATION / NO-REDIS-WRITE PROOF
+- Code + tests only. No deploy, no container build, no restart, no env change on any host.
+- Default DISABLED: with history gates unset the seam/producer attach a DisabledHistoryForwardWriter (no-op);
+  no flag was set anywhere. Activation is a separate WO.
+- No Redis I/O at import: writer client is lazy (only inside the from_env builders, on the enabled path).
+  Tests use in-memory FakeRedis; zero connections to live Redis (192.168.11.10:6379) by this WO.
+- Live service NOT touched: no docker exec / docker compose / systemd action in this WO.
+- Latest path preserved: latest write happens first and is returned unconditionally; the history hook runs
+  after and can never alter or block it (test_history_fault_does_not_break_latest, test_h4_history_fault_...).
