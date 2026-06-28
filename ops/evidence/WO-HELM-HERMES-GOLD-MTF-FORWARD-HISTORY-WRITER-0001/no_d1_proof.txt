@@ -1,0 +1,6 @@
+# NO-D1 PROOF
+- FORWARD_TIMEFRAMES = candle_history_v1.HISTORY_TIMEFRAMES = (M1,M5,M15,H1,H4). D1/D excluded.
+- parse_forward_timeframes rejects D1/D -> GOV-CANDLE-HIST-FWD-005 (test_parse_d1_timeframe_rejected).
+- write_closed_envelope raises GOV-CANDLE-HIST-FWD-014 on any D1/D candle (test_d1_candle_rejected_fail_loud).
+- assert_history_target (history contract) independently rejects D1 keys (GOV-CANDLE-HIST-TGT-006).
+- grep: no "D1" history key is ever constructed.
