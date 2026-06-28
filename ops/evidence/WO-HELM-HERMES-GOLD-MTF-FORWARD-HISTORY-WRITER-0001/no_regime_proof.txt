@@ -1,0 +1,7 @@
+# NO-REGIME PROOF
+- Module has no regime/interpretive field (test_no_regime_tokens_in_module_or_payload: no '"regime"',
+  no regime_confidence in code; written payload blob contains none of regime/structure/choch/order_block/signal).
+- validate_candle_contract runs BEFORE every write and fail-louds on any forbidden interpretive field
+  (GOV-CANDLE-CONTRACT-029) — proven by test_validate_runs_before_write_blocks_forbidden_field (regime_confidence
+  injected -> ValueError, nothing written).
+- History block uses only the 5 governed fields; HERMES owns raw market truth only.

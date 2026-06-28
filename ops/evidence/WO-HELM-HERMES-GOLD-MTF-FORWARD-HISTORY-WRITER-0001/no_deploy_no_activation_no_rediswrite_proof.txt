@@ -1,0 +1,9 @@
+# NO-DEPLOY / NO-ACTIVATION / NO-REDIS-WRITE PROOF
+- This WO added code + tests only. No deploy, no container build, no restart, no env change on any host.
+- Default DISABLED: build_history_forward_writer_from_env() returns DisabledHistoryForwardWriter() unless
+  HERMES_CANDLE_HISTORY_FORWARD_ENABLED=true (it is unset everywhere). No flag was set anywhere.
+- No Redis I/O at import: `import redis` is lazy (only inside _redis_client_from_env, on the enabled path).
+  Tests use an in-memory FakeRedis; zero connections to live Redis (192.168.11.10:6379) were made by this WO.
+- The live service was NOT touched: no `docker exec`, no `docker compose`, no systemd action in this WO.
+- Latest-writer path unchanged: no existing file modified (see changed_files.txt). Hooks are not wired into
+  the runtime seam/producer here — runtime wiring + activation is a separate authorised WO.

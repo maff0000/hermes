@@ -1,0 +1,6 @@
+# Changed files — WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WRITER-0001 (code-only)
+A  utils/candle_history_forward_writer_v1.py   (245 lines) — governed forward-history writer + from_env
+A  tests/test_candle_history_forward_writer_v1.py  (292 lines) — 27 tests
+A  ops/evidence/WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WRITER-0001/* — evidence
+
+NO existing files modified. Latest-writer path untouched.

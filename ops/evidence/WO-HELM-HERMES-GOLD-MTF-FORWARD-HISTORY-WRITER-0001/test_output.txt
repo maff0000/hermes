@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /srv/trading/hermes-worktrees/wo-fwd-history
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+tests/test_candle_history_forward_writer_v1.py::test_disabled_writer_is_noop PASSED [  3%]
+tests/test_candle_history_forward_writer_v1.py::test_from_env_disabled_by_default PASSED [  7%]
+tests/test_candle_history_forward_writer_v1.py::test_from_env_enabled_unauthorised_fails_loud PASSED [ 11%]
+tests/test_candle_history_forward_writer_v1.py::test_from_env_missing_timeframes_fails_loud PASSED [ 14%]
+tests/test_candle_history_forward_writer_v1.py::test_from_env_missing_instruments_fails_loud PASSED [ 18%]
+tests/test_candle_history_forward_writer_v1.py::test_parse_empty_allowlist_and_timeframes_fail_loud PASSED [ 22%]
+tests/test_candle_history_forward_writer_v1.py::test_parse_d1_timeframe_rejected PASSED [ 25%]
+tests/test_candle_history_forward_writer_v1.py::test_parse_non_xau_instrument_rejected PASSED [ 29%]
+tests/test_candle_history_forward_writer_v1.py::test_parse_alias_canonicalises_to_xau PASSED [ 33%]
+tests/test_candle_history_forward_writer_v1.py::test_non_allowlisted_instrument_skipped_no_write PASSED [ 37%]
+tests/test_candle_history_forward_writer_v1.py::test_tf_not_configured_skipped PASSED [ 40%]
+tests/test_candle_history_forward_writer_v1.py::test_d1_candle_rejected_fail_loud PASSED [ 44%]
+tests/test_candle_history_forward_writer_v1.py::test_forming_candle_not_written PASSED [ 48%]
+tests/test_candle_history_forward_writer_v1.py::test_xauusd_alias_never_emits_alias_key PASSED [ 51%]
+tests/test_candle_history_forward_writer_v1.py::test_direct_closed_candle_written_to_history_shape[M1] PASSED [ 55%]
+tests/test_candle_history_forward_writer_v1.py::test_direct_closed_candle_written_to_history_shape[M5] PASSED [ 59%]
+tests/test_candle_history_forward_writer_v1.py::test_direct_closed_candle_written_to_history_shape[M15] PASSED [ 62%]
+tests/test_candle_history_forward_writer_v1.py::test_direct_closed_candle_written_to_history_shape[H1] PASSED [ 66%]
+tests/test_candle_history_forward_writer_v1.py::test_h4_complete_written_to_history_shape PASSED [ 70%]
+tests/test_candle_history_forward_writer_v1.py::test_h4_incomplete_not_written_as_ok PASSED [ 74%]
+tests/test_candle_history_forward_writer_v1.py::test_h4_forming_not_written PASSED [ 77%]
+tests/test_candle_history_forward_writer_v1.py::test_writer_never_targets_latest_or_unversioned PASSED [ 81%]
+tests/test_candle_history_forward_writer_v1.py::test_validate_runs_before_write_blocks_forbidden_field PASSED [ 85%]
+tests/test_candle_history_forward_writer_v1.py::test_no_regime_tokens_in_module_or_payload PASSED [ 88%]
+tests/test_candle_history_forward_writer_v1.py::test_idempotent_rewrite_same_candle_safe PASSED [ 92%]
+tests/test_candle_history_forward_writer_v1.py::test_conflicting_candle_same_epoch_fails_loud PASSED [ 96%]
+tests/test_candle_history_forward_writer_v1.py::test_latest_envelope_not_mutated_by_writer PASSED [100%]
+
+============================== 27 passed in 0.02s ==============================
+--- regression line ---
+...................................................                      [100%]
+267 passed in 0.17s
