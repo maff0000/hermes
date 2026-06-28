@@ -235,7 +235,7 @@ class CanonicalCandleForwardSeam:
     (XAUUSD->XAU_USD, never dual-published). Observability counters are surfaced; writer errors are
     never silently swallowed. Requires a SerializingCandleCanonicalWriter (enabled AND authorised)."""
 
-    def __init__(self, writer, allowed_instruments):
+    def __init__(self, writer, allowed_instruments, history_forward_writer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-FWD-SEAM-006: CanonicalCandleForwardSeam requires a "
                              "SerializingCandleCanonicalWriter (the only governed canonical write path)")
@@ -245,11 +245,17 @@ class CanonicalCandleForwardSeam:
                              "instrument allowlist (fail-closed)")
         self.writer = writer
         self.allowed_instruments = allowed     # canonical ids only; non-allowlisted candles are skipped
+        # Optional governed forward-history writer. None (default) -> latest-only, unchanged behaviour. When
+        # attached + enabled, CLOSED candles are appended to history AFTER the canonical latest write. A
+        # history fault is surfaced (counter + rate-limited log) and NEVER propagated — latest is authoritative.
+        self.history_forward_writer = history_forward_writer
         self.enabled = True
         self.write_mode = cp.WRITE_MODE_CANONICAL
         self.metrics = {"candles_canonical_published": {}, "candles_skipped_unsupported_tf": {},
                         "candles_skipped_not_allowlisted": {}, "candles_skipped_derived_tf": {},
                         "candle_validate_fail": 0, "candle_emit_fail": 0}
+        self._history_metrics = {"history_forward_written": 0, "history_forward_skipped": 0,
+                                 "history_forward_fail": 0}
         self._fail_log_counts = {}
 
     def _bump(self, bucket, tf):
@@ -299,22 +305,51 @@ class CanonicalCandleForwardSeam:
             return {"emitted": False, "wrote": False, "reason": "CANDLE_EMIT_FAIL",
                     "error": repr(exc), "timeframe": tf}
         self._bump("candles_canonical_published", tf)
+        history = self._forward_history(envelope, now)   # AFTER latest write; never affects latest result
         return {"emitted": True, "wrote": True, "key": res["key"], "timeframe": tf,
                 "status": envelope["status"], "freshness_state": envelope["freshness_state"],
-                "gap_state": envelope["data"]["gap_state"]}
+                "gap_state": envelope["data"]["gap_state"], "history_forward": history}
+
+    def _forward_history(self, envelope, now):
+        """Append the just-published CLOSED candle to governed history. No-op unless an enabled writer is
+        attached. The writer itself enforces closed+status-OK+allowlist+target guards; forming/invalid candles
+        are skipped there. Any fault is counted + rate-limited-logged and SWALLOWED here so the latest write
+        (already done) is never undone — fail-loud-visible, not fail-closed-on-latest."""
+        hw = self.history_forward_writer
+        if hw is None or not getattr(hw, "enabled", False):
+            return {"attempted": False, "reason": "HISTORY_FORWARD_DISABLED"}
+        if not envelope["data"].get("is_closed"):       # only CLOSED candles enter history; forming -> no call
+            return {"attempted": False, "reason": "FORMING_NOT_HISTORY"}
+        try:
+            res = hw.on_canonical_close(envelope, inserted_at_utc=now)
+        except Exception as exc:  # noqa: BLE001 - surfaced (counter + rate-limited log), never breaks latest
+            self._history_metrics["history_forward_fail"] += 1
+            self._log_fail("HISTORY_FORWARD_FAIL", envelope["data"]["instrument"],
+                           envelope["data"]["timeframe"], f"{type(exc).__name__}: {str(exc)[:160]}")
+            return {"attempted": True, "wrote": False, "reason": "HISTORY_FORWARD_FAIL", "error": repr(exc)}
+        if res.get("wrote"):
+            self._history_metrics["history_forward_written"] += 1
+        else:
+            self._history_metrics["history_forward_skipped"] += 1
+        return {"attempted": True, **res}
 
     def status(self):
-        return {"enabled": True, "write_mode": self.write_mode, **self.metrics}
+        hw = self.history_forward_writer
+        return {"enabled": True, "write_mode": self.write_mode,
+                "history_forward_enabled": bool(hw is not None and getattr(hw, "enabled", False)),
+                **self._history_metrics, **self.metrics}
 
 
-def build_canonical_seam(*, config, redis_client, allowed_instruments):
+def build_canonical_seam(*, config, redis_client, allowed_instruments, history_forward_writer=None):
     """Construct the canonical seam from an explicit config + injected Redis client + non-empty
     instrument allowlist. The writer validates canonical config (assert_canonical_allowed:
     publish_enabled AND publish_authorised) and publishes only versioned canonical keys for the
     M1/M5/M15/H1 grid; the seam additionally restricts publication to allowlisted instruments.
-    Injectable for tests."""
+    An optional governed forward-history writer (default None -> latest-only) is attached for the
+    post-publish history append. Injectable for tests."""
     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=redis_client)
-    return CanonicalCandleForwardSeam(writer, allowed_instruments=allowed_instruments)
+    return CanonicalCandleForwardSeam(writer, allowed_instruments=allowed_instruments,
+                                      history_forward_writer=history_forward_writer)
 
 
 def _canonical_config_from_env(get_env, get_env_bool, get_env_int):
@@ -368,7 +403,13 @@ def build_candle_forward_seam_from_env():
         client = _real_canonical_redis_client(config)
         if client is None:
             raise ValueError(f"{FAULT_CANONICAL_CLIENT}: canonical sink requires a Redis client (none constructed)")
-        return build_canonical_seam(config=config, redis_client=client, allowed_instruments=allowed)
+        # Governed forward-history writer: default DISABLED (own gates), so this changes nothing at runtime
+        # unless HERMES_CANDLE_HISTORY_FORWARD_ENABLED + AUTHORISED + allowlists are set. Lazy import avoids
+        # an import cycle (the writer module imports this seam for canonicalisation).
+        from utils import candle_history_forward_writer_v1 as hfw  # lazy; only on the canonical sink path
+        history_writer = hfw.build_history_forward_writer_from_env()
+        return build_canonical_seam(config=config, redis_client=client, allowed_instruments=allowed,
+                                    history_forward_writer=history_writer)
     if sink_mode in FORBIDDEN_CANONICAL_ALIASES:
         raise ValueError(f"{FAULT_WRITE_FORBIDDEN}: candle-forward sink '{sink_mode}' is NOT a permitted "
                          "selector — use 'canonical' with explicit governed config (no production-implying sinks).")

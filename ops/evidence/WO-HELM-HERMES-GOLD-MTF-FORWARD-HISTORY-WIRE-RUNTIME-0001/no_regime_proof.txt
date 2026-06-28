@@ -1,0 +1,5 @@
+# NO-REGIME PROOF
+- No interpretive field added by the wiring; only counters + a history_forward result block (plain strings).
+- validate_candle_contract runs before every history write and fail-louds on any forbidden field (CONTRACT-029).
+- test_no_regime_or_d1_in_any_written_key_or_payload: written keys+payloads contain none of
+  regime/structure/choch/order_block.
