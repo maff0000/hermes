@@ -1,0 +1,7 @@
+# COMPLETENESS / GAP POLICY
+source_count < 6 is NEVER status OK:
+  0 children -> NO_SOURCE_DATA + gap_state GAP_DETECTED
+  1..5 children -> SOURCE_INCOMPLETE + source_coverage=n/6 (<1.0) + gap_state INCOMPLETE
+is_closed=False -> FORMING (freshness FORMING), never OK.
+No synthetic H4 children: source_count reflects the actual children passed (e.g. 5 stays 5, not padded to 6).
+Missing child (e.g. drop 06:00) -> SOURCE_INCOMPLETE, coverage 5/6 — surfaced, never laundered.

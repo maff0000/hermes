@@ -1,0 +1,10 @@
+# DERIVATION PROOF — 6xH4 -> D1 OHLCV
+6 H4 children with distinct OHLCV ->
+  open  = first child open   (2000.0)
+  high  = max child high      (2080.0)
+  low   = min child low       (1900.0)
+  close = last child close    (1970.0)
+  volume= sum child volume    (10+11+12+13+14+15 = 75)
+  source_timeframe=H4, expected_source_count=6, source_count=6, source_coverage=1.0
+  derivation=DERIVED_FROM_LOWER_TIMEFRAME, policy=DERIVED_D1_FROM_H4, epoch=D1_FROM_H4_NY1700_FIXED_UTC_V1
+  6/6 closed -> status OK, gap_state NONE, validate_candle_contract PASS.

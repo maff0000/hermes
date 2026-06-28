@@ -1,0 +1,4 @@
+# NO-DIRECT-D1-SOURCE PROOF
+- candle_d1_derivation_v1.py contains no "candles_D1" literal and never reads the midnight-anchored daily table.
+- The source is exclusively H4 (source_timeframe=H4, expected 6); the derivation rejects a UTC-midnight anchor
+  (GOV-CANDLE-D1-002), structurally preventing a midnight-day D1.

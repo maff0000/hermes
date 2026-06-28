@@ -54,9 +54,11 @@ def test_bad_timeframe_fails_loud():
 
 
 def test_ttl_policy_per_timeframe():
-    assert cc.TF_SECONDS == {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
+    assert cc.TF_SECONDS == {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400,
+                             "D": 86400, "D1": 86400}
     assert cc.redis_ex_seconds("M5") == 360 and cc.redis_ex_seconds("D") == 90000
     assert cc.redis_ex_seconds("M1") == 90 and cc.redis_ex_seconds("M15") == 1080
+    assert cc.redis_ex_seconds("D1") == 90000      # 86400 + 3600 (D1 recognised; never publish/history-eligible)
 
 
 # ---------- builds for all timeframes ----------

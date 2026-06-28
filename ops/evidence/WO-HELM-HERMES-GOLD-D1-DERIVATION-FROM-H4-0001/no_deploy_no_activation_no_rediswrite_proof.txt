@@ -1,0 +1,7 @@
+# NO-DEPLOY / NO-ACTIVATION / NO-REDIS-WRITE PROOF
+- Code + tests only. No deploy, no container build, no restart, no env change, no activation.
+- candle_d1_derivation_v1.py performs NO Redis I/O: no `import redis`, no `.set(`, no `.zadd(` (test-asserted).
+- D1 is NOT publish-eligible: assert_canonical_key rejects D1 (GOV-CANDLE-PUB-CANON-KEY-005) — D1 not in CANONICAL_PUBLISH_TIMEFRAMES.
+- D1 is NOT history-eligible: assert_history_target rejects D1 (GOV-CANDLE-HIST-TGT-006) — D1 not in HISTORY_TIMEFRAMES.
+- D1 is NOT seam-emitted: D1 not in SUPPORTED_TF/DERIVED_TF.
+- Contract recognises D1 for derivation/validation only (TF_SECONDS["D1"]=86400). All write grids still exclude D1.

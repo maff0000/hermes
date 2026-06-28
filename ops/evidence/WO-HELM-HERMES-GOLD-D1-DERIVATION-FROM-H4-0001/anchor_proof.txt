@@ -1,0 +1,11 @@
+# ANCHOR PROOF — fixed 22:00 UTC (no midnight, no DST)
+d1_bucket_open() maps any instant to the 22:00Z bucket open:
+  22:00:00Z        -> 22:00Z (same)
+  22:00:01Z        -> 22:00Z
+  next-day 03:00Z  -> prior 22:00Z
+  next-day 21:59:59Z -> prior 22:00Z (just before roll)
+  next-day 22:00:00Z -> next bucket 22:00Z
+  UTC-midnight 00:00Z -> prior 22:00Z   (NOT a midnight day)
+assert_d1_open_anchor() FAILS LOUD (GOV-CANDLE-D1-002) for 00:00 / 21:00 / 22:30 etc.
+derive_d1() refuses a UTC-midnight d1_open (GOV-CANDLE-D1-002).
+d1_child_h4_opens(22:00) = [22:00, 02:00, 06:00, 10:00, 14:00, 18:00] (last five on the next UTC day).

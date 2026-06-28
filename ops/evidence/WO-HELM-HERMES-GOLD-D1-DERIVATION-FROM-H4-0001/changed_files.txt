@@ -1,0 +1,6 @@
+# Changed files — WO-HELM-HERMES-GOLD-D1-DERIVATION-FROM-H4-0001 (code-only)
+A  utils/candle_d1_derivation_v1.py   (116 lines) — D1 derivation from 6xH4, fixed 22:00 UTC anchor
+A  tests/test_candle_d1_derivation_v1.py  (189 lines, 17 tests)
+M  utils/candle_contract_v1.py        (+D1 to TIMEFRAMES/TF_SECONDS/TTL_BUFFER + DERIVED_D1_FROM_H4 policy; derivation/validation only, write grids unchanged)
+M  tests/test_candle_contract_v1.py   (ttl-policy test updated for D1)
+A  ops/evidence/WO-HELM-HERMES-GOLD-D1-DERIVATION-FROM-H4-0001/*  evidence
