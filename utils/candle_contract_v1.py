@@ -25,20 +25,25 @@ CONTRACT = "hermes.candles.latest"
 CONTRACT_VERSION = "v1"
 
 # M1/M5/M15/H1 are the DIRECT-NATIVE shadow grid (WO-...-GOLD-MTF-CANDLE-CONTRACT-EXTEND-0001).
-# H4/D remain recognised for the (deferred) derived path; the shadow seam still skips them.
-TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D")
+# H4/D1 are recognised for the (deferred/guarded) DERIVED path only; the shadow/canonical/history/seam
+# grids still EXCLUDE them from publication/history. "D" is the legacy daily token; "D1" is the governed
+# NY-5PM daily timeframe (derived from 6xH4) — recognised by the contract for derivation/validation, but
+# never publish- or history-eligible (those grids are separate and still reject D1).
+TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D", "D1")
 # candle validity = one timeframe period (a closed "latest" candle is valid until the next forms)
-TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400}
+TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D": 86400, "D1": 86400}
 # documented Redis EX buffers (grace beyond validity; consumers freshness-gate on valid_until_utc)
-TTL_BUFFER_SECONDS = {"M1": 30, "M5": 60, "M15": 180, "H1": 300, "H4": 900, "D": 3600}
+TTL_BUFFER_SECONDS = {"M1": 30, "M5": 60, "M15": 180, "H1": 300, "H4": 900, "D": 3600, "D1": 3600}
 
 # governed derivation policies (mirror utils.forward_derivation_runner — single doctrine)
 DERIVATION_POLICY_FORWARD = "FORWARD_COMPLETE_M1_ONLY"
 DERIVATION_POLICY_HISTORICAL = "HISTORICAL_ALL_M1_COUNTED"
 DERIVATION_POLICY_DIRECT = "NONE_DIRECT"
 DERIVATION_POLICY_H4_FROM_H1 = "DERIVED_H4_FROM_H1"   # governed H4 from 4xH1 (NY-5PM aligned buckets)
+DERIVATION_POLICY_D1_FROM_H4 = "DERIVED_D1_FROM_H4"   # governed D1 from 6xH4 (fixed 22:00 UTC NY-5PM day)
 DERIVATION_POLICIES = (DERIVATION_POLICY_FORWARD, DERIVATION_POLICY_HISTORICAL,
-                       DERIVATION_POLICY_DIRECT, DERIVATION_POLICY_H4_FROM_H1)
+                       DERIVATION_POLICY_DIRECT, DERIVATION_POLICY_H4_FROM_H1,
+                       DERIVATION_POLICY_D1_FROM_H4)
 
 DERIVATION_DIRECT = "DIRECT_FROM_SOURCE"
 DERIVATION_DERIVED = "DERIVED_FROM_LOWER_TIMEFRAME"

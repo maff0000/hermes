@@ -1,0 +1,4 @@
+# NO-24xH1-PRODUCTION PROOF
+- D1_EXPECTED_CHILDREN = 6 and H4_TIMEFRAME = "H4": the production source is 6xH4, never 24xH1.
+- No "candles_H1" literal and no H1_TIMEFRAME symbol in the module (H1 appears only as docstring audit/cross-check note).
+- No 24-child arithmetic shortcut. H1 cross-check is a notes-only concept, not a code source path.

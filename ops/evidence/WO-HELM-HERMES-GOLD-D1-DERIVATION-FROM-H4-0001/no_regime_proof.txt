@@ -1,0 +1,4 @@
+# NO-REGIME PROOF
+- Module has no regime/interpretive field (no '"regime"', no regime_confidence; test-asserted).
+- derive_d1 calls validate_candle_contract, which fail-louds on any forbidden interpretive field (CONTRACT-029).
+- Derived payload blob contains none of regime/structure/choch/order_block/signal/shadow (test-asserted).
