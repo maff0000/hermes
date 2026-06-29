@@ -1,0 +1,5 @@
+# ANCHOR PROOF — fixed 22:00 UTC
+- Producer buckets via d1_bucket_open() (22:00Z anchor) — published D1 open hour is always 22 (test asserts).
+- derive_d1 enforces assert_d1_open_anchor (GOV-CANDLE-D1-002): a non-22:00/UTC-midnight open fails loud, so a
+  midnight D1 can never be produced or published.
+- 6 H4 children = 22/02/06/10/14/18; the D1 spans 22:00Z -> next 22:00Z.

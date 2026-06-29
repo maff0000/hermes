@@ -1,0 +1,4 @@
+# NO-REGIME PROOF
+- Module has no regime/interpretive field (no '"regime"', no regime_confidence; no shadow). Test-asserted.
+- writer.publish runs validate_candle_contract before the SET; any forbidden field fail-louds (CONTRACT-029).
+- Published payload blob contains none of regime/structure/choch/order_block/shadow (test-asserted).

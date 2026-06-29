@@ -1,0 +1,4 @@
+# NO-24xH1-PRODUCTION PROOF
+- D1_REQUIRED_SOURCE_TIMEFRAME = "H4"; assert_d1_source_timeframe rejects H1/M*/D1 (GOV-CANDLE-D1-WIRE-003).
+- on_h4_close ignores any non-H4 candle (NOT_H4) — an H1 stream can never drive D1.
+- No "candles_H1" literal; no 24-child arithmetic. Source is structurally 6xH4.

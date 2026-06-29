@@ -1,0 +1,7 @@
+# Changed files — WO-HELM-HERMES-GOLD-D1-CANONICAL-PUBLISH-WIRE-0001 (code-only)
+A  utils/candle_d1_publish_wire_v1.py    (175 lines) — CanonicalD1Producer (6xH4->D1, 22:00Z), DisabledD1Producer, from_env, parse_d1_instruments, assert_d1_source_timeframe
+M  utils/candle_publisher_v1.py          (+D1 to CANONICAL_PUBLISH_TIMEFRAMES; assert_canonical_key now accepts D1 latest via governed path; legacy 'D' still rejected)
+A  tests/test_candle_d1_publish_wire_v1.py (244 lines, 21 tests)
+M  tests/test_candle_d1_derivation_v1.py  (D1 publish posture updated: latest governed-publishable, history still blocked)
+M  tests/test_candle_h4_publish_wire_v1.py (key-guard test: legacy 'D' rejected, D1 now accepted)
+A  ops/evidence/WO-HELM-HERMES-GOLD-D1-CANONICAL-PUBLISH-WIRE-0001/*  evidence

@@ -1,0 +1,3 @@
+# NO-DIRECT-CANDLES_D1 PROOF
+- candle_d1_publish_wire_v1.py contains no "candles_D1" literal; the midnight-anchored daily table is never read.
+- D1 is derived from sealed H4 candles fed to on_h4_close; the anchor guard rejects any non-22:00 open.

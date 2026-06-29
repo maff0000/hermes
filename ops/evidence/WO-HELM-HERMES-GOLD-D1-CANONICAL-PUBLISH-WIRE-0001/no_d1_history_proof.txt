@@ -1,0 +1,4 @@
+# NO-D1-HISTORY PROOF
+- This WO is D1 LATEST publish wiring only. assert_history_target STILL rejects D1 (GOV-CANDLE-HIST-TGT-006);
+  HISTORY_TIMEFRAMES unchanged (no D1). The D1 producer writes the latest key only — no ":history:" key
+  (test_no_d1_history_written_by_producer). The forward-history writer also still rejects D1.
