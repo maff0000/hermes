@@ -169,21 +169,25 @@ def test_derived_payload_carries_no_forbidden_fields():
         assert tok not in blob
 
 
-# ============================ D1 publication / history STILL blocked (this WO is derivation only) ============================
-def test_d1_canonical_publication_still_blocked():
+# ===== D1 publish posture (updated by WO-...-D1-CANONICAL-PUBLISH-WIRE-0001): latest via governed path; history still blocked =====
+def test_d1_canonical_latest_key_now_accepted_via_governed_path():
+    # D1 latest key is now publish-grid-eligible (reachable ONLY through the governed D1 producer; the
+    # direct seam still refuses D1, so generic/direct D1 publication remains impossible).
+    assert cp.assert_canonical_key("hermes:candles:XAU_USD:D1:latest:v1") is True
+    # legacy "D" token remains never published
     with pytest.raises(ValueError) as e:
-        cp.assert_canonical_key("hermes:candles:XAU_USD:D1:latest:v1")
-    assert "GOV-CANDLE-PUB-CANON-KEY-005" in str(e.value)       # D1 never published
+        cp.assert_canonical_key("hermes:candles:XAU_USD:D:latest:v1")
+    assert "GOV-CANDLE-PUB-CANON-KEY-005" in str(e.value)
 
 
 def test_d1_history_target_still_blocked():
     for k in ("hermes:candles:XAU_USD:D1:history:v1:1782424800", "hermes:candles:XAU_USD:D1:history:v1:index"):
         with pytest.raises(ValueError) as e:
             chv.assert_history_target(k)
-        assert "GOV-CANDLE-HIST-TGT-006" in str(e.value)        # D1 never history-written
+        assert "GOV-CANDLE-HIST-TGT-006" in str(e.value)        # D1 never history-written (this lane is publish-only)
 
 
-def test_d1_contract_recognised_but_not_in_write_grids():
+def test_d1_contract_recognised_publishable_but_not_history_or_directseam():
     assert "D1" in cc.TIMEFRAMES and cc.TF_SECONDS["D1"] == 86400
-    assert "D1" not in cp.CANONICAL_PUBLISH_TIMEFRAMES          # not publishable
-    assert "D1" not in chv.HISTORY_TIMEFRAMES                   # not history-eligible
+    assert "D1" in cp.CANONICAL_PUBLISH_TIMEFRAMES              # publishable via governed D1 producer
+    assert "D1" not in chv.HISTORY_TIMEFRAMES                   # still NOT history-eligible

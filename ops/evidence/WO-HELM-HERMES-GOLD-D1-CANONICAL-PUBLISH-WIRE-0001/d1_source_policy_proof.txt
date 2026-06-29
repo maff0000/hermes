@@ -1,0 +1,6 @@
+# D1 SOURCE POLICY PROOF
+- D1 production source = 6xH4 ONLY: D1_REQUIRED_SOURCE_TIMEFRAME="H4"; on_h4_close ignores non-H4 (NOT_H4).
+- assert_d1_source_timeframe rejects anything but H4 (GOV-CANDLE-D1-WIRE-003) — blocks an H1/24xH1 shortcut at config time.
+- No direct candles_D1: module contains no "candles_D1" literal (midnight table never read).
+- No 24xH1 production path: no "candles_H1" literal; H1 never drives D1 (test_non_h4_candle_ignored).
+- H1 remains audit/cross-check only (documented, not a code path).

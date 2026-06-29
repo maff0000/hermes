@@ -26,9 +26,11 @@ _NON_PROD_HOSTS = ("localhost", "127.0.0.1", "::1", "")
 SHADOW_KEY_PREFIX_ENV = "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX"
 
 # Canonical publish grid (GOLD MTF). H4 is published ONLY via the governed derived-H4 path
-# (candle_h4_publish_wire_v1) — never as a stale direct candle. D1/D remain NEVER published. Broker
+# (candle_h4_publish_wire_v1); D1 ONLY via the governed derived-D1 path (candle_d1_publish_wire_v1) —
+# neither is ever a stale direct candle, and the DIRECT seam still refuses both (UNSUPPORTED/DERIVED-only),
+# so generic/direct D1 publication is impossible. The legacy "D" token remains NEVER published. Broker
 # aliases must be canonicalised BEFORE the writer sees the key.
-CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
+CANONICAL_PUBLISH_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1")
 _CANONICAL_ALIAS_DENY = ("XAUUSD",)
 
 
@@ -139,9 +141,10 @@ def assert_shadow_key(key, prefix=None):
 
 def assert_canonical_key(key):
     """Guard: a canonical write may target ONLY a versioned canonical key
-    hermes:candles:{instrument}:{tf}:latest:v1, with a publish-allowed timeframe (M1/M5/M15/H1) and a
-    non-alias instrument. Fail-loud on unversioned keys, H4/D1/D, or broker-alias instruments — the
-    last line of defence even if an upstream caller misbuilds the key."""
+    hermes:candles:{instrument}:{tf}:latest:v1, with a publish-allowed timeframe (M1/M5/M15/H1/H4/D1) and a
+    non-alias instrument. H4 and D1 are reachable ONLY via their governed derived producers (the direct seam
+    refuses them), so generic/direct H4/D1 publication is impossible. Fail-loud on unversioned keys, the
+    legacy "D" token, or broker-alias instruments — the last line of defence even if a caller misbuilds the key."""
     if not isinstance(key, str) or not key.startswith(CANONICAL_PREFIX):
         raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-001: not a canonical key {key!r}")
     suffix = f":latest:{cc.CONTRACT_VERSION}"
@@ -157,7 +160,8 @@ def assert_canonical_key(key):
                          "canonicalised before publish (no alias keys)")
     if tf not in CANONICAL_PUBLISH_TIMEFRAMES:
         raise ValueError(f"GOV-CANDLE-PUB-CANON-KEY-005: timeframe {tf!r} not publish-allowed "
-                         f"(canonical grid {CANONICAL_PUBLISH_TIMEFRAMES}; H4/D1/D never published)")
+                         f"(canonical grid {CANONICAL_PUBLISH_TIMEFRAMES}; legacy 'D' never published; "
+                         "H4/D1 only via their governed derived producers)")
     return True
 
 

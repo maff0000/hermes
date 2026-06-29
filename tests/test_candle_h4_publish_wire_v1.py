@@ -40,16 +40,18 @@ def test_assert_canonical_key_accepts_h4_xau():
     assert cp.assert_canonical_key("hermes:candles:XAU_USD:H4:latest:v1") is True
 
 
-def test_assert_canonical_key_rejects_xauusd_d1_unversioned_h4():
-    # writer-level key guard: alias (004), D1 not in publish grid (005), unversioned (002).
-    # (non-XAU instruments are rejected at the producer/seam allowlist, not this key guard.)
+def test_assert_canonical_key_rejects_xauusd_legacyD_unversioned_h4():
+    # writer-level key guard: alias (004), legacy "D" token not in publish grid (005), unversioned (002).
+    # NOTE: D1 is now publish-grid-eligible via the governed D1 producer (WO-...-D1-CANONICAL-PUBLISH-WIRE-0001);
+    # the direct seam still refuses D1. Non-XAU instruments are rejected at the producer/seam allowlist.
     for k, code in (("hermes:candles:XAUUSD:H4:latest:v1", "GOV-CANDLE-PUB-CANON-KEY-004"),
-                    ("hermes:candles:XAU_USD:D1:latest:v1", "GOV-CANDLE-PUB-CANON-KEY-005"),
+                    ("hermes:candles:XAU_USD:D:latest:v1", "GOV-CANDLE-PUB-CANON-KEY-005"),
                     ("hermes:candles:XAU_USD:H4:latest", "GOV-CANDLE-PUB-CANON-KEY-002")):
         try:
             cp.assert_canonical_key(k); assert False, k
         except ValueError as e:
             assert code in str(e)
+    assert cp.assert_canonical_key("hermes:candles:XAU_USD:D1:latest:v1") is True   # D1 now governed-publishable
 
 
 # ---------------- producer: derive from 4 H1 children, publish H4 latest ----------------

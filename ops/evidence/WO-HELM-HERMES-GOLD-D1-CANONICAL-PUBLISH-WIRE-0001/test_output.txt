@@ -1,0 +1,31 @@
+rootdir: /srv/trading/hermes-worktrees/wo-d1-wire
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 21 items
+
+tests/test_candle_d1_publish_wire_v1.py::test_disabled_producer_is_noop PASSED [  4%]
+tests/test_candle_d1_publish_wire_v1.py::test_from_env_disabled_by_default PASSED [  9%]
+tests/test_candle_d1_publish_wire_v1.py::test_from_env_enabled_unauthorised_fails_loud PASSED [ 14%]
+tests/test_candle_d1_publish_wire_v1.py::test_from_env_missing_allowlist_fails_loud PASSED [ 19%]
+tests/test_candle_d1_publish_wire_v1.py::test_from_env_source_timeframe_not_h4_fails_loud PASSED [ 23%]
+tests/test_candle_d1_publish_wire_v1.py::test_allowlist_rejects_xauusd_and_nonxau PASSED [ 28%]
+tests/test_candle_d1_publish_wire_v1.py::test_allowlist_missing_empty_fails_loud PASSED [ 33%]
+tests/test_candle_d1_publish_wire_v1.py::test_source_timeframe_guard PASSED [ 38%]
+tests/test_candle_d1_publish_wire_v1.py::test_producer_requires_h4_source_and_nonempty_allowlist PASSED [ 42%]
+tests/test_candle_d1_publish_wire_v1.py::test_six_h4_children_publish_complete_d1 PASSED [ 47%]
+tests/test_candle_d1_publish_wire_v1.py::test_published_d1_anchor_is_2200_not_midnight PASSED [ 52%]
+tests/test_candle_d1_publish_wire_v1.py::test_fewer_than_six_never_published PASSED [ 57%]
+tests/test_candle_d1_publish_wire_v1.py::test_no_publish_until_day_rolls PASSED [ 61%]
+tests/test_candle_d1_publish_wire_v1.py::test_non_h4_candle_ignored PASSED [ 66%]
+tests/test_candle_d1_publish_wire_v1.py::test_non_allowlisted_instrument_skipped PASSED [ 71%]
+tests/test_candle_d1_publish_wire_v1.py::test_xauusd_input_canonicalised_never_alias_key PASSED [ 76%]
+tests/test_candle_d1_publish_wire_v1.py::test_d1_latest_key_accepted_history_rejected PASSED [ 80%]
+tests/test_candle_d1_publish_wire_v1.py::test_direct_seam_still_refuses_d1 PASSED [ 85%]
+tests/test_candle_d1_publish_wire_v1.py::test_no_d1_history_written_by_producer PASSED [ 90%]
+tests/test_candle_d1_publish_wire_v1.py::test_no_direct_candles_d1_no_24xh1_no_regime_no_shadow_no_redis_import_misuse PASSED [ 95%]
+tests/test_candle_d1_publish_wire_v1.py::test_published_payload_no_forbidden_fields PASSED [100%]
+
+============================== 21 passed in 0.02s ==============================
+--- full candle regression ---
+....................................                                     [100%]
+324 passed in 0.23s
