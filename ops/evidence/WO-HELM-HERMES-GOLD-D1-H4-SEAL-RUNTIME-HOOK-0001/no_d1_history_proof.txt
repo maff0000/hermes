@@ -1,0 +1,4 @@
+# NO-D1-HISTORY PROOF
+- The hook offers sealed H4 to the D1 producer, which publishes the D1 LATEST key only. No history is written.
+- assert_history_target still rejects D1 (GOV-CANDLE-HIST-TGT-006); HISTORY_TIMEFRAMES excludes D1.
+- test_no_d1_history_written_by_hook: after a full day, no D1 ":history:" key exists.

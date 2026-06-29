@@ -1,0 +1,37 @@
+rootdir: /srv/trading/hermes-worktrees/wo-d1-seal-hook
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_disabled_d1_hook_no_op_when_none PASSED [  3%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_disabled_d1_hook_no_op_when_disabled_producer PASSED [  7%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_d1_enabled_unauthorised_fails_loud PASSED [ 11%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_d1_missing_allowlist_fails_loud PASSED [ 14%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_d1_source_tf_not_h4_fails_loud PASSED [ 18%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_d1_xauusd_and_nonxau_rejected PASSED [ 22%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_d1_disabled_default_builds_no_op PASSED [ 25%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_h4_seal_offers_sealed_h4_to_d1 PASSED [ 29%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_h4_seal_does_not_offer_when_disabled PASSED [ 33%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_d1_does_not_publish_until_six_h4 PASSED [ 37%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_full_day_six_h4_publishes_complete_d1_via_hook PASSED [ 40%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_d1_fault_does_not_break_h4_latest PASSED [ 44%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_d1_fault_visible_in_status PASSED [ 48%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_no_d1_history_written_by_hook PASSED [ 51%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_hook_module_no_direct_d1_no_24xh1_no_regime_no_shadow PASSED [ 55%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_published_payloads_carry_no_forbidden_fields PASSED [ 59%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_six_ok_children_publish_d1_ok PASSED [ 62%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad0] PASSED [ 66%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad1] PASSED [ 70%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad2] PASSED [ 74%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad3] PASSED [ 77%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad4] PASSED [ 81%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad5] PASSED [ 85%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_one_incomplete_h4_child_blocks_ok_d1[bad6] PASSED [ 88%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_incomplete_child_skip_is_visible_in_status PASSED [ 92%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_h1_gapped_h4_bucket_blocks_d1_publish_end_to_end PASSED [ 96%]
+tests/test_candle_d1_h4_seal_runtime_hook_v1.py::test_incomplete_child_skip_does_not_break_h4_latest_or_history PASSED [100%]
+
+============================== 27 passed in 0.05s ==============================
+--- full candle regression ---
+...............................................................          [100%]
+351 passed in 0.24s

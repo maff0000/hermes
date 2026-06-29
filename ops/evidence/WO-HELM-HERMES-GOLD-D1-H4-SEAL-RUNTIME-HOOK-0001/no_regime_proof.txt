@@ -1,0 +1,4 @@
+# NO-REGIME PROOF
+- The hook adds no interpretive field (no '"regime"', no regime_confidence, no shadow; test-asserted).
+- The D1 producer runs validate_candle_contract before its publish (fail-loud on any forbidden field).
+- Published H4+D1 payload blobs contain none of regime/structure/choch/order_block/shadow (test-asserted).

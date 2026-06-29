@@ -1,0 +1,7 @@
+# FAULT ISOLATION SUMMARY
+- The H4 latest write happens FIRST and is returned unconditionally. _offer_to_d1 runs after, wrapped in
+  try/except: any D1 fault is counted (metric d1_hook_fail) + surfaced in the seal result's d1_hook block, and
+  NEVER propagated -> the H4 latest write (already done) cannot be undone or blocked.
+- Visibility: CanonicalH4Producer.status() exposes d1_hook_enabled + d1_hook_offered/published/skipped/fail.
+  No silent failure. (test_d1_fault_does_not_break_h4_latest, test_d1_fault_visible_in_status.)
+- Same isolation pattern as the forward-history hook; both run after the H4 publish and never touch it.

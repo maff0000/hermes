@@ -1,0 +1,4 @@
+# NO-DIRECT-CANDLES_D1 PROOF
+- candle_h4_publish_wire_v1.py contains no "candles_D1" literal. The D1 hook feeds the D1 producer a
+  _SealedH4View built from the PUBLISHED H4 envelope (source H4), never the midnight candles_D1 table.
+- The D1 producer's own anchor guard rejects any non-22:00 open (GOV-CANDLE-D1-002).

@@ -1,0 +1,4 @@
+# NO-24xH1 PROOF
+- The D1 hook only offers SEALED H4 (_SealedH4View.timeframe == "H4"); H1 never reaches the D1 producer as a
+  source. The D1 producer ignores non-H4 (NOT_H4) and its source timeframe must be H4 (GOV-CANDLE-D1-WIRE-003).
+- No "candles_H1" literal in the hook; D1 is built from 6xH4, never 24xH1.
