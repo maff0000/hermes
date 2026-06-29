@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 from utils import candle_publisher_v1 as cp
 from utils import candle_d1_derivation_v1 as d1d
+from utils import candle_contract_v1 as cc       # normalise_utc for the H4-grid open check
 from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical config/allowlist/client
 
 D1_PUBLISH_ENABLED_ENV = "HERMES_CANDLE_D1_PUBLISH_ENABLED"
@@ -30,6 +31,33 @@ D1_REQUIRED_SOURCE_TIMEFRAME = "H4"        # D1 production source is 6xH4 ONLY (
 def _tf_name(candle):
     tf = getattr(candle, "timeframe", None)
     return tf.name if hasattr(tf, "name") else str(tf)
+
+
+def h4_child_is_complete(view):
+    """RATIFIED D1 completeness rule: a D1-eligible H4 child must be a status-OK, CLOSED, fully-complete H4 on
+    the fixed NY-5PM grid. Fail-closed — ANY non-OK / incomplete / missing-field state makes the child
+    INELIGIBLE (it can never count toward a status-OK D1). Specifically requires:
+      timeframe == H4, status == OK, is_closed (where available) is not False,
+      source_count == expected_source_count, source_coverage == 1.0, gap_state in {None, NONE},
+      and a valid fixed-grid open hour (22/02/06/10/14/18 UTC)."""
+    if _tf_name(view) != d1d.H4_TIMEFRAME:
+        return False
+    if getattr(view, "status", None) != "OK":
+        return False
+    if getattr(view, "is_closed", None) is False:          # OK status already implies closed; belt-and-braces
+        return False
+    sc = getattr(view, "source_count", None)
+    esc = getattr(view, "expected_source_count", None)
+    if sc is None or esc is None or sc != esc:
+        return False
+    if getattr(view, "source_coverage", None) != 1.0:
+        return False
+    if getattr(view, "gap_state", "NONE") not in (None, "NONE"):
+        return False
+    ts = getattr(view, "timestamp", None)
+    if ts is None or cc.normalise_utc(ts).hour not in d1d.D1_CHILD_H4_OPEN_HOURS_UTC:
+        return False
+    return True
 
 
 def parse_d1_instruments(raw):
@@ -79,13 +107,16 @@ class CanonicalD1Producer:
         self.allowed_instruments = allowed
         self.source_timeframe = source_timeframe
         self.enabled = True
-        self.metrics = {"d1_published_ok": 0, "d1_skipped_incomplete": 0, "d1_skipped_not_allowlisted": 0,
-                        "d1_skipped_non_h4": 0, "d1_emit_fail": 0, "d1_buckets_sealed": 0}
-        self._buf = {}        # instrument -> {d1_bucket_open_epoch: [h4_candle, ...]}
+        self.metrics = {"d1_published_ok": 0, "d1_skipped_incomplete": 0, "d1_skipped_incomplete_child": 0,
+                        "d1_skipped_not_allowlisted": 0, "d1_skipped_non_h4": 0, "d1_emit_fail": 0,
+                        "d1_buckets_sealed": 0}
+        self._buf = {}        # instrument -> {d1_bucket_open_epoch: [COMPLETE-OK h4_candle, ...]}
         self._current = {}    # instrument -> current (open) d1_bucket_open_epoch
 
     def on_h4_close(self, h4_candle, **_):
-        """Process a SEALED H4 candle. Returns a dict describing whether a prior D1 bucket was published."""
+        """Process a SEALED H4 candle. Buffers it as a D1 child ONLY if it is a status-OK COMPLETE H4
+        (h4_child_is_complete); a non-OK/incomplete H4 is counted + skipped (never a D1-OK child). Returns a
+        dict describing whether a prior D1 bucket was published and whether THIS child was accepted."""
         if h4_candle is None:
             return {"published": False, "reason": "NO_CANDLE"}
         if _tf_name(h4_candle) != d1d.H4_TIMEFRAME:        # only H4 drives D1 (never H1/24xH1, never candles_D1)
@@ -97,17 +128,32 @@ class CanonicalD1Producer:
             return {"published": False, "reason": "INSTRUMENT_NOT_ALLOWLISTED", "instrument": inst}
         bo_ep = int(d1d.d1_bucket_open(h4_candle.timestamp).timestamp())
         prev = self._current.get(inst)
-        result = {"published": False, "reason": "BUFFERED", "bucket_open_epoch": bo_ep}
+        rolled = None
         if prev is not None and prev != bo_ep:
-            result = self._seal_and_publish(inst, prev)     # a new D1 day started -> seal+publish the previous
-        self._buf.setdefault(inst, {}).setdefault(bo_ep, []).append(h4_candle)
+            rolled = self._seal_and_publish(inst, prev)     # a new D1 day started -> seal+publish the previous
+        accepted = h4_child_is_complete(h4_candle)          # RATIFIED rule: only complete status-OK H4 counts
+        if accepted:
+            self._buf.setdefault(inst, {}).setdefault(bo_ep, []).append(h4_candle)
+        else:
+            self.metrics["d1_skipped_incomplete_child"] += 1
         self._current[inst] = bo_ep
-        return result
+        if rolled is not None:
+            return {**rolled, "child_accepted": accepted}
+        return {"published": False, "bucket_open_epoch": bo_ep, "child_accepted": accepted,
+                "reason": "BUFFERED" if accepted else "INCOMPLETE_CHILD_SKIPPED",
+                "child_status": getattr(h4_candle, "status", None)}
 
     def _seal_and_publish(self, instrument, bucket_epoch):
         children = self._buf.get(instrument, {}).pop(bucket_epoch, [])
         self.metrics["d1_buckets_sealed"] += 1
         d1_open = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
+        # Defense-in-depth: a D1-OK requires EXACTLY six status-OK COMPLETE H4 children. Incomplete children
+        # were never buffered, so a short day has <6 here; re-assert every buffered child is still complete-OK.
+        if len(children) != d1d.D1_EXPECTED_CHILDREN or any(not h4_child_is_complete(c) for c in children):
+            self.metrics["d1_skipped_incomplete"] += 1
+            return {"published": False, "reason": "D1_INCOMPLETE_NOT_PUBLISHED",
+                    "complete_child_count": len(children), "expected": d1d.D1_EXPECTED_CHILDREN,
+                    "bucket_open_epoch": bucket_epoch}
         try:
             env, meta = d1d.derive_d1(
                 instrument=instrument, d1_open=d1_open, h4_children=children,

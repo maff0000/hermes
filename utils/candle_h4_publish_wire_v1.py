@@ -30,7 +30,9 @@ def _tf_name(candle):
 
 class _SealedH4View:
     """Adapter: presents a freshly PUBLISHED H4 envelope as an H4 candle-like object for the D1 producer.
-    Carries only the canonical H4 OHLCV + open time + instrument from the env's `data` — never a
+    Carries the canonical H4 OHLCV + open time + instrument AND the H4 COMPLETENESS/provenance (status,
+    is_closed, source_count, expected_source_count, source_coverage, gap_state, source_timeframe) so the D1
+    producer can enforce that a D1-OK is built only from six status-OK COMPLETE H4 children. Never a
     re-derivation, never a raw H1, never the candles_D1 table."""
     timeframe = "H4"
 
@@ -40,6 +42,14 @@ class _SealedH4View:
         self.timestamp = datetime.strptime(d["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
         self.open, self.high, self.low = d["open"], d["high"], d["low"]
         self.close, self.volume = d["close"], d["volume"]
+        # H4 completeness/provenance (so the D1 producer can fail-closed on any non-OK / incomplete child)
+        self.status = env.get("status")
+        self.is_closed = d.get("is_closed")
+        self.source_count = d.get("source_count")
+        self.expected_source_count = d.get("expected_source_count")
+        self.source_coverage = d.get("source_coverage")
+        self.gap_state = d.get("gap_state")
+        self.source_timeframe = d.get("source_timeframe")
 
 
 class CanonicalH4Producer:

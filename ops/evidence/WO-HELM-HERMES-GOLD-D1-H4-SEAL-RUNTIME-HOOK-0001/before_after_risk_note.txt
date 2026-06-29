@@ -1,0 +1,11 @@
+# BEFORE / AFTER RISK NOTE
+BEFORE (PR #57 as first opened): the D1 hook offered EACH sealed H4 and the D1 producer counted any 6 sealed
+H4 toward a 6/6 D1 — so a day where one H4 was SOURCE_INCOMPLETE (an H1-gapped H4) could still publish a
+status-OK D1. R2D2 flagged this as activation-blocking (it would launder an incomplete H4 into a "complete" day).
+
+AFTER (this fix): the D1 producer counts ONLY status-OK COMPLETE H4 children (source_count==expected,
+coverage==1.0, no gap, closed, on grid). A single incomplete H4 child -> that bucket has <6 complete children
+-> D1 is NOT published OK (D1_INCOMPLETE_NOT_PUBLISHED, counted). The H4 latest/history path is unchanged; the
+incomplete H4 is still published honestly at its own layer.
+
+Net: D1-OK now strictly means "six complete status-OK H4". No laundering. Still inert/default-disabled.

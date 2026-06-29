@@ -24,9 +24,16 @@ class FakeRedis:
 
 
 class _H4:
-    def __init__(self, open_dt, o=2000.0, hi=2010.0, lo=1990.0, c=2005.0, v=100, instrument="XAU_USD", tf="H4"):
+    """A SEALED H4 candle view. Defaults are a complete, status-OK H4 (4/4 H1, coverage 1.0) — a D1-eligible
+    child. Override status/source_count/source_coverage/gap_state/is_closed to model an incomplete child."""
+    def __init__(self, open_dt, o=2000.0, hi=2010.0, lo=1990.0, c=2005.0, v=100, instrument="XAU_USD", tf="H4",
+                 status="OK", is_closed=True, source_count=4, expected_source_count=4, source_coverage=1.0,
+                 gap_state="NONE", source_timeframe="H1"):
         self.instrument = instrument; self.timeframe = tf; self.timestamp = open_dt
         self.open, self.high, self.low, self.close, self.volume = o, hi, lo, c, v
+        self.status = status; self.is_closed = is_closed
+        self.source_count = source_count; self.expected_source_count = expected_source_count
+        self.source_coverage = source_coverage; self.gap_state = gap_state; self.source_timeframe = source_timeframe
 
 
 def _cfg():
@@ -175,7 +182,7 @@ def test_fewer_than_six_never_published():
     r = FakeRedis(); p = _producer(r)
     res = _feed(p, _six_h4()[:5])                                  # only 5 H4 children
     assert res["published"] is False and res["reason"] == "D1_INCOMPLETE_NOT_PUBLISHED"
-    assert res["status"] == "SOURCE_INCOMPLETE" and res["source_count"] == 5
+    assert res["complete_child_count"] == 5 and res["expected"] == 6   # short day -> never OK
     assert r.sets == []                                            # NOTHING written
     assert p.metrics["d1_skipped_incomplete"] == 1 and p.metrics["d1_published_ok"] == 0
 

@@ -245,3 +245,91 @@ def test_published_payloads_carry_no_forbidden_fields():
     blob = json.dumps(r.store).lower()
     for tok in ("regime", "structure", "choch", "order_block", "shadow"):
         assert tok not in blob
+
+
+# ============================ RATIFIED D1 H4-child completeness rule ============================
+class _H4V:
+    """Crafted sealed-H4 view: complete status-OK by default; override fields to model an incomplete child."""
+    def __init__(self, open_dt, status="OK", is_closed=True, source_count=4, expected_source_count=4,
+                 source_coverage=1.0, gap_state="NONE", instrument="XAU_USD"):
+        self.timeframe = "H4"; self.timestamp = open_dt; self.instrument = instrument
+        self.open, self.high, self.low, self.close, self.volume = 2000.0, 2010.0, 1990.0, 2005.0, 100
+        self.status = status; self.is_closed = is_closed; self.source_count = source_count
+        self.expected_source_count = expected_source_count; self.source_coverage = source_coverage
+        self.gap_state = gap_state; self.source_timeframe = "H1"
+
+
+def _six_views(bad_idx=None, **bad):
+    """6 complete H4 views (22/02/06/10/14/18); index bad_idx overridden with `bad` to model an incomplete child."""
+    opens = d1w.d1d.d1_child_h4_opens(_D1O)
+    views = [_H4V(opens[i]) for i in range(6)]
+    if bad_idx is not None:
+        views[bad_idx] = _H4V(opens[bad_idx], **bad)
+    return views
+
+
+def _feed_views_and_roll(d1p, views):
+    for v in views:
+        d1p.on_h4_close(v)
+    return d1p.on_h4_close(_H4V(_D1O + timedelta(hours=24)))    # next D1 day's first H4 -> seals the prior day
+
+
+def test_six_ok_children_publish_d1_ok():
+    r = FakeRedis(); d1p = d1w.CanonicalD1Producer(_writer(r), allowed_instruments=("XAU_USD",))
+    res = _feed_views_and_roll(d1p, _six_views())
+    assert res["published"] is True and res["status"] == "OK" and res["source_count"] == 6
+    assert "hermes:candles:XAU_USD:D1:latest:v1" in r.store
+
+
+@pytest.mark.parametrize("bad", [
+    {"status": "SOURCE_INCOMPLETE", "source_count": 2, "source_coverage": 0.5, "gap_state": "INCOMPLETE"},
+    {"status": "FORMING", "is_closed": False},
+    {"status": "STALE"},
+    {"status": "NO_SOURCE_DATA", "source_count": 0, "source_coverage": 0.0, "gap_state": "GAP_DETECTED"},
+    {"source_count": 3, "source_coverage": 0.75},          # source_count < expected (status left OK but counts off)
+    {"source_coverage": 0.75},                              # coverage < 1.0
+    {"gap_state": "INCOMPLETE"},                            # gap present
+])
+def test_one_incomplete_h4_child_blocks_ok_d1(bad):
+    r = FakeRedis(); d1p = d1w.CanonicalD1Producer(_writer(r), allowed_instruments=("XAU_USD",))
+    res = _feed_views_and_roll(d1p, _six_views(bad_idx=2, **bad))
+    assert res["published"] is False and res["reason"] == "D1_INCOMPLETE_NOT_PUBLISHED"
+    assert r.sets == []                                      # NO D1 latest write
+    assert d1p.metrics["d1_skipped_incomplete_child"] >= 1   # incomplete child counted (visible)
+    assert d1p.metrics["d1_published_ok"] == 0
+
+
+def test_incomplete_child_skip_is_visible_in_status():
+    r = FakeRedis(); d1p = d1w.CanonicalD1Producer(_writer(r), allowed_instruments=("XAU_USD",))
+    _feed_views_and_roll(d1p, _six_views(bad_idx=0, status="SOURCE_INCOMPLETE", source_coverage=0.5))
+    st = d1p.status()
+    assert st["d1_skipped_incomplete_child"] >= 1 and st["d1_published_ok"] == 0
+
+
+# ---- end-to-end via the H4 seal: an H1-gapped H4 bucket blocks the D1 ----
+def _feed_h1_skip(h4p, start, n, skip_offsets, instrument="XAU_USD"):
+    for i in range(n):
+        if i in skip_offsets:
+            continue                                        # leave a hole -> that H4 bucket is 3/4 (SOURCE_INCOMPLETE)
+        h4p.on_h1_close(_H1(start + timedelta(hours=i), instrument=instrument))
+
+
+def test_h1_gapped_h4_bucket_blocks_d1_publish_end_to_end():
+    r = FakeRedis(); d1p = d1w.CanonicalD1Producer(_writer(r), allowed_instruments=("XAU_USD",))
+    h4p = _h4_producer(r, d1_producer=d1p)
+    _feed_h1_skip(h4p, _D1O, 30, skip_offsets={9})          # drop one H1 in the 06:00 H4 bucket -> 3/4 incomplete
+    assert "hermes:candles:XAU_USD:D1:latest:v1" not in r.store   # D1 NOT published (one H4 child incomplete)
+    assert d1p.metrics["d1_skipped_incomplete_child"] >= 1
+    # H4 latest path remains authoritative: H4 latest + the incomplete H4 were still published/handled
+    assert "hermes:candles:XAU_USD:H4:latest:v1" in r.store
+    assert h4p.metrics["d1_hook_offered"] >= 1
+
+
+def test_incomplete_child_skip_does_not_break_h4_latest_or_history():
+    # the D1 completeness skip is downstream of H4; H4 latest + forward-history are unaffected
+    r = FakeRedis(); d1p = d1w.CanonicalD1Producer(_writer(r), allowed_instruments=("XAU_USD",))
+    h4p = _h4_producer(r, d1_producer=d1p)
+    _feed_h1_skip(h4p, _D1O, 30, skip_offsets={9})
+    assert h4p.metrics["h4_published_ok"] >= 5              # complete H4 still published
+    assert h4p.metrics["h4_published_incomplete"] >= 1      # the 3/4 H4 published honestly as incomplete
+    assert h4p.metrics["d1_hook_fail"] == 0                 # no fault; just a clean completeness skip
