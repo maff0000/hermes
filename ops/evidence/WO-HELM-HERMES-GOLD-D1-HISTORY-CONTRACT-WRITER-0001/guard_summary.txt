@@ -1,0 +1,16 @@
+# D1 HISTORY GUARD SUMMARY (all fail-loud, before any write)
+validate_candle_contract        -> regime/forbidden-token scan, geometry/wick/body/range, UTC timestamps
+assert_history_target           -> governed D1 history key/index only (no latest/alias/non-XAU/unversioned/legacy-D)
+assert_d1_history_payload(D1):
+  GOV-CANDLE-HIST-D1-001  timeframe must be D1
+  GOV-CANDLE-HIST-D1-002  status must be OK (incomplete D1 never written)
+  GOV-CANDLE-HIST-D1-003  open must be 22:00:00 UTC (no midnight/DST/broker)
+  GOV-CANDLE-HIST-D1-004  source_timeframe must be H4 (no 24xH1, no direct candles_D1)
+  GOV-CANDLE-HIST-D1-005  expected_source_count must be 6
+  GOV-CANDLE-HIST-D1-006  source_count must be 6
+  GOV-CANDLE-HIST-D1-007  source_coverage must be 1.0
+  GOV-CANDLE-HIST-D1-008  no direct candles_D1 / 24xH1 provenance token anywhere in payload
+forward-writer gate:
+  GOV-CANDLE-HIST-FWD-D1-001  D1 forward-history denied unless HERMES_CANDLE_D1_HISTORY_FORWARD_AUTHORISED=true
+  GOV-CANDLE-HIST-FWD-005     legacy "D" always denied
+  GOV-CANDLE-HIST-FWD-020     divergent payload at same open_epoch fails loud

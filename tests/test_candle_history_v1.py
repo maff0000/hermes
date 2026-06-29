@@ -81,21 +81,21 @@ def test_non_xau_instrument_rejected():
             assert "GOV-CANDLE-HIST-TGT-005" in str(e)
 
 
-def test_h4_now_accepted_d1_still_rejected():
+def test_h4_and_d1_accepted_legacyD_rejected():
     ep = int(_TS.timestamp())
-    # H4 is now a governed (derived) history timeframe -> accepted
-    assert h.history_key("XAU_USD", "H4", ep) == f"hermes:candles:XAU_USD:H4:history:v1:{ep}"
-    assert h.assert_history_target(f"hermes:candles:XAU_USD:H4:history:v1:{ep}") is True
-    # D1/D remain rejected
-    for tf in ("D1", "D"):
-        try:
-            h.history_key("XAU_USD", tf, ep); assert False, tf
-        except ValueError as e:
-            assert "GOV-CANDLE-HIST-003" in str(e)
-        try:
-            h.assert_history_target(f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}"); assert False
-        except ValueError as e:
-            assert "GOV-CANDLE-HIST-TGT-006" in str(e)
+    # H4 and D1 are now governed (derived) history timeframes -> accepted (D1 additionally gated by payload guard)
+    for tf in ("H4", "D1"):
+        assert h.history_key("XAU_USD", tf, ep) == f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}"
+        assert h.assert_history_target(f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}") is True
+    # legacy "D" remains rejected
+    try:
+        h.history_key("XAU_USD", "D", ep); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-003" in str(e)
+    try:
+        h.assert_history_target(f"hermes:candles:XAU_USD:D:history:v1:{ep}"); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-TGT-006" in str(e)
 
 
 def test_unversioned_history_key_rejected():

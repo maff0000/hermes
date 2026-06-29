@@ -263,15 +263,16 @@ def test_factory_history_enabled_unauthorised_fails_loud(monkeypatch):
     assert "GOV-CANDLE-HIST-FWD-002" in str(e.value)
 
 
-def test_factory_history_d1_timeframe_fails_loud(monkeypatch):
+def test_factory_history_d1_timeframe_denied_without_authorisation(monkeypatch):
     _canonical_env(monkeypatch)
     monkeypatch.setenv(fw.ENABLED_ENV, "true")
     monkeypatch.setenv(fw.AUTHORISED_ENV, "true")
-    monkeypatch.setenv(fw.TIMEFRAMES_ENV, "M1,D1")                    # D1 forbidden
+    monkeypatch.setenv(fw.TIMEFRAMES_ENV, "M1,D1")                    # D1 denied unless D1-history authorised
     monkeypatch.setenv(fw.INSTRUMENTS_ENV, "XAU_USD")
+    monkeypatch.delenv(fw.D1_HISTORY_FORWARD_AUTHORISED_ENV, raising=False)
     with pytest.raises(ValueError) as e:
         seam.build_candle_forward_seam_from_env()
-    assert "GOV-CANDLE-HIST-FWD-005" in str(e.value)
+    assert "GOV-CANDLE-HIST-FWD-D1-001" in str(e.value)
 
 
 def test_factory_history_non_xau_fails_loud(monkeypatch):

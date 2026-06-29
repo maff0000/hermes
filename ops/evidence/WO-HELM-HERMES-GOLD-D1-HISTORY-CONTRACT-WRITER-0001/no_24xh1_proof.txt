@@ -1,0 +1,4 @@
+# NO-24xH1 PROOF
+assert_d1_history_payload requires source_timeframe=H4 + expected_source_count=6 + source_count=6 (a 6xH4 day),
+and rejects any "24xh1" provenance token (GOV-CANDLE-HIST-D1-008/004). No 24xH1 production shortcut can produce
+a writable D1 history record.

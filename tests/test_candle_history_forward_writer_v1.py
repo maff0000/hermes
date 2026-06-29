@@ -120,11 +120,18 @@ def test_parse_empty_allowlist_and_timeframes_fail_loud():
         assert "GOV-CANDLE-HIST-FWD-003" in str(e.value)
 
 
-def test_parse_d1_timeframe_rejected():
-    for raw in ("D1", "M1,D1", "D"):
+def test_parse_d1_denied_by_default_legacyD_always_denied():
+    # D1 denied unless explicitly D1-history authorised
+    for raw in ("D1", "M1,D1"):
         with pytest.raises(ValueError) as e:
             fw.parse_forward_timeframes(raw)
-        assert "GOV-CANDLE-HIST-FWD-005" in str(e.value)
+        assert "GOV-CANDLE-HIST-FWD-D1-001" in str(e.value)
+    # legacy "D" always denied
+    with pytest.raises(ValueError) as e:
+        fw.parse_forward_timeframes("M1,D")
+    assert "GOV-CANDLE-HIST-FWD-005" in str(e.value)
+    # D1 accepted ONLY when authorised
+    assert fw.parse_forward_timeframes("M1,D1", allow_d1=True) == ("M1", "D1")
 
 
 def test_parse_non_xau_instrument_rejected():
@@ -153,11 +160,15 @@ def test_tf_not_configured_skipped():
     assert r.sets == []
 
 
-def test_d1_candle_rejected_fail_loud():
-    w = _writer()
+def test_d1_candle_skipped_when_not_configured_legacyD_fails_loud():
+    w = _writer()                                          # default timeframes do NOT include D1
     env = _direct("H1"); env["data"]["timeframe"] = "D1"
+    res = w.on_canonical_close(env, inserted_at_utc=INSERTED)
+    assert res["wrote"] is False and res["reason"] == fw.REASON_TF_NOT_CONFIGURED   # D1 not authorised here
+    # legacy "D" candle is hard-rejected
+    env2 = _direct("H1"); env2["data"]["timeframe"] = "D"
     with pytest.raises(ValueError) as e:
-        w.on_canonical_close(env, inserted_at_utc=INSERTED)
+        w.on_canonical_close(env2, inserted_at_utc=INSERTED)
     assert "GOV-CANDLE-HIST-FWD-014" in str(e.value)
 
 

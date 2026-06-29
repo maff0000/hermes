@@ -1,0 +1,27 @@
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 19 items
+
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_history_key_and_index_accepted PASSED [  5%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_latest_key_rejected_by_history_target PASSED [ 10%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_history_alias_nonxau_unversioned_legacyD_rejected PASSED [ 15%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_history_malformed_epoch_rejected PASSED [ 21%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_valid_d1_payload_passes_and_write_plan_shapes PASSED [ 26%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_payload_requires_2200_anchor PASSED [ 31%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_payload_requires_source_h4 PASSED [ 36%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_payload_requires_six_count_and_full_coverage PASSED [ 42%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_incomplete_d1_cannot_be_written_as_ok PASSED [ 47%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_payload_rejects_direct_candles_d1_and_24xh1_provenance PASSED [ 52%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_payload_rejects_regime_via_validate PASSED [ 57%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_parse_forward_timeframes_d1_denied_by_default PASSED [ 63%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_parse_forward_timeframes_d1_allowed_when_authorised PASSED [ 68%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_from_env_d1_in_timeframes_without_auth_fails_loud PASSED [ 73%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_from_env_default_excludes_d1 PASSED [ 78%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_writer_writes_complete_d1_to_history_shape PASSED [ 84%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_writer_skips_incomplete_d1_status PASSED [ 89%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_writer_idempotent_same_payload_and_conflict_fails_loud PASSED [ 94%]
+tests/test_candle_d1_history_contract_writer_v1.py::test_d1_writer_latest_not_targeted_and_no_regime PASSED [100%]
+
+============================== 19 passed in 0.02s ==============================
+--- full candle regression ---
+..........                                                               [100%]
+370 passed in 0.25s

@@ -145,15 +145,15 @@ def test_non_xau_and_alias_rejected():
             assert "GOV-CANDLE-H4-001" in str(e)
 
 
-def test_history_supports_h4_rejects_d1():
+def test_history_supports_h4_and_d1_rejects_legacyD():
     ep = int(datetime(2026, 6, 2, 2, 0, tzinfo=UTC).timestamp())
-    assert hist.history_key("XAU_USD", "H4", ep) == f"hermes:candles:XAU_USD:H4:history:v1:{ep}"
-    assert hist.assert_history_target(f"hermes:candles:XAU_USD:H4:history:v1:{ep}") is True
-    for tf in ("D1", "D"):
-        try:
-            hist.history_key("XAU_USD", tf, ep); assert False
-        except ValueError as e:
-            assert "GOV-CANDLE-HIST-003" in str(e)
+    for tf in ("H4", "D1"):
+        assert hist.history_key("XAU_USD", tf, ep) == f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}"
+        assert hist.assert_history_target(f"hermes:candles:XAU_USD:{tf}:history:v1:{ep}") is True
+    try:
+        hist.history_key("XAU_USD", "D", ep); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-003" in str(e)
 
 
 def test_latest_guard_still_protects_from_history_writer():

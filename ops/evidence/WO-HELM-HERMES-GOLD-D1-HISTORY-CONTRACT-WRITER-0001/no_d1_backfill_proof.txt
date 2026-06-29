@@ -1,0 +1,4 @@
+# NO-D1-BACKFILL PROOF
+This WO adds D1 history CONTRACT + WRITER SUPPORT only. It performs no backfill, no D1 history execution, and
+writes no D1 history key. The backfill/forward execution is a separate, later, authorised WO gated on
+GREEN_D1_LATEST_ACTIVE_DEV_VERIFIED_6XH4_COMPLETE_OK.
