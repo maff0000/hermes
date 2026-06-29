@@ -1,0 +1,6 @@
+# Changed files — WO-HELM-HERMES-GOLD-D1-H4-SEAL-RUNTIME-HOOK-0001 (code-only)
+M  utils/candle_h4_publish_wire_v1.py    (+_SealedH4View adapter; CanonicalH4Producer gains d1_producer + _offer_to_d1 post-publish hook + d1_hook metrics/status; build_h4_producer_from_env lazy-builds + passes the D1 producer; default no-op)
+A  tests/test_candle_d1_h4_seal_runtime_hook_v1.py  (247 lines, 16 tests)
+A  ops/evidence/WO-HELM-HERMES-GOLD-D1-H4-SEAL-RUNTIME-HOOK-0001/*  evidence
+
+H4 latest / forward-history / D1 publisher modules otherwise unchanged.

@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from utils import candle_publisher_v1 as cp
 from utils import candle_h4_derivation_v1 as h4d
+from utils import candle_contract_v1 as cc       # _UTC_MS for adapting a published H4 env -> candle view
 from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical config/allowlist/client
 
 H4_PUBLISH_ENABLED_ENV = "HERMES_CANDLE_H4_PUBLISH_ENABLED"
@@ -27,11 +28,25 @@ def _tf_name(candle):
     return tf.name if hasattr(tf, "name") else str(tf)
 
 
+class _SealedH4View:
+    """Adapter: presents a freshly PUBLISHED H4 envelope as an H4 candle-like object for the D1 producer.
+    Carries only the canonical H4 OHLCV + open time + instrument from the env's `data` — never a
+    re-derivation, never a raw H1, never the candles_D1 table."""
+    timeframe = "H4"
+
+    def __init__(self, env):
+        d = env["data"]
+        self.instrument = d["instrument"]
+        self.timestamp = datetime.strptime(d["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
+        self.open, self.high, self.low = d["open"], d["high"], d["low"]
+        self.close, self.volume = d["close"], d["volume"]
+
+
 class CanonicalH4Producer:
     """Live derived-H4 producer. Feed it completed H1 candles via `on_h1_close`; it seals a bucket when
     the next bucket's first H1 arrives (so the published H4 is always the most recently CLOSED bucket)."""
 
-    def __init__(self, writer, allowed_instruments, history_forward_writer=None):
+    def __init__(self, writer, allowed_instruments, history_forward_writer=None, d1_producer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-H4-WIRE-001: CanonicalH4Producer requires a SerializingCandleCanonicalWriter")
         allowed = frozenset(allowed_instruments or ())
@@ -43,11 +58,16 @@ class CanonicalH4Producer:
         # ONLY a COMPLETE 4/4 sealed bucket (status OK) is appended to history; warmup/SOURCE_INCOMPLETE never
         # enters history. A history fault is surfaced and never breaks the H4 latest publish.
         self.history_forward_writer = history_forward_writer
+        # Optional governed D1 producer. None (default) -> no D1. When attached + enabled, EACH sealed H4 is
+        # offered to it (it publishes a D1 latest only when a full 6xH4 day exists). A D1 fault is surfaced
+        # and never breaks the H4 latest publish (already done) — H4 is authoritative.
+        self.d1_producer = d1_producer
         self.enabled = True
         self.metrics = {"h4_published_ok": 0, "h4_published_incomplete": 0, "h4_skipped_not_allowlisted": 0,
                         "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0,
                         "h4_history_forward_written": 0, "h4_history_forward_skipped": 0,
-                        "h4_history_forward_fail": 0}
+                        "h4_history_forward_fail": 0, "d1_hook_offered": 0, "d1_hook_published": 0,
+                        "d1_hook_skipped": 0, "d1_hook_fail": 0}
         self._buf = {}        # instrument -> {bucket_open_epoch: [h1_candle, ...]}
         self._current = {}    # instrument -> current (open) bucket_open_epoch
 
@@ -91,9 +111,31 @@ class CanonicalH4Producer:
             history = self._forward_history(env)            # ONLY complete 4/4 enters history
         else:
             self.metrics["h4_published_incomplete"] += 1    # honest SOURCE_INCOMPLETE (never OK)
+        d1 = self._offer_to_d1(env)                         # EACH sealed H4 offered to the D1 producer
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
-                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch, "history_forward": history}
+                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch,
+                "history_forward": history, "d1_hook": d1}
+
+    def _offer_to_d1(self, env):
+        """Offer a freshly SEALED+published H4 to the governed D1 producer (each sealed H4 is offered; the D1
+        producer publishes a D1 latest ONLY when a full 6xH4 day exists). No-op unless a D1 producer is
+        attached + enabled. A D1 fault is counted + returned and NEVER undoes/blocks the H4 latest write
+        (already done) — fail-loud-visible, H4 authoritative. Never writes D1 history (D1 latest only)."""
+        dp = self.d1_producer
+        if dp is None or not getattr(dp, "enabled", False):
+            return {"attempted": False, "reason": "D1_HOOK_DISABLED"}
+        self.metrics["d1_hook_offered"] += 1
+        try:
+            res = dp.on_h4_close(_SealedH4View(env))
+        except Exception as exc:  # noqa: BLE001 - surfaced via counter, never breaks H4 latest
+            self.metrics["d1_hook_fail"] += 1
+            return {"attempted": True, "published": False, "reason": "D1_HOOK_FAIL", "error": repr(exc)}
+        if res.get("published"):
+            self.metrics["d1_hook_published"] += 1
+        else:
+            self.metrics["d1_hook_skipped"] += 1
+        return {"attempted": True, **res}
 
     def _forward_history(self, env):
         """Append a sealed COMPLETE H4 bucket to governed history. No-op unless an enabled writer is attached.
@@ -115,8 +157,10 @@ class CanonicalH4Producer:
 
     def status(self):
         hw = self.history_forward_writer
+        dp = self.d1_producer
         return {"enabled": True,
                 "history_forward_enabled": bool(hw is not None and getattr(hw, "enabled", False)),
+                "d1_hook_enabled": bool(dp is not None and getattr(dp, "enabled", False)),
                 **self.metrics}
 
 
@@ -152,4 +196,10 @@ def build_h4_producer_from_env():
     # HERMES_CANDLE_HISTORY_FORWARD_ENABLED + AUTHORISED + allowlists are set. Lazy import avoids a cycle.
     from utils import candle_history_forward_writer_v1 as hfw   # lazy; only on the H4 canonical path
     history_writer = hfw.build_history_forward_writer_from_env()
-    return CanonicalH4Producer(writer, allowed_instruments=allowed, history_forward_writer=history_writer)
+    # Governed D1 producer: default DISABLED (own gates HERMES_CANDLE_D1_PUBLISH_*). Building it here gives the
+    # H4 seal path a runtime caller; with D1 flags unset it is a DisabledD1Producer -> the seal hook is a no-op.
+    # Enabling D1 without authorisation / allowlist / source=H4 FAILS LOUD via build_d1_producer_from_env.
+    from utils import candle_d1_publish_wire_v1 as d1w   # lazy; only on the H4 canonical path
+    d1_producer = d1w.build_d1_producer_from_env()
+    return CanonicalH4Producer(writer, allowed_instruments=allowed, history_forward_writer=history_writer,
+                               d1_producer=d1_producer)
