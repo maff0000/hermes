@@ -1,0 +1,6 @@
+# Changed files — WO-HELM-HERMES-GOLD-D1-HISTORY-CONTRACT-WRITER-0001 (code-only)
+M  utils/candle_history_v1.py                  (+D1 to HISTORY_TIMEFRAMES; assert_d1_history_payload; build_history_write_plan applies it for D1; expected_opens_for_day D1; TGT-006 legacy-D)
+M  utils/candle_history_forward_writer_v1.py   (D1 denied by default via parse_forward_timeframes allow_d1 + HERMES_CANDLE_D1_HISTORY_FORWARD_AUTHORISED; on_d1_sealed hook; legacy D always denied)
+A  tests/test_candle_d1_history_contract_writer_v1.py  (19 tests)
+M  6 existing test files (D1-history posture updated: D1 now governed history-eligible, gated; legacy D rejected)
+A  ops/evidence/WO-HELM-HERMES-GOLD-D1-HISTORY-CONTRACT-WRITER-0001/*  evidence

@@ -1,0 +1,4 @@
+# NO-REGIME PROOF
+validate_candle_contract runs before assert_d1_history_payload and fail-louds on any forbidden interpretive
+field incl. regime/regime_confidence (GOV-CANDLE-CONTRACT-029). Test: a regime-bearing D1 payload is rejected
+by build_history_write_plan. Written payloads contain none of regime/structure/shadow/candles_d1/24xh1.

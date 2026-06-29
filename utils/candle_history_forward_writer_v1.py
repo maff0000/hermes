@@ -34,9 +34,13 @@ REDIS_HOST_ENV = "HERMES_CANDLE_CANONICAL_REDIS_HOST"
 REDIS_PORT_ENV = "HERMES_CANDLE_CANONICAL_REDIS_PORT"
 REDIS_DB_ENV = "HERMES_CANDLE_CANONICAL_REDIS_DB"
 
-FORWARD_TIMEFRAMES = chv.HISTORY_TIMEFRAMES        # ("M1","M5","M15","H1","H4") — D1/D excluded
-_D1_DENY = ("D1", "D")
+FORWARD_TIMEFRAMES = chv.HISTORY_TIMEFRAMES        # ("M1","M5","M15","H1","H4","D1") — legacy "D" excluded
+_LEGACY_DAILY_DENY = ("D",)                        # the legacy daily token is NEVER forward-history eligible
+# D1 forward-history is DENIED BY DEFAULT. It may be enabled ONLY after D1 latest is proven GREEN, via an
+# explicit, separate D1-history-activation authorisation (this flag) — never by listing D1 in TIMEFRAMES alone.
+D1_HISTORY_FORWARD_AUTHORISED_ENV = "HERMES_CANDLE_D1_HISTORY_FORWARD_AUTHORISED"
 FORWARD_RUN_MARKER = "FORWARD:WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WRITER-0001"
+D1_FORWARD_RUN_MARKER = "FORWARD:WO-HELM-HERMES-GOLD-D1-HISTORY-CONTRACT-WRITER-0001"
 HISTORY_STATUS_ALLOWED = ("OK",)                   # only complete, closed, fresh candles enter history
 
 REASON_DISABLED = "HISTORY_FORWARD_DISABLED"
@@ -47,9 +51,10 @@ REASON_NOT_ALLOWLISTED = "INSTRUMENT_NOT_ALLOWLISTED"
 
 
 # --------------------------------------------------------------------------- parse helpers (fail-closed)
-def parse_forward_timeframes(raw):
-    """Explicit, fail-closed timeframe list. Missing/empty -> raise (no hidden default). D1/D -> raise.
-    Anything outside the history grid -> raise. Returns an ordered, de-duplicated tuple."""
+def parse_forward_timeframes(raw, *, allow_d1=False):
+    """Explicit, fail-closed timeframe list. Missing/empty -> raise (no hidden default). The legacy "D" token
+    -> raise. "D1" -> raise UNLESS allow_d1 (the explicit D1-history authorisation, granted only after D1
+    latest GREEN). Anything outside the history grid -> raise. Returns an ordered, de-duplicated tuple."""
     if raw is None or not str(raw).strip():
         raise ValueError(f"GOV-CANDLE-HIST-FWD-003: {TIMEFRAMES_ENV} is required and non-empty "
                          "when history forwarding is enabled (no hidden defaults)")
@@ -59,8 +64,11 @@ def parse_forward_timeframes(raw):
                          "when history forwarding is enabled (no hidden defaults)")
     out = []
     for tf in items:
-        if tf in _D1_DENY:
-            raise ValueError(f"GOV-CANDLE-HIST-FWD-005: timeframe {tf!r} (D1/D) is forbidden in forward history")
+        if tf in _LEGACY_DAILY_DENY:
+            raise ValueError(f"GOV-CANDLE-HIST-FWD-005: legacy timeframe {tf!r} is forbidden in forward history")
+        if tf == "D1" and not allow_d1:
+            raise ValueError(f"GOV-CANDLE-HIST-FWD-D1-001: D1 forward-history is DENIED by default — set "
+                             f"{D1_HISTORY_FORWARD_AUTHORISED_ENV}=true (only after D1 latest is GREEN)")
         if tf not in FORWARD_TIMEFRAMES:
             raise ValueError(f"GOV-CANDLE-HIST-FWD-007: timeframe {tf!r} not in history grid {FORWARD_TIMEFRAMES}")
         if tf not in out:
@@ -113,8 +121,8 @@ class CandleHistoryForwardWriter:
         if not tfs:
             raise ValueError("GOV-CANDLE-HIST-FWD-008: forward-history timeframes must be non-empty")
         for tf in tfs:
-            if tf in _D1_DENY:
-                raise ValueError(f"GOV-CANDLE-HIST-FWD-005: timeframe {tf!r} (D1/D) forbidden")
+            if tf in _LEGACY_DAILY_DENY:
+                raise ValueError(f"GOV-CANDLE-HIST-FWD-005: legacy timeframe {tf!r} forbidden")
             if tf not in FORWARD_TIMEFRAMES:
                 raise ValueError(f"GOV-CANDLE-HIST-FWD-007: timeframe {tf!r} not in history grid")
         self.redis_client = redis_client
@@ -138,13 +146,21 @@ class CandleHistoryForwardWriter:
         return self.write_closed_envelope(envelope, inserted_at_utc=inserted_at_utc,
                                           source_table="canonical_latest_forward:DERIVED_H4_FROM_H1")
 
+    def on_d1_sealed(self, envelope, *, inserted_at_utc):
+        """D1 trigger (DENIED unless D1 is in self.timeframes, i.e. D1-history authorised). Snapshot a sealed
+        COMPLETE 6/6 DERIVED-from-H4 D1. The D1-specific guard (assert_d1_history_payload) runs in the write
+        plan: status OK, 22:00 anchor, source H4, six complete children, no direct candles_D1 / 24xH1.
+        An incomplete D1 (status != OK) is skipped here and can never be written as OK."""
+        return self.write_closed_envelope(envelope, inserted_at_utc=inserted_at_utc,
+                                          source_table="canonical_latest_forward:DERIVED_D1_FROM_H4")
+
     # ---- core ----
     def write_closed_envelope(self, envelope, *, inserted_at_utc, source_table):
         d = envelope["data"]
         inst = seam.canonical_instrument(d["instrument"])           # XAUUSD -> XAU_USD (never an alias output)
         tf = d["timeframe"]
-        if tf in _D1_DENY:
-            raise ValueError(f"GOV-CANDLE-HIST-FWD-014: D1/D candle {tf!r} may never enter forward history")
+        if tf in _LEGACY_DAILY_DENY:
+            raise ValueError(f"GOV-CANDLE-HIST-FWD-014: legacy daily candle {tf!r} may never enter forward history")
         if inst not in self.allowed_instruments:
             self.metrics["history_skipped_instrument"] += 1
             return {"wrote": False, "reason": REASON_NOT_ALLOWLISTED, "instrument": d["instrument"]}
@@ -210,6 +226,9 @@ class DisabledHistoryForwardWriter:
     def on_h4_sealed(self, *_a, **_k):
         return {"wrote": False, "reason": REASON_DISABLED}
 
+    def on_d1_sealed(self, *_a, **_k):
+        return {"wrote": False, "reason": REASON_DISABLED}
+
     def write_closed_envelope(self, *_a, **_k):
         return {"wrote": False, "reason": REASON_DISABLED}
 
@@ -228,17 +247,20 @@ def build_history_forward_writer_from_env():
     """Boot factory. DEFAULT DISABLED -> DisabledHistoryForwardWriter (no-op). Enabled requires:
       HERMES_CANDLE_HISTORY_FORWARD_ENABLED=true
       HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED=true            (else FAIL LOUD)
-      HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES=<explicit, no D1> (else FAIL LOUD)
+      HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES=<explicit; D1 only if D1-history authorised> (else FAIL LOUD)
       HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS=<explicit XAU_USD> (else FAIL LOUD)
+      HERMES_CANDLE_D1_HISTORY_FORWARD_AUTHORISED=true            (REQUIRED to include D1; default false)
       HERMES_CANDLE_CANONICAL_REDIS_HOST/PORT/DB                (explicit bus target)
-    No Redis I/O at import; the client is only built when enabled+authorised."""
+    No Redis I/O at import; the client is only built when enabled+authorised. D1 forward-history is DENIED by
+    default — listing D1 in TIMEFRAMES without the D1-history authorisation FAILS LOUD (GOV-CANDLE-HIST-FWD-D1-001)."""
     from env_config import get_env, get_env_bool, get_env_int   # lazy; HERMES-owned config only
     if not get_env_bool(ENABLED_ENV, False):
         return DisabledHistoryForwardWriter()
     if not get_env_bool(AUTHORISED_ENV, False):
         raise ValueError(f"GOV-CANDLE-HIST-FWD-002: {ENABLED_ENV}=true requires {AUTHORISED_ENV}=true "
                          "(refusing to forward history without explicit authorisation)")
-    timeframes = parse_forward_timeframes(get_env(TIMEFRAMES_ENV, default=None))
+    allow_d1 = get_env_bool(D1_HISTORY_FORWARD_AUTHORISED_ENV, False)   # D1 history denied unless explicitly authorised
+    timeframes = parse_forward_timeframes(get_env(TIMEFRAMES_ENV, default=None), allow_d1=allow_d1)
     instruments = parse_forward_instruments(get_env(INSTRUMENTS_ENV, default=None))
     client = _redis_client_from_env(get_env, get_env_int)
     return CandleHistoryForwardWriter(redis_client=client, allowed_instruments=instruments,

@@ -214,11 +214,14 @@ def test_xauusd_input_canonicalised_never_alias_key():
 
 
 # ============================ key shape / guards / safety ============================
-def test_d1_latest_key_accepted_history_rejected():
+def test_d1_latest_key_accepted_history_keyspace_now_governed():
     assert cp.assert_canonical_key("hermes:candles:XAU_USD:D1:latest:v1") is True   # governed D1 latest
-    with pytest.raises(ValueError) as e:                                            # D1 history still blocked
-        chv.assert_history_target("hermes:candles:XAU_USD:D1:history:v1:1")
-    assert "GOV-CANDLE-HIST-TGT-006" in str(e.value)
+    # D1 history keyspace is now governed (target accepted); a write is still gated by the D1 payload guard
+    # + D1-history authorisation (separate WO). The D1 latest key is never a history target.
+    assert chv.assert_history_target("hermes:candles:XAU_USD:D1:history:v1:1") is True
+    with pytest.raises(ValueError) as e:
+        chv.assert_history_target("hermes:candles:XAU_USD:D1:latest:v1")
+    assert "GOV-CANDLE-HIST-TGT-002" in str(e.value)
 
 
 def test_direct_seam_still_refuses_d1():

@@ -1,0 +1,4 @@
+# NO-DIRECT-CANDLES_D1 PROOF
+assert_d1_history_payload rejects any payload whose blob contains "candles_d1"/"direct_d1" (GOV-CANDLE-HIST-D1-008),
+and requires source_timeframe=H4 (GOV-CANDLE-HIST-D1-004). A D1 history record can only be the governed
+DERIVED-from-H4 D1; the midnight-anchored candles_D1 table is never a source.

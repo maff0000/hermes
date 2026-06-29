@@ -180,14 +180,17 @@ def test_d1_canonical_latest_key_now_accepted_via_governed_path():
     assert "GOV-CANDLE-PUB-CANON-KEY-005" in str(e.value)
 
 
-def test_d1_history_target_still_blocked():
+def test_d1_history_target_now_accepted_via_governed_path():
+    # D1 history keyspace is now governed (WO-...-D1-HISTORY-CONTRACT-WRITER-0001); payload guard + D1-history
+    # authorisation still gate any actual write. The legacy "D" token remains rejected.
     for k in ("hermes:candles:XAU_USD:D1:history:v1:1782424800", "hermes:candles:XAU_USD:D1:history:v1:index"):
-        with pytest.raises(ValueError) as e:
-            chv.assert_history_target(k)
-        assert "GOV-CANDLE-HIST-TGT-006" in str(e.value)        # D1 never history-written (this lane is publish-only)
+        assert chv.assert_history_target(k) is True
+    with pytest.raises(ValueError) as e:
+        chv.assert_history_target("hermes:candles:XAU_USD:D:history:v1:1782424800")
+    assert "GOV-CANDLE-HIST-TGT-006" in str(e.value)
 
 
-def test_d1_contract_recognised_publishable_but_not_history_or_directseam():
+def test_d1_contract_recognised_publishable_and_history_eligible():
     assert "D1" in cc.TIMEFRAMES and cc.TF_SECONDS["D1"] == 86400
     assert "D1" in cp.CANONICAL_PUBLISH_TIMEFRAMES              # publishable via governed D1 producer
-    assert "D1" not in chv.HISTORY_TIMEFRAMES                   # still NOT history-eligible
+    assert "D1" in chv.HISTORY_TIMEFRAMES                       # history-eligible via governed D1-history path

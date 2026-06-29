@@ -25,11 +25,19 @@ CANDLE_PREFIX = "hermes:candles:"               # shared root with canonical/lat
 HISTORY_MARKER = "history"
 
 # Fail-closed allowlists. Instruments are CANONICAL ids only — the alias XAUUSD is denied as OUTPUT
-# (callers must canonicalise first). H4 is now a governed (derived, NY-5PM aligned) history timeframe;
-# D1/D remain excluded from the history grid.
+# (callers must canonicalise first). H4 and D1 are governed (derived, NY-5PM aligned) history timeframes;
+# the legacy "D" token remains excluded. A D1 history record is additionally gated by assert_d1_history_payload
+# (status OK, 22:00 open, source H4, six complete children) — D1 history is NEVER a raw/direct daily candle.
 HISTORY_INSTRUMENTS = ("XAU_USD",)
-HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
+HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1")
 _ALIAS_DENY = ("XAUUSD",)
+
+# D1 history is derived-only: six complete OK H4 children on the fixed 22:00 UTC NY-5PM anchor.
+D1_HISTORY_SOURCE_TIMEFRAME = "H4"
+D1_HISTORY_EXPECTED_CHILDREN = 6
+D1_HISTORY_ANCHOR_HOUR_UTC = 22
+# provenance strings a D1 history payload must NEVER carry (no midnight direct table, no 24xH1 shortcut)
+_D1_FORBIDDEN_SOURCE_TOKENS = ("candles_d1", "24xh1", "24 x h1", "24×h1", "direct_d1")
 
 # Retention: EXPLICIT bounded policy for dev canonical history — 35 days (4 weeks + operational buffer).
 # Never implicit. Per-candle keys carry this TTL; the index is trimmed by score to the same cutoff by the
@@ -99,7 +107,8 @@ def assert_history_target(key):
     if inst not in HISTORY_INSTRUMENTS:
         raise ValueError(f"GOV-CANDLE-HIST-TGT-005: instrument {inst!r} not in history allowlist")
     if tf not in HISTORY_TIMEFRAMES:
-        raise ValueError(f"GOV-CANDLE-HIST-TGT-006: timeframe {tf!r} not in history grid (H4/D1 excluded)")
+        raise ValueError(f"GOV-CANDLE-HIST-TGT-006: timeframe {tf!r} not in history grid "
+                         f"{HISTORY_TIMEFRAMES} (legacy 'D' excluded; D1 only via the governed D1-history path)")
     if tail != "index" and not tail.isdigit():
         raise ValueError(f"GOV-CANDLE-HIST-TGT-007: history key tail must be an open_epoch or 'index' (got {tail!r})")
     return True
@@ -131,13 +140,49 @@ def build_history_envelope(*, instrument, timeframe, timestamp_utc, ohlc, backfi
     return env
 
 
+def assert_d1_history_payload(envelope):
+    """D1-SPECIFIC pre-write guard (IN ADDITION to validate_candle_contract + assert_history_target). A D1
+    history record may be written ONLY if it is a COMPLETE, status-OK D1 derived from SIX H4 children on the
+    fixed 22:00 UTC NY-5PM anchor. Fail-loud on any violation; NEVER writes. Incomplete D1 can never be
+    written as OK. No direct candles_D1 / 24xH1 provenance may appear anywhere in the payload."""
+    d = envelope["data"]
+    if d.get("timeframe") != "D1":
+        raise ValueError(f"GOV-CANDLE-HIST-D1-001: not a D1 envelope (timeframe {d.get('timeframe')!r})")
+    if envelope.get("status") != "OK":
+        raise ValueError(f"GOV-CANDLE-HIST-D1-002: D1 history requires status OK (got {envelope.get('status')!r}); "
+                         "an incomplete D1 is NEVER written")
+    open_dt = datetime.strptime(d["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
+    if (open_dt.hour, open_dt.minute, open_dt.second, open_dt.microsecond) != (D1_HISTORY_ANCHOR_HOUR_UTC, 0, 0, 0):
+        raise ValueError(f"GOV-CANDLE-HIST-D1-003: D1 open must be 22:00:00 UTC (got {d['timestamp_utc']}); "
+                         "no UTC-midnight / DST / broker anchor")
+    if d.get("source_timeframe") != D1_HISTORY_SOURCE_TIMEFRAME:
+        raise ValueError(f"GOV-CANDLE-HIST-D1-004: D1 source_timeframe must be H4 (got {d.get('source_timeframe')!r}); "
+                         "no 24xH1, no direct candles_D1")
+    if d.get("expected_source_count") != D1_HISTORY_EXPECTED_CHILDREN:
+        raise ValueError(f"GOV-CANDLE-HIST-D1-005: D1 expected_source_count must be 6 (got {d.get('expected_source_count')!r})")
+    if d.get("source_count") != D1_HISTORY_EXPECTED_CHILDREN:
+        raise ValueError(f"GOV-CANDLE-HIST-D1-006: D1 source_count must be 6 (got {d.get('source_count')!r}); "
+                         "an incomplete D1 (fewer than six complete H4 children) is NEVER written")
+    if d.get("source_coverage") != 1.0:
+        raise ValueError(f"GOV-CANDLE-HIST-D1-007: D1 source_coverage must be 1.0 (got {d.get('source_coverage')!r})")
+    blob = str(envelope).lower()
+    for tok in _D1_FORBIDDEN_SOURCE_TOKENS:
+        if tok in blob:
+            raise ValueError(f"GOV-CANDLE-HIST-D1-008: forbidden D1 source provenance {tok!r} "
+                             "(no direct candles_D1 / 24xH1 production shortcut)")
+    return True
+
+
 def build_history_write_plan(envelope):
     """INERT history write PLAN — NEVER performs a write. Validates the governed contract, derives the
     immutable key + index (score/member = open_epoch), applies the retention TTL, and asserts the target
-    guards. Idempotent by construction: same candle -> same key + same ZSET member/score (re-run = no-op)."""
+    guards (incl. the D1-specific guard for D1). Idempotent by construction: same candle -> same key + same
+    ZSET member/score (re-run = no-op)."""
     cc.validate_candle_contract(envelope)
     d = envelope["data"]
     inst, tf = d["instrument"], d["timeframe"]
+    if tf == "D1":
+        assert_d1_history_payload(envelope)        # six complete OK H4, 22:00 anchor, no direct/24xH1
     open_dt = datetime.strptime(d["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
     open_epoch = int(open_dt.timestamp())
     key = history_key(inst, tf, open_epoch)
@@ -171,6 +216,9 @@ def expected_opens_for_day(timeframe, day_start_utc):
     if timeframe == "H4":
         # NY-5PM aligned H4 grid (fixed 22:00 UTC boundary): opens 02,06,10,14,18,22 UTC within the day.
         return [day + timedelta(hours=hh) for hh in (2, 6, 10, 14, 18, 22)]
+    if timeframe == "D1":
+        # NY-5PM aligned D1: a single daily OPEN at 22:00 UTC (the day spans 22:00Z -> next 22:00Z).
+        return [day + timedelta(hours=22)]
     step = cc.TF_SECONDS[timeframe]
     return [day + timedelta(seconds=i * step) for i in range(86400 // step)]
 

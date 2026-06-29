@@ -1,0 +1,9 @@
+# KEY-SHAPE PROOF
+ACCEPT  hermes:candles:XAU_USD:D1:history:v1:{open_epoch}   -> assert_history_target True
+ACCEPT  hermes:candles:XAU_USD:D1:history:v1:index          -> assert_history_target True
+REJECT  hermes:candles:XAU_USD:D1:latest:v1                 -> TGT-002 (live latest)
+REJECT  hermes:candles:XAUUSD:D1:history:v1:{ep}            -> TGT-004 (alias)
+REJECT  hermes:candles:EUR_USD:D1:history:v1:{ep}           -> TGT-005 (non-XAU)
+REJECT  hermes:candles:XAU_USD:D1:history:1782424800        -> TGT-003 (unversioned, 6 parts)
+REJECT  hermes:candles:XAU_USD:D1:history:v1:notanepoch     -> TGT-007 (malformed epoch)
+REJECT  hermes:candles:XAU_USD:D:history:v1:{ep}            -> TGT-006 (legacy D excluded)

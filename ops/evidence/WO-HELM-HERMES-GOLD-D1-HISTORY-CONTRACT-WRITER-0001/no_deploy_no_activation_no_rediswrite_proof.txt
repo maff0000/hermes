@@ -1,0 +1,5 @@
+# NO-DEPLOY / NO-ACTIVATION / NO-REDIS-WRITE PROOF
+- Code + tests only. No deploy, no restart, no activation, no env change.
+- No Redis I/O at import; the forward writer's client is built only on the enabled+authorised path.
+- D1 forward-history DENIED by default (HERMES_CANDLE_D1_HISTORY_FORWARD_AUTHORISED unset -> D1 fails loud if listed).
+- Tests use in-memory FakeRedis; zero live Redis connections by this WO.
