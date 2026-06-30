@@ -53,6 +53,11 @@ from utils.candle_runtime_seam_v1 import (
 from utils.candle_h4_publish_wire_v1 import (
     build_h4_producer_from_env as _build_h4_producer,
 )
+# WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 — durable in-process publisher supervisor (DISABLED by
+# default; refuses to start unless HERMES_PUBLISHER_RUNTIME_OWNER=in_process — duplicate-publisher guard).
+from utils.hermes_publisher_runtime_v1 import (
+    build_publisher_supervisor_from_env as _build_publisher_supervisor,
+)
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -103,6 +108,9 @@ class ServiceState:
     # Derived-H4 canonical producer (gated by HERMES_CANDLE_H4_PUBLISH_ENABLED; disabled -> no-op).
     # WO-HELM-HERMES-GOLD-H4-CANONICAL-PUBLISH-WIRE-0001
     candle_h4_producer = None
+    # Durable in-process publisher supervisor (disabled by default -> no-op).
+    # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001
+    publisher_supervisor = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -1184,6 +1192,31 @@ async def lifespan(app: FastAPI):
         )
         raise
 
+    # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 — durable in-process publisher supervisor.
+    # DISABLED by default (DisabledPublisherSupervisor no-op). ENABLED-without-AUTHORISED -> SystemExit(101)
+    # (fail loud). When enabled+authorised, .start() enforces the duplicate-publisher guard (OWNER=in_process)
+    # so the in-process loops and the detached dev loops can never both publish the same governed key family.
+    # Exception-isolated per runner; faults are counted + surfaced, never crash the app.
+    try:
+        state.publisher_supervisor = _build_publisher_supervisor()
+        if getattr(state.publisher_supervisor, "enabled", False):
+            state.publisher_supervisor.start()
+            logger.info(
+                "[PUB_RUNTIME_BOOT] supervisor=%s started owner=%s runners=%d",
+                type(state.publisher_supervisor).__name__,
+                getattr(state.publisher_supervisor, "owner", None),
+                len(getattr(state.publisher_supervisor, "runners", [])),
+            )
+        else:
+            logger.info("[PUB_RUNTIME_BOOT] supervisor=%s (disabled -> no-op)",
+                        type(state.publisher_supervisor).__name__)
+    except SystemExit:
+        raise                                   # enabled-without-authorised: fail loud, abort boot
+    except Exception as _pub_runtime_exc:
+        # Guard/config fault (e.g. OWNER!=in_process) must not crash the whole service: log loud, run without it.
+        state.publisher_supervisor = None
+        logger.error("[PUB_RUNTIME_BOOT_FAIL] durable publisher supervisor not started: %r", _pub_runtime_exc)
+
     # Connect to OANDA
     if await state.oanda_adapter.connect():
         # WO-0030: Structured connection logging (GOV-LOG-002)
@@ -1244,6 +1277,14 @@ async def lifespan(app: FastAPI):
     # Stop healthcheck reporter
     if state.healthcheck_reporter:
         await state.healthcheck_reporter.stop()
+
+    # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 — graceful supervisor shutdown (joins runner threads).
+    if getattr(state, "publisher_supervisor", None) is not None:
+        try:
+            state.publisher_supervisor.stop()
+            logger.info("[PUB_RUNTIME_SHUTDOWN] durable publisher supervisor stopped")
+        except Exception as _pub_stop_exc:
+            logger.error("[PUB_RUNTIME_SHUTDOWN_FAIL] %r", _pub_stop_exc)
 
     # Cancel adapter tasks
     for name, task in state.adapter_tasks.items():

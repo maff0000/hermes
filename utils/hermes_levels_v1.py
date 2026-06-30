@@ -66,6 +66,30 @@ def is_d1_derived_scope(scope):
     return scope in _D1_DERIVED_SCOPES
 
 
+# WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 / R2D2 finding: governed levels are computed on CLOSED
+# candles (session + intraday on closed H1; daily/weekly on closed D1) and therefore lag live price by up to one
+# source-granularity bar. This metadata makes the as-of policy explicit so ARES/Falcon never mistake a governed
+# level for a live-tick high/low. Metadata ONLY — computed level VALUES are unchanged by this WO.
+LEVEL_SEMANTICS_NOTE = ("HERMES governed levels are AS-OF the last CLOSED source candle (forming candle excluded, "
+                        "no live tick); session/intraday derive from closed H1 and lag live price by up to 1h.")
+
+
+def level_source_granularity(scope):
+    return "D1" if is_d1_derived_scope(scope) else "H1"
+
+
+def level_semantics(scope, *, as_of_candle_close_utc=None):
+    """Explicit closed-candle level semantics (R2D2 finding). Pure; no I/O. forming candle excluded, no live tick."""
+    return {
+        "level_source_granularity": level_source_granularity(scope),
+        "level_source_policy": "CLOSED_CANDLES_ONLY",
+        "as_of_candle_close_utc": _utc(as_of_candle_close_utc) if as_of_candle_close_utc is not None else None,
+        "forming_candle_excluded": True,
+        "live_tick_included": False,
+        "note": LEVEL_SEMANTICS_NOTE,
+    }
+
+
 def levels_key(instrument, scope):
     if instrument in _ALIAS_DENY or instrument != CANONICAL_INSTRUMENT:
         raise ValueError(f"GOV-HERMES-LVL-004: instrument {instrument!r} not allowed (canonical XAU_USD only; no XAUUSD alias)")
@@ -75,9 +99,10 @@ def levels_key(instrument, scope):
 
 
 def build_level_contract(*, instrument, scope, generated_at_utc, levels, source_inputs=None,
-                         freshness_state="FRESH", d1_latest_green=False):
+                         freshness_state="FRESH", d1_latest_green=False, as_of_candle_close_utc=None):
     """hermes:levels:XAU_USD:{scope}:v1 payload — DETERMINISTIC level facts. A D1-derived scope (daily/weekly)
-    requires d1_latest_green=True (gated). Pure; no I/O. deterministic_only=true; no regime/risk/decision fields."""
+    requires d1_latest_green=True (gated). Pure; no I/O. deterministic_only=true; no regime/risk/decision fields.
+    Carries explicit CLOSED-candle level_semantics (R2D2 finding) — values unchanged, as-of policy made explicit."""
     if instrument in _ALIAS_DENY or instrument != CANONICAL_INSTRUMENT:
         raise ValueError(f"GOV-HERMES-LVL-004: instrument {instrument!r} not allowed (canonical XAU_USD only)")
     if scope not in LEVEL_SCOPES:
@@ -92,6 +117,7 @@ def build_level_contract(*, instrument, scope, generated_at_utc, levels, source_
         "source_inputs": list(source_inputs) if source_inputs else ["hermes:candles:XAU_USD:* (governed)"],
         "d1_derived": is_d1_derived_scope(scope),
         "levels": dict(levels),
+        "level_semantics": level_semantics(scope, as_of_candle_close_utc=as_of_candle_close_utc),
         "freshness_state": freshness_state,
         "deterministic_only": True,
     }
@@ -111,6 +137,15 @@ def validate_level_contract(p):
     _assert_utc(p.get("generated_at_utc"), "generated_at_utc")
     if not isinstance(p.get("levels"), dict) or not p["levels"]:
         raise ValueError("GOV-HERMES-LVL-014: levels must be a non-empty dict")
+    ls = p.get("level_semantics")
+    if not isinstance(ls, dict):
+        raise ValueError("GOV-HERMES-LVL-015: level_semantics block required (closed-candle as-of metadata)")
+    if ls.get("level_source_policy") != "CLOSED_CANDLES_ONLY":
+        raise ValueError("GOV-HERMES-LVL-016: level_source_policy must be CLOSED_CANDLES_ONLY")
+    if ls.get("level_source_granularity") != level_source_granularity(p["scope"]):
+        raise ValueError("GOV-HERMES-LVL-017: level_source_granularity must match scope (H1 closed / D1 closed)")
+    if ls.get("forming_candle_excluded") is not True or ls.get("live_tick_included") is not False:
+        raise ValueError("GOV-HERMES-LVL-018: governed levels exclude the forming candle and never include live tick")
     _scan_no_forbidden_field_keys(p)
     return True
 
