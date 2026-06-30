@@ -49,15 +49,36 @@ STATUS_OWNERSHIP_PENDING = "OWNERSHIP_PENDING"
 STATUS_INVENTORY_PENDING = "INVENTORY_PENDING"
 STATUS_PARTIAL = "PARTIAL"
 STATUS_LEGACY_OR_PARTIAL_CATALOG = "LEGACY_OR_PARTIAL_CATALOG"
+STATUS_BUILT_NOT_ACTIVE = "BUILT_NOT_ACTIVE"        # code merged but not yet activated (never falsely ACTIVE)
 STATUS_FAULT = "FAULT"
 
 FAMILY_STATUS_VOCAB = frozenset({
     STATUS_ACTIVE, STATUS_PENDING, STATUS_PENDING_FIRST_DAILY_SEAL, STATUS_BLOCKED,
     STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN, STATUS_ABSENT, STATUS_NOT_IMPLEMENTED, STATUS_GATED,
     STATUS_LEGACY_DEPRECATED, STATUS_FROZEN_PENDING_CONSUMER_CUTOVER, STATUS_OWNERSHIP_PENDING,
-    STATUS_INVENTORY_PENDING, STATUS_PARTIAL, STATUS_LEGACY_OR_PARTIAL_CATALOG, STATUS_FAULT,
+    STATUS_INVENTORY_PENDING, STATUS_PARTIAL, STATUS_LEGACY_OR_PARTIAL_CATALOG, STATUS_BUILT_NOT_ACTIVE,
+    STATUS_FAULT,
 })
 OVERALL_STATUS_VOCAB = frozenset({"OK", "WARN", "FAIL"})
+
+# Heartbeat TTL policy (R2D2 ruling): the heartbeat is a LIVENESS key -> TTL slightly greater than the refresh
+# interval so a dead publisher's heartbeat expires. Manifest/catalog/health are discovery TRUTH -> persistent
+# (no TTL), refreshed + timestamped. Code-only here; no live TTL change in this WO.
+HEARTBEAT_REFRESH_SECONDS = 60
+HEARTBEAT_TTL_SECONDS = 180          # > refresh, so a stalled publisher's heartbeat self-expires
+PERSISTENT_FAMILIES_NO_TTL = (KEY_CONTRACT_MANIFEST, KEY_CATALOG_CANDLES, KEY_HEALTH)
+
+
+def heartbeat_ttl_policy():
+    """Explicit, testable TTL policy for the control-plane keys (code-only; no live change here)."""
+    return {
+        "heartbeat_key": KEY_PUBLISHER_HEARTBEAT,
+        "heartbeat_refresh_seconds": HEARTBEAT_REFRESH_SECONDS,
+        "heartbeat_ttl_seconds": HEARTBEAT_TTL_SECONDS,
+        "heartbeat_rationale": "liveness; TTL > refresh so a dead publisher's heartbeat expires",
+        "persistent_keys_no_ttl": list(PERSISTENT_FAMILIES_NO_TTL),
+        "persistent_rationale": "discovery truth; refreshed + timestamped, never silently stale",
+    }
 
 # --------------------------------------------------------------------------- governance facts
 _LATEST_TFS = ("M1", "M5", "M15", "H1", "H4")
@@ -324,38 +345,59 @@ def validate_candle_catalog(cat):
 
 
 # --------------------------------------------------------------------------- 4. health summary
-def build_health_summary(*, generated_at_utc, overall_status="OK"):
+_CONTROL_PLANE_FAMILIES = ("contract_manifest", "publisher_heartbeat", "candle_catalog", "health_summary")
+
+
+def build_health_summary(*, generated_at_utc, overall_status="OK", control_plane_active=False,
+                         indicators_built=False):
     """hermes:health:v1 payload — per-family health with explicit absence semantics (ACTIVE/PENDING/BLOCKED/
-    NOT_IMPLEMENTED/LEGACY_DEPRECATED/OWNERSHIP_PENDING/FAULT). No regime/risk fields. Pure; no I/O."""
+    NOT_IMPLEMENTED/BUILT_NOT_ACTIVE/LEGACY_DEPRECATED/OWNERSHIP_PENDING/FAULT). No regime/risk fields. Pure; no I/O.
+
+    R2D2 self-listing fix: when control_plane_active=True, the four control-plane families (and control_plane_health)
+    report ACTIVE and are NOT listed under missing_but_expected_families; genuinely-missing surfaces stay listed.
+    indicators_built=True represents the merged-but-not-activated indicator publisher as BUILT_NOT_ACTIVE (never
+    falsely ACTIVE before activation)."""
     if overall_status not in OVERALL_STATUS_VOCAB:
         raise ValueError(f"GOV-HERMES-CP-040: overall_status must be OK/WARN/FAIL (got {overall_status!r})")
+    cp_status = STATUS_ACTIVE if control_plane_active else STATUS_PENDING
+    ind_status = STATUS_BUILT_NOT_ACTIVE if indicators_built else STATUS_NOT_IMPLEMENTED
+    per_family = {
+        "candle_latest": STATUS_ACTIVE, "candle_history": STATUS_ACTIVE, "forward_history": STATUS_ACTIVE,
+        "candle_latest_d1": STATUS_PENDING_FIRST_DAILY_SEAL,
+        "candle_history_d1": STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN,
+        "indicators": ind_status, "candle_features": STATUS_NOT_IMPLEMENTED,
+        "feed_health": STATUS_INVENTORY_PENDING, "sessions": STATUS_OWNERSHIP_PENDING,
+        "instrument_catalog": STATUS_PARTIAL, "ticks": STATUS_NOT_IMPLEMENTED,
+        "control_plane": cp_status,
+    }
+    for fam in _CONTROL_PLANE_FAMILIES:
+        per_family[fam] = cp_status
+    # genuinely-missing surfaces (control-plane families excluded when they are live)
+    missing = ["candle_features", "feed_health", "instrument_catalog", "sessions",
+               "candle_history_d1", "ticks"]
+    missing.insert(0, "indicators")           # indicators stays expected (BUILT_NOT_ACTIVE is not yet live)
+    if not control_plane_active:
+        missing += list(_CONTROL_PLANE_FAMILIES)
     h = {
         "publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
         "generated_at_utc": _utc(generated_at_utc), "overall_status": overall_status,
-        "per_family_health": {
-            "candle_latest": STATUS_ACTIVE, "candle_history": STATUS_ACTIVE, "forward_history": STATUS_ACTIVE,
-            "candle_latest_d1": STATUS_PENDING_FIRST_DAILY_SEAL,
-            "candle_history_d1": STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN,
-            "indicators": STATUS_NOT_IMPLEMENTED, "candle_features": STATUS_NOT_IMPLEMENTED,
-            "feed_health": STATUS_INVENTORY_PENDING, "sessions": STATUS_OWNERSHIP_PENDING,
-            "instrument_catalog": STATUS_PARTIAL, "control_plane": STATUS_PENDING,
-        },
+        "control_plane_active": bool(control_plane_active),
+        "per_family_health": per_family,
         "per_timeframe_freshness": {tf: STATUS_ACTIVE for tf in _LATEST_TFS},
         "candle_latest_health": STATUS_ACTIVE,
         "candle_history_health": STATUS_ACTIVE,
         "forward_history_health": STATUS_ACTIVE,
         "d1_health": {"latest": STATUS_PENDING_FIRST_DAILY_SEAL, "history": STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN},
-        "control_plane_health": STATUS_PENDING,            # this control-plane is code-only, not yet activated
-        "missing_but_expected_families": ["indicators", "candle_features", "feed_health",
-                                          "sessions", "contract_manifest", "publisher_heartbeat",
-                                          "candle_catalog", "health_summary"],
+        "control_plane_health": cp_status,
+        "missing_but_expected_families": missing,
         "intentionally_absent_families": ["regime (ARES-owned)", "interpretive_levels (ARES-owned)",
                                           "decision_gating (ARES-owned)"],
         "legacy_deprecated_families": ["hermes:signals:*", "hermes:market_map:*", "hermes:instrument:* (partial)"],
         "fault_codes": [],
         "warning_codes": [],
-        "ownership_notes": "HERMES owns deterministic market data + Redis contracts; regime/risk/interpretive "
-                           "context is ARES-owned. HERMES publishes no regime or risk conclusions.",
+        "ownership_notes": "HERMES owns deterministic market data + deterministic indicators/levels + Redis "
+                           "contracts; regime/risk/interpretive context is ARES-owned. HERMES publishes no "
+                           "regime or risk conclusions.",
     }
     validate_health(h)
     return h
