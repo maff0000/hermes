@@ -1,0 +1,31 @@
+{
+  "schema_version": "v1",
+  "service_identity": "hermes-signal",
+  "updated_at_utc": "2026-06-30T12:00:00.000Z",
+  "generated_at_utc": "2026-06-30T12:00:00.000Z",
+  "deployed_sha": "c9eb8484",
+  "run_env": null,
+  "redis_target": "192.168.11.10:6379/db0",
+  "status": "OK",
+  "enabled_publishers": [],
+  "active_timeframes": [
+    "M1",
+    "M5",
+    "M15",
+    "H1",
+    "H4"
+  ],
+  "last_publish_utc": {
+    "H4": "2026-06-30T12:00:00.000Z"
+  },
+  "latest_key_freshness": {},
+  "history_forward_state": "ACTIVE",
+  "d1_state": "PENDING_FIRST_DAILY_SEAL",
+  "fault_counters_summary": {
+    "h4_emit_fail": 0,
+    "d1_hook_fail": 0
+  },
+  "skip_counters_summary": {
+    "d1_skipped_incomplete_child": 0
+  }
+}
