@@ -1,0 +1,33 @@
+{
+  "publisher": "HERMES",
+  "schema_version": "v1",
+  "contract_version": "v1",
+  "instrument": "XAU_USD",
+  "generated_at_utc": "2026-06-30T14:00:00.000Z",
+  "session_set_version": "v1",
+  "source_inputs": [
+    "hermes_market_hours",
+    "trading_windows (governed UTC session config)"
+  ],
+  "current_session": "london",
+  "sessions": {
+    "asia": {
+      "open_time_utc": "22:00",
+      "close_time_utc": "07:00"
+    },
+    "london": {
+      "open_time_utc": "07:00",
+      "close_time_utc": "16:00"
+    },
+    "newyork": {
+      "open_time_utc": "12:00",
+      "close_time_utc": "21:00"
+    },
+    "overlap_ldn_ny": {
+      "open_time_utc": "12:00",
+      "close_time_utc": "16:00"
+    }
+  },
+  "freshness_state": "FRESH",
+  "deterministic_only": true
+}

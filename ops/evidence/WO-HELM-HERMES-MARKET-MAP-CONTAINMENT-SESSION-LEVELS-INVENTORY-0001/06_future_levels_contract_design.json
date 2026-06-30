@@ -1,0 +1,44 @@
+{
+  "session_scope_example": {
+    "publisher": "HERMES",
+    "schema_version": "v1",
+    "contract_version": "v1",
+    "instrument": "XAU_USD",
+    "scope": "session",
+    "generated_at_utc": "2026-06-30T14:00:00.000Z",
+    "level_set_version": "v1",
+    "source_inputs": [
+      "hermes:candles:XAU_USD:* (governed)"
+    ],
+    "d1_derived": false,
+    "levels": {
+      "asia_high": 4082.5,
+      "asia_low": 4070.1,
+      "london_high": 4090.0,
+      "london_low": 4075.2,
+      "range_midpoint": 4080.05
+    },
+    "freshness_state": "FRESH",
+    "deterministic_only": true
+  },
+  "daily_scope_example_GATED_until_D1_GREEN": {
+    "publisher": "HERMES",
+    "schema_version": "v1",
+    "contract_version": "v1",
+    "instrument": "XAU_USD",
+    "scope": "daily",
+    "generated_at_utc": "2026-06-30T14:00:00.000Z",
+    "level_set_version": "v1",
+    "source_inputs": [
+      "hermes:candles:XAU_USD:* (governed)"
+    ],
+    "d1_derived": true,
+    "levels": {
+      "prior_day_high": 4090.0,
+      "prior_day_low": 4060.0,
+      "adr_20": 28.5
+    },
+    "freshness_state": "FRESH",
+    "deterministic_only": true
+  }
+}

@@ -1,0 +1,13 @@
+# Part A — Host Process Inventory (PID 6843, read-only, NOT killed/restarted)
+- cmdline: /usr/bin/python3 market_map.py --interval 60
+- working_dir: /srv-dev/tradingSignals/services/market-map
+- exe: /usr/bin/python3.11
+- parent: PPid 1 (/sbin/init) -> supervised by systemd unit **market-map-dev.service** (cgroup /system.slice/market-map-dev.service)
+- container: NOT in any docker cgroup -> **HOST-LOOSE (outside hermes-signal-dev)**
+- redis target (redacted): 127.0.0.1:6379 db0, key prefix "hermes:" -> writes hermes:market_map:*
+- sql target (redacted): tradingSignals @ 127.0.0.1:3307 (DEV_DB), reads candles/trading_windows/instruments/hermes_market_hours
+- cadence: --interval 60 (60s loop)
+- restart behaviour: systemd Restart=on-failure, RestartSec=10; WantedBy=multi-user.target (boot-enabled)
+- logs: journald (SyslogIdentifier=market-map-dev)
+- failure mode: systemd restarts on failure; runs as root on the host
+- current consumers (inferable from docstring): "decision-daemon, etc." (downstream ARES-like consumer; NOT a HERMES output)
