@@ -1,0 +1,41 @@
+{
+  "publisher": "HERMES",
+  "schema_version": "v1",
+  "contract_version": "v1",
+  "instrument": "XAU_USD",
+  "timeframe": "H1",
+  "generated_at_utc": "2026-06-30T13:00:00.000Z",
+  "source_candle_key": "hermes:candles:XAU_USD:H1:latest:v1",
+  "source_candle_open_time_utc": "2026-06-30T12:00:00.000Z",
+  "source_candle_contract": "v1",
+  "feature_set_version": "v1",
+  "features": {
+    "body_high": 4080.5,
+    "body_low": 4075.2,
+    "body_size": 5.3,
+    "range_size": 9.4,
+    "wick_high": 2.0,
+    "wick_low": 2.1,
+    "candle_direction": "UP",
+    "body_to_range_ratio": 0.5638,
+    "upper_wick_ratio": 0.2128,
+    "lower_wick_ratio": 0.2234,
+    "close_position_in_range": 0.72,
+    "doji": false,
+    "full_body": false,
+    "long_wick": false,
+    "pin_bar": false,
+    "inside_bar": false,
+    "outside_bar": false
+  },
+  "method_config": {
+    "doji_body_to_range_max": 0.1,
+    "full_body_min_body_to_range": 0.7,
+    "long_wick_ratio_min": 2.0,
+    "pin_bar_wick_to_body_min": 2.0,
+    "pin_bar_body_to_range_max": 0.33,
+    "classification_config": "v1"
+  },
+  "freshness_state": "FRESH",
+  "deterministic_only": true
+}

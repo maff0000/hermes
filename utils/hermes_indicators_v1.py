@@ -44,6 +44,35 @@ HALT_CODE = 101
 
 REASON_DISABLED = "INDICATOR_PUBLISH_DISABLED"
 
+# Declared deterministic METHODS/conventions so consumers (ARES/Falcon) cannot misinterpret values.
+INDICATOR_METHODS = {
+    "ema": "STANDARD_2_OVER_N_PLUS_1_SMA_SEED",   # EMA: multiplier 2/(n+1), seeded with SMA(n)
+    "rsi": "CUTLER_SMA_14",                        # Cutler's RSI: simple average of gains/losses over n (NOT Wilder smoothing)
+    "atr": "SMA_14",                               # ATR = SMA of True Range over n
+    "macd": "EMA12_EMA26_SIGNAL9",                 # if MACD present
+    "bollinger": "SMA_N_STD_2",                    # if bands present
+    "vwap": "CUMULATIVE_PRICE_VOLUME",             # if VWAP present
+}
+_METHOD_FIELD = {"ema": "ema_method", "rsi": "rsi_method", "atr": "atr_method",
+                 "macd": "macd_method", "bollinger": "bands_method", "vwap": "vwap_method"}
+
+
+def _family_of(name):
+    for fam in ("ema", "rsi", "atr", "macd", "bollinger", "vwap"):
+        if str(name).startswith(fam):
+            return fam
+    return None
+
+
+def methods_for(indicators):
+    """Declare the deterministic computation method for every indicator family present (no value change)."""
+    methods = {}
+    for n in indicators:
+        fam = _family_of(n)
+        if fam:
+            methods[_METHOD_FIELD[fam]] = INDICATOR_METHODS[fam]
+    return methods
+
 
 def _utc(dt):
     if not isinstance(dt, datetime):
@@ -106,6 +135,7 @@ def build_indicator_contract(*, instrument, timeframe, generated_at_utc, value_o
         "source_timeframes": [timeframe],
         "indicator_set_version": INDICATOR_SET_VERSION,
         "indicators": dict(indicators),
+        "methods": methods_for(indicators),       # declared conventions (RSI=Cutler SMA, ATR=SMA, EMA=standard)
         "freshness_state": freshness_state,
         "deterministic_only": True,
     }
@@ -128,6 +158,13 @@ def validate_indicator_contract(p):
     _assert_utc(p.get("value_open_time_utc"), "value_open_time_utc")
     if not isinstance(p.get("indicators"), dict) or not p["indicators"]:
         raise ValueError("GOV-HERMES-IND-015: indicators must be a non-empty dict")
+    methods = p.get("methods")
+    if not isinstance(methods, dict):
+        raise ValueError("GOV-HERMES-IND-016: indicator payload must declare a methods block")
+    for n in p["indicators"]:                  # every indicator family present must declare its method
+        fam = _family_of(n)
+        if fam and _METHOD_FIELD[fam] not in methods:
+            raise ValueError(f"GOV-HERMES-IND-017: missing method declaration {_METHOD_FIELD[fam]!r} for {n!r}")
     _scan_no_forbidden_field_keys(p)          # no regime/regime_confidence/risk/decision/trade fields
     return True
 
