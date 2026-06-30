@@ -1,0 +1,93 @@
+{
+  "publisher": "HERMES",
+  "schema_version": "v1",
+  "contract_version": "v1",
+  "environment": "dev",
+  "run_env": "STAGING",
+  "deployed_sha": "c9eb84844891e2e73600bad6b2abeb8a07a7de5e",
+  "service_identity": "hermes-signal",
+  "generated_by": "hermes-signal",
+  "generated_at_utc": "2026-06-30T12:00:00.000Z",
+  "canonical_instruments": [
+    "XAU_USD"
+  ],
+  "active_families": {
+    "candle_latest": {
+      "M1": "ACTIVE",
+      "M5": "ACTIVE",
+      "M15": "ACTIVE",
+      "H1": "ACTIVE",
+      "H4": "ACTIVE"
+    },
+    "candle_history": {
+      "M1": "ACTIVE",
+      "M5": "ACTIVE",
+      "M15": "ACTIVE",
+      "H1": "ACTIVE",
+      "H4": "ACTIVE"
+    },
+    "forward_history": "ACTIVE"
+  },
+  "gated_families": {
+    "candle_latest_d1": {
+      "status": "PENDING_FIRST_DAILY_SEAL",
+      "explanation": "D1 latest is armed but not GREEN until the first live 6x complete-OK H4 D1 seal validates"
+    }
+  },
+  "blocked_families": {
+    "candle_history_d1": {
+      "status": "BLOCKED_UNTIL_D1_LATEST_GREEN",
+      "explanation": "no D1 history writes until D1 latest is proven live GREEN"
+    }
+  },
+  "not_implemented_families": {
+    "indicators": "NOT_IMPLEMENTED",
+    "candle_features": "NOT_IMPLEMENTED",
+    "feed_health": "INVENTORY_PENDING",
+    "sessions": "OWNERSHIP_PENDING",
+    "instrument_catalog": "PARTIAL"
+  },
+  "legacy_deprecated_families": {
+    "hermes:signals:*": "FROZEN_PENDING_CONSUMER_CUTOVER",
+    "hermes:market_map:*": "FROZEN_PENDING_CONSUMER_CUTOVER",
+    "hermes:instrument:*": "LEGACY_OR_PARTIAL_CATALOG"
+  },
+  "ownership_boundaries": {
+    "hermes_owns": [
+      "deterministic market data",
+      "candles",
+      "candle history",
+      "deterministic indicators",
+      "deterministic candle features",
+      "deterministic levels (H/L sweeps, mathematical pivots, deterministic midpoints, Fibonacci anchors, candle-derived levels, indicator values)",
+      "feed health",
+      "instrument/catalog metadata",
+      "Redis publication contracts"
+    ],
+    "ares_owns": [
+      "regime",
+      "risk",
+      "event/calendar impact",
+      "liquidity/risk context",
+      "interpretive levels (liquidity blocks, risk-gated order blocks)",
+      "decision gating"
+    ],
+    "falcon": "consumes HERMES/ARES/HELIOS contracts later; does not define HERMES internals",
+    "hermes_must_not": [
+      "publish, determine, or imply market regime",
+      "publish risk conclusions",
+      "expose interpretive levels"
+    ]
+  },
+  "source_policies": {
+    "h4": "H4_FROM_H1",
+    "d1": "D1_FROM_6_OK_H4",
+    "rejected_sources": [
+      "DIRECT_CANDLES_H4_STALE",
+      "DIRECT_CANDLES_D1_UTC_MIDNIGHT",
+      "TWENTYFOUR_X_H1_D1_PRODUCTION_SHORTCUT"
+    ],
+    "interpretive_ownership": "NO_REGIME_OR_RISK_OWNERSHIP_IN_HERMES"
+  },
+  "interpretive_ownership_note": "HERMES declares NO regime ownership and publishes no regime or risk conclusions; regime/risk/interpretive context is ARES-owned"
+}

@@ -1,0 +1,58 @@
+{
+  "publisher": "HERMES",
+  "schema_version": "v1",
+  "contract_version": "v1",
+  "generated_at_utc": "2026-06-30T12:00:00.000Z",
+  "overall_status": "OK",
+  "per_family_health": {
+    "candle_latest": "ACTIVE",
+    "candle_history": "ACTIVE",
+    "forward_history": "ACTIVE",
+    "candle_latest_d1": "PENDING_FIRST_DAILY_SEAL",
+    "candle_history_d1": "BLOCKED_UNTIL_D1_LATEST_GREEN",
+    "indicators": "NOT_IMPLEMENTED",
+    "candle_features": "NOT_IMPLEMENTED",
+    "feed_health": "INVENTORY_PENDING",
+    "sessions": "OWNERSHIP_PENDING",
+    "instrument_catalog": "PARTIAL",
+    "control_plane": "PENDING"
+  },
+  "per_timeframe_freshness": {
+    "M1": "ACTIVE",
+    "M5": "ACTIVE",
+    "M15": "ACTIVE",
+    "H1": "ACTIVE",
+    "H4": "ACTIVE"
+  },
+  "candle_latest_health": "ACTIVE",
+  "candle_history_health": "ACTIVE",
+  "forward_history_health": "ACTIVE",
+  "d1_health": {
+    "latest": "PENDING_FIRST_DAILY_SEAL",
+    "history": "BLOCKED_UNTIL_D1_LATEST_GREEN"
+  },
+  "control_plane_health": "PENDING",
+  "missing_but_expected_families": [
+    "indicators",
+    "candle_features",
+    "feed_health",
+    "sessions",
+    "contract_manifest",
+    "publisher_heartbeat",
+    "candle_catalog",
+    "health_summary"
+  ],
+  "intentionally_absent_families": [
+    "regime (ARES-owned)",
+    "interpretive_levels (ARES-owned)",
+    "decision_gating (ARES-owned)"
+  ],
+  "legacy_deprecated_families": [
+    "hermes:signals:*",
+    "hermes:market_map:*",
+    "hermes:instrument:* (partial)"
+  ],
+  "fault_codes": [],
+  "warning_codes": [],
+  "ownership_notes": "HERMES owns deterministic market data + Redis contracts; regime/risk/interpretive context is ARES-owned. HERMES publishes no regime or risk conclusions."
+}
