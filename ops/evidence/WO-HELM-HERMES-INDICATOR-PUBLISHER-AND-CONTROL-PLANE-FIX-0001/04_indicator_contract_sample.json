@@ -1,0 +1,26 @@
+{
+  "publisher": "HERMES",
+  "schema_version": "v1",
+  "contract_version": "v1",
+  "instrument": "XAU_USD",
+  "timeframe": "H1",
+  "generated_at_utc": "2026-06-30T12:00:00.000Z",
+  "value_open_time_utc": "2026-06-30T11:00:00.000Z",
+  "source_candle_contract": "v1",
+  "source_timeframes": [
+    "H1"
+  ],
+  "indicator_set_version": "v1",
+  "indicators": {
+    "ema_12": 4080.5,
+    "ema_26": 4075.25,
+    "rsi_14": 56.3,
+    "atr_14": 3.42,
+    "macd_line": 5.25,
+    "macd_signal": 4.1,
+    "bollinger_upper": 4095.0,
+    "bollinger_lower": 4060.0
+  },
+  "freshness_state": "FRESH",
+  "deterministic_only": true
+}
