@@ -349,33 +349,36 @@ _CONTROL_PLANE_FAMILIES = ("contract_manifest", "publisher_heartbeat", "candle_c
 
 
 def build_health_summary(*, generated_at_utc, overall_status="OK", control_plane_active=False,
-                         indicators_built=False):
+                         indicators_built=False, candle_features_built=False, candle_features_active=False):
     """hermes:health:v1 payload — per-family health with explicit absence semantics (ACTIVE/PENDING/BLOCKED/
     NOT_IMPLEMENTED/BUILT_NOT_ACTIVE/LEGACY_DEPRECATED/OWNERSHIP_PENDING/FAULT). No regime/risk fields. Pure; no I/O.
 
     R2D2 self-listing fix: when control_plane_active=True, the four control-plane families (and control_plane_health)
     report ACTIVE and are NOT listed under missing_but_expected_families; genuinely-missing surfaces stay listed.
-    indicators_built=True represents the merged-but-not-activated indicator publisher as BUILT_NOT_ACTIVE (never
-    falsely ACTIVE before activation)."""
+    indicators_built / candle_features_built represent merged-but-not-activated publishers as BUILT_NOT_ACTIVE;
+    *_active=True reports ACTIVE (and drops the family from missing). Never falsely ACTIVE before activation."""
     if overall_status not in OVERALL_STATUS_VOCAB:
         raise ValueError(f"GOV-HERMES-CP-040: overall_status must be OK/WARN/FAIL (got {overall_status!r})")
     cp_status = STATUS_ACTIVE if control_plane_active else STATUS_PENDING
     ind_status = STATUS_BUILT_NOT_ACTIVE if indicators_built else STATUS_NOT_IMPLEMENTED
+    cf_status = (STATUS_ACTIVE if candle_features_active else
+                 STATUS_BUILT_NOT_ACTIVE if candle_features_built else STATUS_NOT_IMPLEMENTED)
     per_family = {
         "candle_latest": STATUS_ACTIVE, "candle_history": STATUS_ACTIVE, "forward_history": STATUS_ACTIVE,
         "candle_latest_d1": STATUS_PENDING_FIRST_DAILY_SEAL,
         "candle_history_d1": STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN,
-        "indicators": ind_status, "candle_features": STATUS_NOT_IMPLEMENTED,
+        "indicators": ind_status, "candle_features": cf_status,
         "feed_health": STATUS_INVENTORY_PENDING, "sessions": STATUS_OWNERSHIP_PENDING,
         "instrument_catalog": STATUS_PARTIAL, "ticks": STATUS_NOT_IMPLEMENTED,
         "control_plane": cp_status,
     }
     for fam in _CONTROL_PLANE_FAMILIES:
         per_family[fam] = cp_status
-    # genuinely-missing surfaces (control-plane families excluded when they are live)
-    missing = ["candle_features", "feed_health", "instrument_catalog", "sessions",
-               "candle_history_d1", "ticks"]
+    # genuinely-missing surfaces (control-plane families excluded when they are live; active families dropped)
+    missing = ["feed_health", "instrument_catalog", "sessions", "candle_history_d1", "ticks"]
     missing.insert(0, "indicators")           # indicators stays expected (BUILT_NOT_ACTIVE is not yet live)
+    if not candle_features_active:
+        missing.insert(1, "candle_features")  # candle_features expected until live-active
     if not control_plane_active:
         missing += list(_CONTROL_PLANE_FAMILIES)
     h = {
