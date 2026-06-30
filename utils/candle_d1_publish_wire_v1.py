@@ -60,6 +60,42 @@ def h4_child_is_complete(view):
     return True
 
 
+def _view_open_raw(c):
+    """Raw open timestamp from a child (dict or object); None if absent."""
+    return c["timestamp"] if isinstance(c, dict) else getattr(c, "timestamp", None)
+
+
+def hydration_reject_reason(child, *, instrument, d1_open, block_end, seen_epochs):
+    """RATIFIED warm-start eligibility (fail-loud, deterministic). Returns a rejection reason string, or None
+    if the child is an eligible D1 H4 member of the CURRENT block. Order: timeframe -> instrument -> malformed/
+    non-UTC -> outside-block -> wrong-boundary(off fixed grid) -> duplicate -> not-OK/incomplete. No synthesis,
+    no gap-laundering: anything not provably a complete status-OK on-grid H4 of THIS block is rejected."""
+    if _tf_name(child) != d1d.H4_TIMEFRAME:
+        return "WRONG_TIMEFRAME"
+    inst = seam.canonical_instrument(getattr(child, "instrument", None) if not isinstance(child, dict)
+                                     else child.get("instrument"))
+    if inst != instrument or inst == "XAUUSD":
+        return "INSTRUMENT_NOT_ALLOWLISTED"
+    ts = _view_open_raw(child)
+    if ts is None:
+        return "MALFORMED_NO_TIMESTAMP"
+    if isinstance(ts, datetime) and ts.tzinfo is None:
+        return "NON_UTC_NAIVE_TIMESTAMP"
+    try:
+        opened = cc.normalise_utc(ts)
+    except Exception:  # noqa: BLE001 - malformed timestamp -> reject loud, never accept
+        return "MALFORMED_TIMESTAMP"
+    if not (d1_open <= opened < block_end):
+        return "OUTSIDE_ACTIVE_D1_BLOCK"
+    if opened.hour not in d1d.D1_CHILD_H4_OPEN_HOURS_UTC or (opened.minute, opened.second) != (0, 0):
+        return "WRONG_BOUNDARY_OFF_FIXED_GRID"
+    if int(opened.timestamp()) in seen_epochs:
+        return "DUPLICATE_CHILD"
+    if not h4_child_is_complete(child):
+        return "NOT_OK_OR_INCOMPLETE_H4"
+    return None
+
+
 def parse_d1_instruments(raw):
     """Explicit, fail-closed D1 instrument allowlist. Missing/empty -> raise. The alias XAUUSD and any
     non-XAU id -> raise (this lane accepts the canonical id XAU_USD ONLY; no alias config). Returns a
@@ -109,7 +145,10 @@ class CanonicalD1Producer:
         self.enabled = True
         self.metrics = {"d1_published_ok": 0, "d1_skipped_incomplete": 0, "d1_skipped_incomplete_child": 0,
                         "d1_skipped_not_allowlisted": 0, "d1_skipped_non_h4": 0, "d1_emit_fail": 0,
-                        "d1_buckets_sealed": 0}
+                        "d1_buckets_sealed": 0,
+                        # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001 — warm-start hydration counters
+                        "d1_warmstart_attempts": 0, "d1_warmstart_children_loaded": 0,
+                        "d1_warmstart_children_rejected": 0}
         self._buf = {}        # instrument -> {d1_bucket_open_epoch: [COMPLETE-OK h4_candle, ...]}
         self._current = {}    # instrument -> current (open) d1_bucket_open_epoch
 
@@ -142,6 +181,69 @@ class CanonicalD1Producer:
         return {"published": False, "bucket_open_epoch": bo_ep, "child_accepted": accepted,
                 "reason": "BUFFERED" if accepted else "INCOMPLETE_CHILD_SKIPPED",
                 "child_status": getattr(h4_candle, "status", None)}
+
+    def hydrate(self, children, *, now, instrument="XAU_USD"):
+        """WARM-START the in-memory buffer for the CURRENT (unsealed) D1 block from already-existing H4 children,
+        so a restart no longer loses the day's already-sealed H4 children. PURE: seeds memory only — NO Redis I/O,
+        NO publication (the current block is published ONLY by a later LIVE roll-over via on_h4_close, never here,
+        so D1 stays AMBER until a genuine live seal). Deterministic + IDEMPOTENT: REPLACES the current block
+        buffer (re-running with the same inputs yields the same state). Bounded by the 6-child block. Returns a
+        detailed report for R2D2 (block start/end, candidates, accepted, rejected+reasons, buffer state, ready)."""
+        self.metrics["d1_warmstart_attempts"] += 1
+        inst = seam.canonical_instrument(instrument)
+        if inst not in self.allowed_instruments:
+            return {"attempted": True, "succeeded": False, "reason": "INSTRUMENT_NOT_ALLOWLISTED",
+                    "instrument": inst, "buffer_length": 0}
+        d1_open = d1d.d1_bucket_open(now)
+        d1d.assert_d1_open_anchor(d1_open)              # fail-loud: 22:00:00 UTC fixed (no UTC-midnight/DST)
+        block_end = d1_open + timedelta(seconds=d1d.D1_SECONDS)
+        d1_open_epoch = int(d1_open.timestamp())
+        ordered = sorted(children, key=lambda c: (cc.normalise_utc(_view_open_raw(c)).timestamp()
+                                                  if _view_open_raw(c) is not None else float("inf")))
+        accepted, rejected, seen = [], [], set()
+        for c in ordered:
+            reason = hydration_reject_reason(c, instrument=inst, d1_open=d1_open, block_end=block_end,
+                                             seen_epochs=seen)
+            raw = _view_open_raw(c)
+            ep = None
+            try:
+                ep = int(cc.normalise_utc(raw).timestamp()) if raw is not None else None
+            except Exception:  # noqa: BLE001
+                ep = None
+            if reason is not None:
+                rejected.append({"open_epoch": ep, "reason": reason})
+                continue
+            seen.add(ep)
+            accepted.append(c)
+        # IDEMPOTENT seed: replace the current block buffer (never append onto a stale buffer)
+        if accepted:
+            self._buf.setdefault(inst, {})[d1_open_epoch] = list(accepted)
+        else:
+            self._buf.setdefault(inst, {}).pop(d1_open_epoch, None)
+        self._current[inst] = d1_open_epoch
+        self.metrics["d1_warmstart_children_loaded"] = len(accepted)
+        self.metrics["d1_warmstart_children_rejected"] = len(rejected)
+        complete = len(accepted) == d1d.D1_EXPECTED_CHILDREN
+        return {
+            "attempted": True, "succeeded": True, "instrument": inst,
+            "d1_block_start_utc": cc._fmt(d1_open), "d1_block_end_utc": cc._fmt(block_end),
+            "d1_block_open_epoch": d1_open_epoch,
+            "candidate_count": len(children),
+            "accepted_count": len(accepted),
+            "accepted_child_open_epochs": [int(cc.normalise_utc(_view_open_raw(c)).timestamp()) for c in accepted],
+            "rejected_count": len(rejected), "rejected": rejected,
+            "buffer_length": len(accepted),
+            "remaining_children_required": max(0, d1d.D1_EXPECTED_CHILDREN - len(accepted)),
+            "d1_complete_6of6": complete,
+            "d1_published_by_hydration": False,         # NEVER — hydration publishes nothing
+            "d1_remains_gated_amber": True,
+            "d1_status_after_hydration": "READY_PENDING_LIVE_ROLLOVER" if complete else "AMBER_AWAITING_LIVE_H4",
+            "publication_note": (
+                "complete 6/6 present -> producer READY; existing D1 semantics publish ONLY on the next LIVE H4 "
+                "roll-over (no retroactive/fake seal) -> D1 stays AMBER until that genuine live seal"
+                if complete else
+                "partial/empty -> buffer seeded with eligible children; awaiting live H4 closes; D1 AMBER/pending"),
+        }
 
     def _seal_and_publish(self, instrument, bucket_epoch):
         children = self._buf.get(instrument, {}).pop(bucket_epoch, [])
