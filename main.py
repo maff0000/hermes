@@ -58,6 +58,8 @@ from utils.candle_h4_publish_wire_v1 import (
 from utils.hermes_publisher_runtime_v1 import (
     build_publisher_supervisor_from_env as _build_publisher_supervisor,
 )
+# WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001 — D1 H4 warm-start hydration (gated; default cold-start no-op).
+from utils.candle_d1_hydration_v1 import warmstart_d1_from_env as _warmstart_d1
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -111,6 +113,9 @@ class ServiceState:
     # Durable in-process publisher supervisor (disabled by default -> no-op).
     # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001
     publisher_supervisor = None
+    # D1 warm-start hydration report (gated; default cold-start no-op).
+    # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001
+    d1_warmstart_report = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -1191,6 +1196,25 @@ async def lifespan(app: FastAPI):
             _candle_fwd_init_exc,
         )
         raise
+
+    # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001 — D1 warm-start hydration at D1-producer init.
+    # Default cold-start no-op (HERMES_D1_WARMSTART_ENABLED unset). When enabled+authorised it reconstructs the
+    # CURRENT unsealed D1 block from governed H4 history so a restart no longer resets the accumulation buffer.
+    # NO Redis/SQL writes, NO D1 publication (live roll-over still seals). ENABLED-without-AUTHORISED -> exit 103.
+    try:
+        _d1_producer = getattr(state.candle_h4_producer, "d1_producer", None)
+        state.d1_warmstart_report = _warmstart_d1(
+            _d1_producer, now=datetime.now(timezone.utc), logger=logger)
+        logger.info("[D1_WARMSTART_BOOT] %s", {k: state.d1_warmstart_report.get(k) for k in (
+            "attempted", "skipped", "reason", "buffer_length", "remaining_children_required",
+            "d1_status_after_hydration")})
+    except SystemExit:
+        raise                                   # ENABLED-without-AUTHORISED: fail loud (exit 103), abort boot
+    except Exception as _d1_ws_exc:
+        # Any other warm-start fault stays SAFE: empty buffer / legacy cold-start, service keeps booting.
+        state.d1_warmstart_report = {"attempted": True, "succeeded": False, "reason": "WARMSTART_FAULT_SAFE",
+                                     "error": repr(_d1_ws_exc), "buffer_length": 0, "d1_remains_gated_amber": True}
+        logger.error("[D1_WARMSTART_BOOT_FAIL] safe cold-start fallback: %r", _d1_ws_exc)
 
     # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 — durable in-process publisher supervisor.
     # DISABLED by default (DisabledPublisherSupervisor no-op). ENABLED-without-AUTHORISED -> SystemExit(101)
