@@ -28,6 +28,71 @@ def _tf_name(candle):
     return tf.name if hasattr(tf, "name") else str(tf)
 
 
+# --------------------------------------------------------------------------- H4 warm-start hydration helpers
+# WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001. Mirror of the D1 warm-start pattern, one layer down.
+def _view_open_raw(c):
+    """Raw open timestamp from an H1 child (dict or object); None if absent."""
+    return c["timestamp"] if isinstance(c, dict) else getattr(c, "timestamp", None)
+
+
+def h1_child_is_complete(view):
+    """A warm-start-eligible H1 child must be a status-OK, CLOSED, fully-complete H1 on the hour (fail-closed).
+    ANY non-OK / incomplete / missing-field / off-hour state makes the child INELIGIBLE (it could never make an
+    OK H4). Requires: timeframe==H1, status==OK, is_closed not False, source_count==expected_source_count,
+    source_coverage==1.0, gap_state in {None, NONE}, and a valid on-the-hour open."""
+    if _tf_name(view) != h4d.H1_TIMEFRAME:
+        return False
+    if getattr(view, "status", None) != "OK":
+        return False
+    if getattr(view, "is_closed", None) is False:
+        return False
+    sc = getattr(view, "source_count", None)
+    esc = getattr(view, "expected_source_count", None)
+    if sc is None or esc is None or sc != esc:
+        return False
+    if getattr(view, "source_coverage", None) != 1.0:
+        return False
+    if getattr(view, "gap_state", "NONE") not in (None, "NONE"):
+        return False
+    ts = getattr(view, "timestamp", None)
+    if ts is None:
+        return False
+    o = cc.normalise_utc(ts)
+    if (o.minute, o.second, o.microsecond) != (0, 0, 0):       # H1 opens strictly on the hour
+        return False
+    return True
+
+
+def h1_hydration_reject_reason(child, *, instrument, h4_open, block_end, seen_epochs):
+    """RATIFIED H4 warm-start eligibility (fail-loud, deterministic). Returns a rejection reason string, or None
+    if the child is an eligible complete-OK H1 member of the CURRENT H4 block. Order: timeframe -> instrument ->
+    malformed/non-UTC -> outside-block -> wrong-boundary(off the hour) -> duplicate -> not-OK/incomplete."""
+    if _tf_name(child) != h4d.H1_TIMEFRAME:
+        return "WRONG_TIMEFRAME"
+    inst = seam.canonical_instrument(getattr(child, "instrument", None) if not isinstance(child, dict)
+                                     else child.get("instrument"))
+    if inst != instrument or inst == "XAUUSD":
+        return "INSTRUMENT_NOT_ALLOWLISTED"
+    ts = _view_open_raw(child)
+    if ts is None:
+        return "MALFORMED_NO_TIMESTAMP"
+    if isinstance(ts, datetime) and ts.tzinfo is None:
+        return "NON_UTC_NAIVE_TIMESTAMP"
+    try:
+        opened = cc.normalise_utc(ts)
+    except Exception:  # noqa: BLE001 - malformed timestamp -> reject loud, never accept
+        return "MALFORMED_TIMESTAMP"
+    if not (h4_open <= opened < block_end):
+        return "OUTSIDE_ACTIVE_H4_BLOCK"
+    if (opened.minute, opened.second) != (0, 0):
+        return "WRONG_BOUNDARY_OFF_FIXED_GRID"
+    if int(opened.timestamp()) in seen_epochs:
+        return "DUPLICATE_CHILD"
+    if not h1_child_is_complete(child):
+        return "NOT_OK_OR_INCOMPLETE_H1"
+    return None
+
+
 class _SealedH4View:
     """Adapter: presents a freshly PUBLISHED H4 envelope as an H4 candle-like object for the D1 producer.
     Carries the canonical H4 OHLCV + open time + instrument AND the H4 COMPLETENESS/provenance (status,
@@ -77,7 +142,10 @@ class CanonicalH4Producer:
                         "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0,
                         "h4_history_forward_written": 0, "h4_history_forward_skipped": 0,
                         "h4_history_forward_fail": 0, "d1_hook_offered": 0, "d1_hook_published": 0,
-                        "d1_hook_skipped": 0, "d1_hook_fail": 0}
+                        "d1_hook_skipped": 0, "d1_hook_fail": 0,
+                        # WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001 — warm-start hydration counters
+                        "h4_warmstart_attempts": 0, "h4_warmstart_children_loaded": 0,
+                        "h4_warmstart_children_rejected": 0}
         self._buf = {}        # instrument -> {bucket_open_epoch: [h1_candle, ...]}
         self._current = {}    # instrument -> current (open) bucket_open_epoch
 
@@ -100,6 +168,64 @@ class CanonicalH4Producer:
         self._buf.setdefault(inst, {}).setdefault(bo_ep, []).append(h1_candle)
         self._current[inst] = bo_ep
         return result
+
+    def hydrate(self, children, *, now, instrument="XAU_USD"):
+        """WARM-START the in-memory H1 buffer for the CURRENT (unsealed) H4 block from already-existing H1
+        children, so a restart mid-H4-bucket no longer loses the bucket's already-closed H1 children (the trap
+        that sealed the 2026-07-01 06:00 H4 at 2/4). PURE: seeds memory only — NO Redis I/O, NO publication (the
+        current bucket is sealed ONLY by a later LIVE roll-over via on_h1_close, never here). Deterministic +
+        IDEMPOTENT: REPLACES the current block buffer. Bounded by the 4-child block. Returns an R2D2 report."""
+        self.metrics["h4_warmstart_attempts"] += 1
+        inst = seam.canonical_instrument(instrument)
+        if inst not in self.allowed_instruments:
+            return {"attempted": True, "succeeded": False, "reason": "INSTRUMENT_NOT_ALLOWLISTED",
+                    "instrument": inst, "buffer_length": 0}
+        h4_open = h4d.h4_bucket_open(now)
+        block_end = h4_open + timedelta(seconds=h4d.H4_SECONDS)
+        h4_open_epoch = int(h4_open.timestamp())
+        ordered = sorted(children, key=lambda c: (cc.normalise_utc(_view_open_raw(c)).timestamp()
+                                                  if _view_open_raw(c) is not None else float("inf")))
+        accepted, rejected, seen = [], [], set()
+        for c in ordered:
+            reason = h1_hydration_reject_reason(c, instrument=inst, h4_open=h4_open, block_end=block_end,
+                                                seen_epochs=seen)
+            raw = _view_open_raw(c)
+            try:
+                ep = int(cc.normalise_utc(raw).timestamp()) if raw is not None else None
+            except Exception:  # noqa: BLE001
+                ep = None
+            if reason is not None:
+                rejected.append({"open_epoch": ep, "reason": reason})
+                continue
+            seen.add(ep)
+            accepted.append(c)
+        # IDEMPOTENT seed: replace the current block buffer (never append onto a stale buffer)
+        if accepted:
+            self._buf.setdefault(inst, {})[h4_open_epoch] = list(accepted)
+        else:
+            self._buf.setdefault(inst, {}).pop(h4_open_epoch, None)
+        self._current[inst] = h4_open_epoch
+        self.metrics["h4_warmstart_children_loaded"] = len(accepted)
+        self.metrics["h4_warmstart_children_rejected"] = len(rejected)
+        complete = len(accepted) == h4d.H4_EXPECTED_CHILDREN
+        return {
+            "attempted": True, "succeeded": True, "instrument": inst,
+            "h4_block_start_utc": cc._fmt(h4_open), "h4_block_end_utc": cc._fmt(block_end),
+            "h4_block_open_epoch": h4_open_epoch,
+            "candidate_count": len(children), "accepted_count": len(accepted),
+            "accepted_child_open_epochs": [int(cc.normalise_utc(_view_open_raw(c)).timestamp()) for c in accepted],
+            "rejected_count": len(rejected), "rejected": rejected,
+            "buffer_length": len(accepted),
+            "remaining_children_required": max(0, h4d.H4_EXPECTED_CHILDREN - len(accepted)),
+            "h4_complete_4of4": complete,
+            "h4_published_by_hydration": False,         # NEVER — hydration publishes nothing
+            "h4_status_after_hydration": "READY_PENDING_LIVE_ROLLOVER" if complete else "AWAITING_LIVE_H1",
+            "publication_note": (
+                "complete 4/4 present -> producer READY; existing H4 semantics seal ONLY on the next LIVE H1 "
+                "roll-over (no retroactive/fake seal)"
+                if complete else
+                "partial/empty -> buffer seeded with eligible H1; awaiting live H1 closes; H4 seals live"),
+        }
 
     def _seal_and_publish(self, instrument, bucket_epoch):
         children = self._buf.get(instrument, {}).pop(bucket_epoch, [])
