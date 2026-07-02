@@ -60,6 +60,8 @@ from utils.hermes_publisher_runtime_v1 import (
 )
 # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001 — D1 H4 warm-start hydration (gated; default cold-start no-op).
 from utils.candle_d1_hydration_v1 import warmstart_d1_from_env as _warmstart_d1
+# WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001 — H4 H1 warm-start hydration (gated; default cold-start no-op).
+from utils.candle_h4_hydration_v1 import warmstart_h4_from_env as _warmstart_h4
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -116,6 +118,9 @@ class ServiceState:
     # D1 warm-start hydration report (gated; default cold-start no-op).
     # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001
     d1_warmstart_report = None
+    # H4 warm-start hydration report (gated; default cold-start no-op).
+    # WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001
+    h4_warmstart_report = None
 
     # Current active source
     active_source: TickSource = TickSource.OANDA
@@ -1196,6 +1201,25 @@ async def lifespan(app: FastAPI):
             _candle_fwd_init_exc,
         )
         raise
+
+    # WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001 — H4 warm-start hydration at H4-producer init.
+    # Default cold-start no-op (HERMES_H4_WARMSTART_ENABLED unset). When enabled+authorised it reconstructs the
+    # CURRENT unsealed H4 block's already-closed H1 children from governed H1 history so a mid-bucket restart no
+    # longer seals an incomplete H4. NO Redis/SQL writes, NO H4 publication (live roll-over still seals).
+    # ENABLED-without-AUTHORISED -> exit 104. Runs before the D1 warm-start (same producer object).
+    try:
+        state.h4_warmstart_report = _warmstart_h4(
+            state.candle_h4_producer, now=datetime.now(timezone.utc), logger=logger)
+        logger.info("[H4_WARMSTART_BOOT] %s", {k: state.h4_warmstart_report.get(k) for k in (
+            "attempted", "skipped", "reason", "buffer_length", "remaining_children_required",
+            "h4_status_after_hydration")})
+    except SystemExit:
+        raise                                   # ENABLED-without-AUTHORISED: fail loud (exit 104), abort boot
+    except Exception as _h4_ws_exc:
+        # Any other warm-start fault stays SAFE: empty buffer / legacy cold-start, service keeps booting.
+        state.h4_warmstart_report = {"attempted": True, "succeeded": False, "reason": "WARMSTART_FAULT_SAFE",
+                                     "error": repr(_h4_ws_exc), "buffer_length": 0}
+        logger.error("[H4_WARMSTART_BOOT_FAIL] safe cold-start fallback: %r", _h4_ws_exc)
 
     # WO-HELM-HERMES-D1-H4-HYDRATION-WARMSTART-0001 — D1 warm-start hydration at D1-producer init.
     # Default cold-start no-op (HERMES_D1_WARMSTART_ENABLED unset). When enabled+authorised it reconstructs the
