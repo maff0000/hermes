@@ -27,6 +27,7 @@ from utils import hermes_levels_v1 as lvl
 from utils import indicators as ind_compute
 from utils import atr_calculator
 from utils import candle_features as cf
+from utils import hermes_instrument_catalog_v1 as ic   # instrument-catalog runtime publisher step (gated dark)
 
 UTC = datetime.timezone.utc
 INST = "XAU_USD"
@@ -384,3 +385,25 @@ def sessions_levels_step(client, _win_cache={}):
         lvl.validate_level_contract(p)
         client.set(lvl.levels_key(INST, "intraday"), json.dumps(p)); n += 1
     return {"published": n}
+
+
+# =========================================================================== instrument_catalog (gated dark)
+# WO-HELM-HERMES-INSTRUMENT-CATALOG-RUNTIME-PUBLISHER-WIRING-0001. PR #63 supervisor-compatible runner step.
+def instrument_catalog_step(client):
+    """Governed instrument-catalog publisher step. Gate-first: NO-OP when the catalog gate is disabled (no client
+    touch, no write); enabled-without-authorised -> SystemExit(101) (fail-closed). When enabled+authorised, builds
+    the governed catalog contract (canonical XAU_USD; alias-only XAUUSD; dark/pending-runtime-deployment markers;
+    D1 default PENDING — never inferred ACTIVE; no regime/risk/signal/decision fields) and writes ONLY
+    hermes:instrument_catalog:XAU_USD:v1 (TTL). Publishes deterministic HERMES discovery facts only."""
+    pub = ic.build_instrument_catalog_publisher_from_env()   # SystemExit(101) if enabled-without-authorised
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    now = _now()
+    payload = pub.build(instrument=ic.CANONICAL_INSTRUMENT, generated_at_utc=now, source_name=pub.source_name)
+    payload["published_at_utc"] = ic._utc(now)               # published_at where governed
+    ic.validate_instrument_catalog_contract(payload)         # re-validate: forbidden-key + no :XAUUSD: output scan
+    key = pub.key(ic.CANONICAL_INSTRUMENT)                   # hermes:instrument_catalog:XAU_USD:v1
+    if not (key.endswith(":v1") and "XAUUSD" not in key):
+        return {"published": 0}
+    client.set(key, json.dumps(payload), ex=ic.TTL_SECONDS)
+    return {"published": 1}

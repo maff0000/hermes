@@ -142,12 +142,20 @@ def default_runner_specs():
     """The governed publisher runner specs (name, step_fn, interval). Lazy import of the step module so this
     file does NO Redis/compute I/O at import. Each step is a no-op when its family gate is disabled."""
     from utils import hermes_runtime_publisher_steps_v1 as steps
-    return [
+    specs = [
         ("control_plane", steps.control_plane_step, DEFAULT_INTERVAL_SECONDS),
         ("indicators", steps.indicator_step, DEFAULT_INTERVAL_SECONDS),
         ("candle_features", steps.candle_feature_step, DEFAULT_INTERVAL_SECONDS),
         ("sessions_levels", steps.sessions_levels_step, DEFAULT_INTERVAL_SECONDS),
     ]
+    # WO-HELM-HERMES-INSTRUMENT-CATALOG-RUNTIME-PUBLISHER-WIRING-0001 — instrument-catalog runner: DISABLED by
+    # default -> NOT appended (default remains exactly the four active families). Enabled-without-authorised ->
+    # SystemExit(101) (fail-closed via the contract gate). Enabled+authorised -> appended as a 5th governed runner.
+    # No Redis I/O here (env read only); the catalog step is itself gate-first/no-op when disabled.
+    from utils import hermes_instrument_catalog_v1 as ic
+    if getattr(ic.build_instrument_catalog_publisher_from_env(), "enabled", False):
+        specs.append(("instrument_catalog", steps.instrument_catalog_step, DEFAULT_INTERVAL_SECONDS))
+    return specs
 
 
 def build_publisher_supervisor_from_env(*, redis_client_factory=None, runner_specs=None):
