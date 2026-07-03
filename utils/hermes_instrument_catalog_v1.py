@@ -141,6 +141,7 @@ def default_catalog_snapshot():
         "levels": {"session": SURFACE_ACTIVE, "intraday": SURFACE_ACTIVE,
                    "daily": SURFACE_GATED, "weekly": SURFACE_GATED},
         "feed_health": SURFACE_CODE_PRESENT_DARK,
+        "instrument_catalog": SURFACE_CODE_PRESENT_DARK,   # PR #67 merged inert -> code present, NOT runtime-live
         "control_plane": SURFACE_ACTIVE,
         "quote": SURFACE_CODE_PRESENT_DARK,     # PR #68 merged inert -> code present, NOT live/activated
         "tick": SURFACE_CODE_PRESENT_DARK,      # existing tick_contract_v1 -> code present/shadow, NOT live/activated
@@ -167,6 +168,7 @@ def _aggregate_status(snapshot):
                         snapshot["control_plane"]]
     # UNKNOWN anywhere in the whole snapshot fails loud
     all_states = list(expected_active) + [snapshot["candle_latest"]["D1"], snapshot["feed_health"],
+                                          snapshot.get("instrument_catalog", SURFACE_CODE_PRESENT_DARK),
                                           snapshot["quote"], snapshot["tick"], snapshot["d1_latest"]]
     if any(s == SURFACE_UNKNOWN for s in all_states):
         return STATUS_UNKNOWN
@@ -186,6 +188,8 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
             _assert_surface_status(snap[fam][tf], f"{fam}:{tf}")
     for ctx in ("sessions", "feed_health", "control_plane", "quote", "tick", "d1_latest"):
         _assert_surface_status(snap[ctx], ctx)
+    ic_status = snap.get("instrument_catalog", SURFACE_CODE_PRESENT_DARK)   # catalog SELF-surface (backward-compat)
+    _assert_surface_status(ic_status, "instrument_catalog")
     for sc in LEVEL_SCOPES:
         _assert_surface_status(snap["levels"][sc], f"levels:{sc}")
 
@@ -205,7 +209,8 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     session_contracts = {"key": _safe_key(sess.sessions_key, CANONICAL_INSTRUMENT), "status": snap["sessions"]}
     level_contracts = {sc: {"key": _safe_key(lvl.levels_key, CANONICAL_INSTRUMENT, sc),
                             "status": snap["levels"][sc]} for sc in LEVEL_SCOPES}
-    feed_health_contract = {"key": _safe_key(fh.feed_health_key, CANONICAL_INSTRUMENT), "status": snap["feed_health"]}
+    feed_health_contract = {"key": _safe_key(fh.feed_health_key, CANONICAL_INSTRUMENT), "status": snap["feed_health"],
+                            "live": False}
     # quote: NEW governed key hermes:quote:XAU_USD:v1 (PR #68). tick: EXISTING key hermes:ticks:XAU_USD:latest:v1
     # (tick_contract_v1) — referenced, NEVER a duplicate hermes:tick:* key. Both CODE_PRESENT_DARK -> key present
     # as a discovery fact but NOT a claim that the surface is live/published.
@@ -222,14 +227,30 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     control_plane_contracts = {"manifest_key": ctl.KEY_CONTRACT_MANIFEST, "heartbeat_key": ctl.KEY_PUBLISHER_HEARTBEAT,
                                "catalog_key": ctl.KEY_CATALOG_CANDLES, "health_key": ctl.KEY_HEALTH,
                                "status": snap["control_plane"]}
+    # instrument-catalog SELF-surface: the catalog describes its OWN contract as CODE_PRESENT_DARK (PR #67 merged
+    # inert) -> key present as a discovery fact, live=False (NOT runtime-published until a separate deploy+activate WO).
+    instrument_catalog_contract = {"key": instrument_catalog_key(CANONICAL_INSTRUMENT), "status": ic_status,
+                                   "live": False}
 
     surfaces = {"candles": {tf: snap["candle_latest"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "candle_history": {tf: snap["candle_history"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "indicators": {tf: snap["indicators"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "candle_features": {tf: snap["candle_features"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "sessions": snap["sessions"], "levels": dict(snap["levels"]),
-                "feed_health": snap["feed_health"], "control_plane": snap["control_plane"],
+                "feed_health": snap["feed_health"], "instrument_catalog": ic_status,
+                "control_plane": snap["control_plane"],
                 "quote": snap["quote"], "tick": snap["tick"]}
+
+    # Pending-runtime-deployment markers: which merged surfaces are CODE_PRESENT_DARK (present in code, NOT
+    # live-published). Code/catalog presence is NOT live publication — each needs a separate deploy + activate WO.
+    _dark = {"feed_health": snap["feed_health"], "instrument_catalog": ic_status,
+             "quote": snap["quote"], "tick": snap["tick"]}
+    pending_runtime_deployment = {
+        "note": "CODE_PRESENT_DARK = merged/present in code, NOT live/published; code/catalog presence is not the "
+                "same as live publication. Each dark surface requires a separate runtime deploy + activate WO.",
+        "dark_surfaces": sorted(k for k, v in _dark.items() if v == SURFACE_CODE_PRESENT_DARK),
+        "runtime_live": False,
+    }
 
     d1_policy = {"anchor_utc": "22:00:00_FIXED", "dst_adjustment": False, "source": "6xH4",
                  "latest_status": snap["d1_latest"], "history_status": snap["candle_history"]["D1"],
@@ -249,6 +270,7 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
         "active_timeframes": active, "gated_timeframes": gated, "blocked_timeframes": blocked,
         "not_implemented_timeframes": not_impl,
         "surfaces": surfaces,
+        "pending_runtime_deployment": pending_runtime_deployment,
         "contracts": {"candle": "candle_contract:v1", "indicators": "indicators:v1",
                       "candle_features": "candle_features:v1", "sessions": "sessions:v1", "levels": "levels:v1",
                       "feed_health": "feed_health:v1", "control_plane": "control_plane:v1",
@@ -265,6 +287,7 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
         "session_contracts": session_contracts,
         "level_contracts": level_contracts,
         "feed_health_contract": feed_health_contract,
+        "instrument_catalog_contract": instrument_catalog_contract,
         "quote_contract": quote_contract,
         "tick_contract": tick_contract,
         "legacy_contracts": legacy_contracts,
