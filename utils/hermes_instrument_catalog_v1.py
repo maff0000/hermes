@@ -28,6 +28,8 @@ from utils import hermes_sessions_v1 as sess
 from utils import hermes_levels_v1 as lvl
 from utils import hermes_feed_health_v1 as fh
 from utils import hermes_control_plane_v1 as ctl
+from utils import hermes_quote_tick_contract_v1 as qt   # quote contract key (code-present dark) — referenced only
+from utils import tick_contract_v1 as tickc             # EXISTING tick contract key — referenced, never rebuilt
 
 SCHEMA_VERSION = "v1"
 CONTRACT_NAME = "instrument_catalog"
@@ -127,8 +129,9 @@ def _safe_key(fn, *args):
 def default_catalog_snapshot():
     """The governed catalog DECLARATION (current reality): which HERMES surfaces exist in code + their gating.
     ACTIVE = contract defined + expected active per governed config; D1 is gated/pending; feed_health is
-    CODE_PRESENT_DARK (merged not activated); quote/tick NOT_IMPLEMENTED; legacy surfaces LEGACY/partial. This is
-    a declaration input to the PURE builder, not a live probe — a future activate WO reconciles it against runtime."""
+    CODE_PRESENT_DARK (merged not activated); quote (PR #68) + tick (existing tick_contract_v1) are CODE_PRESENT_DARK
+    (merged/present but not live/activated); legacy surfaces LEGACY/partial. This is a declaration input to the PURE
+    builder, not a live probe — a future activate WO reconciles it against runtime."""
     return {
         "candle_latest": {**{tf: SURFACE_ACTIVE for tf in _ACTIVE_GRID_TFS}, "D1": SURFACE_PENDING_FIRST_DAILY_SEAL},
         "candle_history": {**{tf: SURFACE_ACTIVE for tf in _ACTIVE_GRID_TFS}, "D1": SURFACE_BLOCKED},
@@ -139,8 +142,8 @@ def default_catalog_snapshot():
                    "daily": SURFACE_GATED, "weekly": SURFACE_GATED},
         "feed_health": SURFACE_CODE_PRESENT_DARK,
         "control_plane": SURFACE_ACTIVE,
-        "quote": SURFACE_NOT_IMPLEMENTED,
-        "tick": SURFACE_NOT_IMPLEMENTED,
+        "quote": SURFACE_CODE_PRESENT_DARK,     # PR #68 merged inert -> code present, NOT live/activated
+        "tick": SURFACE_CODE_PRESENT_DARK,      # existing tick_contract_v1 -> code present/shadow, NOT live/activated
         "d1_latest": SURFACE_PENDING_FIRST_DAILY_SEAL,
     }
 
@@ -203,8 +206,13 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     level_contracts = {sc: {"key": _safe_key(lvl.levels_key, CANONICAL_INSTRUMENT, sc),
                             "status": snap["levels"][sc]} for sc in LEVEL_SCOPES}
     feed_health_contract = {"key": _safe_key(fh.feed_health_key, CANONICAL_INSTRUMENT), "status": snap["feed_health"]}
-    quote_contract = {"key": None, "status": snap["quote"]}
-    tick_contract = {"key": None, "status": snap["tick"]}
+    # quote: NEW governed key hermes:quote:XAU_USD:v1 (PR #68). tick: EXISTING key hermes:ticks:XAU_USD:latest:v1
+    # (tick_contract_v1) — referenced, NEVER a duplicate hermes:tick:* key. Both CODE_PRESENT_DARK -> key present
+    # as a discovery fact but NOT a claim that the surface is live/published.
+    quote_contract = {"key": _safe_key(qt.quote_key, CANONICAL_INSTRUMENT), "status": snap["quote"],
+                      "live": False}
+    tick_contract = {"key": _safe_key(tickc.canonical_key, CANONICAL_INSTRUMENT), "status": snap["tick"],
+                     "live": False, "note": "existing governed tick surface (tick_contract_v1); referenced, not rebuilt"}
     legacy_contracts = [{"pattern": "hermes:signals:*", "status": SURFACE_LEGACY,
                          "note": "legacy signal surface — preserved, not deleted; consumer cutover is a separate WO"},
                         {"pattern": "hermes:market_map:*", "status": SURFACE_LEGACY_OR_PARTIAL,
@@ -247,6 +255,7 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
                       "instrument_catalog": f"{CONTRACT_NAME}:{SCHEMA_VERSION}"},
         "contract_keys": {"instrument_catalog": instrument_catalog_key(CANONICAL_INSTRUMENT),
                           "feed_health": feed_health_contract["key"], "sessions": session_contracts["key"],
+                          "quote": quote_contract["key"], "tick": tick_contract["key"],
                           "control_plane": control_plane_contracts},
         "timeframe_contracts": {tf: {"candle": candle_contracts[tf], "indicators": indicator_contracts[tf],
                                      "candle_features": candle_feature_contracts[tf]} for tf in SUPPORTED_TIMEFRAMES},
