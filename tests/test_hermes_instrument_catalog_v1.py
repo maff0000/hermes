@@ -192,3 +192,59 @@ def test_publisher_disabled_by_default_and_101(monkeypatch):
     with pytest.raises(SystemExit) as e:
         ic.build_instrument_catalog_publisher_from_env()
     assert e.value.code == 101
+
+
+# === WO-HELM-HERMES-CATALOG-SELF-SURFACE-PENDING-RUNTIME-MARKERS-0001 (delta) ===
+def test_catalog_self_surface_code_present_dark():
+    p = _build()
+    assert p["surfaces"]["instrument_catalog"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["instrument_catalog_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["instrument_catalog_contract"]["key"] == "hermes:instrument_catalog:XAU_USD:v1"
+    assert p["instrument_catalog_contract"]["live"] is False
+
+
+def test_catalog_self_surface_not_active_and_not_degrading_green():
+    p = _build()
+    assert p["instrument_catalog_contract"]["status"] != ic.SURFACE_ACTIVE
+    assert p["status"] == ic.STATUS_GREEN                      # dark self-surface must not degrade core GREEN
+
+
+def test_pending_runtime_deployment_markers_present():
+    p = _build()
+    prd = p["pending_runtime_deployment"]
+    assert prd["runtime_live"] is False
+    assert set(prd["dark_surfaces"]) == {"feed_health", "instrument_catalog", "quote", "tick"}
+    assert "not the same as live publication" in prd["note"] or "not live/published" in prd["note"]
+
+
+def test_feed_health_marker_live_false():
+    assert _build()["feed_health_contract"]["live"] is False
+
+
+def test_pr69_quote_tick_behaviour_unchanged():
+    p = _build()
+    assert p["quote_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["quote_contract"]["key"] == "hermes:quote:XAU_USD:v1" and p["quote_contract"]["live"] is False
+    assert p["tick_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["tick_contract"]["key"] == "hermes:ticks:XAU_USD:latest:v1" and p["tick_contract"]["live"] is False
+    # no duplicate hermes:tick:* ; no :XAUUSD: output key
+    assert all("hermes:tick:XAU_USD:v1" != k for k in ic._iter_key_strings(p))
+    assert all(":XAUUSD:" not in k for k in ic._iter_key_strings(p) if isinstance(k, str))
+
+
+def test_d1_default_still_pending_after_delta():
+    p = _build()
+    assert p["candle_contracts"]["D1"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL
+    assert p["d1_policy"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL
+
+
+def test_self_surface_backward_compatible_missing_key():
+    # a snapshot built without the new key still validates (defaults to CODE_PRESENT_DARK)
+    snap = ic.default_catalog_snapshot(); del snap["instrument_catalog"]
+    p = ic.build_instrument_catalog_contract(instrument="XAU_USD", generated_at_utc=_NOW, source_name="OANDA", snapshot=snap)
+    assert p["instrument_catalog_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+
+
+def test_self_surface_unknown_fails_loud():
+    snap = ic.default_catalog_snapshot(); snap["instrument_catalog"] = ic.SURFACE_UNKNOWN
+    assert ic.build_instrument_catalog_contract(instrument="XAU_USD", generated_at_utc=_NOW, source_name="OANDA", snapshot=snap)["status"] == ic.STATUS_UNKNOWN
