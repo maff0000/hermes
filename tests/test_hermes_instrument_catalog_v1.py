@@ -87,10 +87,44 @@ def test_feed_health_code_present_dark_by_default():
     assert p["feed_health_contract"]["key"] == "hermes:feed_health:XAU_USD:v1"
 
 
-def test_quote_tick_not_implemented():
+def test_quote_tick_code_present_dark():
+    # WO-HELM-HERMES-CATALOG-RECONCILE-QUOTE-TICK-DARK-STATE-0001: quote (PR #68) + tick (existing tick_contract_v1)
+    # are CODE_PRESENT_DARK — merged/present but NOT live/activated. Keys are discovery facts, not liveness claims.
     p = _build()
-    assert p["quote_contract"]["status"] == ic.SURFACE_NOT_IMPLEMENTED and p["quote_contract"]["key"] is None
-    assert p["tick_contract"]["status"] == ic.SURFACE_NOT_IMPLEMENTED and p["tick_contract"]["key"] is None
+    assert p["quote_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["quote_contract"]["key"] == "hermes:quote:XAU_USD:v1" and p["quote_contract"]["live"] is False
+    assert p["tick_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert p["tick_contract"]["key"] == "hermes:ticks:XAU_USD:latest:v1" and p["tick_contract"]["live"] is False
+
+
+def test_no_duplicate_tick_key_introduced():
+    p = _build()
+    # tick references the EXISTING hermes:ticks:...latest:v1; NO duplicate singular hermes:tick:XAU_USD:v1 anywhere
+    assert all("hermes:tick:XAU_USD:v1" != k for k in ic._iter_key_strings(p))
+    assert p["tick_contract"]["key"] == "hermes:ticks:XAU_USD:latest:v1"
+    assert p["contract_keys"]["quote"] == "hermes:quote:XAU_USD:v1"
+    assert p["contract_keys"]["tick"] == "hermes:ticks:XAU_USD:latest:v1"
+
+
+def test_quote_tick_not_active_and_not_expected_active():
+    # CODE_PRESENT_DARK must NOT make the catalog claim quote/tick ACTIVE, and must not degrade the core GREEN.
+    p = _build()
+    assert p["quote_contract"]["status"] != ic.SURFACE_ACTIVE and p["tick_contract"]["status"] != ic.SURFACE_ACTIVE
+    assert p["status"] == ic.STATUS_GREEN                       # core surfaces still GREEN; dark quote/tick don't degrade
+    assert "quote" not in p["active_timeframes"] and "tick" not in p["active_timeframes"]
+
+
+def test_d1_default_not_hardcoded_active():
+    # a verified live D1 seal must NOT hard-code the catalog default to ACTIVE — default stays PENDING/gated
+    p = _build()
+    assert p["candle_contracts"]["D1"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL
+    assert p["d1_policy"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL
+    # D1 only ACTIVE when the snapshot EXPLICITLY provides it
+    snap = ic.default_catalog_snapshot()
+    snap["candle_latest"]["D1"] = ic.SURFACE_ACTIVE
+    snap["d1_latest"] = ic.SURFACE_ACTIVE
+    p2 = _build(snapshot=snap)
+    assert p2["candle_contracts"]["D1"]["latest_status"] == ic.SURFACE_ACTIVE
 
 
 def test_legacy_surfaces_represented_not_deleted():
