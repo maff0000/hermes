@@ -98,12 +98,23 @@ def test_publish_key_and_governed_payload(monkeypatch):
     assert p["generated_at_utc"].endswith("Z") and p["published_at_utc"].endswith("Z")
     # NO :XAUUSD: in any published key/string
     assert all(":XAUUSD:" not in s for s in ic._iter_key_strings(p) if isinstance(s, str))
-    # pending-runtime-deployment marker + dark surfaces not-live
-    assert p["pending_runtime_deployment"]["runtime_live"] is False
-    assert set(p["pending_runtime_deployment"]["dark_surfaces"]) == {"feed_health", "instrument_catalog", "quote", "tick"}
-    assert p["instrument_catalog_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
-    assert p["instrument_catalog_contract"]["live"] is False
-    assert p["quote_contract"]["live"] is False and p["tick_contract"]["live"] is False
+    # WO-...-SELF-SURFACE-RUNTIME-PUBLISHED-SEMANTICS: the step IS the runtime publication, so the catalog now
+    # truthfully self-marks RUNTIME_PUBLISHED (NOT dark), consumer_live False (no cutover implied), and drops out
+    # of dark_surfaces; the still-dark surfaces remain feed_health/quote/tick only.
+    icc = p["instrument_catalog_contract"]
+    assert icc["status"] == ic.SURFACE_RUNTIME_PUBLISHED
+    assert icc["runtime_published"] is True and icc["consumer_live"] is False and icc["live"] is False
+    assert p["surfaces"]["instrument_catalog"] == ic.SURFACE_RUNTIME_PUBLISHED
+    assert p["runtime_published_surfaces"] == ["instrument_catalog"]
+    prd = p["pending_runtime_deployment"]
+    assert prd["runtime_live"] is False
+    assert set(prd["dark_surfaces"]) == {"feed_health", "quote", "tick"}
+    assert "instrument_catalog" not in prd["dark_surfaces"]
+    assert prd["runtime_published_surfaces"] == ["instrument_catalog"]
+    # feed_health/quote/tick remain dark + not runtime-published + not consumer-live
+    for c in ("feed_health_contract", "quote_contract", "tick_contract"):
+        assert p[c]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+        assert p[c]["runtime_published"] is False and p[c]["consumer_live"] is False and p[c]["live"] is False
     # D1 default PENDING (no liveness inferred from any D1 GREEN seal)
     assert p["candle_contracts"]["D1"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL
     assert p["d1_policy"]["latest_status"] == ic.SURFACE_PENDING_FIRST_DAILY_SEAL

@@ -1,0 +1,6 @@
+ tests/test_hermes_instrument_catalog_v1.py         |   4 +-
+ tests/test_instrument_catalog_runtime_wiring_v1.py |  23 ++-
+ ...nt_catalog_self_surface_runtime_published_v1.py | 166 +++++++++++++++++++++
+ utils/hermes_instrument_catalog_v1.py              |  85 ++++++++---
+ utils/hermes_runtime_publisher_steps_v1.py         |   6 +-
+ 5 files changed, 258 insertions(+), 26 deletions(-)
