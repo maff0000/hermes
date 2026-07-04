@@ -28,6 +28,7 @@ from utils import candle_h4_derivation_v1 as h4d
 from utils import candle_h4_publish_wire_v1 as h4w
 from utils import candle_history_v1 as hist
 from utils import candle_runtime_seam_v1 as seam
+from utils import candle_d1_derivation_v1 as d1d   # d1_bucket_open — is the recovered H4 in the current D1 day?
 
 WARMSTART_ENABLED_ENV = "HERMES_H4_WARMSTART_ENABLED"
 WARMSTART_AUTHORISED_ENV = "HERMES_H4_WARMSTART_AUTHORISED"
@@ -104,14 +105,104 @@ def _resolve_read_client(producer, redis_client):
     return getattr(writer, "redis_client", None)
 
 
+def reseal_prior_completed_h4(producer, *, redis_client, now, logger=None):
+    """BOUNDED (one block) deterministic recovery of the IMMEDIATELY-PRIOR completed H4 block. Fixes the orphan
+    case: a mid-window recreate lands after an H4 block CLOSED but before its delayed live seal fired, so its four
+    complete H1 children exist but no H4 was ever stamped (leaving the current D1 day at <=5/6). Recovers ONLY that
+    ONE prior block, ONLY if all four expected H1 children exist + are complete + status OK + align exactly to the
+    hourly grid (else FAIL-CLOSED — never fabricate/synthesise). Writes via the SAME governed seal path
+    (history_forward_writer.on_h4_sealed for history; writer.publish for latest, guarded so it never regresses a
+    newer latest). D1 receives the recovered H4 via the SUBSEQUENT D1 warm-start reading H4 history (NO direct
+    on_h4_close -> no double-count; never derives D1 from H1; never seals D1 with <6). IDEMPOTENT: an already-present
+    matching H4 -> already_present (no write, no re-feed); an existing H4 that differs from the deterministic
+    recompute -> failed_closed (never overwrite). XAU_USD only; never publishes XAUUSD. NOT a backfill engine."""
+    inst = CANONICAL_INSTRUMENT
+    if producer is None or not getattr(producer, "enabled", False) or not isinstance(producer, h4w.CanonicalH4Producer):
+        return {"status": "skipped", "reason": "H4_PRODUCER_DISABLED"}
+    hw = getattr(producer, "history_forward_writer", None)
+    if hw is None or not getattr(hw, "enabled", False):
+        return {"status": "skipped", "reason": "NO_HISTORY_FORWARD_WRITER"}
+
+    current_open = h4d.h4_bucket_open(now)
+    prior_open = current_open - timedelta(seconds=h4d.H4_SECONDS)              # the ONE immediately-prior block
+    prior_epoch = int(prior_open.timestamp())
+    expected_opens = [prior_open + timedelta(seconds=i * h4d.H1_SECONDS) for i in range(h4d.H4_EXPECTED_CHILDREN)]
+    d1_relevant = (d1d.d1_bucket_open(prior_open) == d1d.d1_bucket_open(now))  # in the currently accumulating D1 day?
+    res = {"prior_h4_block_open_utc": cc._fmt(prior_open), "expected_h1_children": [cc._fmt(o) for o in expected_opens],
+           "d1_relevant": d1_relevant}
+
+    children, malformed, capped = read_block_h1_children_from_redis(redis_client, instrument=inst, h4_open=prior_open)
+    if malformed:
+        return {**res, "status": "failed_closed", "reason": "MALFORMED_H1_CHILD", "malformed_epochs": malformed}
+    by_open = {}
+    for c in children:
+        o = cc.normalise_utc(c.timestamp)
+        if (o.minute, o.second, o.microsecond) != (0, 0, 0):
+            return {**res, "status": "failed_closed", "reason": "H1_OFF_HOUR_GRID"}
+        ep = int(o.timestamp())
+        if ep in by_open:
+            return {**res, "status": "failed_closed", "reason": "DUPLICATE_H1_CHILD"}
+        by_open[ep] = c
+    ordered = []
+    for o in expected_opens:
+        c = by_open.get(int(o.timestamp()))
+        if c is None:
+            return {**res, "status": "failed_closed", "reason": "MISSING_H1_CHILD", "missing_open_utc": cc._fmt(o)}
+        if not h4w.h1_child_is_complete(c):
+            return {**res, "status": "failed_closed", "reason": "H1_CHILD_NOT_OK_OR_INCOMPLETE", "child_open_utc": cc._fmt(o)}
+        ordered.append(c)
+
+    env, _meta = h4d.derive_h4(instrument=inst, h4_open=prior_open, h1_children=ordered,
+                              generated_at_utc=prior_open + timedelta(seconds=h4d.H4_SECONDS), is_closed=True)
+    d = env["data"]
+    if env["status"] != "OK" or d["source_count"] != h4d.H4_EXPECTED_CHILDREN or d["source_coverage"] != 1.0 \
+            or d["gap_state"] not in (None, "NONE"):
+        return {**res, "status": "failed_closed", "reason": "DERIVED_H4_NOT_OK", "derived_status": env["status"]}
+
+    existing = redis_client.get(hist.history_key(inst, h4d.H4_TIMEFRAME, prior_epoch))   # idempotency check
+    if existing:
+        try:
+            ex = json.loads(existing)["data"]
+        except Exception:  # noqa: BLE001
+            return {**res, "status": "failed_closed", "reason": "EXISTING_H4_MALFORMED"}
+        if all(ex.get(k) == d.get(k) for k in ("open", "high", "low", "close", "volume", "source_count")):
+            return {**res, "status": "already_present", "d1_accumulation_updated": False}
+        return {**res, "status": "failed_closed", "reason": "EXISTING_H4_MISMATCH"}
+
+    hres = hw.on_h4_sealed(env, inserted_at_utc=now)                          # governed idempotent H4 history write
+    if not hres.get("wrote"):
+        return {**res, "status": "failed_closed", "reason": "H4_HISTORY_WRITE_SKIPPED", "detail": hres.get("reason")}
+    latest_updated = False                                                    # guarded: never regress a newer latest
+    lraw = redis_client.get(f"hermes:candles:{inst}:H4:latest:v1")
+    newer = True
+    if lraw:
+        try:
+            lo = datetime.strptime(json.loads(lraw)["data"]["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
+            newer = prior_open > lo
+        except Exception:  # noqa: BLE001
+            newer = False
+    if newer:
+        producer.writer.publish(env)
+        latest_updated = True
+    out = {**res, "status": "recovered", "h4_status": env["status"], "source_count": d["source_count"],
+           "source_coverage": d["source_coverage"], "gap_state": d["gap_state"], "h4_latest_updated": latest_updated,
+           "d1_accumulation_updated": "via_d1_warmstart_from_h4_history" if d1_relevant else "not_in_current_d1_day"}
+    if logger is not None:
+        logger.info("[H4_PRIOR_RESEAL] block=%s status=recovered src=4/4 latest_updated=%s d1_relevant=%s"
+                    % (out["prior_h4_block_open_utc"], latest_updated, d1_relevant))
+    return out
+
+
 def warmstart_h4_from_env(producer, *, redis_client=None, now, logger=None, get_env=None, get_env_bool=None):
     """Boot-time H4 warm-start orchestrator (client-injected; runtime-initialised only — never at import).
 
     Gate:
       * ENABLED unset/false -> SAFE NO-OP: empty cold-start buffer, log COLD_START_LOG, legacy behaviour preserved.
       * ENABLED=true + AUTHORISED=false -> FAIL LOUD: SystemExit(HALT_CODE=104) with stderr/log evidence.
-      * ENABLED+AUTHORISED -> bounded hydration of the CURRENT H4 block, then return to live H1 hook processing.
-    Hydration performs NO Redis/SQL writes and NEVER publishes/seals H4. Returns a detailed status dict for R2D2."""
+      * ENABLED+AUTHORISED -> bounded hydration of the CURRENT H4 block, then a BOUNDED deterministic reseal of the
+        immediately-PRIOR completed H4 block (reseal_prior_completed_h4), then return to live H1 hook processing.
+    Current-block hydration performs NO writes; the prior-block reseal writes ONLY a governed, deterministically-
+    proven, complete 4/4 H4 (idempotent, fail-closed) and never seals D1. Returns a detailed status dict for R2D2."""
     if get_env is None or get_env_bool is None:
         from env_config import get_env as _ge, get_env_bool as _geb  # lazy; HERMES-owned config only
         get_env = get_env or _ge
@@ -161,4 +252,13 @@ def warmstart_h4_from_env(producer, *, redis_client=None, now, logger=None, get_
                         len(children), report.get("accepted_count", 0), report.get("rejected_count", 0),
                         report.get("buffer_length", 0), report.get("remaining_children_required", 0),
                         report.get("h4_status_after_hydration")))
+    # Bounded deterministic reseal of the immediately-PRIOR completed H4 block (fixes the mid-window orphan case).
+    # Runs BEFORE the D1 warm-start (called next in the lifespan), so a recovered H4 lands in H4 history and the D1
+    # warm-start reconstructs the D1 buffer including it — exactly once, no direct D1 feed.
+    try:
+        report["prior_block_reseal"] = reseal_prior_completed_h4(producer, redis_client=client, now=now, logger=logger)
+    except Exception as exc:  # noqa: BLE001 - reseal fault is isolated + reported; never breaks the H4 warm-start
+        report["prior_block_reseal"] = {"status": "failed_closed", "reason": "RESEAL_FAULT", "error": repr(exc)[:160]}
+    _log("[H4_PRIOR_RESEAL] %s" % {k: report["prior_block_reseal"].get(k) for k in
+                                   ("status", "reason", "prior_h4_block_open_utc", "d1_relevant", "h4_latest_updated")})
     return report
