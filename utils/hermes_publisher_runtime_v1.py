@@ -155,6 +155,15 @@ def default_runner_specs():
     from utils import hermes_instrument_catalog_v1 as ic
     if getattr(ic.build_instrument_catalog_publisher_from_env(), "enabled", False):
         specs.append(("instrument_catalog", steps.instrument_catalog_step, DEFAULT_INTERVAL_SECONDS))
+    # WO-HELM-HERMES-FEED-HEALTH-RUNTIME-PUBLISHER-WIRING-0001 — feed-health runner: DISABLED by default -> NOT
+    # appended (default stays exactly the current active families). Enabled-without-authorised -> SystemExit(101)
+    # (fail-closed via the contract gate); enabled+authorised without valid canonical scope -> fail-closed
+    # (GOV-HERMES-FH-020/021). Enabled+authorised -> appended AFTER instrument_catalog as the 6th governed runner.
+    # No Redis I/O here (env read only); the feed-health step is itself gate-first/no-op when disabled. No quote/
+    # tick/market_map runner is ever added here.
+    from utils import hermes_feed_health_v1 as fh
+    if getattr(fh.build_feed_health_publisher_from_env(), "enabled", False):
+        specs.append(("feed_health", steps.feed_health_step, DEFAULT_INTERVAL_SECONDS))
     return specs
 
 
