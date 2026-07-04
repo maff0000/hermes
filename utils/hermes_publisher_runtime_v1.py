@@ -164,6 +164,16 @@ def default_runner_specs():
     from utils import hermes_feed_health_v1 as fh
     if getattr(fh.build_feed_health_publisher_from_env(), "enabled", False):
         specs.append(("feed_health", steps.feed_health_step, DEFAULT_INTERVAL_SECONDS))
+    # WO-HELM-HERMES-QUOTE-RUNTIME-PUBLISHER-WIRING-0001 — quote runner: DISABLED by default -> NOT appended.
+    # Enabled-without-authorised -> SystemExit(101); enabled+authorised without valid canonical scope -> fail-closed
+    # (GOV-HERMES-QT-020/021). Enabled+authorised -> appended AFTER feed_health (so catalog+quote=6 with families
+    # [..,instrument_catalog,quote]; catalog+feed_health+quote=7 with [..,instrument_catalog,feed_health,quote]).
+    # No Redis I/O here (env read only); the quote step is itself gate-first/no-op when disabled. No tick/market_map
+    # runner is ever added here. (Interval left at DEFAULT_INTERVAL_SECONDS; quote TTL is short — cadence tuning is
+    # an activation-WO concern, not this wiring PR.)
+    from utils import hermes_quote_tick_contract_v1 as qt
+    if getattr(qt.build_quote_publisher_from_env(), "enabled", False):
+        specs.append(("quote", steps.quote_step, DEFAULT_INTERVAL_SECONDS))
     return specs
 
 
