@@ -28,6 +28,7 @@ from utils import indicators as ind_compute
 from utils import atr_calculator
 from utils import candle_features as cf
 from utils import hermes_instrument_catalog_v1 as ic   # instrument-catalog runtime publisher step (gated dark)
+from utils import hermes_feed_health_v1 as fh          # feed-health runtime publisher step (gated dark)
 
 UTC = datetime.timezone.utc
 INST = "XAU_USD"
@@ -410,4 +411,35 @@ def instrument_catalog_step(client):
     if not (key.endswith(":v1") and "XAUUSD" not in key):
         return {"published": 0}
     client.set(key, json.dumps(payload), ex=ic.TTL_SECONDS)
+    return {"published": 1}
+
+
+# =========================================================================== feed_health (gated dark)
+# WO-HELM-HERMES-FEED-HEALTH-RUNTIME-PUBLISHER-WIRING-0001. PR #63 supervisor-compatible runner step; INERT by
+# default (NOT wired live in this WO — a separate activate WO turns it on). Reuses the EXISTING PR #66 feed-health
+# contract/gates/snapshot verbatim (no new contract/key invented).
+_FH_TFS = ("M1", "M5", "M15", "H1", "H4", "D1")             # D1 stays GATED (never RED) until D1 latest GREEN
+
+
+def feed_health_step(client):
+    """Governed feed-health publisher step. Gate-first: NO-OP when the feed-health gate is disabled (no client
+    touch, no write); enabled-without-authorised -> SystemExit(101) (fail-closed); enabled+authorised without a
+    valid canonical XAU_USD scope -> fail-closed (GOV-HERMES-FH-020/021). When enabled+authorised, reads HERMES-owned
+    surfaces READ-ONLY via collect_feed_health_snapshot (GET only), builds the governed feed-health contract
+    (canonical XAU_USD; no XAUUSD; D1 GATED never RED; deterministic ingestion-health facts; no regime/risk/signal/
+    decision fields) and writes ONLY hermes:feed_health:XAU_USD:v1 (TTL)."""
+    pub = fh.build_feed_health_publisher_from_env()          # SystemExit(101) if enabled-without-authorised; fail-closed on scope
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    now = _now()
+    d1_green = bool(client.exists(f"hermes:candles:{INST}:D1:latest:v1"))   # D1 GATED unless a genuine D1 latest exists
+    snap = fh.collect_feed_health_snapshot(client, timeframes=_FH_TFS, generated_at_utc=now,
+                                           source_name=pub.source_name, d1_latest_green=d1_green)  # READ-ONLY (GET only)
+    payload = pub.build(**snap)
+    payload["published_at_utc"] = fh._utc(now)               # published_at where governed
+    fh.validate_feed_health_contract(payload)                # re-validate: forbidden-key scan + governed vocab
+    key = pub.key(fh.CANONICAL_INSTRUMENT)                   # hermes:feed_health:XAU_USD:v1
+    if not (key.endswith(":v1") and "XAUUSD" not in key):
+        return {"published": 0}
+    client.set(key, json.dumps(payload), ex=fh.TTL_SECONDS)
     return {"published": 1}
