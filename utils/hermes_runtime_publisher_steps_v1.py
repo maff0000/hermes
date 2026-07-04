@@ -399,7 +399,11 @@ def instrument_catalog_step(client):
     if not getattr(pub, "enabled", False):
         return {"published": 0}
     now = _now()
-    payload = pub.build(instrument=ic.CANONICAL_INSTRUMENT, generated_at_utc=now, source_name=pub.source_name)
+    # This step IS the runtime publication of the catalog self-surface -> mark it runtime_published (its key is
+    # being written to Redis). This does NOT imply consumer cutover / trusted-live-plane (a separate authorisation);
+    # feed_health/quote/tick have no runtime publisher and stay dark.
+    payload = pub.build(instrument=ic.CANONICAL_INSTRUMENT, generated_at_utc=now, source_name=pub.source_name,
+                        runtime_published_surfaces=["instrument_catalog"])
     payload["published_at_utc"] = ic._utc(now)               # published_at where governed
     ic.validate_instrument_catalog_contract(payload)         # re-validate: forbidden-key + no :XAUUSD: output scan
     key = pub.key(ic.CANONICAL_INSTRUMENT)                   # hermes:instrument_catalog:XAU_USD:v1

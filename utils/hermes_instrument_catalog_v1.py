@@ -62,10 +62,17 @@ SURFACE_LEGACY = "LEGACY"
 SURFACE_LEGACY_OR_PARTIAL = "LEGACY_OR_PARTIAL"
 SURFACE_DEPRECATED = "DEPRECATED"
 SURFACE_PENDING_FIRST_DAILY_SEAL = "PENDING_FIRST_DAILY_SEAL"
+SURFACE_RUNTIME_PUBLISHED = "RUNTIME_PUBLISHED"     # key IS being published to Redis at runtime; NOT consumer-live/trusted
 SURFACE_UNKNOWN = "UNKNOWN_NEEDS_PROBE"
 SURFACE_STATUSES = (SURFACE_ACTIVE, SURFACE_GATED, SURFACE_BLOCKED, SURFACE_NOT_IMPLEMENTED,
-                    SURFACE_CODE_PRESENT_DARK, SURFACE_LEGACY, SURFACE_LEGACY_OR_PARTIAL, SURFACE_DEPRECATED,
-                    SURFACE_PENDING_FIRST_DAILY_SEAL, SURFACE_UNKNOWN)
+                    SURFACE_CODE_PRESENT_DARK, SURFACE_RUNTIME_PUBLISHED, SURFACE_LEGACY, SURFACE_LEGACY_OR_PARTIAL,
+                    SURFACE_DEPRECATED, SURFACE_PENDING_FIRST_DAILY_SEAL, SURFACE_UNKNOWN)
+
+# Surfaces that MAY legitimately be marked runtime-published in this contract. ONLY the instrument-catalog
+# self-surface has a runtime publisher; feed_health/quote/tick have NO runtime publisher and MUST stay dark, so they
+# can never be flagged runtime_published via this contract (any other entry fails loud). Runtime publication (key is
+# being written to Redis) is a DISTINCT truth from consumer-cutover/trusted-live-plane (which stays false/not-implied).
+RUNTIME_PUBLISHABLE_SURFACES = frozenset({"instrument_catalog"})
 
 _FORBIDDEN_FIELD_KEY_TOKENS = ("regime", "risk", "liquidity", "order_block", "smart_money", "decision", "trade",
                                "bias", "setup", "go_no_go", "confidence", "intent", "permission", "conclusion",
@@ -155,6 +162,23 @@ def _assert_surface_status(status, ctx):
     return status
 
 
+def _normalise_runtime_published(value):
+    """Return the frozenset of surfaces asserted RUNTIME-PUBLISHED (key being written to Redis). ONLY the catalog
+    self-surface is permitted — feed_health/quote/tick have no runtime publisher and must remain dark, so any other
+    entry fails loud. This never implies consumer cutover / trusted-live-plane (a separate authorisation)."""
+    if value is None:
+        return frozenset()
+    if isinstance(value, str):
+        value = [value]
+    items = frozenset(str(x).strip() for x in value if str(x).strip())
+    bad = items - RUNTIME_PUBLISHABLE_SURFACES
+    if bad:
+        raise ValueError(f"GOV-HERMES-IC-030: surfaces {sorted(bad)!r} may not be marked runtime_published — only "
+                         f"{sorted(RUNTIME_PUBLISHABLE_SURFACES)} has a runtime publisher; feed_health/quote/tick "
+                         "must remain dark")
+    return items
+
+
 def _aggregate_status(snapshot):
     """GREEN when every EXPECTED-ACTIVE surface (candle latest/history M1-H4, indicators/features M1-H4, sessions,
     levels session/intraday, control_plane) is ACTIVE. UNKNOWN anywhere -> UNKNOWN_NEEDS_PROBE. Otherwise
@@ -178,9 +202,16 @@ def _aggregate_status(snapshot):
 
 
 def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_name, snapshot=None,
-                                      source_dependencies=None, fault_counters=None, notes=None):
+                                      source_dependencies=None, fault_counters=None, notes=None,
+                                      runtime_published_surfaces=None):
     """hermes:instrument_catalog:XAU_USD:v1 payload — DETERMINISTIC identity + contract-discovery FACTS. Pure;
-    no I/O. Missing/gated/not-implemented are EXPLICIT. deterministic_only=true; no regime/risk/decision/ARES."""
+    no I/O. Missing/gated/not-implemented are EXPLICIT. deterministic_only=true; no regime/risk/decision/ARES.
+
+    runtime_published_surfaces: surfaces whose governed key is ACTUALLY being written to Redis at runtime (the
+    runtime publisher passes this). Runtime publication is a DISTINCT truth from consumer-cutover/trusted-live-plane
+    (which stays false/not-implied). Only the catalog self-surface is permitted here; feed_health/quote/tick have no
+    runtime publisher and stay dark (any other entry fails loud). Default None -> nothing runtime-published (the pure
+    builder / pre-activation snapshot path is unchanged: catalog stays CODE_PRESENT_DARK + listed dark)."""
     _assert_instrument(instrument)
     snap = snapshot if snapshot is not None else default_catalog_snapshot()
     for tf in SUPPORTED_TIMEFRAMES:
@@ -188,8 +219,14 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
             _assert_surface_status(snap[fam][tf], f"{fam}:{tf}")
     for ctx in ("sessions", "feed_health", "control_plane", "quote", "tick", "d1_latest"):
         _assert_surface_status(snap[ctx], ctx)
-    ic_status = snap.get("instrument_catalog", SURFACE_CODE_PRESENT_DARK)   # catalog SELF-surface (backward-compat)
+    ic_status = snap.get("instrument_catalog", SURFACE_CODE_PRESENT_DARK)   # catalog SELF-surface code-presence (backward-compat)
     _assert_surface_status(ic_status, "instrument_catalog")
+    # Runtime-publication truth (distinct from code-presence and from consumer-cutover). When the catalog is being
+    # runtime-published, its reported self-surface status is RUNTIME_PUBLISHED (NOT the dark CODE_PRESENT_DARK).
+    runtime_published = _normalise_runtime_published(runtime_published_surfaces)
+    ic_runtime_published = "instrument_catalog" in runtime_published
+    ic_reported_status = SURFACE_RUNTIME_PUBLISHED if ic_runtime_published else ic_status
+    _assert_surface_status(ic_reported_status, "instrument_catalog:reported")
     for sc in LEVEL_SCOPES:
         _assert_surface_status(snap["levels"][sc], f"levels:{sc}")
 
@@ -209,15 +246,18 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     session_contracts = {"key": _safe_key(sess.sessions_key, CANONICAL_INSTRUMENT), "status": snap["sessions"]}
     level_contracts = {sc: {"key": _safe_key(lvl.levels_key, CANONICAL_INSTRUMENT, sc),
                             "status": snap["levels"][sc]} for sc in LEVEL_SCOPES}
+    # feed_health/quote/tick have NO runtime publisher -> dark, not runtime-published, not consumer-live. `live` is
+    # retained as an explicit alias of consumer_live (consumer-cutover), NOT a claim of Redis publication.
     feed_health_contract = {"key": _safe_key(fh.feed_health_key, CANONICAL_INSTRUMENT), "status": snap["feed_health"],
-                            "live": False}
+                            "runtime_published": False, "consumer_live": False, "live": False}
     # quote: NEW governed key hermes:quote:XAU_USD:v1 (PR #68). tick: EXISTING key hermes:ticks:XAU_USD:latest:v1
     # (tick_contract_v1) — referenced, NEVER a duplicate hermes:tick:* key. Both CODE_PRESENT_DARK -> key present
     # as a discovery fact but NOT a claim that the surface is live/published.
     quote_contract = {"key": _safe_key(qt.quote_key, CANONICAL_INSTRUMENT), "status": snap["quote"],
-                      "live": False}
+                      "runtime_published": False, "consumer_live": False, "live": False}
     tick_contract = {"key": _safe_key(tickc.canonical_key, CANONICAL_INSTRUMENT), "status": snap["tick"],
-                     "live": False, "note": "existing governed tick surface (tick_contract_v1); referenced, not rebuilt"}
+                     "runtime_published": False, "consumer_live": False, "live": False,
+                     "note": "existing governed tick surface (tick_contract_v1); referenced, not rebuilt"}
     legacy_contracts = [{"pattern": "hermes:signals:*", "status": SURFACE_LEGACY,
                          "note": "legacy signal surface — preserved, not deleted; consumer cutover is a separate WO"},
                         {"pattern": "hermes:market_map:*", "status": SURFACE_LEGACY_OR_PARTIAL,
@@ -227,28 +267,36 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     control_plane_contracts = {"manifest_key": ctl.KEY_CONTRACT_MANIFEST, "heartbeat_key": ctl.KEY_PUBLISHER_HEARTBEAT,
                                "catalog_key": ctl.KEY_CATALOG_CANDLES, "health_key": ctl.KEY_HEALTH,
                                "status": snap["control_plane"]}
-    # instrument-catalog SELF-surface: the catalog describes its OWN contract as CODE_PRESENT_DARK (PR #67 merged
-    # inert) -> key present as a discovery fact, live=False (NOT runtime-published until a separate deploy+activate WO).
-    instrument_catalog_contract = {"key": instrument_catalog_key(CANONICAL_INSTRUMENT), "status": ic_status,
-                                   "live": False}
+    # instrument-catalog SELF-surface. Three DISTINCT truths, never conflated into one ambiguous `live`:
+    #   runtime_published = the key is being written to Redis at runtime (true once the runtime publisher runs);
+    #   consumer_live     = consumer-cutover / trusted-live-plane reached (a SEPARATE authorisation) -> stays False;
+    #   live              = retained backward-compat alias of consumer_live (NOT of runtime publication).
+    # When runtime-published the reported status is RUNTIME_PUBLISHED (not the dark CODE_PRESENT_DARK).
+    instrument_catalog_contract = {"key": instrument_catalog_key(CANONICAL_INSTRUMENT), "status": ic_reported_status,
+                                   "runtime_published": ic_runtime_published, "consumer_live": False, "live": False}
 
     surfaces = {"candles": {tf: snap["candle_latest"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "candle_history": {tf: snap["candle_history"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "indicators": {tf: snap["indicators"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "candle_features": {tf: snap["candle_features"][tf] for tf in SUPPORTED_TIMEFRAMES},
                 "sessions": snap["sessions"], "levels": dict(snap["levels"]),
-                "feed_health": snap["feed_health"], "instrument_catalog": ic_status,
+                "feed_health": snap["feed_health"], "instrument_catalog": ic_reported_status,
                 "control_plane": snap["control_plane"],
                 "quote": snap["quote"], "tick": snap["tick"]}
 
-    # Pending-runtime-deployment markers: which merged surfaces are CODE_PRESENT_DARK (present in code, NOT
-    # live-published). Code/catalog presence is NOT live publication — each needs a separate deploy + activate WO.
-    _dark = {"feed_health": snap["feed_health"], "instrument_catalog": ic_status,
+    # Pending-runtime-deployment markers. dark_surfaces lists ONLY genuinely dark (CODE_PRESENT_DARK) surfaces —
+    # a runtime-published surface reports RUNTIME_PUBLISHED (not CODE_PRESENT_DARK) so it is naturally excluded and
+    # instead appears in runtime_published_surfaces. runtime_live stays False while ANY surface is still dark or not
+    # consumer-live; consumer cutover is a separate authorisation and is never implied here.
+    _dark = {"feed_health": snap["feed_health"], "instrument_catalog": ic_reported_status,
              "quote": snap["quote"], "tick": snap["tick"]}
     pending_runtime_deployment = {
-        "note": "CODE_PRESENT_DARK = merged/present in code, NOT live/published; code/catalog presence is not the "
-                "same as live publication. Each dark surface requires a separate runtime deploy + activate WO.",
+        "note": "CODE_PRESENT_DARK = merged/present in code, NOT live/published. RUNTIME_PUBLISHED = key IS being "
+                "written to Redis at runtime but is NOT consumer-live/trusted (no consumer cutover). dark_surfaces "
+                "lists ONLY genuinely dark surfaces; runtime-published surfaces are in runtime_published_surfaces. "
+                "Each dark surface still needs a separate deploy + activate WO; consumer cutover is separate.",
         "dark_surfaces": sorted(k for k, v in _dark.items() if v == SURFACE_CODE_PRESENT_DARK),
+        "runtime_published_surfaces": sorted(runtime_published),
         "runtime_live": False,
     }
 
@@ -270,6 +318,7 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
         "active_timeframes": active, "gated_timeframes": gated, "blocked_timeframes": blocked,
         "not_implemented_timeframes": not_impl,
         "surfaces": surfaces,
+        "runtime_published_surfaces": sorted(runtime_published),
         "pending_runtime_deployment": pending_runtime_deployment,
         "contracts": {"candle": "candle_contract:v1", "indicators": "indicators:v1",
                       "candle_features": "candle_features:v1", "sessions": "sessions:v1", "levels": "levels:v1",

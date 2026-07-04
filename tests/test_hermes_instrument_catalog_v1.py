@@ -214,7 +214,9 @@ def test_pending_runtime_deployment_markers_present():
     prd = p["pending_runtime_deployment"]
     assert prd["runtime_live"] is False
     assert set(prd["dark_surfaces"]) == {"feed_health", "instrument_catalog", "quote", "tick"}
-    assert "not the same as live publication" in prd["note"] or "not live/published" in prd["note"]
+    # note still distinguishes dark (NOT live/published) and now also explains RUNTIME_PUBLISHED vs consumer cutover
+    assert "NOT live/published" in prd["note"] and "RUNTIME_PUBLISHED" in prd["note"]
+    assert prd["runtime_published_surfaces"] == []          # pure/pre-activation path: nothing runtime-published
 
 
 def test_feed_health_marker_live_false():
