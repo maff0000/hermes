@@ -205,15 +205,17 @@ def test_catalog_runtime_published_still_only_catalog(monkeypatch):
     assert p["feed_health_contract"]["runtime_published"] is False
 
 
-def test_feed_health_guard_intact_cannot_be_marked_runtime_published():
-    # PR #73 allow-list guard must remain: feed_health/quote/tick still fail GOV-HERMES-IC-030
+def test_quote_tick_guard_intact_cannot_be_marked_runtime_published():
+    # quote/tick have no active runtime publisher -> still fail GOV-HERMES-IC-030. feed_health is now permitted
+    # (it has a governed runtime publisher; catalog-feed-health-runtime-published-semantics WO).
     import datetime as D
-    for bad in ("feed_health", "quote", "tick"):
+    for bad in ("quote", "tick"):
         with pytest.raises(ValueError) as e:
             ic.build_instrument_catalog_contract(instrument="XAU_USD",
                 generated_at_utc=D.datetime(2026, 7, 4, 12, 0, tzinfo=D.timezone.utc),
                 source_name="HERMES", runtime_published_surfaces=[bad])
         assert "GOV-HERMES-IC-030" in str(e.value)
+    assert "feed_health" in ic.RUNTIME_PUBLISHABLE_SURFACES   # feed_health now permitted
 
 
 # ================================ 5. boundary regression ================================
