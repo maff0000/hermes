@@ -29,6 +29,7 @@ from utils import atr_calculator
 from utils import candle_features as cf
 from utils import hermes_instrument_catalog_v1 as ic   # instrument-catalog runtime publisher step (gated dark)
 from utils import hermes_feed_health_v1 as fh          # feed-health runtime publisher step (gated dark)
+from utils import hermes_quote_tick_contract_v1 as qt  # quote runtime publisher step (gated dark)
 
 UTC = datetime.timezone.utc
 INST = "XAU_USD"
@@ -442,4 +443,35 @@ def feed_health_step(client):
     if not (key.endswith(":v1") and "XAUUSD" not in key):
         return {"published": 0}
     client.set(key, json.dumps(payload), ex=fh.TTL_SECONDS)
+    return {"published": 1}
+
+
+# =========================================================================== quote (gated dark)
+# WO-HELM-HERMES-QUOTE-RUNTIME-PUBLISHER-WIRING-0001. PR #63 supervisor-compatible runner step; INERT by default
+# (NOT wired live in this WO — a separate activate WO turns it on). Reuses the EXISTING PR #68 quote contract/gates
+# verbatim (no new contract/key). Governed source = the EXISTING tick surface hermes:ticks:XAU_USD:latest:v1,
+# mapped via reconcile_quote_from_tick_envelope. Stale/market-closed is HONEST (present+fresh -> GREEN;
+# present+stale -> AMBER_STALE; absent -> bid/ask null -> RED_MISSING/UNAVAILABLE). Never a fabricated/fake quote.
+def quote_step(client):
+    """Governed quote publisher step. Gate-first: NO-OP when the quote gate is disabled (no client touch, no write);
+    enabled-without-authorised -> SystemExit(101) (fail-closed); enabled+authorised without a valid canonical
+    XAU_USD scope -> fail-closed (GOV-HERMES-QT-020/021). When enabled+authorised, reads the EXISTING governed tick
+    surface READ-ONLY (GET only) and reconciles it into the governed quote contract (canonical XAU_USD; no XAUUSD;
+    deterministic bid/ask/mid/spread; honest stale/market-closed status; no regime/risk/signal/decision fields),
+    writing ONLY hermes:quote:XAU_USD:v1 (TTL). A missing/stale tick source stays EXPLICIT (RED_MISSING/AMBER_STALE),
+    never a faked live quote and never a false GREEN."""
+    pub = qt.build_quote_publisher_from_env()               # SystemExit(101) if enabled-without-authorised; fail-closed on scope
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    now = _now()
+    tick_key = qt.governed_tick_surface_reference()["key"]   # hermes:ticks:XAU_USD:latest:v1 (EXISTING; referenced, not rebuilt)
+    raw = client.get(tick_key)                               # READ-ONLY (GET only)
+    tick_env = json.loads(raw) if raw else {}                # absent tick source -> empty envelope -> honest RED_MISSING (no fabrication)
+    payload = qt.reconcile_quote_from_tick_envelope(tick_env, generated_at_utc=now, source_name=pub.source_name)
+    payload["published_at_utc"] = qt._utc(now)               # published_at where governed
+    qt.validate_quote_contract(payload)                     # re-validate: forbidden-key scan + governed vocab + arithmetic
+    key = pub.key(qt.CANONICAL_INSTRUMENT)                   # hermes:quote:XAU_USD:v1
+    if not (key.endswith(":v1") and "XAUUSD" not in key):
+        return {"published": 0}
+    client.set(key, json.dumps(payload), ex=qt.QUOTE_TTL_SECONDS)
     return {"published": 1}
