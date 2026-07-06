@@ -391,6 +391,19 @@ def sessions_levels_step(client, _win_cache={}):
 
 # =========================================================================== instrument_catalog (gated dark)
 # WO-HELM-HERMES-INSTRUMENT-CATALOG-RUNTIME-PUBLISHER-WIRING-0001. PR #63 supervisor-compatible runner step.
+def _catalog_runtime_published_surfaces():
+    """The surfaces THIS process is actually runtime-publishing, for the catalog self-description. Always includes
+    instrument_catalog (this step IS its publication). Includes feed_health when its runtime-publisher gate is
+    enabled — the SAME gate default_runner_specs uses to add the feed_health runner (so the catalog truth tracks the
+    running supervisor atomically). quote/tick are NOT included (no active runtime publisher; they stay dark). Env
+    read only, no Redis I/O; a mis-gated feed-health (enabled-without-authorised) fails loud, exactly as the
+    supervisor build does."""
+    surfaces = ["instrument_catalog"]
+    if getattr(fh.build_feed_health_publisher_from_env(), "enabled", False):   # SystemExit(101) if enabled-without-authorised
+        surfaces.append("feed_health")
+    return surfaces
+
+
 def instrument_catalog_step(client):
     """Governed instrument-catalog publisher step. Gate-first: NO-OP when the catalog gate is disabled (no client
     touch, no write); enabled-without-authorised -> SystemExit(101) (fail-closed). When enabled+authorised, builds
@@ -401,11 +414,11 @@ def instrument_catalog_step(client):
     if not getattr(pub, "enabled", False):
         return {"published": 0}
     now = _now()
-    # This step IS the runtime publication of the catalog self-surface -> mark it runtime_published (its key is
-    # being written to Redis). This does NOT imply consumer cutover / trusted-live-plane (a separate authorisation);
-    # feed_health/quote/tick have no runtime publisher and stay dark.
+    # This step IS the runtime publication of the catalog self-surface -> mark it runtime_published. feed_health is
+    # marked runtime_published too WHEN its runner gate is enabled (catalog truth tracks the live supervisor). This
+    # does NOT imply consumer cutover / trusted-live-plane (a separate authorisation); quote/tick stay dark.
     payload = pub.build(instrument=ic.CANONICAL_INSTRUMENT, generated_at_utc=now, source_name=pub.source_name,
-                        runtime_published_surfaces=["instrument_catalog"])
+                        runtime_published_surfaces=_catalog_runtime_published_surfaces())
     payload["published_at_utc"] = ic._utc(now)               # published_at where governed
     ic.validate_instrument_catalog_contract(payload)         # re-validate: forbidden-key + no :XAUUSD: output scan
     key = pub.key(ic.CANONICAL_INSTRUMENT)                   # hermes:instrument_catalog:XAU_USD:v1
