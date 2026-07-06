@@ -69,12 +69,13 @@ SURFACE_STATUSES = (SURFACE_ACTIVE, SURFACE_GATED, SURFACE_BLOCKED, SURFACE_NOT_
                     SURFACE_DEPRECATED, SURFACE_PENDING_FIRST_DAILY_SEAL, SURFACE_UNKNOWN)
 
 # Surfaces that MAY legitimately be marked runtime-published in this contract — those with a governed in-process
-# runtime publisher: instrument_catalog (PR #71/#73) and feed_health (PR #74 wiring + this activation-semantics WO).
-# quote/tick have NO active runtime publisher and MUST stay dark, so they still fail loud if marked runtime_published.
-# Runtime publication (key is being written to Redis) is a DISTINCT truth from consumer-cutover/trusted-live-plane
-# (which stays false/not-implied). Whether a runtime-publishable surface is ACTUALLY runtime-published in a given
-# process is decided by its gate at publish time (see the caller); membership here only permits it.
-RUNTIME_PUBLISHABLE_SURFACES = frozenset({"instrument_catalog", "feed_health"})
+# runtime publisher: instrument_catalog (PR #71/#73), feed_health (PR #74 wiring + PR #76 semantics) and quote
+# (PR #75 wiring + this semantics WO). tick has NO active runtime publisher and MUST stay dark, so it still fails
+# loud if marked runtime_published. Runtime publication (key is being written to Redis) is a DISTINCT truth from
+# consumer-cutover/trusted-live-plane (which stays false/not-implied). Whether a runtime-publishable surface is
+# ACTUALLY runtime-published in a given process is decided by its gate at publish time (see the caller); membership
+# here only permits it.
+RUNTIME_PUBLISHABLE_SURFACES = frozenset({"instrument_catalog", "feed_health", "quote"})
 
 _FORBIDDEN_FIELD_KEY_TOKENS = ("regime", "risk", "liquidity", "order_block", "smart_money", "decision", "trade",
                                "bias", "setup", "go_no_go", "confidence", "intent", "permission", "conclusion",
@@ -211,8 +212,8 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
 
     runtime_published_surfaces: surfaces whose governed key is ACTUALLY being written to Redis at runtime (the
     runtime publisher passes this). Runtime publication is a DISTINCT truth from consumer-cutover/trusted-live-plane
-    (which stays false/not-implied). Permitted entries = RUNTIME_PUBLISHABLE_SURFACES (instrument_catalog, feed_health);
-    quote/tick have no active runtime publisher and stay dark (any other entry fails loud). Default None -> nothing
+    (which stays false/not-implied). Permitted entries = RUNTIME_PUBLISHABLE_SURFACES (instrument_catalog, feed_health,
+    quote); tick has no active runtime publisher and stays dark (any other entry fails loud). Default None -> nothing
     runtime-published (the pure builder / pre-activation snapshot path is unchanged: surfaces stay CODE_PRESENT_DARK)."""
     _assert_instrument(instrument)
     snap = snapshot if snapshot is not None else default_catalog_snapshot()
@@ -235,6 +236,11 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     fh_runtime_published = "feed_health" in runtime_published
     fh_reported_status = SURFACE_RUNTIME_PUBLISHED if fh_runtime_published else snap["feed_health"]
     _assert_surface_status(fh_reported_status, "feed_health:reported")
+    # quote self-surface runtime-publication (same distinct-truths model): runtime-published when its runner is
+    # active (the runtime publisher passes "quote"), else dark. consumer_live stays False. tick is NOT runtime-publishable.
+    quote_runtime_published = "quote" in runtime_published
+    quote_reported_status = SURFACE_RUNTIME_PUBLISHED if quote_runtime_published else snap["quote"]
+    _assert_surface_status(quote_reported_status, "quote:reported")
     for sc in LEVEL_SCOPES:
         _assert_surface_status(snap["levels"][sc], f"levels:{sc}")
 
@@ -254,16 +260,16 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
     session_contracts = {"key": _safe_key(sess.sessions_key, CANONICAL_INSTRUMENT), "status": snap["sessions"]}
     level_contracts = {sc: {"key": _safe_key(lvl.levels_key, CANONICAL_INSTRUMENT, sc),
                             "status": snap["levels"][sc]} for sc in LEVEL_SCOPES}
-    # feed_health has a governed runtime publisher (PR #74): runtime-published when its runner is active, else dark.
-    # quote/tick have NO active runtime publisher -> always dark/not-runtime-published here. `live` is retained as an
-    # explicit alias of consumer_live (consumer-cutover), NOT a claim of Redis publication.
+    # feed_health (PR #74) and quote (PR #75) have governed runtime publishers: runtime-published when their runner is
+    # active, else dark. tick has NO active runtime publisher -> always dark/not-runtime-published here. `live` is
+    # retained as an explicit alias of consumer_live (consumer-cutover), NOT a claim of Redis publication.
     feed_health_contract = {"key": _safe_key(fh.feed_health_key, CANONICAL_INSTRUMENT), "status": fh_reported_status,
                             "runtime_published": fh_runtime_published, "consumer_live": False, "live": False}
     # quote: NEW governed key hermes:quote:XAU_USD:v1 (PR #68). tick: EXISTING key hermes:ticks:XAU_USD:latest:v1
-    # (tick_contract_v1) — referenced, NEVER a duplicate hermes:tick:* key. Both CODE_PRESENT_DARK -> key present
-    # as a discovery fact but NOT a claim that the surface is live/published.
-    quote_contract = {"key": _safe_key(qt.quote_key, CANONICAL_INSTRUMENT), "status": snap["quote"],
-                      "runtime_published": False, "consumer_live": False, "live": False}
+    # (tick_contract_v1) — referenced, NEVER a duplicate hermes:tick:* key. quote runtime-published tracks its runner
+    # gate; tick stays CODE_PRESENT_DARK (key present as a discovery fact, NOT a claim the surface is live/published).
+    quote_contract = {"key": _safe_key(qt.quote_key, CANONICAL_INSTRUMENT), "status": quote_reported_status,
+                      "runtime_published": quote_runtime_published, "consumer_live": False, "live": False}
     tick_contract = {"key": _safe_key(tickc.canonical_key, CANONICAL_INSTRUMENT), "status": snap["tick"],
                      "runtime_published": False, "consumer_live": False, "live": False,
                      "note": "existing governed tick surface (tick_contract_v1); referenced, not rebuilt"}
@@ -291,14 +297,14 @@ def build_instrument_catalog_contract(*, instrument, generated_at_utc, source_na
                 "sessions": snap["sessions"], "levels": dict(snap["levels"]),
                 "feed_health": fh_reported_status, "instrument_catalog": ic_reported_status,
                 "control_plane": snap["control_plane"],
-                "quote": snap["quote"], "tick": snap["tick"]}
+                "quote": quote_reported_status, "tick": snap["tick"]}
 
     # Pending-runtime-deployment markers. dark_surfaces lists ONLY genuinely dark (CODE_PRESENT_DARK) surfaces —
     # a runtime-published surface reports RUNTIME_PUBLISHED (not CODE_PRESENT_DARK) so it is naturally excluded and
     # instead appears in runtime_published_surfaces. runtime_live stays False while ANY surface is still dark or not
     # consumer-live; consumer cutover is a separate authorisation and is never implied here.
     _dark = {"feed_health": fh_reported_status, "instrument_catalog": ic_reported_status,
-             "quote": snap["quote"], "tick": snap["tick"]}
+             "quote": quote_reported_status, "tick": snap["tick"]}
     pending_runtime_deployment = {
         "note": "CODE_PRESENT_DARK = merged/present in code, NOT live/published. RUNTIME_PUBLISHED = key IS being "
                 "written to Redis at runtime but is NOT consumer-live/trusted (no consumer cutover). dark_surfaces "

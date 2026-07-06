@@ -271,16 +271,70 @@ def test_catalog_runtime_published_still_only_catalog(monkeypatch):
     assert "quote" in p["pending_runtime_deployment"]["dark_surfaces"]
 
 
-def test_quote_guard_intact_cannot_be_marked_runtime_published():
-    # quote (and tick) still guarded — no active runtime publisher. feed_health is now permitted (separate WO).
+def test_tick_still_guarded_quote_now_permitted():
+    # tick still guarded (no active runtime publisher). quote is now permitted (this catalog-semantics WO).
     import datetime as D
-    for bad in ("quote", "tick"):
-        with pytest.raises(ValueError) as e:
-            ic.build_instrument_catalog_contract(instrument="XAU_USD",
-                generated_at_utc=D.datetime(2026, 7, 4, 16, 0, tzinfo=UTC),
-                source_name="HERMES", runtime_published_surfaces=[bad])
-        assert "GOV-HERMES-IC-030" in str(e.value)
-    assert "quote" not in ic.RUNTIME_PUBLISHABLE_SURFACES and "tick" not in ic.RUNTIME_PUBLISHABLE_SURFACES
+    with pytest.raises(ValueError) as e:
+        ic.build_instrument_catalog_contract(instrument="XAU_USD",
+            generated_at_utc=D.datetime(2026, 7, 4, 16, 0, tzinfo=UTC),
+            source_name="HERMES", runtime_published_surfaces=["tick"])
+    assert "GOV-HERMES-IC-030" in str(e.value)
+    assert "quote" in ic.RUNTIME_PUBLISHABLE_SURFACES and "tick" not in ic.RUNTIME_PUBLISHABLE_SURFACES
+
+
+def test_step_quote_dark_when_gate_absent(monkeypatch):
+    # catalog running, quote gate ABSENT -> catalog marks quote dark (deploy-dark safety); feed-health also absent here.
+    _enable_catalog(monkeypatch)
+    _disable_quote(monkeypatch)
+    for e in (fh.ENABLED_ENV, fh.AUTHORISED_ENV, fh.INSTRUMENTS_ENV):
+        monkeypatch.delenv(e, raising=False)
+    fake = FakeRedis()
+    steps.instrument_catalog_step(fake)
+    p = json.loads(fake.store["hermes:instrument_catalog:XAU_USD:v1"])
+    assert p["runtime_published_surfaces"] == ["instrument_catalog"]
+    assert p["quote_contract"]["runtime_published"] is False and p["quote_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK
+    assert "quote" in p["pending_runtime_deployment"]["dark_surfaces"]
+
+
+def test_step_quote_runtime_published_when_gate_enabled_split_brain(monkeypatch):
+    # catalog running AND quote gate ENABLED -> catalog marks quote RUNTIME_PUBLISHED, consumer_live False, dropped
+    # from dark_surfaces. NO split-brain: catalog agrees with supervisor runner selection and the quote gate.
+    _enable_catalog(monkeypatch)
+    _enable_quote(monkeypatch)
+    for e in (fh.ENABLED_ENV, fh.AUTHORISED_ENV, fh.INSTRUMENTS_ENV):
+        monkeypatch.delenv(e, raising=False)
+    fake = FakeRedis()
+    steps.instrument_catalog_step(fake)
+    p = json.loads(fake.store["hermes:instrument_catalog:XAU_USD:v1"])
+    qc = p["quote_contract"]
+    assert qc["status"] == ic.SURFACE_RUNTIME_PUBLISHED and qc["runtime_published"] is True and qc["consumer_live"] is False
+    assert "quote" in p["runtime_published_surfaces"] and "quote" not in p["pending_runtime_deployment"]["dark_surfaces"]
+    # the split-brain equality: quote in runtime_published_surfaces == quote runner selected == quote gate enabled
+    quote_in_catalog = "quote" in p["runtime_published_surfaces"]
+    quote_runner = "quote" in [n for (n, _s, _i) in rt.default_runner_specs()]
+    quote_gate = getattr(qt.build_quote_publisher_from_env(), "enabled", False)
+    assert quote_in_catalog == quote_runner == quote_gate is True
+    # tick stays dark
+    assert "tick" in p["pending_runtime_deployment"]["dark_surfaces"] and p["tick_contract"]["runtime_published"] is False
+
+
+def test_step_quote_enabled_without_authorised_fails_loud(monkeypatch):
+    _enable_catalog(monkeypatch)
+    monkeypatch.setenv(qt.QUOTE_ENABLED_ENV, "true")
+    monkeypatch.delenv(qt.QUOTE_AUTHORISED_ENV, raising=False)
+    with pytest.raises(SystemExit) as e:
+        steps.instrument_catalog_step(FakeRedis())
+    assert e.value.code == 101
+
+
+def test_step_quote_enabled_without_instrument_scope_fails_loud(monkeypatch):
+    _enable_catalog(monkeypatch)
+    monkeypatch.setenv(qt.QUOTE_ENABLED_ENV, "true")
+    monkeypatch.setenv(qt.QUOTE_AUTHORISED_ENV, "true")
+    monkeypatch.delenv(qt.QUOTE_INSTRUMENTS_ENV, raising=False)
+    with pytest.raises(ValueError) as e:
+        steps.instrument_catalog_step(FakeRedis())
+    assert "GOV-HERMES-QT-020" in str(e.value)
 
 
 # ================================ 6. boundary regression ================================

@@ -393,14 +393,16 @@ def sessions_levels_step(client, _win_cache={}):
 # WO-HELM-HERMES-INSTRUMENT-CATALOG-RUNTIME-PUBLISHER-WIRING-0001. PR #63 supervisor-compatible runner step.
 def _catalog_runtime_published_surfaces():
     """The surfaces THIS process is actually runtime-publishing, for the catalog self-description. Always includes
-    instrument_catalog (this step IS its publication). Includes feed_health when its runtime-publisher gate is
-    enabled — the SAME gate default_runner_specs uses to add the feed_health runner (so the catalog truth tracks the
-    running supervisor atomically). quote/tick are NOT included (no active runtime publisher; they stay dark). Env
-    read only, no Redis I/O; a mis-gated feed-health (enabled-without-authorised) fails loud, exactly as the
-    supervisor build does."""
+    instrument_catalog (this step IS its publication). Includes feed_health / quote when their runtime-publisher gate
+    is enabled — the SAME gates default_runner_specs uses to add the feed_health / quote runners (so the catalog
+    truth tracks the running supervisor atomically, no split-brain). tick is NOT included (no active runtime
+    publisher; it stays dark). Env read only, no Redis I/O; a mis-gated surface (enabled-without-authorised, or
+    enabled+authorised without valid canonical scope) fails loud, exactly as the supervisor build does."""
     surfaces = ["instrument_catalog"]
     if getattr(fh.build_feed_health_publisher_from_env(), "enabled", False):   # SystemExit(101) if enabled-without-authorised
         surfaces.append("feed_health")
+    if getattr(qt.build_quote_publisher_from_env(), "enabled", False):         # SystemExit(101)/fail-closed on scope
+        surfaces.append("quote")
     return surfaces
 
 
