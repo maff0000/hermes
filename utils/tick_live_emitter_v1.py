@@ -1,0 +1,186 @@
+"""HERMES LIVE canonical tick emitter v1 — dark/inert by default.
+WO-HELM-HERMES-LIVE-TICK-PUBLISHER-V1-BUILD-0001.
+
+Type-B EMITTER (per-tick, invoked from the OANDA stream loop where the live SignalTick / state.latest_ticks context
+is available). A supervisor-runner (Type-A) was REJECTED with code evidence: (1) state.latest_ticks is in-process
+stream state inside main.py, unreachable from a supervisor step (step(client) gets Redis only); (2) the 60s
+supervisor cadence cannot serve a 5s-TTL / 10s-EX hot key; (3) the proven tick pattern is already emitter-based
+(tick_runtime_shadow_adapter_v1). This module mirrors that shadow emitter but writes the CANONICAL live key
+hermes:ticks:XAU_USD:latest:v1 (EX=10) ONLY when the LIVE gates are enabled+authorised+canonically-scoped.
+
+Guarantees: DISABLED by default (no client, no I/O). Never writes from shadow mode / to a shadow key. Never
+dual-publishes XAUUSD. Never writes quote keys. Reuses utils.tick_contract_v1 verbatim (fail-loud on malformed
+bid/ask; absent tick -> explicit UNAVAILABLE, never fake data). emit_tick_observed never breaks the tick path. UTC.
+"""
+from __future__ import annotations
+import json
+from datetime import datetime, timezone
+
+from utils import tick_contract_v1 as tc
+from utils.tick_runtime_shadow_adapter_v1 import tick_to_raw_tick   # reuse the proven SignalTick -> raw adapter
+
+CANONICAL_INSTRUMENT = "XAU_USD"
+_ALIAS_DENY = ("XAUUSD",)
+SHADOW_PREFIX = "hermes:shadow:"
+HALT_CODE = 101
+
+# LIVE gates (established enabled -> authorised -> instrument-scope pattern). Names reserved in
+# hermes_quote_tick_contract_v1.py (HERMES_TICK_PUBLISH_ENABLED/AUTHORISED); INSTRUMENTS added here.
+ENABLED_ENV = "HERMES_TICK_PUBLISH_ENABLED"
+AUTHORISED_ENV = "HERMES_TICK_PUBLISH_AUTHORISED"
+INSTRUMENTS_ENV = "HERMES_TICK_PUBLISH_INSTRUMENTS"
+
+
+def parse_tick_instruments(raw):
+    if raw is None or not str(raw).strip():
+        raise ValueError(f"GOV-HERMES-TICK-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
+    items = [x.strip() for x in str(raw).split(",") if x.strip()]
+    if not items:
+        raise ValueError(f"GOV-HERMES-TICK-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
+    for inst in items:
+        if inst == "XAUUSD" or inst != CANONICAL_INSTRUMENT:
+            raise ValueError(f"GOV-HERMES-TICK-021: instrument {inst!r} not allowed (canonical XAU_USD only; "
+                             "XAUUSD is an inbound alias, never an output publish key)")
+    return frozenset({CANONICAL_INSTRUMENT})
+
+
+def _assert_canonical_live_key(key):
+    """The LIVE emitter writes ONLY the per-instrument canonical key. Refuse shadow-prefix, XAUUSD, aggregate,
+    or any non-canonical key (fail-loud — never a silent wrong-key write)."""
+    if key.startswith(SHADOW_PREFIX):
+        raise ValueError(f"GOV-HERMES-TICK-030: LIVE emitter refuses shadow key {key!r} (canonical live only)")
+    if "XAUUSD" in key:
+        raise ValueError(f"GOV-HERMES-TICK-031: LIVE emitter refuses XAUUSD key {key!r} (canonical XAU_USD only)")
+    if key != tc.canonical_key(CANONICAL_INSTRUMENT):
+        raise ValueError(f"GOV-HERMES-TICK-032: LIVE emitter writes only {tc.canonical_key(CANONICAL_INSTRUMENT)} "
+                         f"(got {key!r})")
+    return True
+
+
+def _coerce_utc(value):
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        s = value[:-1] if value.endswith("Z") else value
+        return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+    raise ValueError("GOV-HERMES-TICK-035: source_received_at_utc must be a UTC datetime or ISO string")
+
+
+class DisabledTickEmitter:
+    """Explicit no-op emitter (default). Holds NO redis client and performs NO I/O. Never writes."""
+    enabled = False
+
+    def emit_tick(self, tick, *, now=None, logger=None):
+        return {"emitted": False, "reason": "LIVE_TICK_DISABLED"}
+
+    def emit_tick_observed(self, tick, *, logger=None, now=None):
+        return {"emitted": False, "reason": "LIVE_TICK_DISABLED"}
+
+    def status(self):
+        return {"enabled": False}
+
+
+class LiveTickEmitter:
+    """Enabled emitter — writes ONLY hermes:ticks:XAU_USD:latest:v1 (EX=10) via the governed tick contract.
+    emit_tick is fail-loud (raises on GOV/contract faults); emit_tick_observed wraps it for the stream path and
+    never raises (a tick-emit fault must not disrupt the market-truth path)."""
+    enabled = True
+
+    def __init__(self, *, allowed_instruments, redis_client):
+        if frozenset(allowed_instruments) != frozenset({CANONICAL_INSTRUMENT}):
+            raise ValueError("GOV-HERMES-TICK-021: tick allowlist must be exactly {XAU_USD}")
+        if redis_client is None:
+            raise ValueError("GOV-HERMES-TICK-033: enabled LIVE tick emitter requires an explicit redis client "
+                             "(no silent no-op when enabled)")
+        self.allowed_instruments = frozenset(allowed_instruments)
+        self.redis_client = redis_client
+        self.attempts = 0
+        self.published = 0
+        self.faults = 0
+        self.last_fault = None
+
+    def build_envelope(self, tick, *, now):
+        """Map a live SignalTick (or raw dict) -> governed canonical tick envelope via tick_contract_v1. Absent
+        source data -> explicit UNAVAILABLE (honest, never fabricated); malformed bid/ask -> fail loud (contract)."""
+        raw = tick_to_raw_tick(tick)
+        instrument = raw.get("instrument")
+        if instrument not in self.allowed_instruments:
+            raise ValueError(f"GOV-HERMES-TICK-034: instrument {instrument!r} not in scope "
+                             f"{sorted(self.allowed_instruments)} (fail-closed)")
+        bid, ask, received = raw.get("bid"), raw.get("ask"), raw.get("source_received_at_utc")
+        if bid is None and ask is None and received is None:
+            env = tc.build_unavailable(instrument=instrument, generated_at_utc=now,
+                                       reason_codes=["NO_VALID_SOURCE_TICK"])
+        else:
+            env = tc.build_tick_contract(instrument=instrument, source_received_at_utc=_coerce_utc(received),
+                                         generated_at_utc=now, bid=bid, ask=ask,
+                                         source=raw.get("source", "oanda"),
+                                         source_warning=bool(raw.get("source_warning", False)))
+        tc.validate_tick_contract(env)          # fail-loud governance re-validation
+        return env
+
+    def emit_tick(self, tick, *, now=None, logger=None):
+        now = now or datetime.now(timezone.utc)
+        self.attempts += 1
+        env = self.build_envelope(tick, now=now)
+        key = env["key"]
+        _assert_canonical_live_key(key)         # canonical-only; no shadow/XAUUSD/aggregate
+        self.redis_client.set(key, json.dumps(env), ex=tc.REDIS_EX_SECONDS)   # SET canonical, EX=10
+        self.published += 1
+        return {"emitted": True, "key": key, "status": env["status"], "freshness_state": env["freshness_state"]}
+
+    def emit_tick_observed(self, tick, *, logger=None, now=None):
+        """Stream-path entrypoint — never raises; a tick-emit fault is counted + logged, never propagated."""
+        try:
+            return self.emit_tick(tick, now=now, logger=logger)
+        except Exception as exc:  # noqa: BLE001 - bounded: live tick emit must never break the market-truth path
+            self.faults += 1
+            self.last_fault = repr(exc)[:200]
+            if logger is not None:
+                logger.warning("[LIVE_TICK_EMIT_FAIL] faults=%d error=%r", self.faults, exc)
+            return {"emitted": False, "reason": "LIVE_TICK_EMIT_FAIL", "error": repr(exc)}
+
+    def status(self):
+        return {"enabled": True, "instruments": sorted(self.allowed_instruments),
+                "attempts": self.attempts, "published": self.published, "faults": self.faults}
+
+
+def _default_canonical_redis_client():
+    """Lazy canonical HERMES redis client (same target as every other canonical hermes:* key). Only ever built
+    when the emitter is enabled+authorised; explicit env, no default host/port/db."""
+    import redis
+    from env_config import get_env, get_env_int
+    return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
+                       port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+
+
+def tick_live_gate_enabled():
+    """True iff the LIVE tick emitter gate is enabled+authorised+validly-scoped. ENV READ ONLY — builds NO redis
+    client, does NO I/O. Enabled-without-authorised -> SystemExit(101); enabled+authorised without a valid
+    canonical scope -> fail-closed (GOV-HERMES-TICK-020/021). The catalog uses THIS to mark tick RUNTIME_PUBLISHED
+    atomically with the emitter (same gate condition -> no split-brain)."""
+    from env_config import get_env, get_env_bool
+    if not get_env_bool(ENABLED_ENV, False):
+        return False
+    if not get_env_bool(AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    parse_tick_instruments(get_env(INSTRUMENTS_ENV, default=None))   # fail-closed on missing/invalid scope
+    return True
+
+
+def build_tick_live_emitter_from_env(*, redis_client=None, redis_client_factory=None):
+    """Boot entrypoint for main.py. DISABLED by default -> DisabledTickEmitter (no client, no I/O). Enabled-without-
+    authorised -> SystemExit(101). Enabled+authorised without valid canonical scope -> fail-closed
+    (GOV-HERMES-TICK-020/021). Enabled+authorised -> LiveTickEmitter writing ONLY hermes:ticks:XAU_USD:latest:v1
+    (EX=10) to the canonical HERMES redis. No hidden defaults; NO Redis client is constructed when disabled."""
+    from env_config import get_env, get_env_bool
+    if not get_env_bool(ENABLED_ENV, False):
+        return DisabledTickEmitter()
+    if not get_env_bool(AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    instruments = parse_tick_instruments(get_env(INSTRUMENTS_ENV, default=None))
+    client = redis_client
+    if client is None:
+        client = (redis_client_factory or _default_canonical_redis_client)()
+    return LiveTickEmitter(allowed_instruments=instruments, redis_client=client)
