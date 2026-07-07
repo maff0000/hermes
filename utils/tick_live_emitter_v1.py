@@ -11,6 +11,11 @@ hermes:ticks:XAU_USD:latest:v1 (EX=10) ONLY when the LIVE gates are enabled+auth
 Guarantees: DISABLED by default (no client, no I/O). Never writes from shadow mode / to a shadow key. Never
 dual-publishes XAUUSD. Never writes quote keys. Reuses utils.tick_contract_v1 verbatim (fail-loud on malformed
 bid/ask; absent tick -> explicit UNAVAILABLE, never fake data). emit_tick_observed never breaks the tick path. UTC.
+
+Out-of-scope handling: the OANDA stream carries MANY instruments and the stream loop calls the emitter for every
+tick; instruments outside the LIVE scope are a NORMAL condition. emit_tick SKIPS them BEFORE any envelope build
+(returns OUT_OF_SCOPE) — no Redis write, no fault, no WARN log. The contract fail-loud guard (GOV-HERMES-TICK-034)
+remains in build_envelope as defence-in-depth for any path that bypassed the scope skip.
 """
 from __future__ import annotations
 import json
@@ -66,6 +71,14 @@ def _coerce_utc(value):
     raise ValueError("GOV-HERMES-TICK-035: source_received_at_utc must be a UTC datetime or ISO string")
 
 
+def _tick_instrument(tick):
+    """The instrument of a live SignalTick (duck-typed) or raw dict — cheap read for scope filtering (no envelope
+    build). Matches the instrument tick_to_raw_tick would extract."""
+    if isinstance(tick, dict):
+        return tick.get("instrument")
+    return getattr(tick, "instrument", None)
+
+
 class DisabledTickEmitter:
     """Explicit no-op emitter (default). Holds NO redis client and performs NO I/O. Never writes."""
     enabled = False
@@ -97,16 +110,25 @@ class LiveTickEmitter:
         self.attempts = 0
         self.published = 0
         self.faults = 0
+        self.skipped_out_of_scope = 0
         self.last_fault = None
+
+    def in_scope(self, tick):
+        """True iff this tick's instrument is within the emitter's allowed LIVE scope. The OANDA stream carries
+        MANY instruments and the stream loop calls the emitter for every tick; instruments outside scope are a
+        NORMAL condition (skip), not an error."""
+        return _tick_instrument(tick) in self.allowed_instruments
 
     def build_envelope(self, tick, *, now):
         """Map a live SignalTick (or raw dict) -> governed canonical tick envelope via tick_contract_v1. Absent
-        source data -> explicit UNAVAILABLE (honest, never fabricated); malformed bid/ask -> fail loud (contract)."""
+        source data -> explicit UNAVAILABLE (honest, never fabricated); malformed bid/ask -> fail loud (contract).
+        Out-of-scope here is IMPOSSIBLE in normal flow (emit_tick skips first); GOV-HERMES-TICK-034 remains as
+        defence-in-depth for any direct/unsafe call that bypassed the scope skip."""
         raw = tick_to_raw_tick(tick)
         instrument = raw.get("instrument")
         if instrument not in self.allowed_instruments:
             raise ValueError(f"GOV-HERMES-TICK-034: instrument {instrument!r} not in scope "
-                             f"{sorted(self.allowed_instruments)} (fail-closed)")
+                             f"{sorted(self.allowed_instruments)} (fail-closed defence-in-depth)")
         bid, ask, received = raw.get("bid"), raw.get("ask"), raw.get("source_received_at_utc")
         if bid is None and ask is None and received is None:
             env = tc.build_unavailable(instrument=instrument, generated_at_utc=now,
@@ -121,6 +143,11 @@ class LiveTickEmitter:
 
     def emit_tick(self, tick, *, now=None, logger=None):
         now = now or datetime.now(timezone.utc)
+        # SCOPE SKIP FIRST (before any attempt/envelope/fault): the multi-instrument stream carries non-XAU_USD ticks
+        # constantly; those are a NORMAL skip, NOT a fault. No envelope build, no Redis write, no fault counter, no log.
+        if not self.in_scope(tick):
+            self.skipped_out_of_scope += 1
+            return {"emitted": False, "reason": "OUT_OF_SCOPE", "instrument": _tick_instrument(tick)}
         self.attempts += 1
         env = self.build_envelope(tick, now=now)
         key = env["key"]
@@ -142,7 +169,8 @@ class LiveTickEmitter:
 
     def status(self):
         return {"enabled": True, "instruments": sorted(self.allowed_instruments),
-                "attempts": self.attempts, "published": self.published, "faults": self.faults}
+                "attempts": self.attempts, "published": self.published, "faults": self.faults,
+                "skipped_out_of_scope": self.skipped_out_of_scope}
 
 
 def _default_canonical_redis_client():
