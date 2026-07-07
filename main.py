@@ -47,6 +47,9 @@ from utils.structure_ingest_boundary import build_publisher as _se_build_publish
 from utils.tick_runtime_shadow_adapter_v1 import (
     build_runtime_shadow_emitter_from_env as _build_shadow_tick_emitter,
 )
+from utils.tick_live_emitter_v1 import (
+    build_tick_live_emitter_from_env as _build_live_tick_emitter,
+)
 from utils.candle_runtime_seam_v1 import (
     build_candle_forward_seam_from_env as _build_candle_forward_seam,
 )
@@ -106,6 +109,9 @@ class ServiceState:
     # Runtime shadow tick emit boundary (disabled by default; SHADOW-only, non-consumer).
     # WO-HELM-HERMES-REDIS-TICK-PUBLISHER-RUNTIME-INTEGRATE-INERT-0001
     shadow_tick_emitter = None
+    # LIVE canonical tick emit boundary (dark by default; writes hermes:ticks:XAU_USD:latest:v1 ONLY when the
+    # LIVE tick gates are enabled+authorised+scoped). WO-HELM-HERMES-LIVE-TICK-PUBLISHER-V1-BUILD-0001
+    live_tick_emitter = None
     # Runtime candle-forward emit seam (INERT; disabled by default; no write).
     # WO-HELM-HERMES-CANDLE-FORWARD-RUNTIME-WIRE-INERT-0001
     candle_forward_emitter = None
@@ -775,6 +781,19 @@ async def oanda_stream_task():
                             tick.instrument, _shadow_emit_exc,
                         )
 
+                # LIVE canonical tick emit (DARK by default: DisabledTickEmitter no-ops). When the LIVE tick gates
+                # are enabled+authorised+scoped, LiveTickEmitter writes ONLY hermes:ticks:XAU_USD:latest:v1 (EX=10)
+                # to the canonical HERMES redis. emit_tick_observed never raises — a live-tick-emit fault must never
+                # disrupt the market-truth tick path. WO-HELM-HERMES-LIVE-TICK-PUBLISHER-V1-BUILD-0001.
+                if state.live_tick_emitter is not None:
+                    try:
+                        state.live_tick_emitter.emit_tick_observed(tick, logger=logger)
+                    except Exception as _live_tick_emit_exc:
+                        logger.warning(
+                            "[LIVE_TICK_EMIT_FAIL] instrument=%s error=%r",
+                            tick.instrument, _live_tick_emit_exc,
+                        )
+
                 # Record tick for healthcheck metrics
                 record_tick()
 
@@ -1175,6 +1194,24 @@ async def lifespan(app: FastAPI):
         logger.error(
             "[SHADOW_TICK_BOOT_FAIL] HERMES boot aborted on shadow-emit init: %r",
             _shadow_init_exc,
+        )
+        raise
+
+    # LIVE canonical tick emit boundary init (HERMES-owned). WO-HELM-HERMES-LIVE-TICK-PUBLISHER-V1-BUILD-0001.
+    # HERMES_TICK_PUBLISH_ENABLED unset/false -> DisabledTickEmitter (default no-op; no client, no I/O; DARK).
+    # Enabled+authorised+scoped -> LiveTickEmitter (writes ONLY hermes:ticks:XAU_USD:latest:v1, EX=10, to the
+    #   canonical HERMES redis). Enabled-without-authorised / bad scope -> FAIL LOUD on init (boot aborts).
+    try:
+        state.live_tick_emitter = _build_live_tick_emitter()
+        logger.info(
+            "[LIVE_TICK_BOOT] emitter=%s enabled=%s",
+            type(state.live_tick_emitter).__name__,
+            getattr(state.live_tick_emitter, "enabled", False),
+        )
+    except Exception as _live_tick_init_exc:
+        logger.error(
+            "[LIVE_TICK_BOOT_FAIL] HERMES boot aborted on live-tick-emit init: %r",
+            _live_tick_init_exc,
         )
         raise
 

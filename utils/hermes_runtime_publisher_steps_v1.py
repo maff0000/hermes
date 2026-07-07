@@ -394,15 +394,19 @@ def sessions_levels_step(client, _win_cache={}):
 def _catalog_runtime_published_surfaces():
     """The surfaces THIS process is actually runtime-publishing, for the catalog self-description. Always includes
     instrument_catalog (this step IS its publication). Includes feed_health / quote when their runtime-publisher gate
-    is enabled — the SAME gates default_runner_specs uses to add the feed_health / quote runners (so the catalog
-    truth tracks the running supervisor atomically, no split-brain). tick is NOT included (no active runtime
-    publisher; it stays dark). Env read only, no Redis I/O; a mis-gated surface (enabled-without-authorised, or
-    enabled+authorised without valid canonical scope) fails loud, exactly as the supervisor build does."""
+    is enabled (the SAME gates default_runner_specs uses to add those runners), and tick when the LIVE canonical tick
+    EMITTER gate is enabled (the SAME gate the stream-loop emitter uses) — so the catalog truth tracks the running
+    supervisor + emitter atomically, no split-brain. tick is emitter-based (per-tick stream loop), not a supervisor
+    runner, but the gate-driven catalog coupling is identical. Env read only, no Redis I/O; a mis-gated surface
+    (enabled-without-authorised, or enabled+authorised without valid canonical scope) fails loud."""
+    from utils import tick_live_emitter_v1 as tle
     surfaces = ["instrument_catalog"]
     if getattr(fh.build_feed_health_publisher_from_env(), "enabled", False):   # SystemExit(101) if enabled-without-authorised
         surfaces.append("feed_health")
     if getattr(qt.build_quote_publisher_from_env(), "enabled", False):         # SystemExit(101)/fail-closed on scope
         surfaces.append("quote")
+    if tle.tick_live_gate_enabled():                                           # env-only; SystemExit(101)/fail-closed on scope
+        surfaces.append("tick")
     return surfaces
 
 

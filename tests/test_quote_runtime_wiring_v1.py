@@ -271,15 +271,15 @@ def test_catalog_runtime_published_still_only_catalog(monkeypatch):
     assert "quote" in p["pending_runtime_deployment"]["dark_surfaces"]
 
 
-def test_tick_still_guarded_quote_now_permitted():
-    # tick still guarded (no active runtime publisher). quote is now permitted (this catalog-semantics WO).
+def test_quote_and_tick_now_permitted_non_surface_guarded():
+    # quote and tick are both now permitted (each has a governed publisher/emitter). A non-surface still fails loud.
     import datetime as D
+    assert "quote" in ic.RUNTIME_PUBLISHABLE_SURFACES and "tick" in ic.RUNTIME_PUBLISHABLE_SURFACES
     with pytest.raises(ValueError) as e:
         ic.build_instrument_catalog_contract(instrument="XAU_USD",
             generated_at_utc=D.datetime(2026, 7, 4, 16, 0, tzinfo=UTC),
-            source_name="HERMES", runtime_published_surfaces=["tick"])
+            source_name="HERMES", runtime_published_surfaces=["market_map"])
     assert "GOV-HERMES-IC-030" in str(e.value)
-    assert "quote" in ic.RUNTIME_PUBLISHABLE_SURFACES and "tick" not in ic.RUNTIME_PUBLISHABLE_SURFACES
 
 
 def test_step_quote_dark_when_gate_absent(monkeypatch):

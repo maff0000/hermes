@@ -205,17 +205,15 @@ def test_catalog_runtime_published_still_only_catalog(monkeypatch):
     assert p["feed_health_contract"]["runtime_published"] is False
 
 
-def test_tick_guard_intact_cannot_be_marked_runtime_published():
-    # tick has no active runtime publisher -> still fails GOV-HERMES-IC-030. feed_health and quote are now permitted
-    # (each has a governed runtime publisher; separate catalog-semantics WOs).
+def test_runtime_publishable_surfaces_are_the_governed_four():
+    # feed_health/quote/tick all now have governed publishers/emitters; a non-surface still fails loud.
     import datetime as D
+    assert ic.RUNTIME_PUBLISHABLE_SURFACES == frozenset({"instrument_catalog", "feed_health", "quote", "tick"})
     with pytest.raises(ValueError) as e:
         ic.build_instrument_catalog_contract(instrument="XAU_USD",
             generated_at_utc=D.datetime(2026, 7, 4, 12, 0, tzinfo=D.timezone.utc),
-            source_name="HERMES", runtime_published_surfaces=["tick"])
+            source_name="HERMES", runtime_published_surfaces=["candles"])
     assert "GOV-HERMES-IC-030" in str(e.value)
-    assert "feed_health" in ic.RUNTIME_PUBLISHABLE_SURFACES and "quote" in ic.RUNTIME_PUBLISHABLE_SURFACES
-    assert "tick" not in ic.RUNTIME_PUBLISHABLE_SURFACES
 
 
 # ================================ 5. boundary regression ================================
