@@ -152,14 +152,30 @@ def test_dark_surfaces_only_genuinely_dark():
     assert "instrument_catalog" not in dark
 
 
-def test_quote_tick_may_not_be_marked_runtime_published():
-    # quote/tick have no active runtime publisher -> still fail loud. (feed_health is now permitted — see
-    # test_feed_health_may_be_marked_runtime_published below.)
-    for bad in ("quote", "tick", "candles"):
+def test_tick_may_not_be_marked_runtime_published():
+    # tick has no active runtime publisher -> still fails loud. feed_health (PR #76) and quote (this WO) are permitted.
+    for bad in ("tick", "candles"):
         with pytest.raises(ValueError) as e:
             ic.build_instrument_catalog_contract(instrument="XAU_USD", generated_at_utc=_NOW, source_name="HERMES",
                                                  runtime_published_surfaces=[bad])
         assert "GOV-HERMES-IC-030" in str(e.value)
+
+
+def test_quote_may_be_marked_runtime_published():
+    # WO-...-CATALOG-QUOTE-RUNTIME-PUBLISHED-SEMANTICS: quote has a governed runtime publisher (PR #75), so it is
+    # permitted and marked RUNTIME_PUBLISHED when passed (consumer_live stays False, dropped from dark_surfaces).
+    assert "quote" in ic.RUNTIME_PUBLISHABLE_SURFACES
+    p = ic.build_instrument_catalog_contract(instrument="XAU_USD", generated_at_utc=_NOW, source_name="HERMES",
+                                             runtime_published_surfaces=["instrument_catalog", "quote"])
+    qc = p["quote_contract"]
+    assert qc["status"] == ic.SURFACE_RUNTIME_PUBLISHED
+    assert qc["runtime_published"] is True and qc["consumer_live"] is False and qc["live"] is False
+    assert p["surfaces"]["quote"] == ic.SURFACE_RUNTIME_PUBLISHED
+    assert "quote" in p["runtime_published_surfaces"] and "quote" not in p["pending_runtime_deployment"]["dark_surfaces"]
+    # tick stays dark + not runtime-published even while quote is runtime-published
+    assert p["tick_contract"]["status"] == ic.SURFACE_CODE_PRESENT_DARK and p["tick_contract"]["runtime_published"] is False
+    assert "tick" in p["pending_runtime_deployment"]["dark_surfaces"]
+    assert ic.validate_instrument_catalog_contract(p) is True
 
 
 def test_feed_health_may_be_marked_runtime_published():
