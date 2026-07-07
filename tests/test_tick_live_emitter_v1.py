@@ -257,3 +257,83 @@ def test_no_module_level_redis_client():
         assert "\nimport redis" not in src and "redis.Redis(" in src   # redis.Redis only inside the lazy factory
         # confirm the redis.Redis( call is function-scoped (inside _default_canonical_redis_client), not module-level
         assert "def _default_canonical_redis_client" in src
+
+
+# ================================ OUT-OF-SCOPE SKIP FIX (WO-...-OUT-OF-SCOPE-SKIP-FIX) ================================
+class _SpyLogger:
+    def __init__(self):
+        self.warnings = []
+    def warning(self, *a, **k):
+        self.warnings.append((a, k))
+    def debug(self, *a, **k):
+        pass
+
+
+_OANDA_STREAM_INSTRUMENTS = ["XPT_USD", "WTICO_USD", "XCU_USD", "GBP_USD", "SPX500_USD", "XAG_USD", "EUR_USD"]
+
+
+def test_out_of_scope_instrument_skipped_not_faulted(monkeypatch):
+    _enable_tick(monkeypatch)
+    fake = FakeRedis()
+    em = tle.build_tick_live_emitter_from_env(redis_client=fake)
+    spy = _SpyLogger()
+    for inst in _OANDA_STREAM_INSTRUMENTS:
+        res = em.emit_tick_observed(_Tick(instrument=inst), logger=spy)
+        assert res["emitted"] is False and res["reason"] == "OUT_OF_SCOPE" and res["instrument"] == inst
+    # no Redis write, no fault, no WARN log, attempts untouched — out-of-scope is a NORMAL skip
+    assert fake.sets == [] and "hermes:ticks:XAU_USD:latest:v1" not in fake.store
+    assert em.faults == 0 and em.attempts == 0
+    assert em.skipped_out_of_scope == len(_OANDA_STREAM_INSTRUMENTS)
+    assert spy.warnings == []                                   # ZERO warnings for out-of-scope
+
+
+def test_mixed_stream_only_xau_publishes(monkeypatch):
+    # a realistic multi-instrument stream: only XAU_USD is written; all others silently skipped
+    _enable_tick(monkeypatch)
+    fake = FakeRedis()
+    em = tle.build_tick_live_emitter_from_env(redis_client=fake)
+    spy = _SpyLogger()
+    stream = ["XPT_USD", "XAU_USD", "XAG_USD", "GBP_USD", "XAU_USD", "SPX500_USD"]
+    for inst in stream:
+        em.emit_tick_observed(_Tick(instrument=inst, received=datetime.now(UTC)), logger=spy)
+    assert list(fake.store.keys()) == ["hermes:ticks:XAU_USD:latest:v1"]   # ONLY the canonical XAU key
+    assert em.published == 2 and em.attempts == 2                          # two XAU ticks
+    assert em.skipped_out_of_scope == 4 and em.faults == 0                 # four non-XAU skipped, zero faults
+    assert spy.warnings == []
+    p = json.loads(fake.store["hermes:ticks:XAU_USD:latest:v1"])
+    assert p["data"]["instrument"] == "XAU_USD" and "XAUUSD" not in json.dumps(p)
+
+
+def test_skip_happens_before_envelope_construction(monkeypatch):
+    # in_scope() gates emit_tick; build_envelope is never reached for out-of-scope (proven: no client touch even
+    # with a client that would explode if written, and build_envelope still raises 034 as defence-in-depth)
+    _enable_tick(monkeypatch)
+    em = tle.build_tick_live_emitter_from_env(redis_client=_BoomClient())   # any write -> AssertionError
+    assert em.in_scope(_Tick(instrument="XAG_USD")) is False
+    assert em.emit_tick(_Tick(instrument="XAG_USD"))["reason"] == "OUT_OF_SCOPE"   # no client touch, no envelope
+    # defence-in-depth: build_envelope still fails loud if called directly with out-of-scope
+    import pytest as _pt
+    with _pt.raises(ValueError) as e:
+        em.build_envelope(_Tick(instrument="XAG_USD"), now=datetime.now(UTC))
+    assert "GOV-HERMES-TICK-034" in str(e.value)
+
+
+def test_in_scope_xau_still_publishes_and_malformed_still_fails(monkeypatch):
+    _enable_tick(monkeypatch)
+    fake = FakeRedis()
+    em = tle.build_tick_live_emitter_from_env(redis_client=fake)
+    # valid XAU still publishes canonical key EX=10
+    r = em.emit_tick(_Tick(instrument="XAU_USD", bid=2650.10, ask=2650.30), now=datetime.now(UTC))
+    assert r["emitted"] is True and fake.sets[0][0] == "hermes:ticks:XAU_USD:latest:v1" and fake.sets[0][2] == 10
+    # malformed XAU still fails loud (inverted) — scope skip does not mask real errors
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        em.emit_tick(_Tick(instrument="XAU_USD", bid=2650.30, ask=2650.10), now=datetime.now(UTC))
+
+
+def test_status_exposes_skip_counter(monkeypatch):
+    _enable_tick(monkeypatch)
+    em = tle.build_tick_live_emitter_from_env(redis_client=FakeRedis())
+    em.emit_tick_observed(_Tick(instrument="XAG_USD"))
+    st = em.status()
+    assert st["skipped_out_of_scope"] == 1 and st["faults"] == 0 and st["enabled"] is True
