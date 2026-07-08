@@ -362,3 +362,56 @@ def test_no_module_level_redis_client():
     for mod in (steps, qt):
         src = open(mod.__file__).read()
         assert "\nimport redis" not in src and "redis.Redis(" not in src and "\nfrom redis" not in src
+
+
+# ================================ QUOTE CADENCE FIX (WO-...-QUOTE-PUBLISHER-CADENCE-FIX) ================================
+def test_quote_runner_interval_below_ttl(monkeypatch):
+    # the quote runner must publish FASTER than QUOTE_TTL_SECONDS so the hot key stays continuously present.
+    _enable_catalog(monkeypatch)
+    _enable_quote(monkeypatch)
+    for e in (fh.ENABLED_ENV, fh.AUTHORISED_ENV, fh.INSTRUMENTS_ENV):
+        monkeypatch.delenv(e, raising=False)
+    quote_spec = [s for s in rt.default_runner_specs() if s[0] == "quote"][0]
+    interval = quote_spec[2]
+    assert interval == rt.QUOTE_PUBLISH_INTERVAL_SECONDS
+    assert interval != rt.DEFAULT_INTERVAL_SECONDS                 # NOT the 60s default
+    assert interval < qt.QUOTE_TTL_SECONDS                         # < TTL (continuously present)
+    assert interval in (5, 10)                                    # preferred short cadence
+    assert rt.QUOTE_PUBLISH_INTERVAL_SECONDS != 15                # never == TTL
+
+
+def test_quote_interval_ttl_invariant_constant():
+    # governed invariant at module level: quote publish interval strictly less than the quote TTL
+    assert rt.QUOTE_PUBLISH_INTERVAL_SECONDS < qt.QUOTE_TTL_SECONDS
+    assert 0 < rt.QUOTE_PUBLISH_INTERVAL_SECONDS <= 10
+
+
+def test_quote_interval_ge_ttl_fails_loud(monkeypatch):
+    # if the quote interval were >= TTL, spec-build fails loud (guard) — prove via monkeypatched constant
+    _enable_catalog(monkeypatch)
+    _enable_quote(monkeypatch)
+    for e in (fh.ENABLED_ENV, fh.AUTHORISED_ENV, fh.INSTRUMENTS_ENV):
+        monkeypatch.delenv(e, raising=False)
+    monkeypatch.setattr(rt, "QUOTE_PUBLISH_INTERVAL_SECONDS", qt.QUOTE_TTL_SECONDS)   # interval == TTL -> invalid
+    with pytest.raises(ValueError) as e:
+        rt.default_runner_specs()
+    assert "GOV-HERMES-PUBRT-003" in str(e.value)
+
+
+def test_other_runners_keep_default_cadence_no_regression(monkeypatch):
+    # only quote uses the short interval; the other governed runners keep DEFAULT_INTERVAL_SECONDS (no regression)
+    _enable_catalog(monkeypatch)
+    _enable_quote(monkeypatch)
+    _enable_fh(monkeypatch)
+    for (n, _s, i) in rt.default_runner_specs():
+        if n == "quote":
+            assert i == rt.QUOTE_PUBLISH_INTERVAL_SECONDS
+        else:
+            assert i == rt.DEFAULT_INTERVAL_SECONDS
+
+
+def test_quote_dark_when_gates_absent_still(monkeypatch):
+    # cadence change must not alter dark-by-default: no quote runner when gates absent
+    _enable_catalog(monkeypatch)
+    _disable_quote(monkeypatch)
+    assert "quote" not in [n for (n, _s, _i) in rt.default_runner_specs()]
