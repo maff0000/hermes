@@ -23,6 +23,11 @@ DETACHED_OWNER = "detached"
 IN_PROCESS_OWNER = "in_process"
 HALT_CODE = 101
 DEFAULT_INTERVAL_SECONDS = 60
+# Quote is a HOT surface: its key TTL is short (hermes_quote_tick_contract_v1.QUOTE_TTL_SECONDS=15). The quote
+# runner MUST publish FASTER than that TTL so the key stays continuously present (publish_interval < TTL) — the
+# 60s default would leave the key absent ~45s of every 60s. Governed, explicit, testable; enforced < TTL at
+# spec-build time (fail loud otherwise). WO-HELM-HERMES-QUOTE-PUBLISHER-CADENCE-FIX-0001.
+QUOTE_PUBLISH_INTERVAL_SECONDS = 5
 _FAULT_LOG_EVERY = 20
 
 try:
@@ -169,11 +174,17 @@ def default_runner_specs():
     # (GOV-HERMES-QT-020/021). Enabled+authorised -> appended AFTER feed_health (so catalog+quote=6 with families
     # [..,instrument_catalog,quote]; catalog+feed_health+quote=7 with [..,instrument_catalog,feed_health,quote]).
     # No Redis I/O here (env read only); the quote step is itself gate-first/no-op when disabled. No tick/market_map
-    # runner is ever added here. (Interval left at DEFAULT_INTERVAL_SECONDS; quote TTL is short — cadence tuning is
-    # an activation-WO concern, not this wiring PR.)
+    # runner is ever added here.
+    # WO-HELM-HERMES-QUOTE-PUBLISHER-CADENCE-FIX-0001 — quote is a HOT surface: it publishes on QUOTE_PUBLISH_INTERVAL_SECONDS
+    # (< QUOTE_TTL_SECONDS) so the short-TTL key stays continuously present. Enforce the invariant fail-loud: a
+    # publish interval >= TTL would leave the key flapping absent, which is a governance defect.
     from utils import hermes_quote_tick_contract_v1 as qt
     if getattr(qt.build_quote_publisher_from_env(), "enabled", False):
-        specs.append(("quote", steps.quote_step, DEFAULT_INTERVAL_SECONDS))
+        if QUOTE_PUBLISH_INTERVAL_SECONDS >= qt.QUOTE_TTL_SECONDS:
+            raise ValueError(f"GOV-HERMES-PUBRT-003: quote publish interval "
+                             f"({QUOTE_PUBLISH_INTERVAL_SECONDS}s) must be < QUOTE_TTL_SECONDS "
+                             f"({qt.QUOTE_TTL_SECONDS}s) so the hot quote key stays continuously present")
+        specs.append(("quote", steps.quote_step, QUOTE_PUBLISH_INTERVAL_SECONDS))
     return specs
 
 
