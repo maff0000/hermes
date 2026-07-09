@@ -45,6 +45,10 @@ CONN_DEGRADED = "DEGRADED"
 CONN_OFFLINE = "OFFLINE"
 CONN_UNKNOWN = "UNKNOWN"
 SOURCE_CONNECTIVITY_STATES = (CONN_CONNECTED, CONN_DEGRADED, CONN_OFFLINE, CONN_UNKNOWN)
+# The unspecified/unknown source-provenance sentinel (also the QUOTE_SOURCE_NAME_ENV default). A caller passing this
+# is treated as "not specified" so the truthful upstream tick provenance source can be propagated instead.
+# WO-HELM-HERMES-QUOTE-PROVENANCE-SOURCE-LABEL-0001.
+SOURCE_NAME_UNKNOWN = "UNKNOWN"
 
 FRESHNESS_FRESH = "FRESH"
 FRESHNESS_STALE = "STALE"
@@ -231,14 +235,38 @@ def validate_quote_contract(p):
 _DETERMINISTIC_QUOTE_FIELDS = ("bid", "ask")   # mid/spread are RECOMPUTED, never trusted from legacy
 
 
+def tick_provenance_source(tick_env):
+    """Truthful upstream source label carried by a governed tick envelope (`tick_contract_v1`): the canonical
+    `provenance.source` first, then `data.source`. Returns None when the tick carries no source (e.g. an
+    UNAVAILABLE envelope) — NEVER invents a label. WO-HELM-HERMES-QUOTE-PROVENANCE-SOURCE-LABEL-0001."""
+    if not isinstance(tick_env, dict):
+        return None
+    prov = (tick_env.get("provenance") or {}).get("source")
+    data = (tick_env.get("data") or {}).get("source")
+    return prov or data or None
+
+
+def resolve_quote_source_label(caller_source_name, tick_env):
+    """Governed precedence for the quote envelope's source label (provenance fidelity):
+      1. an EXPLICIT caller override (a real label, i.e. not None/empty and not the UNKNOWN sentinel) wins;
+      2. otherwise propagate the truthful upstream tick provenance source (oanda);
+      3. otherwise fall back to the safe UNKNOWN sentinel (tick carried no source — never fabricate provenance).
+    This makes the default (unset QUOTE_SOURCE_NAME) faithfully reflect the tick, while still honouring an
+    operator-set explicit source label. WO-HELM-HERMES-QUOTE-PROVENANCE-SOURCE-LABEL-0001."""
+    explicit = caller_source_name if (caller_source_name and caller_source_name != SOURCE_NAME_UNKNOWN) else None
+    return explicit or tick_provenance_source(tick_env) or SOURCE_NAME_UNKNOWN
+
+
 def reconcile_quote_from_tick_envelope(tick_env, *, generated_at_utc, source_name=None, point_size=None,
                                        stale_threshold_seconds=QUOTE_STALE_THRESHOLD_SECONDS):
     """Map the EXISTING governed tick envelope (`tick_contract_v1`) -> governed quote payload. Uses only the
-    deterministic bid/ask + received/source timestamps; drops the tick's own status vocab (recomputed here)."""
+    deterministic bid/ask + received/source timestamps; drops the tick's own status vocab (recomputed here).
+    The source label is resolved for provenance fidelity: explicit caller override > upstream tick provenance
+    source (oanda) > UNKNOWN fallback (WO-HELM-HERMES-QUOTE-PROVENANCE-SOURCE-LABEL-0001)."""
     d = tick_env.get("data", {}) if isinstance(tick_env, dict) else {}
     src_ts = _parse_ts(d.get("received_at_utc") or (tick_env.get("provenance", {}) or {}).get("source_received_at_utc"))
     return build_quote_contract(instrument=CANONICAL_INSTRUMENT, generated_at_utc=generated_at_utc,
-                                source_name=source_name or d.get("source") or "UNKNOWN",
+                                source_name=resolve_quote_source_label(source_name, tick_env),
                                 bid=d.get("bid"), ask=d.get("ask"), connectivity=CONN_CONNECTED,
                                 source_timestamp_utc=src_ts, received_at_utc=src_ts, last_quote_utc=src_ts,
                                 point_size=point_size, stale_threshold_seconds=stale_threshold_seconds,

@@ -125,6 +125,67 @@ def test_reconcile_from_governed_tick_envelope():
     assert "hermes:ticks:XAU_USD:latest:v1" in p["source_dependencies"]
 
 
+# --- WO-HELM-HERMES-QUOTE-PROVENANCE-SOURCE-LABEL-0001: source-label propagation from upstream tick provenance ---
+
+def _tick_env(source="oanda", bid=2000.0, ask=2000.4):
+    return tickc.build_tick_contract(instrument="XAU_USD", source_received_at_utc=_NOW - timedelta(seconds=1),
+                                     generated_at_utc=_NOW, bid=bid, ask=ask, source=source)
+
+
+def test_provenance_helper_reads_governed_tick_source():
+    # tick_provenance_source reads provenance.source first, then data.source; None when absent (never invents).
+    env = _tick_env(source="oanda")
+    assert env["provenance"]["source"] == "oanda" and env["data"]["source"] == "oanda"
+    assert qt.tick_provenance_source(env) == "oanda"
+    assert qt.tick_provenance_source({"data": {"source": "oanda"}}) == "oanda"    # data.source fallback
+    assert qt.tick_provenance_source({"provenance": {"source": None}, "data": {"source": None}}) is None
+    assert qt.tick_provenance_source(None) is None
+
+
+def test_source_label_propagates_from_tick_when_caller_default_unknown():
+    # ROOT CAUSE FIX: caller default sentinel "UNKNOWN" must NOT shadow the real tick provenance source.
+    env = _tick_env(source="oanda")
+    for caller in (None, "", qt.SOURCE_NAME_UNKNOWN):
+        p = qt.reconcile_quote_from_tick_envelope(env, generated_at_utc=_NOW, source_name=caller)
+        assert p["source"]["name"] == "oanda", f"caller={caller!r} should propagate tick provenance 'oanda'"
+    # and the direct resolver honours the same precedence
+    assert qt.resolve_quote_source_label(qt.SOURCE_NAME_UNKNOWN, env) == "oanda"
+    assert qt.resolve_quote_source_label(None, env) == "oanda"
+
+
+def test_explicit_caller_source_label_overrides_tick():
+    # an operator-set explicit (real, non-sentinel) label still wins over the tick provenance.
+    env = _tick_env(source="oanda")
+    p = qt.reconcile_quote_from_tick_envelope(env, generated_at_utc=_NOW, source_name="oanda_demo")
+    assert p["source"]["name"] == "oanda_demo"
+    assert qt.resolve_quote_source_label("oanda_demo", env) == "oanda_demo"
+
+
+def test_source_label_safe_fallback_when_tick_has_no_source():
+    # tick provenance absent (UNAVAILABLE-style) + caller default -> safe UNKNOWN sentinel, never fabricated.
+    envless = {"provenance": {"source": None}, "data": {"source": None, "bid": 2000.0, "ask": 2000.4,
+                                                        "received_at_utc": tickc._fmt(_NOW - timedelta(seconds=1))}}
+    assert qt.resolve_quote_source_label(None, envless) == qt.SOURCE_NAME_UNKNOWN
+    assert qt.resolve_quote_source_label(qt.SOURCE_NAME_UNKNOWN, envless) == qt.SOURCE_NAME_UNKNOWN
+    # explicit override still respected even with a source-less tick
+    assert qt.resolve_quote_source_label("oanda", envless) == "oanda"
+
+
+def test_provenance_fix_preserves_deterministic_pricing_and_key():
+    # source-label change must not touch pricing/freshness/key/instrument/version/dependency.
+    env = _tick_env(source="oanda", bid=2000.0, ask=2000.4)
+    p = qt.reconcile_quote_from_tick_envelope(env, generated_at_utc=_NOW, source_name=None)
+    assert p["bid"] == 2000.0 and p["ask"] == 2000.4                 # copied from tick
+    assert p["mid"] == (2000.0 + 2000.4) / 2 and p["spread"] == round(2000.4 - 2000.0, 10)
+    assert p["ask"] >= p["bid"]
+    assert p["instrument"] == "XAU_USD" and "XAUUSD" not in p["instrument"]
+    assert p["schema_version"] == "v1" and p["status"] == qt.STATUS_GREEN and p["freshness"] == qt.FRESHNESS_FRESH
+    assert qt.quote_key("XAU_USD") == "hermes:quote:XAU_USD:v1"
+    assert p["source_dependencies"] == ["hermes:ticks:XAU_USD:latest:v1"]
+    assert p["notes"] == ["reconciled_from_governed_tick_surface"]
+    assert p.get("consumer_live") is None                            # reconciler never asserts consumer-live
+
+
 def test_reconcile_from_legacy_signal_drops_interpretation():
     legacy = {"bid": "2000.0", "ask": "2000.4", "mid": "9999", "spread": "9999",  # legacy mid/spread ignored+recomputed
               "timestamp_utc": cc._fmt(_NOW - timedelta(seconds=1)), "source": "oanda",
