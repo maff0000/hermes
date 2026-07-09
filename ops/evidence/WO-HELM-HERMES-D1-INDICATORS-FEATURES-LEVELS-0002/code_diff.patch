@@ -1,0 +1,148 @@
+diff --git a/utils/hermes_runtime_publisher_steps_v1.py b/utils/hermes_runtime_publisher_steps_v1.py
+index e34e7db..72d1a3a 100644
+--- a/utils/hermes_runtime_publisher_steps_v1.py
++++ b/utils/hermes_runtime_publisher_steps_v1.py
+@@ -30,6 +30,7 @@ from utils import candle_features as cf
+ from utils import hermes_instrument_catalog_v1 as ic   # instrument-catalog runtime publisher step (gated dark)
+ from utils import hermes_feed_health_v1 as fh          # feed-health runtime publisher step (gated dark)
+ from utils import hermes_quote_tick_contract_v1 as qt  # quote runtime publisher step (gated dark)
++from utils import candle_d1_history_v1 as d1h          # D1 history depth guard + sealed-6/6 source validation
+ 
+ UTC = datetime.timezone.utc
+ INST = "XAU_USD"
+@@ -79,6 +80,72 @@ def _freshness(client, tf):
+     return "FRESH" if st == "OK" else st
+ 
+ 
++# --------------------------------------------------------------------------- D1-derived surfaces (gated dark)
++# WO-HELM-HERMES-D1-INDICATORS-FEATURES-LEVELS-0002 — D1 indicators/candle_features/daily-levels are DERIVED from the
++# governed D1 candle HISTORY series (hermes:candles:XAU_USD:D1:history:v1) ONLY — never SQL, never market_map, never
++# the unsealed live D1 latest. DARK by default: D1 is included ONLY when the publisher itself authorised D1 (D1 in
++# pub.timeframes / 'daily' in pub.scopes — driven by the existing HERMES_*_D1_AUTHORISED gates) AND the D1 history is
++# deep enough (>= candle_d1_history_v1.D1_MIN_DEPTH_FOR_INDICATORS). Below depth -> D1 is a governed SKIP (blocked,
++# never fabricated). M1-H4 behaviour is unchanged (LATEST_TFS is never modified).
++D1_TF = "D1"
++
++
++def _d1_history_depth(client):
++    idx = f"hermes:candles:{INST}:{D1_TF}:history:v1:index"
++    return client.zcard(idx) if client.exists(idx) else 0
++
++
++def _read_d1_history_validated(client, n):
++    """Newest-n SEALED D1 history candles (oldest-first) from the governed D1 history ZSET, each RE-VALIDATED
++    sealed-6/6 + canonical + 22:00 NY-5PM anchor + UTC before use (defence-in-depth). Raises on any non-sealed /
++    mis-anchored / alias member so the caller GOVERNED-SKIPS D1 (never computes from fabricated/partial source)."""
++    idx = f"hermes:candles:{INST}:{D1_TF}:history:v1:index"
++    eps = [int(e) for e in client.zrevrange(idx, 0, max(0, int(n) - 1))]
++    eps.reverse()
++    out = []
++    for ep in eps:
++        raw = client.get(f"hermes:candles:{INST}:{D1_TF}:history:v1:{ep}")
++        if not raw:
++            continue
++        env = json.loads(raw)
++        d1h.assert_sealed_complete_d1(env)                 # status OK, closed, 6/6, coverage 1.0, no gap, XAU_USD/D1
++        d = env["data"]
++        if "XAUUSD" in json.dumps(env):
++            raise ValueError("GOV-HERMES-D1DERIV-001: XAUUSD alias in D1 source (canonical XAU_USD only)")
++        open_dt = datetime.datetime.strptime(d["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=UTC)
++        if (open_dt.hour, open_dt.minute) != (22, 0):
++            raise ValueError(f"GOV-HERMES-D1DERIV-002: D1 source {d['timestamp_utc']} not on 22:00 NY-5PM anchor")
++        out.append(d)
++    return out
++
++
++def _d1_derived_ready(client):
++    """Governed depth guard: True iff the D1 history series is deep enough for D1-derived surfaces (>= min depth).
++    Below this, D1 is blocked (never fabricated); M1-H4 continue normally."""
++    return d1h.d1_history_depth_sufficient(_d1_history_depth(client))
++
++
++def _d1_tf_if_ready(pub, client):
++    """(D1,) iff the publisher authorised D1 (D1 in its timeframes) AND the depth guard passes; else (). Never
++    modifies the M1-H4 set."""
++    return (D1_TF,) if (D1_TF in getattr(pub, "timeframes", ()) and _d1_derived_ready(client)) else ()
++
++
++def _d1_daily_levels(d1_candles):
++    """Deterministic PRIOR-DAY levels from sealed D1 history (newest = most recent COMPLETED day): previous-day
++    high/low/close + ADR over the last 20 D1 (mean high-low). Fail-loud if no prior D1 candle is available. Pure
++    OHLC facts — no regime/risk/trade interpretation."""
++    if not d1_candles:
++        raise ValueError("GOV-HERMES-D1DERIV-010: previous-day levels require >= 1 sealed D1 candle (none available)")
++    prev = d1_candles[-1]                                   # oldest-first -> newest is the last COMPLETED day
++    levels = {"previous_day_high": prev["high"], "previous_day_low": prev["low"],
++              "previous_day_close": prev["close"]}
++    if len(d1_candles) >= 20:                              # ADR_20 only when the source truly supports it (no fabrication)
++        window = d1_candles[-20:]
++        levels["adr_20"] = round(sum(c["high"] - c["low"] for c in window) / 20.0, 6)
++    return levels
++
++
+ # =========================================================================== control-plane
+ def _live_tfs(client, family):
+     return [tf for tf in LATEST_TFS if client.exists(f"hermes:{family}:{INST}:{tf}:v1")]
+@@ -176,8 +243,9 @@ def indicator_step(client):
+     if not getattr(pub, "enabled", False):
+         return {"published": 0}
+     now, n = _now(), 0
+-    for tf in LATEST_TFS:
+-        candles = _read_history(client, tf, INDICATOR_WINDOW)
++    for tf in LATEST_TFS + _d1_tf_if_ready(pub, client):   # D1 appended ONLY when authorised + depth>=min (dark default)
++        candles = _read_d1_history_validated(client, INDICATOR_WINDOW) if tf == D1_TF \
++            else _read_history(client, tf, INDICATOR_WINDOW)
+         if len(candles) < 15:
+             continue
+         inds = _compute_indicators(candles)
+@@ -245,14 +313,20 @@ def candle_feature_step(client, _config_cache={}):
+         _config_cache["cfg"] = _load_feature_config()
+     config = _config_cache["cfg"]
+     now, n = _now(), 0
+-    for tf in LATEST_TFS:
+-        idx = f"hermes:candles:{INST}:{tf}:history:v1:index"
+-        eps = [int(e) for e in client.zrevrange(idx, 0, 1)]
+-        c2 = []
+-        for ep in eps:
+-            raw = client.get(f"hermes:candles:{INST}:{tf}:history:v1:{ep}")
+-            if raw:
+-                c2.append(json.loads(raw)["data"])
++    for tf in LATEST_TFS + _d1_tf_if_ready(pub, client):   # D1 appended ONLY when authorised + depth>=min (dark default)
++        if tf == D1_TF:
++            d1c = _read_d1_history_validated(client, 2)     # newest 2 sealed D1 (oldest-first) -> prev, latest
++            if len(d1c) < 2:
++                raise ValueError("GOV-HERMES-D1DERIV-011: D1 candle_features require a prior sealed D1 candle")
++            c2 = [d1c[-1], d1c[-2]]                          # [latest, prev] to match the M1-H4 ordering below
++        else:
++            idx = f"hermes:candles:{INST}:{tf}:history:v1:index"
++            eps = [int(e) for e in client.zrevrange(idx, 0, 1)]
++            c2 = []
++            for ep in eps:
++                raw = client.get(f"hermes:candles:{INST}:{tf}:history:v1:{ep}")
++                if raw:
++                    c2.append(json.loads(raw)["data"])
+         if not c2:
+             continue
+         latest, prev = c2[0], (c2[1] if len(c2) > 1 else None)
+@@ -386,6 +460,21 @@ def sessions_levels_step(client, _win_cache={}):
+         p["gated_d1_dependencies"] = ["PDH", "PDL", "ADR_20", "daily_levels", "weekly_levels"]
+         lvl.validate_level_contract(p)
+         client.set(lvl.levels_key(INST, "intraday"), json.dumps(p)); n += 1
++    # WO-HELM-HERMES-D1-INDICATORS-FEATURES-LEVELS-0002 — daily D1-derived levels (PDH/PDL/PDC + ADR_20) published
++    # ONLY when the level publisher authorised the 'daily' scope (HERMES_LEVEL_D1_AUTHORISED) AND the D1 history is
++    # deep enough. DARK by default (daily not in lp.scopes). Source = validated sealed D1 history ONLY; fail-loud on
++    # missing prior. as-of = the last sealed D1 close (D1-derived level_source_granularity).
++    if "daily" in getattr(lp, "scopes", ()) and _d1_derived_ready(client):
++        d1c = _read_d1_history_validated(client, 20)        # bounded newest 20 sealed D1 (oldest-first)
++        daily = _d1_daily_levels(d1c)
++        d1_open = datetime.datetime.strptime(d1c[-1]["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=UTC)
++        d1_close = d1_open + datetime.timedelta(seconds=cc.TF_SECONDS["D1"])   # last sealed D1 close (as-of)
++        p = lp.build(instrument=INST, scope="daily", generated_at_utc=now, levels=daily,
++                     source_inputs=["hermes:candles:XAU_USD:D1:history:v1 (governed, sealed 6/6)"],
++                     freshness_state=fresh, d1_latest_green=True,
++                     as_of_candle_close_utc=cc._fmt(d1_close))
++        lvl.validate_level_contract(p)
++        client.set(lvl.levels_key(INST, "daily"), json.dumps(p)); n += 1
+     return {"published": n}
+ 
+ 
