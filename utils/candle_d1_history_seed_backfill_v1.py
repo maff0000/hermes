@@ -1,0 +1,280 @@
+"""HERMES governed D1 history SEED/BACKFILL engine v1 — dark/dry-run by default, NO live write here.
+WO-HELM-HERMES-D1-HISTORY-SEED-BACKFILL-0001.
+
+Seeds hermes:candles:XAU_USD:D1:history:v1:index (+ member keys ...:{open_epoch}) to depth >= 26 WITHOUT waiting
+~26 trading days, using ONLY the approved D1 seal semantics — never SQL, never market_map, never fabricated data.
+
+APPROVED SOURCE (candidate 3): reconstruct sealed 6/6 D1 candles from the GOVERNED CANONICAL H4 HISTORY
+(hermes:candles:XAU_USD:H4:history:v1:*) via the SAME derivation the live seal uses (candle_d1_derivation_v1.derive_d1):
+group COMPLETE status-OK H4 children on the fixed NY-5PM grid (22/02/06/10/14/18 UTC), require EXACTLY 6 per D1
+bucket, derive, then admit ONLY via candle_d1_history_v1.assert_sealed_complete_d1 (status OK, closed, 6/6,
+coverage 1.0, no gap). This is byte-for-byte the live D1 seal path — the H4 history is the governed Redis surface
+the forward D1 producer already consumes, NOT stale SQL candles_H4/M30, NOT a 00:00-UTC anchor, NOT market_map.
+
+Guarantees: DISABLED + DRY-RUN by default. NO SQL import (stale SQL H4/M30 impossible). NO market_map import
+(impossible). NO Redis writes/deletes in dry-run. Live write requires BOTH gates + dry_run=False AND is NOT
+executed in this WO. Idempotent by open_epoch (skip match / fail-loud on conflict / never overwrite / never delete).
+Bounded (explicit max candidates, bounded reads). UTC only. No regime/risk/strategy/signal/trade semantics.
+"""
+from __future__ import annotations
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+
+from utils import candle_contract_v1 as cc
+from utils import candle_d1_derivation_v1 as d1d
+from utils import candle_d1_history_v1 as d1h
+
+CANONICAL_INSTRUMENT = "XAU_USD"
+_ALIAS_DENY = ("XAUUSD",)
+H4_TIMEFRAME = "H4"
+D1_CHILD_H4_OPEN_HOURS_UTC = d1d.D1_CHILD_H4_OPEN_HOURS_UTC     # (22, 2, 6, 10, 14, 18) — the fixed NY-5PM grid
+D1_EXPECTED_CHILDREN = d1d.D1_EXPECTED_CHILDREN                 # 6
+HALT_CODE = 101
+
+# Bounded defaults (explicit — never unbounded). Target depth >= 26 (ema_26); prefer 35 if the source supports it.
+DEFAULT_MAX_CANDLES = 60
+DEFAULT_MIN_DEPTH = d1h.D1_MIN_DEPTH_FOR_INDICATORS            # 26
+PREFERRED_TARGET_DEPTH = d1h.D1_HISTORY_RETAIN_COUNT           # 35
+_H4_READ_MARGIN = 12                                           # extra H4 read headroom around the bucket math
+
+# Gates (all DARK by default). Live write is impossible unless BOTH are set AND dry_run is explicitly false.
+BACKFILL_ENABLED_ENV = "HERMES_D1_HISTORY_BACKFILL_ENABLED"
+BACKFILL_AUTHORISED_ENV = "HERMES_D1_HISTORY_BACKFILL_AUTHORISED"
+BACKFILL_DRY_RUN_ENV = "HERMES_D1_HISTORY_BACKFILL_DRY_RUN"     # default true (safe)
+BACKFILL_MAX_CANDLES_ENV = "HERMES_D1_HISTORY_BACKFILL_MAX_CANDLES"
+BACKFILL_MIN_DEPTH_ENV = "HERMES_D1_HISTORY_BACKFILL_MIN_DEPTH"
+
+# Provenance for seeded (backfilled) records — distinct from the forward FORWARD_RUN_MARKER so the origin is honest.
+BACKFILL_RUN_MARKER = "D1_SEED_BACKFILL_V1"
+BACKFILL_SOURCE_TABLE = "hermes:candles:XAU_USD:H4:history:v1"  # the governed canonical H4 history (NOT SQL)
+
+
+# --------------------------------------------------------------------------- config (dark by default)
+class BackfillConfig:
+    def __init__(self, *, enabled, authorised, dry_run, max_candidates, min_depth):
+        self.enabled = bool(enabled)
+        self.authorised = bool(authorised)
+        self.dry_run = bool(dry_run)
+        self.max_candidates = int(max_candidates)
+        self.min_depth = int(min_depth)
+
+    @property
+    def live_write_allowed(self):
+        """Live write is allowed ONLY with enabled AND authorised AND dry_run explicitly false."""
+        return self.enabled and self.authorised and not self.dry_run
+
+    def as_dict(self):
+        return {"enabled": self.enabled, "authorised": self.authorised, "dry_run": self.dry_run,
+                "max_candidates": self.max_candidates, "min_depth": self.min_depth,
+                "live_write_allowed": self.live_write_allowed}
+
+
+def parse_backfill_config_from_env():
+    """DISABLED + DRY-RUN by default. Enabled-without-authorised -> SystemExit(101). Bounded max/min from env."""
+    from env_config import get_env_bool, get_env_int
+    enabled = get_env_bool(BACKFILL_ENABLED_ENV, False)
+    if not enabled:
+        return BackfillConfig(enabled=False, authorised=False, dry_run=True,
+                              max_candidates=DEFAULT_MAX_CANDLES, min_depth=DEFAULT_MIN_DEPTH)
+    if not get_env_bool(BACKFILL_AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    dry_run = get_env_bool(BACKFILL_DRY_RUN_ENV, True)          # default SAFE (dry-run) even when enabled+authorised
+    max_candidates = get_env_int(BACKFILL_MAX_CANDLES_ENV, DEFAULT_MAX_CANDLES) or DEFAULT_MAX_CANDLES
+    min_depth = get_env_int(BACKFILL_MIN_DEPTH_ENV, DEFAULT_MIN_DEPTH) or DEFAULT_MIN_DEPTH
+    if max_candidates <= 0 or max_candidates > 400:
+        raise ValueError(f"GOV-CANDLE-D1-BF-001: {BACKFILL_MAX_CANDLES_ENV}={max_candidates} out of bounds (1..400)")
+    if min_depth < D1_EXPECTED_CHILDREN:
+        raise ValueError(f"GOV-CANDLE-D1-BF-002: {BACKFILL_MIN_DEPTH_ENV}={min_depth} below minimum viable depth")
+    return BackfillConfig(enabled=True, authorised=True, dry_run=dry_run,
+                          max_candidates=max_candidates, min_depth=min_depth)
+
+
+# --------------------------------------------------------------------------- H4 source (governed canonical only)
+def _parse_utc(ts):
+    return datetime.strptime(ts[:-1], cc._UTC_MS).replace(tzinfo=timezone.utc)
+
+
+def _read_h4_history(client, n):
+    """Bounded newest-n CLOSED H4 candle envelopes (data dicts) from the GOVERNED canonical H4 history ZSET.
+    Reads Redis only — no SQL, no market_map. Bounded by n (never an unbounded scan)."""
+    idx = f"hermes:candles:{CANONICAL_INSTRUMENT}:{H4_TIMEFRAME}:history:v1:index"
+    eps = [int(e) for e in client.zrevrange(idx, 0, max(0, int(n) - 1))]
+    eps.reverse()
+    out = []
+    for ep in eps:
+        raw = client.get(f"hermes:candles:{CANONICAL_INSTRUMENT}:{H4_TIMEFRAME}:history:v1:{ep}")
+        if raw:
+            out.append(json.loads(raw))
+    return out
+
+
+def _h4_complete(env):
+    """A D1-eligible H4 child: status OK, closed, source_count==expected (H4=4xH1), coverage 1.0, no gap,
+    canonical XAU_USD, and its open hour is on the fixed NY-5PM child grid. Mirrors the live seal eligibility."""
+    d = env.get("data", {})
+    if d.get("instrument") != CANONICAL_INSTRUMENT or d.get("timeframe") != H4_TIMEFRAME:
+        return False
+    if env.get("status") != "OK" or d.get("is_closed") is False:
+        return False
+    sc, esc = d.get("source_count"), d.get("expected_source_count")
+    if sc is None or esc is None or sc != esc:
+        return False
+    if d.get("source_coverage") not in (1.0, 1):
+        return False
+    if d.get("gap_state", "NONE") not in (None, "NONE"):
+        return False
+    ts = d.get("timestamp_utc")
+    if not isinstance(ts, str) or not ts.endswith("Z"):
+        return False
+    return _parse_utc(ts).hour in D1_CHILD_H4_OPEN_HOURS_UTC
+
+
+def _h4_child_dict(env):
+    """Adapt an H4 history envelope -> the child dict shape derive_d1 expects (timestamp + OHLCV)."""
+    d = env["data"]
+    return {"timestamp": _parse_utc(d["timestamp_utc"]), "open": d["open"], "high": d["high"],
+            "low": d["low"], "close": d["close"], "volume": d.get("volume", 0)}
+
+
+# --------------------------------------------------------------------------- candidate reconstruction
+def build_d1_candidates(client, *, max_candidates=DEFAULT_MAX_CANDLES, now=None):
+    """Reconstruct sealed 6/6 D1 candidates from the governed H4 history (newest-first, BOUNDED to max_candidates
+    buckets). Each candidate: only a bucket with EXACTLY 6 complete NY-5PM H4 children is derived + admitted via
+    assert_sealed_complete_d1; anything short/incomplete/gapped is REJECTED (never synthesised). Read-only."""
+    now = now or datetime.now(timezone.utc)
+    read_n = int(max_candidates) * D1_EXPECTED_CHILDREN + _H4_READ_MARGIN
+    h4 = _read_h4_history(client, read_n)
+    buckets = {}
+    for env in h4:
+        if not _h4_complete(env):
+            continue                                   # incomplete/ineligible H4 never contributes to a D1
+        child = _h4_child_dict(env)
+        bopen = d1d.d1_bucket_open(child["timestamp"])
+        buckets.setdefault(int(bopen.timestamp()), []).append(child)
+    results = []
+    for bopen_epoch in sorted(buckets.keys(), reverse=True)[:int(max_candidates)]:
+        d1_open = datetime.fromtimestamp(bopen_epoch, tz=timezone.utc)
+        kids = sorted(buckets[bopen_epoch], key=lambda c: c["timestamp"])
+        child_hours = sorted(c["timestamp"].hour for c in kids)
+        if len(kids) != D1_EXPECTED_CHILDREN or child_hours != sorted(D1_CHILD_H4_OPEN_HOURS_UTC):
+            results.append({"bucket_open_epoch": bopen_epoch, "accepted": False,
+                            "reason": "D1_INCOMPLETE_CHILDREN", "child_count": len(kids)})
+            continue
+        try:
+            env, _meta = d1d.derive_d1(instrument=CANONICAL_INSTRUMENT, d1_open=d1_open, h4_children=kids,
+                                       generated_at_utc=d1_open + timedelta(seconds=d1d.D1_SECONDS), is_closed=True)
+            d1h.assert_sealed_complete_d1(env)         # admit ONLY a genuine sealed 6/6 D1 (same gate as the writer)
+        except Exception as exc:  # noqa: BLE001 - a non-sealable bucket is a REJECT, never a fabricated candle
+            results.append({"bucket_open_epoch": bopen_epoch, "accepted": False,
+                            "reason": "D1_NOT_SEALABLE", "error": repr(exc)[:160]})
+            continue
+        results.append({"bucket_open_epoch": bopen_epoch, "accepted": True, "reason": None, "env": env})
+    return results
+
+
+# --------------------------------------------------------------------------- idempotency
+def _fingerprint(env):
+    """Stable fingerprint over the CRITICAL D1 fields (excludes volatile provenance/history block). Used to
+    detect a genuine duplicate (match -> skip) vs a conflicting existing member (fail-loud, never overwrite)."""
+    d = env["data"]
+    key = json.dumps({"instrument": d["instrument"], "timeframe": d["timeframe"],
+                      "timestamp_utc": d["timestamp_utc"], "open": d["open"], "high": d["high"],
+                      "low": d["low"], "close": d["close"], "source_count": d["source_count"]},
+                     sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def _idempotency_status(client, env):
+    """new | already_present_match | conflict — by open_epoch. Never writes, never deletes."""
+    d = env["data"]
+    open_epoch = int(_parse_utc(d["timestamp_utc"]).timestamp())
+    existing = client.get(d1h.d1_history_key(CANONICAL_INSTRUMENT, open_epoch))
+    if not existing:
+        return "new"
+    try:
+        cur = json.loads(existing)
+    except Exception:  # noqa: BLE001
+        return "conflict"
+    return "already_present_match" if _fingerprint(cur) == _fingerprint(env) else "conflict"
+
+
+# --------------------------------------------------------------------------- dry-run planner (NO writes)
+def dry_run_plan(client, *, config=None, now=None):
+    """Bounded, read-only dry-run. Builds candidates, classifies idempotency, projects resulting depth, and
+    returns INERT write-plans. Performs NO Redis writes or deletes (no_write_proof=True by construction)."""
+    now = now or datetime.now(timezone.utc)
+    config = config or parse_backfill_config_from_env()
+    idx = d1h.d1_history_index_key(CANONICAL_INSTRUMENT)
+    current_depth = client.zcard(idx) if client.exists(idx) else 0
+    cands = build_d1_candidates(client, max_candidates=config.max_candidates, now=now)
+    accepted = [c for c in cands if c["accepted"]]
+    rejected = [c for c in cands if not c["accepted"]]
+    reason_counts = {}
+    for c in rejected:
+        reason_counts[c["reason"]] = reason_counts.get(c["reason"], 0) + 1
+    idem = {"new": 0, "already_present_match": 0, "conflict": 0}
+    write_plans, conflicts, ts_all = [], [], []
+    for c in accepted:
+        env = c["env"]
+        ts_all.append(env["data"]["timestamp_utc"])
+        st = _idempotency_status(client, env)
+        idem[st] += 1
+        if st == "conflict":
+            conflicts.append(env["data"]["timestamp_utc"])
+        elif st == "new":
+            hist = d1h.build_d1_history_envelope(env, backfill_run_id=BACKFILL_RUN_MARKER,
+                                                 backfill_inserted_at_utc=now, source_table=BACKFILL_SOURCE_TABLE,
+                                                 source_timestamp_utc=_parse_utc(env["data"]["timestamp_utc"]))
+            write_plans.append(d1h.build_d1_history_write_plan(hist))   # INERT plan — no write performed
+    projected_depth = current_depth + idem["new"]
+    return {
+        "mode": "DRY_RUN", "no_write_proof": True, "source_path": BACKFILL_SOURCE_TABLE,
+        "source_forbidden_sql": False, "source_forbidden_market_map": False, "anchor": "22:00Z NY-5PM (derive_d1)",
+        "config": config.as_dict(),
+        "current_depth": current_depth, "candidate_count": len(cands),
+        "accepted_count": len(accepted), "rejected_count": len(rejected), "rejection_reasons": reason_counts,
+        "earliest_candidate_utc": min(ts_all) if ts_all else None,
+        "latest_candidate_utc": max(ts_all) if ts_all else None,
+        "idempotency": idem, "conflicts": conflicts,
+        "projected_depth": projected_depth,
+        "meets_min_depth": projected_depth >= config.min_depth,
+        "meets_preferred_depth": projected_depth >= PREFERRED_TARGET_DEPTH,
+        "inert_write_plan_count": len(write_plans),
+        "write_mode": d1h.WRITE_MODE_HISTORY_INERT,
+    }
+
+
+# --------------------------------------------------------------------------- live execute (GATED; NOT run in this WO)
+def execute_backfill(client, *, config=None, now=None):
+    """LIVE seed execution — REFUSES unless enabled+authorised+dry_run=false (fail-loud). Idempotent by open_epoch:
+    skip already_present_match, FAIL-LOUD on conflict (never overwrite), write only `new` via the governed D1 history
+    write-plan (SET EX + ZADD). NEVER deletes. Bounded by max_candidates. NOT executed in this build WO (gates unset)."""
+    now = now or datetime.now(timezone.utc)
+    config = config or parse_backfill_config_from_env()
+    if not config.live_write_allowed:
+        raise ValueError("GOV-CANDLE-D1-BF-010: live D1 history seed refused — requires "
+                         f"{BACKFILL_ENABLED_ENV}=true AND {BACKFILL_AUTHORISED_ENV}=true AND "
+                         f"{BACKFILL_DRY_RUN_ENV}=false (dark/dry-run by default)")
+    written = 0
+    skipped_match = 0
+    cands = build_d1_candidates(client, max_candidates=config.max_candidates, now=now)
+    for c in (x for x in cands if x["accepted"]):
+        env = c["env"]
+        st = _idempotency_status(client, env)
+        if st == "conflict":
+            raise ValueError("GOV-CANDLE-D1-BF-011: existing D1 history member conflicts with candidate at "
+                             f"{env['data']['timestamp_utc']} — refusing to overwrite (needs a separate repair WO)")
+        if st == "already_present_match":
+            skipped_match += 1
+            continue
+        hist = d1h.build_d1_history_envelope(env, backfill_run_id=BACKFILL_RUN_MARKER,
+                                             backfill_inserted_at_utc=now, source_table=BACKFILL_SOURCE_TABLE,
+                                             source_timestamp_utc=_parse_utc(env["data"]["timestamp_utc"]))
+        plan = d1h.build_d1_history_write_plan(hist)
+        d1h.assert_d1_history_target(plan["key"])
+        d1h.assert_d1_history_target(plan["index_key"])
+        client.set(plan["key"], json.dumps(plan["value"]), ex=plan["ttl_seconds"])
+        client.zadd(plan["index_key"], {plan["index_member"]: plan["index_score"]})
+        written += 1
+    return {"written": written, "skipped_match": skipped_match, "mode": "LIVE_WRITE"}
