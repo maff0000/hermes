@@ -20,6 +20,7 @@ from utils import candle_publisher_v1 as cp
 from utils import candle_d1_derivation_v1 as d1d
 from utils import candle_contract_v1 as cc       # normalise_utc for the H4-grid open check
 from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical config/allowlist/client
+from utils import candle_d1_history_v1 as d1h    # WO-…-D1-CANDLE-HISTORY-SERIES-0001 — dark-by-default D1 history writer
 
 D1_PUBLISH_ENABLED_ENV = "HERMES_CANDLE_D1_PUBLISH_ENABLED"
 D1_PUBLISH_AUTHORISED_ENV = "HERMES_CANDLE_D1_PUBLISH_AUTHORISED"
@@ -129,7 +130,8 @@ class CanonicalD1Producer:
     next bucket's first H4 arrives (so the published D1 is always the most recently CLOSED 6/6 bucket).
     Publishes ONLY a complete 6/6 status-OK D1; a sealed <6 bucket is honestly skipped, never published."""
 
-    def __init__(self, writer, allowed_instruments, source_timeframe=D1_REQUIRED_SOURCE_TIMEFRAME):
+    def __init__(self, writer, allowed_instruments, source_timeframe=D1_REQUIRED_SOURCE_TIMEFRAME,
+                 d1_history_writer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-D1-WIRE-001: CanonicalD1Producer requires a SerializingCandleCanonicalWriter")
         allowed = frozenset(allowed_instruments or ())
@@ -140,6 +142,10 @@ class CanonicalD1Producer:
                 raise ValueError(f"GOV-CANDLE-D1-WIRE-006: instrument {inst!r} not allowed (XAU_USD only)")
         assert_d1_source_timeframe(source_timeframe)
         self.writer = writer
+        # WO-…-D1-CANDLE-HISTORY-SERIES-0001 — forward D1 history writer, DARK by default (DisabledD1HistoryWriter
+        # is a no-op with no client). Additive-only: it snapshots the sealed 6/6 D1 latest AFTER a successful
+        # publish and can NEVER affect the D1 latest seal/publish path (fault-isolated in on_d1_sealed).
+        self._d1_history_writer = d1_history_writer or d1h.DisabledD1HistoryWriter()
         self.allowed_instruments = allowed
         self.source_timeframe = source_timeframe
         self.enabled = True
@@ -278,6 +284,10 @@ class CanonicalD1Producer:
             return {"published": False, "reason": "D1_EMIT_FAIL", "error": repr(exc),
                     "bucket_open_epoch": bucket_epoch}
         self.metrics["d1_published_ok"] += 1
+        # WO-…-D1-CANDLE-HISTORY-SERIES-0001 — forward-append the just-published SEALED 6/6 D1 into the D1 history
+        # series. DARK by default (no-op writer) so deploy without the D1-history gate does NOT auto-activate it;
+        # fault-isolated (on_d1_sealed never raises) so a history fault can never disrupt the D1 latest above.
+        self._d1_history_writer.on_d1_sealed(env)
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
                 "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch}
@@ -320,4 +330,8 @@ def build_d1_producer_from_env():
     config.assert_canonical_allowed()                          # publish_enabled AND authorised (fail-loud)
     client = seam._real_canonical_redis_client(config)
     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=client)
-    return CanonicalD1Producer(writer, allowed_instruments=allowed, source_timeframe=source_tf)
+    # WO-…-D1-CANDLE-HISTORY-SERIES-0001 — build the D1 history writer DARK by default (own HERMES_CANDLE_D1_HISTORY_*
+    # gate). D1 latest live + D1-history gate unset => DisabledD1HistoryWriter (no-op) => D1 history stays dark.
+    d1_history_writer = d1h.build_d1_history_writer_from_env(redis_client=client)
+    return CanonicalD1Producer(writer, allowed_instruments=allowed, source_timeframe=source_tf,
+                               d1_history_writer=d1_history_writer)
