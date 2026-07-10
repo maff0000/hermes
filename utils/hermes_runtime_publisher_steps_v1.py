@@ -472,7 +472,7 @@ def sessions_levels_step(client, _win_cache={}):
         p = lp.build(instrument=INST, scope="daily", generated_at_utc=now, levels=daily,
                      source_inputs=["hermes:candles:XAU_USD:D1:history:v1 (governed, sealed 6/6)"],
                      freshness_state=fresh, d1_latest_green=True,
-                     as_of_candle_close_utc=cc._fmt(d1_close))
+                     as_of_candle_close_utc=d1_close)   # DATETIME (build_level_contract/_assert_utc requires it; not a str)
         lvl.validate_level_contract(p)
         client.set(lvl.levels_key(INST, "daily"), json.dumps(p)); n += 1
     return {"published": n}
