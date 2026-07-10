@@ -214,8 +214,17 @@ def validate_manifest(m):
             raise ValueError(f"GOV-HERMES-CP-013: candle_latest {tf} must be ACTIVE")
         if m["active_families"]["candle_history"].get(tf) != STATUS_ACTIVE:
             raise ValueError(f"GOV-HERMES-CP-014: candle_history {tf} must be ACTIVE")
-    if m["gated_families"]["candle_latest_d1"]["status"] != STATUS_PENDING_FIRST_DAILY_SEAL:
-        raise ValueError("GOV-HERMES-CP-015: D1 latest must be PENDING_FIRST_DAILY_SEAL")
+    # WO-HELM-HERMES-D1-CANDLE-LATEST-MANIFEST-TRUTH-0001 — candle_latest_d1 is truthful in exactly one of two states:
+    #   (a) D1 latest NOT live  -> gated_families.candle_latest_d1 = PENDING_FIRST_DAILY_SEAL (builder default), OR
+    #   (b) D1 latest live+valid -> active_families.candle_latest["D1"] = ACTIVE and candle_latest_d1 removed from gated.
+    # Never both (no split-brain), never active-without-the-active-marker (no overclaim). The active decision is made in
+    # control_plane_step from a VALIDATED sealed D1 latest — the builder can never assert it (pure, no I/O).
+    d1_latest_active = m["active_families"].get("candle_latest", {}).get("D1") == STATUS_ACTIVE
+    if d1_latest_active:
+        if "candle_latest_d1" in m["gated_families"]:
+            raise ValueError("GOV-HERMES-CP-015B: candle_latest_d1 cannot be both active (candle_latest.D1) and gated")
+    elif m["gated_families"].get("candle_latest_d1", {}).get("status") != STATUS_PENDING_FIRST_DAILY_SEAL:
+        raise ValueError("GOV-HERMES-CP-015: D1 latest must be PENDING_FIRST_DAILY_SEAL until it is live GREEN")
     if m["blocked_families"]["candle_history_d1"]["status"] != STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN:
         raise ValueError("GOV-HERMES-CP-016: D1 history must be BLOCKED_UNTIL_D1_LATEST_GREEN")
     _scan_no_forbidden_field_keys(m)
