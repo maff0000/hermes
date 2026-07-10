@@ -151,6 +151,25 @@ def _live_tfs(client, family):
     return [tf for tf in LATEST_TFS if client.exists(f"hermes:{family}:{INST}:{tf}:v1")]
 
 
+def _d1_authorised(env_name):
+    """The explicit D1 authorisation gate for a derived family (env bool). No hidden default — false unless set."""
+    from env_config import get_env_bool
+    return get_env_bool(env_name, False)
+
+
+def _d1_family_active(client, family, d1_authorised_env):
+    """Manifest truth for a D1 derived surface: ACTIVE iff the D1 authorisation gate is TRUE and the live D1 key is
+    present. Gate-derived AND live-state-derived — never assumed true; a residual key with the gate false is NOT
+    active (no overclaim), and an authorised-but-not-yet-published surface is NOT active (conservative warm-up).
+    WO-HELM-HERMES-D1-MANIFEST-TRUTH-0001."""
+    return _d1_authorised(d1_authorised_env) and bool(client.exists(f"hermes:{family}:{INST}:D1:v1"))
+
+
+def _daily_levels_active(client, d1_authorised_env):
+    """Daily-levels manifest truth: ACTIVE iff HERMES_LEVEL_D1_AUTHORISED and the live daily levels key is present."""
+    return _d1_authorised(d1_authorised_env) and bool(client.exists(lvl.levels_key(INST, "daily")))
+
+
 def _d1_state(client):
     return "ACTIVE" if client.exists(f"hermes:candles:{INST}:D1:latest:v1") else "PENDING_FIRST_DAILY_SEAL"
 
@@ -164,30 +183,42 @@ def control_plane_step(client):
     now = _now()
     run_env, environment = _run_env()
     sha, target = _deployed_sha(), _redis_target(client)
-    ind_live, feat_live = _live_tfs(client, "indicators"), _live_tfs(client, "candle_features")
-    ind_active, feat_active = len(ind_live) == len(LATEST_TFS), len(feat_live) == len(LATEST_TFS)
+    # M1-H4 liveness (health completeness is M1-H4-based, unchanged). WO-HELM-HERMES-D1-MANIFEST-TRUTH-0001: D1 derived
+    # families are reflected ACTIVE in the manifest ONLY when their D1 gate is true AND their D1 key is live (else they
+    # stay in gated_families — no overclaim). LATEST_TFS is never modified, so M1-H4 manifest behaviour is unchanged.
+    ind_m1h4, feat_m1h4 = _live_tfs(client, "indicators"), _live_tfs(client, "candle_features")
+    ind_active, feat_active = len(ind_m1h4) == len(LATEST_TFS), len(feat_m1h4) == len(LATEST_TFS)
+    ind_d1_active = _d1_family_active(client, "indicators", ind.D1_AUTHORISED_ENV)
+    feat_d1_active = _d1_family_active(client, "candle_features", feat.D1_AUTHORISED_ENV)
+    daily_active = _daily_levels_active(client, lvl.D1_AUTHORISED_ENV)
+    ind_live = ind_m1h4 + (["D1"] if ind_d1_active else [])
+    feat_live = feat_m1h4 + (["D1"] if feat_d1_active else [])
     sess_live = bool(client.exists(sess.sessions_key(INST)))
-    lvl_live = [sc for sc in ("session", "intraday") if client.exists(lvl.levels_key(INST, sc))]
+    lvl_live = [sc for sc in ("session", "intraday") if client.exists(lvl.levels_key(INST, sc))] \
+        + (["daily"] if daily_active else [])
 
     manifest = b.manifest(generated_at_utc=now, environment=environment, run_env=run_env,
                           deployed_sha=sha, service_identity="hermes-signal")
     if ind_live:
         manifest["not_implemented_families"].pop("indicators", None)
         manifest["active_families"]["indicators"] = {tf: cp.STATUS_ACTIVE for tf in ind_live}
-        manifest["gated_families"]["indicators_d1"] = {"status": cp.STATUS_GATED,
-            "explanation": "D1 indicators gated until D1 latest GREEN"}
+        if not ind_d1_active:                       # D1 stays gated ONLY while it is not live-authorised
+            manifest["gated_families"]["indicators_d1"] = {"status": cp.STATUS_GATED,
+                "explanation": "D1 indicators gated until D1 latest GREEN"}
     if feat_live:
         manifest["not_implemented_families"].pop("candle_features", None)
         manifest["active_families"]["candle_features"] = {tf: cp.STATUS_ACTIVE for tf in feat_live}
-        manifest["gated_families"]["candle_features_d1"] = {"status": cp.STATUS_GATED,
-            "explanation": "D1 candle_features gated until D1 latest GREEN"}
+        if not feat_d1_active:
+            manifest["gated_families"]["candle_features_d1"] = {"status": cp.STATUS_GATED,
+                "explanation": "D1 candle_features gated until D1 latest GREEN"}
     if sess_live:
         manifest["not_implemented_families"].pop("sessions", None)
         manifest["active_families"]["sessions"] = cp.STATUS_ACTIVE
     if lvl_live:
         manifest["active_families"]["levels"] = {sc: cp.STATUS_ACTIVE for sc in lvl_live}
-        manifest["gated_families"]["levels_d1"] = {"status": cp.STATUS_GATED,
-            "explanation": "D1-derived daily/weekly levels (PDH/PDL/ADR) gated until D1 latest GREEN"}
+        if not daily_active:
+            manifest["gated_families"]["levels_d1"] = {"status": cp.STATUS_GATED,
+                "explanation": "D1-derived daily/weekly levels (PDH/PDL/ADR) gated until D1 latest GREEN"}
     if ind_live or feat_live or sess_live or lvl_live:
         cp.validate_manifest(manifest)
 
@@ -213,7 +244,7 @@ def control_plane_step(client):
             health["missing_but_expected_families"].remove("sessions")
     if lvl_live:
         health["per_family_health"]["levels"] = cp.STATUS_ACTIVE
-        health["per_family_health"]["levels_d1"] = cp.STATUS_GATED
+        health["per_family_health"]["levels_d1"] = cp.STATUS_ACTIVE if daily_active else cp.STATUS_GATED
     cp.validate_health(health)
 
     client.set(cp.KEY_CONTRACT_MANIFEST, json.dumps(manifest))
