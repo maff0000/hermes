@@ -170,8 +170,27 @@ def _daily_levels_active(client, d1_authorised_env):
     return _d1_authorised(d1_authorised_env) and bool(client.exists(lvl.levels_key(INST, "daily")))
 
 
+def _d1_latest_active(client):
+    """Manifest truth for candle_latest_d1: True iff hermes:candles:XAU_USD:D1:latest:v1 exists AND validates as a
+    genuine live sealed D1 candle — canonical XAU_USD (no XAUUSD), status-OK, closed, complete 6/6, coverage 1.0, no
+    gap (assert_sealed_complete_d1), and 22:00 NY-5PM anchored with a valid UTC timestamp. Missing/invalid/mis-anchored
+    -> False (fail-closed, NO overclaim). WO-HELM-HERMES-D1-CANDLE-LATEST-MANIFEST-TRUTH-0001."""
+    raw = client.get(f"hermes:candles:{INST}:D1:latest:v1")
+    if not raw:
+        return False
+    try:
+        env = json.loads(raw)
+        if "XAUUSD" in json.dumps(env):
+            return False
+        d1h.assert_sealed_complete_d1(env)               # XAU_USD/D1, status OK, closed, 6/6, coverage 1.0, no gap
+        open_dt = datetime.datetime.strptime(env["data"]["timestamp_utc"][:-1], cc._UTC_MS).replace(tzinfo=UTC)
+        return (open_dt.hour, open_dt.minute) == (22, 0)
+    except Exception:  # noqa: BLE001 - any malformed/unsealed/invalid D1 latest -> not active (fail-closed)
+        return False
+
+
 def _d1_state(client):
-    return "ACTIVE" if client.exists(f"hermes:candles:{INST}:D1:latest:v1") else "PENDING_FIRST_DAILY_SEAL"
+    return "ACTIVE" if _d1_latest_active(client) else "PENDING_FIRST_DAILY_SEAL"
 
 
 def control_plane_step(client):
@@ -197,8 +216,12 @@ def control_plane_step(client):
     lvl_live = [sc for sc in ("session", "intraday") if client.exists(lvl.levels_key(INST, sc))] \
         + (["daily"] if daily_active else [])
 
+    d1_latest_active = _d1_latest_active(client)
     manifest = b.manifest(generated_at_utc=now, environment=environment, run_env=run_env,
                           deployed_sha=sha, service_identity="hermes-signal")
+    if d1_latest_active:                                # WO-...-CANDLE-LATEST-MANIFEST-TRUTH-0001: reflect live D1 latest
+        manifest["active_families"]["candle_latest"]["D1"] = cp.STATUS_ACTIVE
+        manifest["gated_families"].pop("candle_latest_d1", None)   # no longer PENDING once the D1 latest validates live
     if ind_live:
         manifest["not_implemented_families"].pop("indicators", None)
         manifest["active_families"]["indicators"] = {tf: cp.STATUS_ACTIVE for tf in ind_live}
@@ -219,7 +242,7 @@ def control_plane_step(client):
         if not daily_active:
             manifest["gated_families"]["levels_d1"] = {"status": cp.STATUS_GATED,
                 "explanation": "D1-derived daily/weekly levels (PDH/PDL/ADR) gated until D1 latest GREEN"}
-    if ind_live or feat_live or sess_live or lvl_live:
+    if ind_live or feat_live or sess_live or lvl_live or d1_latest_active:
         cp.validate_manifest(manifest)
 
     lp_fresh = {tf: _freshness(client, tf) for tf in LATEST_TFS}
