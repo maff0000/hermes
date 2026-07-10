@@ -1,0 +1,13 @@
+=== D1 source path (D1 history only) ===
+85:# governed D1 candle HISTORY series (hermes:candles:XAU_USD:D1:history:v1) ONLY — never SQL, never market_map, never
+90:D1_TF = "D1"
+94:    idx = f"hermes:candles:{INST}:{D1_TF}:history:v1:index"
+102:    idx = f"hermes:candles:{INST}:{D1_TF}:history:v1:index"
+107:        raw = client.get(f"hermes:candles:{INST}:{D1_TF}:history:v1:{ep}")
+131:    return (D1_TF,) if (D1_TF in getattr(pub, "timeframes", ()) and _d1_derived_ready(client)) else ()
+247:        candles = _read_d1_history_validated(client, INDICATOR_WINDOW) if tf == D1_TF \
+317:        if tf == D1_TF:
+473:                     source_inputs=["hermes:candles:XAU_USD:D1:history:v1 (governed, sealed 6/6)"],
+=== no D1 latest fallback / no SQL / no market_map in D1 readers ===
+no :D1:latest: fallback: True | no pymysql: True | no get_db_config: True | no market_map: True
+safeguards: assert_sealed_complete_d1=True XAUUSD_deny=True anchor(22,0)=True
