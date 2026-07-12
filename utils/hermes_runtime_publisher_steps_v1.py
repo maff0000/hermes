@@ -189,6 +189,28 @@ def _d1_latest_active(client):
         return False
 
 
+def _d1_history_active(client):
+    """catalog:candles truth for D1 history_status: True iff the governed D1 history index exists with depth>0 AND its
+    NEWEST member re-validates as a sealed 6/6, 22:00-anchored, canonical XAU_USD D1 candle (via _read_d1_history_validated
+    -> assert_sealed_complete_d1). Missing index / empty / malformed / mis-anchored / XAUUSD -> False (fail-closed, no
+    overclaim). Read-only. WO-HELM-HERMES-D1-CATALOG-CANDLES-TRUTH-0001."""
+    idx = f"hermes:candles:{INST}:{D1_TF}:history:v1:index"
+    if not client.exists(idx) or (client.zcard(idx) or 0) <= 0:
+        return False
+    try:
+        return len(_read_d1_history_validated(client, 1)) >= 1   # newest member validates sealed-6/6 + anchor + no XAUUSD
+    except Exception:  # noqa: BLE001 - any malformed/invalid history member -> not active (fail-closed)
+        return False
+
+
+def _d1_forward_writer_active():
+    """catalog:candles truth for D1 forward_history_status: True iff the governed D1 history FORWARD-WRITER gates are set
+    (HERMES_CANDLE_D1_HISTORY_ENABLED AND _AUTHORISED). Derived from the SAME env gates that build the live writer — a
+    governed runtime-config truth source, NOT code-presence. Env read only, no client. WO-...-CATALOG-CANDLES-TRUTH-0001."""
+    from env_config import get_env_bool
+    return get_env_bool(d1h.D1_HISTORY_ENABLED_ENV, False) and get_env_bool(d1h.D1_HISTORY_AUTHORISED_ENV, False)
+
+
 def _d1_state(client):
     return "ACTIVE" if _d1_latest_active(client) else "PENDING_FIRST_DAILY_SEAL"
 
@@ -255,6 +277,21 @@ def control_plane_step(client):
                             history_forward_state="ACTIVE", d1_state=_d1_state(client),
                             fault_counters_summary={}, skip_counters_summary={})
     catalog = b.candle_catalog(generated_at_utc=now)
+    # WO-HELM-HERMES-D1-CATALOG-CANDLES-TRUTH-0001 — reflect live D1 candle truth in catalog:candles. The builder is pure
+    # (defaults D1 latest=PENDING / history+forward=BLOCKED); override to ACTIVE ONLY from validated runtime truth
+    # (validated sealed D1 latest / validated D1 history newest member + depth>0 / forward-writer gates). No hardcoding;
+    # missing/invalid -> stays PENDING/BLOCKED (no overclaim). Re-validated with the relaxed validator before publish.
+    d1e = catalog["timeframes"]["D1"]
+    d1_latest_ok, d1_hist_ok, d1_fwd_ok = _d1_latest_active(client), _d1_history_active(client), _d1_forward_writer_active()
+    if d1_latest_ok:
+        d1e["latest_status"] = cp.STATUS_ACTIVE
+    if d1_hist_ok:
+        d1e["history_status"] = cp.STATUS_ACTIVE
+    if d1_fwd_ok:
+        d1e["forward_history_status"] = cp.STATUS_ACTIVE
+    if d1_latest_ok and d1_hist_ok and d1_fwd_ok:
+        d1e["notes"] = None                             # no more "armed/awaiting/blocked" caveat once fully live+truthful
+    cp.validate_candle_catalog(catalog)                 # re-validate with the relaxed D1 latest/history rules
     health = b.health(generated_at_utc=now, control_plane_active=True, indicators_built=bool(ind_live),
                       candle_features_built=bool(feat_live), candle_features_active=feat_active)
     if ind_active:
