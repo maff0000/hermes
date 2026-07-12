@@ -345,10 +345,15 @@ def validate_candle_catalog(cat):
         raise ValueError("GOV-HERMES-CP-033: H4 source_timeframe must be H1")
     if tfs["D1"]["source_timeframe"] != "H4" or tfs["D1"]["expected_source_count"] != 6:
         raise ValueError("GOV-HERMES-CP-034: D1 source_timeframe must be H4 / expected 6")
-    if tfs["D1"]["latest_status"] != STATUS_PENDING_FIRST_DAILY_SEAL:
-        raise ValueError("GOV-HERMES-CP-035: D1 latest must be PENDING_FIRST_DAILY_SEAL")
-    if tfs["D1"]["history_status"] != STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN:
-        raise ValueError("GOV-HERMES-CP-036: D1 history must be BLOCKED_UNTIL_D1_LATEST_GREEN")
+    # WO-HELM-HERMES-D1-CATALOG-CANDLES-TRUTH-0001 — D1 statuses are truthful in one of two governed states: the pure
+    # builder default (D1 latest PENDING / history+forward BLOCKED, before D1 is live) OR ACTIVE (set by control_plane_step
+    # ONLY from validated runtime truth once D1 latest is sealed-live / D1 history present+valid / forward-writer gated on).
+    if tfs["D1"]["latest_status"] not in (STATUS_PENDING_FIRST_DAILY_SEAL, STATUS_ACTIVE):
+        raise ValueError("GOV-HERMES-CP-035: D1 latest_status must be PENDING_FIRST_DAILY_SEAL or ACTIVE")
+    if tfs["D1"]["history_status"] not in (STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN, STATUS_ACTIVE):
+        raise ValueError("GOV-HERMES-CP-036: D1 history_status must be BLOCKED_UNTIL_D1_LATEST_GREEN or ACTIVE")
+    if tfs["D1"]["forward_history_status"] not in (STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN, STATUS_ACTIVE):
+        raise ValueError("GOV-HERMES-CP-037: D1 forward_history_status must be BLOCKED_UNTIL_D1_LATEST_GREEN or ACTIVE")
     _scan_no_forbidden_field_keys(cat)
     return True
 
