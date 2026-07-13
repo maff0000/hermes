@@ -11,7 +11,9 @@ missing slots are NEVER GAPS_FOUND (calendar_source=WEEKLY_WEEKEND_UTC; holiday 
 D1 boundary is enforced from day one (22:00 NY-5PM anchor only; 00:00 = INVALID_ANCHOR; sealed 6/6; XAU_USD; latest==history-newest).
 
 DARK by default: build_gaps_publisher_from_env() -> DisabledGapsPublisher (no I/O). The core builders are PURE (data-injected)
-so they are fully testable without Redis and can never auto-publish. Runtime publication is a SEPARATE later WO.
+so they are fully testable without Redis and can never auto-publish. Runtime publication (GapsPublisher.publish -> a single
+SET of GAPS_KEY, wired as the gated gaps runtime step in WO-HELM-HERMES-PH2-GAPS-SURFACE-PUBLISH-WIRING-0001) stays inert
+until HERMES_GAPS_PUBLISH_ENABLED and HERMES_GAPS_PUBLISH_AUTHORISED are both set; enabling activation is a SEPARATE later WO.
 """
 from __future__ import annotations
 import json
@@ -53,6 +55,7 @@ D1_FWD_AUTHORISED_ENV = d1h.D1_HISTORY_AUTHORISED_ENV
 GAPS_ENABLED_ENV = "HERMES_GAPS_PUBLISH_ENABLED"
 GAPS_AUTHORISED_ENV = "HERMES_GAPS_PUBLISH_AUTHORISED"
 HALT_CODE = 101
+GAPS_KEY = f"hermes:gaps:{CANONICAL_INSTRUMENT}:v1"   # the SINGLE aggregate key this surface ever writes (SET target)
 
 
 # --------------------------------------------------------------------------- market calendar (weekly weekend, UTC)
@@ -324,8 +327,10 @@ class DisabledGapsPublisher:
 
 
 class GapsPublisher:
-    """ENABLED + AUTHORISED gaps analyser. Builds the read-only gaps contract from governed candle surfaces. It does NOT
-    write the key in this WO — runtime publication (SET) is wired by a SEPARATE later deploy/activation WO. No repair/backfill."""
+    """ENABLED + AUTHORISED gaps publisher. Builds the read-only gaps contract from governed candle surfaces and, when
+    driven by the gated runtime step, publishes it to the SINGLE key GAPS_KEY. It NEVER writes any candle/history key,
+    NEVER deletes, NEVER writes SQL, NEVER launches backfill/repair, NEVER calls vendor/market_map/Falcon. The contract
+    invariants consumer_live/repair_executed/backfill_executed stay HARD false (enforced by validate_gaps_contract)."""
     enabled = True
 
     def __init__(self, *, redis_client):
@@ -337,15 +342,39 @@ class GapsPublisher:
         return analyze_gaps(self.redis_client, now=now, forward_enabled=forward_enabled,
                             forward_authorised=forward_authorised)
 
+    def publish(self, *, now, forward_enabled=False, forward_authorised=False):
+        """Governed publication: build the read-only gaps contract (analyze_gaps) and SET exactly ONE key (GAPS_KEY).
+        Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming contract). Persistent
+        truth surface -> no TTL (parity with control-plane manifest/catalog). Writes NOTHING else; no delete/SQL/backfill/
+        repair. Returns a small result dict; consumer_live/repair_executed/backfill_executed are hard false."""
+        contract = self.analyze(now=now, forward_enabled=forward_enabled, forward_authorised=forward_authorised)
+        validate_gaps_contract(contract)                       # fail-closed guard immediately before the single SET
+        self.redis_client.set(GAPS_KEY, json.dumps(contract))  # the ONLY write this surface performs
+        return {"published": 1, "key": GAPS_KEY, "overall_gap_state": contract["overall_gap_state"],
+                "consumer_live": False, "repair_executed": False, "backfill_executed": False}
+
     def status(self):
-        return {"enabled": True, "key": f"hermes:gaps:{CANONICAL_INSTRUMENT}:v1", "read_only": True,
+        return {"enabled": True, "key": GAPS_KEY, "read_only": True,
                 "repair_executed": False, "backfill_executed": False}
+
+
+def gaps_publish_enabled():
+    """Env-ONLY governed gate (no Redis client, no I/O): True iff gaps publication is ENABLED+AUTHORISED. Used by the
+    runtime runner-spec assembly to decide whether to append the gaps runner WITHOUT constructing a client. Same two
+    gates and same fail-closed as build_gaps_publisher_from_env: enabled-without-authorised -> SystemExit(101)."""
+    from env_config import get_env_bool
+    if not get_env_bool(GAPS_ENABLED_ENV, False):
+        return False
+    if not get_env_bool(GAPS_AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    return True
 
 
 def build_gaps_publisher_from_env(*, redis_client=None, redis_client_factory=None):
     """Boot entrypoint. DISABLED by default -> DisabledGapsPublisher (no client, no I/O). Enabled-without-authorised ->
-    SystemExit(101). Enabled+authorised -> GapsPublisher (read-only analyser; still no key write in this WO). No hidden
-    default that activates publication; NO Redis client constructed when disabled."""
+    SystemExit(101). Enabled+authorised -> GapsPublisher (reads governed surfaces; publishes ONLY GAPS_KEY when its
+    publish() is driven by the gated runtime step). No hidden default that activates publication; NO Redis client
+    constructed when disabled."""
     from env_config import get_env_bool
     if not get_env_bool(GAPS_ENABLED_ENV, False):
         return DisabledGapsPublisher()

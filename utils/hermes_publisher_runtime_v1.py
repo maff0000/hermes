@@ -185,6 +185,14 @@ def default_runner_specs():
                              f"({QUOTE_PUBLISH_INTERVAL_SECONDS}s) must be < QUOTE_TTL_SECONDS "
                              f"({qt.QUOTE_TTL_SECONDS}s) so the hot quote key stays continuously present")
         specs.append(("quote", steps.quote_step, QUOTE_PUBLISH_INTERVAL_SECONDS))
+    # WO-HELM-HERMES-PH2-GAPS-SURFACE-PUBLISH-WIRING-0001 — PH2 gaps runner: DISABLED by default -> NOT appended
+    # (default stays exactly the current active families). Enabled-without-authorised -> SystemExit(101) (fail-closed
+    # via the gaps gate); enabled+authorised -> appended as an additional governed runner whose step publishes ONLY
+    # hermes:gaps:XAU_USD:v1 (read-only detection; NO repair/backfill/delete/SQL/market_map/Falcon; consumer_live=false).
+    # Env read only here (gaps_publish_enabled builds NO Redis client); the gaps step is itself gate-first/no-op when disabled.
+    from utils import hermes_gaps_v1 as gaps
+    if gaps.gaps_publish_enabled():
+        specs.append(("gaps", steps.gaps_step, DEFAULT_INTERVAL_SECONDS))
     return specs
 
 
