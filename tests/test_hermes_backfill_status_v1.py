@@ -230,10 +230,14 @@ def test_no_execution_path_no_forbidden_deps():
     for tok in ("pymysql", "get_db_config", "sqlalchemy", "cursor(", "market_map", "falcon", "requests.", "urllib",
                 "oanda", "vendor", "execute_backfill", "run_backfill", "repair(", "consumer_live=True"):
         assert tok not in code, f"backfill-status module CODE must not reference {tok!r}"
-    # NO mutation path anywhere in the module (status-only, no SET in this WO)
-    for tok in (".set(", ".zadd(", ".delete(", ".expire(", ".zrem(", ".hset(", ".lpush(", ".rpush("):
-        assert tok not in code, f"status surface must not call {tok!r} (no writes/deletes in this WO)"
-    # analyze uses only .get( for Redis
+    # WO-...-PUBLISH-WIRING-0001: the ONLY mutation the module performs is publish()'s single SET of BACKFILL_STATUS_KEY.
+    # No delete/zadd/expire/zrem/hset/lpush/rpush anywhere; SET appears exactly once (in publish()).
+    for tok in (".zadd(", ".delete(", ".expire(", ".zrem(", ".hset(", ".lpush(", ".rpush("):
+        assert tok not in code, f"status surface must not call {tok!r}"
+    assert code.count(".set(") == 1, "exactly one SET (BACKFILL_STATUS_KEY) may exist"
+    pub_src = inspect.getsource(bfs.BackfillStatusPublisher.publish)
+    assert pub_src.count(".set(") == 1 and "BACKFILL_STATUS_KEY" in pub_src
+    # analyze uses only .get( for Redis (never writes)
     ag = inspect.getsource(bfs.analyze_backfill_status)
     assert ".get(" in ag
     for tok in (".set(", ".zadd(", ".delete("):
