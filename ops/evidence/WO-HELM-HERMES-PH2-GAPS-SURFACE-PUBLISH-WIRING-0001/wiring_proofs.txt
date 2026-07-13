@@ -1,0 +1,54 @@
+GAPS_KEY = hermes:gaps:XAU_USD:v1
+gate names: HERMES_GAPS_PUBLISH_ENABLED HERMES_GAPS_PUBLISH_AUTHORISED HALT_CODE 101
+
+--- GapsPublisher.publish (SET path) ---
+    def publish(self, *, now, forward_enabled=False, forward_authorised=False):
+        """Governed publication: build the read-only gaps contract (analyze_gaps) and SET exactly ONE key (GAPS_KEY).
+        Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming contract). Persistent
+        truth surface -> no TTL (parity with control-plane manifest/catalog). Writes NOTHING else; no delete/SQL/backfill/
+        repair. Returns a small result dict; consumer_live/repair_executed/backfill_executed are hard false."""
+        contract = self.analyze(now=now, forward_enabled=forward_enabled, forward_authorised=forward_authorised)
+        validate_gaps_contract(contract)                       # fail-closed guard immediately before the single SET
+        self.redis_client.set(GAPS_KEY, json.dumps(contract))  # the ONLY write this surface performs
+        return {"published": 1, "key": GAPS_KEY, "overall_gap_state": contract["overall_gap_state"],
+                "consumer_live": False, "repair_executed": False, "backfill_executed": False}
+
+--- gaps_publish_enabled (env-only gate) ---
+def gaps_publish_enabled():
+    """Env-ONLY governed gate (no Redis client, no I/O): True iff gaps publication is ENABLED+AUTHORISED. Used by the
+    runtime runner-spec assembly to decide whether to append the gaps runner WITHOUT constructing a client. Same two
+    gates and same fail-closed as build_gaps_publisher_from_env: enabled-without-authorised -> SystemExit(101)."""
+    from env_config import get_env_bool
+    if not get_env_bool(GAPS_ENABLED_ENV, False):
+        return False
+    if not get_env_bool(GAPS_AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    return True
+
+--- gaps_step (gated runtime step) ---
+def gaps_step(client):
+    """PH2 gaps recovery-surface publisher step (governed, DARK by default). Gate-first: NO-OP when the gaps gate is
+    disabled (no write); enabled-without-authorised -> SystemExit(101) (fail-closed). When enabled+authorised, reads the
+    governed candle latest/history surfaces READ-ONLY (GET/EXISTS/ZRANGE only) and publishes ONLY the single aggregate
+    key gaps.GAPS_KEY (hermes:gaps:XAU_USD:v1) with the read-only gap-detection contract. It NEVER writes any candle/
+    history key, NEVER deletes, NEVER writes SQL, NEVER launches backfill/repair, NEVER touches vendor/market_map/Falcon;
+    consumer_live/repair_executed/backfill_executed stay hard false. The D1 forward-writer gate state is REPORTED (read
+    from the same governed env gates as the live writer), not acted on."""
+    pub = gaps.build_gaps_publisher_from_env(redis_client=client)   # SystemExit(101) if enabled-without-authorised
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    from env_config import get_env_bool                             # env read only; report the two D1 gates independently
+    fe = get_env_bool(d1h.D1_HISTORY_ENABLED_ENV, False)
+    fa = get_env_bool(d1h.D1_HISTORY_AUTHORISED_ENV, False)
+    return pub.publish(now=_now(), forward_enabled=fe, forward_authorised=fa)
+
+--- runner-spec append (env-only, dark by default) ---
+    # WO-HELM-HERMES-PH2-GAPS-SURFACE-PUBLISH-WIRING-0001 — PH2 gaps runner: DISABLED by default -> NOT appended
+    # via the gaps gate); enabled+authorised -> appended as an additional governed runner whose step publishes ONLY
+    # hermes:gaps:XAU_USD:v1 (read-only detection; NO repair/backfill/delete/SQL/market_map/Falcon; consumer_live=false).
+    # Env read only here (gaps_publish_enabled builds NO Redis client); the gaps step is itself gate-first/no-op when disabled.
+    from utils import hermes_gaps_v1 as gaps
+    if gaps.gaps_publish_enabled():
+        specs.append(("gaps", steps.gaps_step, DEFAULT_INTERVAL_SECONDS))
+
+default runner specs (no gaps env) -> ['control_plane', 'indicators', 'candle_features', 'sessions_levels'] (gaps NOT appended)
