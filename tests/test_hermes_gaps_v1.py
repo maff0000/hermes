@@ -227,8 +227,12 @@ def test_no_sql_no_marketmap_no_falcon_no_interpretive():
     for imp in ("import pymysql", "pymysql", "get_db_config", "import market_map", "from market_map",
                 "candles_H4", "candles_M30", "import falcon", "from falcon"):
         assert imp not in code, f"gaps module CODE must not reference {imp!r}"
-    # publisher never writes the key in this WO: GapsPublisher performs no .set(...)
-    assert ".set(" not in inspect.getsource(gaps.GapsPublisher)
+    # WO-HELM-HERMES-PH2-GAPS-SURFACE-PUBLISH-WIRING-0001 supersedes PR#89's inert premise: GapsPublisher.publish now
+    # performs EXACTLY ONE governed write — a single SET of the aggregate gaps key (GAPS_KEY) — and NO other write/delete.
+    _pub_src = inspect.getsource(gaps.GapsPublisher)
+    assert _pub_src.count(".set(") == 1 and "GAPS_KEY" in _pub_src
+    for _tok in (".delete(", ".zadd(", ".zrem(", ".expire(", ".hset(", ".lpush(", ".rpush("):
+        assert _tok not in _pub_src, f"GapsPublisher must not call {_tok!r}"
     # no interpretive/strategy semantics introduced (scan code, drop comment lines)
     body = "\n".join(l for l in code.splitlines() if not l.strip().startswith("#")).lower()
     for tok in ("regime", " signal ", " buy ", " sell ", "position_siz", "risk_score"):

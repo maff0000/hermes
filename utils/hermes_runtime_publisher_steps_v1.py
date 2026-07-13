@@ -30,6 +30,7 @@ from utils import candle_features as cf
 from utils import hermes_instrument_catalog_v1 as ic   # instrument-catalog runtime publisher step (gated dark)
 from utils import hermes_feed_health_v1 as fh          # feed-health runtime publisher step (gated dark)
 from utils import hermes_quote_tick_contract_v1 as qt  # quote runtime publisher step (gated dark)
+from utils import hermes_gaps_v1 as gaps               # PH2 gaps runtime publisher step (gated dark)
 from utils import candle_d1_history_v1 as d1h          # D1 history depth guard + sealed-6/6 source validation
 
 UTC = datetime.timezone.utc
@@ -674,3 +675,20 @@ def quote_step(client):
         return {"published": 0}
     client.set(key, json.dumps(payload), ex=qt.QUOTE_TTL_SECONDS)
     return {"published": 1}
+
+
+def gaps_step(client):
+    """PH2 gaps recovery-surface publisher step (governed, DARK by default). Gate-first: NO-OP when the gaps gate is
+    disabled (no write); enabled-without-authorised -> SystemExit(101) (fail-closed). When enabled+authorised, reads the
+    governed candle latest/history surfaces READ-ONLY (GET/EXISTS/ZRANGE only) and publishes ONLY the single aggregate
+    key gaps.GAPS_KEY (hermes:gaps:XAU_USD:v1) with the read-only gap-detection contract. It NEVER writes any candle/
+    history key, NEVER deletes, NEVER writes SQL, NEVER launches backfill/repair, NEVER touches vendor/market_map/Falcon;
+    consumer_live/repair_executed/backfill_executed stay hard false. The D1 forward-writer gate state is REPORTED (read
+    from the same governed env gates as the live writer), not acted on."""
+    pub = gaps.build_gaps_publisher_from_env(redis_client=client)   # SystemExit(101) if enabled-without-authorised
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    from env_config import get_env_bool                             # env read only; report the two D1 gates independently
+    fe = get_env_bool(d1h.D1_HISTORY_ENABLED_ENV, False)
+    fa = get_env_bool(d1h.D1_HISTORY_AUTHORISED_ENV, False)
+    return pub.publish(now=_now(), forward_enabled=fe, forward_authorised=fa)
