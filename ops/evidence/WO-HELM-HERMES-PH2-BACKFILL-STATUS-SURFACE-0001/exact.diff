@@ -1,0 +1,519 @@
+diff --git a/tests/test_hermes_backfill_status_v1.py b/tests/test_hermes_backfill_status_v1.py
+new file mode 100644
+index 0000000..2ada7b2
+--- /dev/null
++++ b/tests/test_hermes_backfill_status_v1.py
+@@ -0,0 +1,240 @@
++"""HERMES PH2 backfill-status surface (hermes:backfill:status:XAU_USD:v1) — status-only, code-only, no live I/O.
++WO-HELM-HERMES-PH2-BACKFILL-STATUS-SURFACE-0001.
++
++Proves the surface is telemetry-only: it consumes the live gaps contract and reports recovery readiness, never executes/
++repairs/writes/deletes. Missing/invalid gaps -> GAPS_SURFACE_MISSING (fail-closed); GAPS_FOUND -> non-OK recovery-needed;
++invariants execution_enabled/backfill_executed/repair_executed/consumer_live hard false; active_job/completed_pct null.
++"""
++import inspect
++import json
++import re
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++import utils.hermes_backfill_status_v1 as bfs
++import utils.hermes_gaps_v1 as gaps
++import utils.candle_d1_derivation_v1 as d1d
++import utils.candle_contract_v1 as cc
++
++UTC = timezone.utc
++INST = "XAU_USD"
++NOW = datetime(2026, 7, 13, 6, 51, tzinfo=UTC)
++
++
++class FakeRedis:
++    """Records every write/delete so tests can prove the status surface performs NONE."""
++    def __init__(self, kv=None):
++        self.kv = kv or {}
++        self.sets = []
++        self.deletes = []
++
++    def get(self, k):
++        v = self.kv.get(k)
++        return v.encode() if isinstance(v, str) else v
++
++    def set(self, k, v, ex=None):
++        self.sets.append((k, ex))
++        self.kv[k] = v
++
++    def delete(self, *a):
++        self.deletes.extend(a)
++
++
++def _sealed_d1(d1_open=datetime(2026, 7, 12, 22, 0, tzinfo=UTC)):
++    opens = d1d.d1_child_h4_opens(d1_open)
++    specs = [(2000, 2010, 1990, 2005, 10), (2005, 2030, 1995, 2020, 11), (2020, 2080, 2010, 2050, 12),
++             (2050, 2060, 2000, 2030, 13), (2030, 2040, 1900, 1950, 14), (1950, 1975, 1940, 1970, 15)]
++    kids = [{"timestamp": opens[i], "open": specs[i][0], "high": specs[i][1], "low": specs[i][2],
++             "close": specs[i][3], "volume": specs[i][4]} for i in range(6)]
++    env, _ = d1d.derive_d1(instrument=INST, d1_open=d1_open, h4_children=kids,
++                           generated_at_utc=cc.normalise_utc(d1_open) + timedelta(seconds=d1d.D1_SECONDS))
++    return env
++
++
++def _live_gaps_contract(now=NOW, *, gap_state="GAPS_FOUND", d1_depth=34, d1_state="OK"):
++    """Build a real, VALID gaps contract via the deployed gaps builder with explicit per-tf states (deterministic, fast)."""
++    tfb = {}
++    for tf in gaps.TIMEFRAMES:
++        tfb[tf] = {"timeframe": tf, "gap_state": gap_state, "market_phase": "OPEN",
++                   "history_depth": (d1_depth if tf == "D1" else 500), "sufficient_depth": True, "missing_slots": 3}
++    d1b = {"expected_anchor_utc": "22:00", "ny5pm_anchor": True, "latest_open_utc": "2026-07-12T22:00:00.000Z",
++           "history_newest_open_utc": "2026-07-12T22:00:00.000Z", "latest_matches_history_newest": True,
++           "sealed_complete": True, "source_count": 6, "expected_source_count": 6, "coverage": 1.0, "gap": "NONE",
++           "invalid_anchor_count": 0, "non_22_anchor_count": 0, "forward_writer_enabled": True,
++           "forward_writer_authorised": True, "weekend_d1_buckets": "NOT_EXPECTED", "d1_boundary_state": d1_state}
++    return gaps.build_gaps_contract(timeframes=tfb, d1_boundary=d1b, generated_at_utc=now)
++
++
++# --------------------------------------------------------------------------- key + 1: missing gaps -> GAPS_SURFACE_MISSING
++def test_backfill_status_key_constant():
++    assert bfs.BACKFILL_STATUS_KEY == "hermes:backfill:status:XAU_USD:v1"
++    assert "XAUUSD" not in bfs.BACKFILL_STATUS_KEY
++
++
++def test_missing_gaps_surface_is_gaps_surface_missing():
++    r = FakeRedis({})                                              # no gaps key
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["overall_status"] == "GAPS_SURFACE_MISSING"
++    assert c["gaps_source"]["present"] is False
++    assert r.sets == [] and r.deletes == []                       # 10 & 11: no writes/deletes
++
++
++def test_unparseable_gaps_fails_closed():
++    r = FakeRedis({gaps.GAPS_KEY: "{not json"})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["overall_status"] == "GAPS_SURFACE_MISSING"          # 18: invalid gaps fails closed
++
++
++def test_invalid_gaps_contract_fails_closed():
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps({"instrument": "XAUUSD"})})   # wrong-instrument gaps contract
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["overall_status"] == "GAPS_SURFACE_MISSING"
++    assert "XAUUSD" not in json.dumps(c)                          # alias never leaks
++
++
++# --------------------------------------------------------------------------- 2 & 6: GAPS_FOUND -> non-OK recovery
++def test_gaps_found_yields_recovery_needed_not_ok():
++    gc = _live_gaps_contract(gap_state="GAPS_FOUND")
++    assert gc["overall_gap_state"] == "GAPS_FOUND"                # worst-of all-tf GAPS_FOUND
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["overall_status"] == "READY_FOR_BACKFILL_DESIGN"
++    assert c["overall_status"] != "OK"
++    assert c["blocked_reason"] == bfs.NO_EXECUTOR_REASON
++    # per-tf mirrors safely; no tf silently OK while gaps GAPS_FOUND
++    for tf, b in c["timeframes"].items():
++        assert b["status"] in bfs.STATUS_ORDER
++        assert not (b["gap_state"] == "GAPS_FOUND" and b["status"] == "OK")
++
++
++def test_gaps_ok_is_idle_never_ok():
++    gc = _live_gaps_contract(gap_state="OK")
++    assert gc["overall_gap_state"] == "OK"
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["overall_status"] == "IDLE"                          # gaps OK -> IDLE, never claims OK/complete
++    assert c["overall_status"] != "OK"
++
++
++# --------------------------------------------------------------------------- 3,4,5: status-only invariants
++def test_status_only_invariants():
++    gc = _live_gaps_contract()
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    assert c["consumer_live"] is False
++    assert c["execution_enabled"] is False
++    assert c["backfill_executed"] is False
++    assert c["repair_executed"] is False
++    assert c["active_job"] is None
++    assert c["completed_pct"] is None
++    assert bfs.validate_backfill_status_contract(c) is True       # 17: validates
++
++
++# --------------------------------------------------------------------------- 7: D1 block reports gates without action
++def test_d1_block_reports_boundary_and_forward_gates():
++    gc = _live_gaps_contract()
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW,
++                                    gate_values={bfs.D1_FWD_ENABLED_ENV: True, bfs.D1_FWD_AUTHORISED_ENV: True,
++                                                 bfs.D1_BACKFILL_ENABLED_ENV: True, bfs.D1_BACKFILL_AUTHORISED_ENV: True})
++    d1 = c["d1"]
++    for k in ("history_depth", "min_required_depth", "latest_open_utc", "history_newest_open_utc", "d1_boundary_state",
++              "forward_writer_enabled", "forward_writer_authorised", "backfill_path_available", "status"):
++        assert k in d1
++    assert d1["backfill_path_available"] is True                  # D1 has a governed seed/backfill engine
++    assert d1["d1_boundary_state"] == "OK"
++    # D1 tf backfill_gates reported with values, but this surface still never executes
++    d1_tf = c["timeframes"]["D1"]
++    assert d1_tf["backfill_gates"]["enabled"] is True and d1_tf["backfill_gates"]["authorised"] is True
++    assert d1_tf["backfill_gates"]["dry_run"] is True            # dry-run default even when enabled+authorised
++
++
++def test_m1h4_have_no_executor_path():
++    gc = _live_gaps_contract()
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    for tf in ("M1", "M5", "M15", "H1", "H4"):
++        b = c["timeframes"][tf]
++        assert b["backfill_path_available"] is False
++        assert b["backfill_gates"] is None
++        if b["status"] in ("READY_FOR_BACKFILL_DESIGN", "SOURCE_MISSING", "INSUFFICIENT_HISTORY", "STALE", "GAPS_FOUND"):
++            assert b["blocked_reason"] == bfs.NO_EXECUTOR_REASON
++
++
++# --------------------------------------------------------------------------- schema completeness
++def test_contract_has_all_required_fields():
++    gc = _live_gaps_contract()
++    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
++    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
++    for f in ("schema_version", "publisher", "instrument", "generated_at_utc", "source", "consumer_live",
++              "execution_enabled", "backfill_executed", "repair_executed", "overall_status", "active_job",
++              "last_completed_job", "blocked_reason", "rate_limit_tokens", "completed_pct", "timeframes", "d1",
++              "gaps_source", "caveats"):
++        assert f in c, f"missing top-level field {f}"
++    assert set(c["timeframes"]) == {"M1", "M5", "M15", "H1", "H4", "D1"}
++    for tf, b in c["timeframes"].items():
++        for f in ("timeframe", "gap_state", "history_depth", "min_required_depth", "sufficient", "retention_policy",
++                  "backfill_path_available", "backfill_gates", "forward_writer_gates", "last_backfill_run_marker",
++                  "status", "blocked_reason"):
++            assert f in b, f"{tf} missing {f}"
++
++
++# --------------------------------------------------------------------------- 16: XAUUSD denied
++def test_xauusd_denied_in_validation():
++    gc = _live_gaps_contract()
++    c = bfs.build_backfill_status_contract(gaps_contract=gc, now=NOW)
++    poisoned = dict(c); poisoned["instrument"] = "XAUUSD"
++    with pytest.raises(ValueError, match="GOV-HERMES-BFS-00[12]"):
++        bfs.validate_backfill_status_contract(poisoned)
++
++
++def test_ok_overall_status_is_rejected_by_validation():
++    gc = _live_gaps_contract()
++    c = bfs.build_backfill_status_contract(gaps_contract=gc, now=NOW)
++    c2 = dict(c); c2["overall_status"] = "OK"
++    with pytest.raises(ValueError, match="GOV-HERMES-BFS-006"):
++        bfs.validate_backfill_status_contract(c2)
++
++
++# --------------------------------------------------------------------------- dark publisher
++def test_publisher_disabled_by_default(monkeypatch):
++    for e in (bfs.STATUS_ENABLED_ENV, bfs.STATUS_AUTHORISED_ENV):
++        monkeypatch.delenv(e, raising=False)
++    assert isinstance(bfs.build_backfill_status_publisher_from_env(), bfs.DisabledBackfillStatusPublisher)
++
++
++def test_publisher_enabled_without_authorised_fails_closed(monkeypatch):
++    monkeypatch.setenv(bfs.STATUS_ENABLED_ENV, "true")
++    monkeypatch.delenv(bfs.STATUS_AUTHORISED_ENV, raising=False)
++    with pytest.raises(SystemExit) as e:
++        bfs.build_backfill_status_publisher_from_env(redis_client=FakeRedis())
++    assert e.value.code == 101
++
++
++# --------------------------------------------------------------------------- 8-15: no execution / forbidden deps / no writes
++def _code_only(*objs):
++    out = []
++    for o in objs:
++        src = inspect.getsource(o)
++        doc = getattr(o, "__doc__", "") or ""
++        out.append("\n".join(l for l in src.replace(doc, "").splitlines() if not l.lstrip().startswith("#")))
++    return "\n".join(out)
++
++
++def test_no_execution_path_no_forbidden_deps():
++    # scan the whole module CODE (strip ALL docstrings — module + function/class negative declarations — and comments)
++    src = inspect.getsource(bfs)
++    src = re.sub(r'"""(?:.|\n)*?"""', "", src)
++    code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
++    for tok in ("pymysql", "get_db_config", "sqlalchemy", "cursor(", "market_map", "falcon", "requests.", "urllib",
++                "oanda", "vendor", "execute_backfill", "run_backfill", "repair(", "consumer_live=True"):
++        assert tok not in code, f"backfill-status module CODE must not reference {tok!r}"
++    # NO mutation path anywhere in the module (status-only, no SET in this WO)
++    for tok in (".set(", ".zadd(", ".delete(", ".expire(", ".zrem(", ".hset(", ".lpush(", ".rpush("):
++        assert tok not in code, f"status surface must not call {tok!r} (no writes/deletes in this WO)"
++    # analyze uses only .get( for Redis
++    ag = inspect.getsource(bfs.analyze_backfill_status)
++    assert ".get(" in ag
++    for tok in (".set(", ".zadd(", ".delete("):
++        assert tok not in ag
+diff --git a/utils/hermes_backfill_status_v1.py b/utils/hermes_backfill_status_v1.py
+new file mode 100644
+index 0000000..07b4c26
+--- /dev/null
++++ b/utils/hermes_backfill_status_v1.py
+@@ -0,0 +1,267 @@
++"""HERMES PH2 recovery surface #2 — hermes:backfill:status:XAU_USD:v1 STATUS-ONLY telemetry v1.
++WO-HELM-HERMES-PH2-BACKFILL-STATUS-SURFACE-0001.
++
++Deterministic, read-only recovery/backfill TELEMETRY & READINESS only. This surface NEVER executes backfill, NEVER repairs
++data, NEVER writes/deletes any Redis candle/history key, NEVER writes SQL, NEVER pulls a vendor, NEVER touches market_map or
++Falcon, and carries no strategy/risk/signal/trade semantics. It reads the LIVE gaps truth surface (hermes:gaps:XAU_USD:v1) as
++its primary input and describes, per timeframe + D1, how much recovery is needed and whether a governed backfill PATH exists —
++without ever acting on it.
++
++Hard invariants (validate_backfill_status_contract): instrument=XAU_USD; no XAUUSD; consumer_live/execution_enabled/
++backfill_executed/repair_executed are HARD false; active_job/completed_pct are null (no governed job runner is wired to this
++surface); overall_status is fail-closed and NEVER OK (this surface will not claim recovery complete without a governed evidence
++source, which does not exist in this WO). Missing/invalid gaps input -> GAPS_SURFACE_MISSING (fail-closed), never OK.
++
++DARK by default: build_backfill_status_publisher_from_env() -> DisabledBackfillStatusPublisher (no I/O). The builder is PURE
++(data-injected). There is NO SET path in this WO — runtime publication is a SEPARATE later WO (PR#89 lesson: build inert first).
++"""
++from __future__ import annotations
++import json
++
++from utils import candle_contract_v1 as cc
++from utils import hermes_gaps_v1 as gaps     # primary input surface + shared canon/timeframes/depth/retention
++
++CANONICAL_INSTRUMENT = gaps.CANONICAL_INSTRUMENT   # "XAU_USD"
++SCHEMA_VERSION = "v1"
++PUBLISHER = "HERMES"
++TIMEFRAMES = gaps.TIMEFRAMES                        # ("M1","M5","M15","H1","H4","D1")
++BACKFILL_STATUS_KEY = f"hermes:backfill:status:{CANONICAL_INSTRUMENT}:v1"   # the SINGLE aggregate key (never written here)
++GAPS_SOURCE_KEY = gaps.GAPS_KEY                     # hermes:gaps:XAU_USD:v1
++
++# Fail-closed status vocab (WO-suggested order; R2D2 may amend). overall_status is NEVER OK in this WO.
++STATUS_ORDER = ("SOURCE_MISSING", "GAPS_SURFACE_MISSING", "GAPS_FOUND", "READY_FOR_BACKFILL_DESIGN", "IDLE",
++                "INSUFFICIENT_HISTORY", "STALE", "RATE_LIMITED", "STALLED", "BLOCKED", "OK")
++
++NO_EXECUTOR_REASON = "NO_BACKFILL_EXECUTOR_CONFIGURED"
++
++# --- governed gate NAMES this surface REPORTS as telemetry (it never reads-to-act; values are injected read-only). ---
++# D1 has a governed seed/backfill engine (utils/candle_d1_history_seed_backfill_v1.py) -> a real, gated, dry-run-by-default
++# recovery PATH exists for D1. M1-H4 have NO governed gap-closing executor wired to this surface.
++D1_BACKFILL_ENABLED_ENV = "HERMES_D1_HISTORY_BACKFILL_ENABLED"
++D1_BACKFILL_AUTHORISED_ENV = "HERMES_D1_HISTORY_BACKFILL_AUTHORISED"
++D1_BACKFILL_DRY_RUN_ENV = "HERMES_D1_HISTORY_BACKFILL_DRY_RUN"
++# forward-writer gates (context only; forward writers are NOT backfill executors).
++D1_FWD_ENABLED_ENV = gaps.D1_FWD_ENABLED_ENV        # HERMES_CANDLE_D1_HISTORY_ENABLED
++D1_FWD_AUTHORISED_ENV = gaps.D1_FWD_AUTHORISED_ENV  # HERMES_CANDLE_D1_HISTORY_AUTHORISED
++CANDLE_HISTORY_FORWARD_ENABLED_ENV = "HERMES_CANDLE_HISTORY_FORWARD_ENABLED"
++CANDLE_HISTORY_FORWARD_AUTHORISED_ENV = "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED"
++
++# This surface's OWN dark activation gates (unset by default -> DisabledBackfillStatusPublisher).
++STATUS_ENABLED_ENV = "HERMES_BACKFILL_STATUS_PUBLISH_ENABLED"
++STATUS_AUTHORISED_ENV = "HERMES_BACKFILL_STATUS_PUBLISH_AUTHORISED"
++HALT_CODE = 101
++
++
++# --------------------------------------------------------------------------- static recovery topology (governed truth)
++def _tf_backfill_topology(tf, gate_values):
++    """Per-tf governed backfill PATH availability + the gate names/values a future executor would consult. This surface
++    NEVER executes any of it. gate_values = injected dict {env_name: value} (read-only telemetry; missing -> None)."""
++    def g(name):
++        return gate_values.get(name)
++    if tf == "D1":
++        return {"backfill_path_available": True,      # a governed D1 seed/backfill engine exists (gated, dry-run default)
++                "backfill_gates": {"enabled_env": D1_BACKFILL_ENABLED_ENV, "authorised_env": D1_BACKFILL_AUTHORISED_ENV,
++                                   "dry_run_env": D1_BACKFILL_DRY_RUN_ENV, "enabled": bool(g(D1_BACKFILL_ENABLED_ENV)),
++                                   "authorised": bool(g(D1_BACKFILL_AUTHORISED_ENV)),
++                                   "dry_run": True if g(D1_BACKFILL_DRY_RUN_ENV) is None else bool(g(D1_BACKFILL_DRY_RUN_ENV))},
++                "forward_writer_gates": {"enabled_env": D1_FWD_ENABLED_ENV, "authorised_env": D1_FWD_AUTHORISED_ENV,
++                                         "enabled": bool(g(D1_FWD_ENABLED_ENV)), "authorised": bool(g(D1_FWD_AUTHORISED_ENV))}}
++    # M1-H4: no governed gap-closing executor wired to this surface
++    return {"backfill_path_available": False, "backfill_gates": None,
++            "forward_writer_gates": {"enabled_env": CANDLE_HISTORY_FORWARD_ENABLED_ENV,
++                                     "authorised_env": CANDLE_HISTORY_FORWARD_AUTHORISED_ENV,
++                                     "enabled": bool(g(CANDLE_HISTORY_FORWARD_ENABLED_ENV)),
++                                     "authorised": bool(g(CANDLE_HISTORY_FORWARD_AUTHORISED_ENV))}}
++
++
++def _tf_status(gap_state):
++    """Map a gaps per-tf gap_state to a recovery status. NEVER turns a recovery-needed gaps state into OK/IDLE silently:
++    open-market GAPS_FOUND -> READY_FOR_BACKFILL_DESIGN; closed/out-of-retention -> IDLE (nothing recoverable now)."""
++    if gap_state == "OK":
++        return "OK"
++    if gap_state in ("MARKET_CLOSED", "OUT_OF_RETENTION"):
++        return "IDLE"                                 # not a live recoverable gap
++    if gap_state == "GAPS_FOUND":
++        return "READY_FOR_BACKFILL_DESIGN"
++    if gap_state in ("SOURCE_MISSING", "INSUFFICIENT_HISTORY", "STALE"):
++        return gap_state                              # mirror the fail-closed state
++    return "BLOCKED"                                  # INVALID_ANCHOR / anything unknown -> BLOCKED (never OK)
++
++
++def _overall_status(gaps_contract):
++    """Fail-closed overall interpretation. Missing/invalid gaps -> GAPS_SURFACE_MISSING. Never OK in this WO (no governed
++    completion evidence). gaps OK -> IDLE (nothing to recover, no job running)."""
++    if not isinstance(gaps_contract, dict):
++        return "GAPS_SURFACE_MISSING"
++    try:
++        gaps.validate_gaps_contract(gaps_contract)
++    except Exception:  # noqa: BLE001 - invalid gaps input is fail-closed, not trusted
++        return "GAPS_SURFACE_MISSING"
++    ov = gaps_contract.get("overall_gap_state")
++    if ov == "OK":
++        return "IDLE"
++    if ov in ("MARKET_CLOSED", "OUT_OF_RETENTION"):
++        return "IDLE"
++    if ov == "GAPS_FOUND":
++        return "READY_FOR_BACKFILL_DESIGN"
++    if ov in ("SOURCE_MISSING", "INSUFFICIENT_HISTORY", "STALE"):
++        return ov
++    return "BLOCKED"
++
++
++# --------------------------------------------------------------------------- pure aggregate builder
++def build_backfill_status_contract(*, gaps_contract, now, gate_values=None, markers=None):
++    """Assemble hermes:backfill:status:XAU_USD:v1 from the LIVE gaps contract (or None). PURE: no I/O, no env, no execution.
++    gate_values = injected {env_name: value} telemetry (read-only). markers = injected {tf: last_backfill_run_marker}.
++    Invariants execution_enabled/backfill_executed/repair_executed/consumer_live are HARD false; active_job/completed_pct null."""
++    gate_values = gate_values or {}
++    markers = markers or {}
++    valid_gaps = isinstance(gaps_contract, dict)
++    if valid_gaps:
++        try:
++            gaps.validate_gaps_contract(gaps_contract)
++        except Exception:  # noqa: BLE001
++            valid_gaps = False
++    overall = _overall_status(gaps_contract if valid_gaps else None)
++
++    tf_blocks = {}
++    gaps_tfs = (gaps_contract.get("timeframes", {}) if valid_gaps else {})
++    for tf in TIMEFRAMES:
++        gb = gaps_tfs.get(tf) or {}
++        topo = _tf_backfill_topology(tf, gate_values)
++        gap_state = gb.get("gap_state")
++        st = _tf_status(gap_state) if gap_state is not None else ("GAPS_SURFACE_MISSING" if not valid_gaps else "SOURCE_MISSING")
++        needs = st in ("READY_FOR_BACKFILL_DESIGN", "SOURCE_MISSING", "INSUFFICIENT_HISTORY", "STALE", "GAPS_FOUND")
++        blocked = NO_EXECUTOR_REASON if (needs and not topo["backfill_path_available"]) else None
++        tf_blocks[tf] = {"timeframe": tf, "gap_state": gap_state,
++                         "history_depth": gb.get("history_depth"), "min_required_depth": gaps.MIN_REQUIRED_DEPTH[tf],
++                         "sufficient": gb.get("sufficient_depth"), "retention_policy": f"{gaps.RETENTION_DAYS[tf]}d",
++                         "backfill_path_available": topo["backfill_path_available"], "backfill_gates": topo["backfill_gates"],
++                         "forward_writer_gates": topo["forward_writer_gates"],
++                         "last_backfill_run_marker": markers.get(tf), "status": st, "blocked_reason": blocked}
++
++    d1b = (gaps_contract.get("d1_boundary", {}) if valid_gaps else {})
++    d1_gb = gaps_tfs.get("D1") or {}
++    d1_topo = _tf_backfill_topology("D1", gate_values)
++    d1 = {"history_depth": d1_gb.get("history_depth"), "min_required_depth": gaps.MIN_REQUIRED_DEPTH["D1"],
++          "latest_open_utc": d1b.get("latest_open_utc"), "history_newest_open_utc": d1b.get("history_newest_open_utc"),
++          "d1_boundary_state": d1b.get("d1_boundary_state"),
++          "forward_writer_enabled": bool(d1b.get("forward_writer_enabled")),
++          "forward_writer_authorised": bool(d1b.get("forward_writer_authorised")),
++          "backfill_path_available": d1_topo["backfill_path_available"],
++          "status": tf_blocks["D1"]["status"]}
++
++    overall_blocked = NO_EXECUTOR_REASON if overall in ("READY_FOR_BACKFILL_DESIGN", "SOURCE_MISSING",
++                                                        "INSUFFICIENT_HISTORY", "STALE") else None
++    c = {"publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
++         "instrument": CANONICAL_INSTRUMENT, "canonical_instrument": CANONICAL_INSTRUMENT,
++         "generated_at_utc": cc._fmt(cc.normalise_utc(now)), "source": f"{GAPS_SOURCE_KEY} (governed, read-only)",
++         "consumer_live": False, "execution_enabled": False, "backfill_executed": False, "repair_executed": False,
++         "deterministic_only": True, "status_order": list(STATUS_ORDER), "overall_status": overall,
++         "active_job": None, "last_completed_job": None, "blocked_reason": overall_blocked,
++         "rate_limit_tokens": None, "completed_pct": None, "timeframes": tf_blocks, "d1": d1,
++         "gaps_source": {"key": GAPS_SOURCE_KEY, "present": bool(valid_gaps),
++                         "overall_gap_state": (gaps_contract.get("overall_gap_state") if valid_gaps else None),
++                         "generated_at_utc": (gaps_contract.get("generated_at_utc") if valid_gaps else None)},
++         "caveats": ["status-only telemetry; this surface NEVER executes backfill/repair, NEVER writes/deletes candle/history",
++                     "no governed backfill executor is wired to this surface; recovery is DESIGN-stage (execution_enabled=false)",
++                     "D1 has a governed seed/backfill engine (gated, dry-run default); M1-H4 have no gap-closing executor",
++                     "overall_status is fail-closed and never OK without a governed completion-evidence source (none in this WO)"]}
++    validate_backfill_status_contract(c)
++    return c
++
++
++def validate_backfill_status_contract(c):
++    if c.get("instrument") != CANONICAL_INSTRUMENT or c.get("canonical_instrument") != CANONICAL_INSTRUMENT:
++        raise ValueError("GOV-HERMES-BFS-001: instrument must be canonical XAU_USD")
++    if "XAUUSD" in json.dumps(c):
++        raise ValueError("GOV-HERMES-BFS-002: XAUUSD alias must not appear")
++    for f in ("consumer_live", "execution_enabled", "backfill_executed", "repair_executed"):
++        if c.get(f) is not False:
++            raise ValueError(f"GOV-HERMES-BFS-003: {f} must be hard false (status-only surface, no execution)")
++    for f in ("active_job", "completed_pct"):
++        if c.get(f) is not None:
++            raise ValueError(f"GOV-HERMES-BFS-004: {f} must be null (no governed job runner wired to this surface)")
++    if c.get("overall_status") not in STATUS_ORDER:
++        raise ValueError("GOV-HERMES-BFS-005: overall_status not in fail-closed vocab")
++    if c.get("overall_status") == "OK":
++        raise ValueError("GOV-HERMES-BFS-006: overall_status must not be OK without a governed completion-evidence source")
++    for tf, b in c.get("timeframes", {}).items():
++        if b.get("status") not in STATUS_ORDER:
++            raise ValueError(f"GOV-HERMES-BFS-007: {tf} status not in vocab")
++    return True
++
++
++# --------------------------------------------------------------------------- read-only reader (NO writes)
++def _read_env_gate_values():
++    """Read-only env snapshot of the governed gate VALUES this surface REPORTS (never acts on). Env read only, no client."""
++    from env_config import get_env_bool
++    names = (D1_BACKFILL_ENABLED_ENV, D1_BACKFILL_AUTHORISED_ENV, D1_BACKFILL_DRY_RUN_ENV, D1_FWD_ENABLED_ENV,
++             D1_FWD_AUTHORISED_ENV, CANDLE_HISTORY_FORWARD_ENABLED_ENV, CANDLE_HISTORY_FORWARD_AUTHORISED_ENV)
++    return {n: get_env_bool(n, False) for n in names}
++
++
++def analyze_backfill_status(client, *, now, gate_values=None):
++    """READ-ONLY: GET the live gaps key (hermes:gaps:XAU_USD:v1) and build the status contract. Performs NO writes/deletes,
++    NO SQL, NO backfill/repair, NO vendor pull. `client` is used ONLY for GET. Returns the contract dict (caller decides to
++    publish in a LATER gated WO — this function never sets a key)."""
++    raw = client.get(GAPS_SOURCE_KEY)
++    gaps_contract = None
++    if raw:
++        try:
++            gaps_contract = json.loads(raw)
++        except Exception:  # noqa: BLE001 - unparseable gaps input is fail-closed -> GAPS_SURFACE_MISSING
++            gaps_contract = None
++    gv = gate_values if gate_values is not None else _read_env_gate_values()
++    return build_backfill_status_contract(gaps_contract=gaps_contract, now=now, gate_values=gv)
++
++
++# --------------------------------------------------------------------------- dark publisher (default DISABLED, NO SET path)
++class DisabledBackfillStatusPublisher:
++    """Safe no-op (DEFAULT). No Redis client, no I/O. This WO ships the surface DARK and INERT — no runtime publication."""
++    enabled = False
++
++    def status(self):
++        return {"enabled": False}
++
++
++class BackfillStatusPublisher:
++    """ENABLED + AUTHORISED status analyser. Builds the read-only status contract from the governed gaps surface. It does
++    NOT write the key in this WO — runtime publication (SET) + runner wiring are a SEPARATE later WO (PR#89 lesson). No
++    execution, no repair, no delete, no candle/history/SQL write."""
++    enabled = True
++
++    def __init__(self, *, redis_client):
++        if redis_client is None:
++            raise ValueError("GOV-HERMES-BFS-020: enabled backfill-status publisher requires an explicit redis client")
++        self.redis_client = redis_client
++
++    def analyze(self, *, now, gate_values=None):
++        return analyze_backfill_status(self.redis_client, now=now, gate_values=gate_values)
++
++    def status(self):
++        return {"enabled": True, "key": BACKFILL_STATUS_KEY, "read_only": True, "execution_enabled": False,
++                "backfill_executed": False, "repair_executed": False}
++
++
++def build_backfill_status_publisher_from_env(*, redis_client=None, redis_client_factory=None):
++    """Boot entrypoint. DISABLED by default -> DisabledBackfillStatusPublisher (no client, no I/O). Enabled-without-authorised
++    -> SystemExit(101). Enabled+authorised -> BackfillStatusPublisher (read-only analyser; NO key write in this WO). No hidden
++    default that activates publication; NO Redis client constructed when disabled."""
++    from env_config import get_env_bool
++    if not get_env_bool(STATUS_ENABLED_ENV, False):
++        return DisabledBackfillStatusPublisher()
++    if not get_env_bool(STATUS_AUTHORISED_ENV, False):
++        raise SystemExit(HALT_CODE)
++    client = redis_client
++    if client is None:
++        client = (redis_client_factory or _default_redis_client)()
++    return BackfillStatusPublisher(redis_client=client)
++
++
++def _default_redis_client():
++    import redis
++    from env_config import get_env, get_env_int
++    return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
++                       port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
++                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
