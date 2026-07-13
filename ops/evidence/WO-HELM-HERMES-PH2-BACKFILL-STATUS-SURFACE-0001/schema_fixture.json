@@ -1,0 +1,179 @@
+{
+ "publisher": "HERMES",
+ "schema_version": "v1",
+ "contract_version": "v1",
+ "instrument": "XAU_USD",
+ "canonical_instrument": "XAU_USD",
+ "generated_at_utc": "2026-07-13T06:51:00.000Z",
+ "source": "hermes:gaps:XAU_USD:v1 (governed, read-only)",
+ "consumer_live": false,
+ "execution_enabled": false,
+ "backfill_executed": false,
+ "repair_executed": false,
+ "deterministic_only": true,
+ "status_order": [
+  "SOURCE_MISSING",
+  "GAPS_SURFACE_MISSING",
+  "GAPS_FOUND",
+  "READY_FOR_BACKFILL_DESIGN",
+  "IDLE",
+  "INSUFFICIENT_HISTORY",
+  "STALE",
+  "RATE_LIMITED",
+  "STALLED",
+  "BLOCKED",
+  "OK"
+ ],
+ "overall_status": "READY_FOR_BACKFILL_DESIGN",
+ "active_job": null,
+ "last_completed_job": null,
+ "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED",
+ "rate_limit_tokens": null,
+ "completed_pct": null,
+ "timeframes": {
+  "M1": {
+   "timeframe": "M1",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 500,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "35d",
+   "backfill_path_available": false,
+   "backfill_gates": null,
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+    "authorised_env": "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED",
+    "enabled": false,
+    "authorised": false
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED"
+  },
+  "M5": {
+   "timeframe": "M5",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 500,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "35d",
+   "backfill_path_available": false,
+   "backfill_gates": null,
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+    "authorised_env": "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED",
+    "enabled": false,
+    "authorised": false
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED"
+  },
+  "M15": {
+   "timeframe": "M15",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 500,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "35d",
+   "backfill_path_available": false,
+   "backfill_gates": null,
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+    "authorised_env": "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED",
+    "enabled": false,
+    "authorised": false
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED"
+  },
+  "H1": {
+   "timeframe": "H1",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 500,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "35d",
+   "backfill_path_available": false,
+   "backfill_gates": null,
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+    "authorised_env": "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED",
+    "enabled": false,
+    "authorised": false
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED"
+  },
+  "H4": {
+   "timeframe": "H4",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 500,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "35d",
+   "backfill_path_available": false,
+   "backfill_gates": null,
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+    "authorised_env": "HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED",
+    "enabled": false,
+    "authorised": false
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": "NO_BACKFILL_EXECUTOR_CONFIGURED"
+  },
+  "D1": {
+   "timeframe": "D1",
+   "gap_state": "GAPS_FOUND",
+   "history_depth": 34,
+   "min_required_depth": 26,
+   "sufficient": true,
+   "retention_policy": "120d",
+   "backfill_path_available": true,
+   "backfill_gates": {
+    "enabled_env": "HERMES_D1_HISTORY_BACKFILL_ENABLED",
+    "authorised_env": "HERMES_D1_HISTORY_BACKFILL_AUTHORISED",
+    "dry_run_env": "HERMES_D1_HISTORY_BACKFILL_DRY_RUN",
+    "enabled": true,
+    "authorised": true,
+    "dry_run": true
+   },
+   "forward_writer_gates": {
+    "enabled_env": "HERMES_CANDLE_D1_HISTORY_ENABLED",
+    "authorised_env": "HERMES_CANDLE_D1_HISTORY_AUTHORISED",
+    "enabled": true,
+    "authorised": true
+   },
+   "last_backfill_run_marker": null,
+   "status": "READY_FOR_BACKFILL_DESIGN",
+   "blocked_reason": null
+  }
+ },
+ "d1": {
+  "history_depth": 34,
+  "min_required_depth": 26,
+  "latest_open_utc": "2026-07-12T22:00:00.000Z",
+  "history_newest_open_utc": "2026-07-12T22:00:00.000Z",
+  "d1_boundary_state": "OK",
+  "forward_writer_enabled": true,
+  "forward_writer_authorised": true,
+  "backfill_path_available": true,
+  "status": "READY_FOR_BACKFILL_DESIGN"
+ },
+ "gaps_source": {
+  "key": "hermes:gaps:XAU_USD:v1",
+  "present": true,
+  "overall_gap_state": "GAPS_FOUND",
+  "generated_at_utc": "2026-07-13T06:51:00.000Z"
+ },
+ "caveats": [
+  "status-only telemetry; this surface NEVER executes backfill/repair, NEVER writes/deletes candle/history",
+  "no governed backfill executor is wired to this surface; recovery is DESIGN-stage (execution_enabled=false)",
+  "D1 has a governed seed/backfill engine (gated, dry-run default); M1-H4 have no gap-closing executor",
+  "overall_status is fail-closed and never OK without a governed completion-evidence source (none in this WO)"
+ ]
+}
