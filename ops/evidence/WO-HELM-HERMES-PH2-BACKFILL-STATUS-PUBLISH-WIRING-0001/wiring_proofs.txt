@@ -1,0 +1,48 @@
+BACKFILL_STATUS_KEY = hermes:backfill:status:XAU_USD:v1
+gate names: HERMES_BACKFILL_STATUS_PUBLISH_ENABLED HERMES_BACKFILL_STATUS_PUBLISH_AUTHORISED HALT 101
+
+--- BackfillStatusPublisher.publish ---
+    def publish(self, *, now, gate_values=None):
+        """Governed publication: build the read-only status contract (analyze -> GET gaps key only) and SET exactly ONE key
+        (BACKFILL_STATUS_KEY). Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming
+        contract; overall_status=OK is rejected). No TTL (status truth surface, parity with the gaps surface). Writes NOTHING
+        else; no gaps-key write, no delete, no SQL, no backfill/repair, no vendor/market_map/Falcon."""
+        contract = self.analyze(now=now, gate_values=gate_values)
+        validate_backfill_status_contract(contract)               # fail-closed guard immediately before the single SET
+        self.redis_client.set(BACKFILL_STATUS_KEY, json.dumps(contract))   # the ONLY write this surface performs
+        return {"published": 1, "key": BACKFILL_STATUS_KEY, "overall_status": contract["overall_status"],
+                "consumer_live": False, "execution_enabled": False, "backfill_executed": False, "repair_executed": False}
+
+--- backfill_status_publish_enabled ---
+def backfill_status_publish_enabled():
+    """Env-ONLY governed gate (no Redis client, no I/O): True iff backfill-status publication is ENABLED+AUTHORISED. Used by
+    the runtime runner-spec assembly to decide whether to append the runner WITHOUT constructing a client. Same two gates and
+    same fail-closed as build_backfill_status_publisher_from_env: enabled-without-authorised -> SystemExit(101)."""
+    from env_config import get_env_bool
+    if not get_env_bool(STATUS_ENABLED_ENV, False):
+        return False
+    if not get_env_bool(STATUS_AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    return True
+
+--- backfill_status_step ---
+def backfill_status_step(client):
+    """PH2 backfill-status recovery-surface publisher step (governed, DARK by default). Gate-first: NO-OP when the
+    backfill-status gate is disabled (no write); enabled-without-authorised -> SystemExit(101) (fail-closed). When
+    enabled+authorised, reads the LIVE gaps truth surface READ-ONLY (GET hermes:gaps:XAU_USD:v1) + read-only env gate
+    telemetry and publishes ONLY the single aggregate key bfs.BACKFILL_STATUS_KEY (hermes:backfill:status:XAU_USD:v1) with the
+    status-only contract. It NEVER writes the gaps key or any candle/history key, NEVER deletes, NEVER writes SQL, NEVER
+    invokes the D1 seed/backfill engine, NEVER launches backfill/repair, NEVER touches vendor/market_map/Falcon;
+    execution_enabled/backfill_executed/repair_executed/consumer_live stay hard false; active_job/completed_pct null."""
+    pub = bfs.build_backfill_status_publisher_from_env(redis_client=client)   # SystemExit(101) if enabled-without-authorised
+    if not getattr(pub, "enabled", False):
+        return {"published": 0}
+    return pub.publish(now=_now())
+
+--- runner append lines ---
+    # Env read only here (backfill_status_publish_enabled builds NO Redis client); the step is itself gate-first/no-op when disabled.
+    from utils import hermes_backfill_status_v1 as bfs
+    if bfs.backfill_status_publish_enabled():
+        specs.append(("backfill_status", steps.backfill_status_step, DEFAULT_INTERVAL_SECONDS))
+
+default runner specs (no gates) -> ['control_plane', 'indicators', 'candle_features', 'sessions_levels'] (backfill_status NOT appended)
