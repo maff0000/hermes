@@ -1,0 +1,5 @@
+=== ADR CONSISTENCY CHECK ===
+docs/adr/ADR-0004-market-closure-authority.md: 1 decision, 2 follow-on/reversal
+docs/adr/ADR-0011-policy-transport-mounted-json.md: 1 decision, 1 follow-on/reversal
+docs/adr/ADR-0012-immediate-planner-health.md: 1 decision, 1 follow-on/reversal
+closure ADR-0004 Option A: 1

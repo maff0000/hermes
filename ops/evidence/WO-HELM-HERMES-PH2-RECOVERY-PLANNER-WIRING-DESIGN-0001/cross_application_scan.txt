@@ -1,1 +1,1 @@
-CROSS-APP: design docs reference ARES only as a NON-DEPENDENCY (no import); Falcon/ARES/HELIOS/NEO/SOLO untouched; no code changed
+CROSS-APP: no ARES/Falcon/HELIOS/NEO/SOLO code import; ARES referenced only as an explicit NON-DEPENDENCY (Option A: no ARES in first impl)

@@ -13,4 +13,4 @@ accidental consumption) and must be governed separately.
 - A proposal IS NOT an execution request.
 - A published proposal MUST NOT be consumed automatically by an executor.
 - Any publication key requires schema, TTL, freshness and consumer governance.
-- No executor may infer authorisation from proposal existence. (ADR-0007.)
+- No executor may infer authorisation from proposal existence. (ADR-0007.) Planner health = logs+supervisor only in first impl (ADR-0012); no Redis key.

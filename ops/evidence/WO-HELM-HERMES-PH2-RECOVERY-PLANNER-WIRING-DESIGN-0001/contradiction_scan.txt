@@ -1,0 +1,8 @@
+=== CONTRADICTION SCAN v2 (exclude negation/prohibition lines) ===
+Raw phrase occurrences and their context (each must be a NEGATION, not a deferral):
+docs/design/recovery_planner_wiring/runtime_wiring_blueprint.md:200:## Unresolved-question register — BINDING dispositions (no item is "decided in the wiring WO")
+ops/evidence/WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-DESIGN-0001/runtime_wiring_blueprint.md:200:## Unresolved-question register — BINDING dispositions (no item is "decided in the wiring WO")
+ops/evidence/WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-DESIGN-0001/unresolved_question_register.md:1:# Unresolved-Question Register — BINDING (no "decided in the wiring WO")
+--- classification ---
+CLEAN: all occurrences are NEGATION/prohibition statements asserting the anti-pattern is ABSENT; zero genuine deferrals. The 3 frozen decisions (Option A closures, mounted-JSON policy, logs+supervisor health) contain no architecture-choice branch.
+health section active-option check: none — health frozen to logs+supervisor

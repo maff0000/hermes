@@ -63,24 +63,44 @@ candles as "missing" when they are merely aged out.
    inventing it. D1 history floor = policy `d1_history_floor_seconds` (governed, ≈120d). M1–H4: within 35d retention the index
    is sufficiently complete for safe *within-window* planning; beyond it, insufficient — do not plan.
 
-## D. Market-closure acquisition — DESIGN
-Separate five closure kinds: regular session, exceptional holiday, ad-hoc closure, broker maintenance, unknown/unverified.
-- **HERMES owns the deterministic regular schedule** via policy `regular_weekend_closure_utc` (XAU_USD: **Fri 22:00 → Sun
-  22:00 UTC**). D1 anchor **22:00 / NY5PM** preserved; 00:00 remains a boundary defect.
-- **Exceptional closures are separately governed external evidence** (`MarketClosureSnapshot` with `authority` in the policy's
-  accepted set). **No guessed holidays**; uncertain intervals stay `UNCLASSIFIED_MARKET_STATE` (warn). **No vendor call**, **no
-  ARES import**, **no ARES behavioural assumption**. If ARES later publishes a market-event contract, HERMES may consume it
-  **only** through an explicit cross-application governance step (future WO) — never by importing ARES code.
-- Contract fields: source, authority, provenance, version, effective_at_utc, staleness; conflict handling = governed authority
-  wins, ties → warn + UNCLASSIFIED; fallback = regular schedule only; blocking vs warning per policy.
+## D. Market-closure acquisition — DECISION (Option A, FROZEN for the first wiring implementation)
+**Binding decision: the FIRST wiring implementation consumes ONLY the HERMES-owned deterministic regular XAU_USD schedule
+(Friday 22:00 UTC → Sunday 22:00 UTC).** It does NOT consume ARES exceptional-closure data, vendor holiday calendars, broker
+maintenance calendars, manually inferred holidays, or any ungoverned exceptional-closure source. **The first implementation has
+no ARES dependency, performs no ARES import, assumes no ARES contract, and contacts no vendor.**
 
-## E. Planning-policy acquisition — DESIGN
-`RecoveryPlanningPolicy` (+`CostModel`) supplied **explicitly, externally, versioned**. No config-in-code; no material default in
-source. Recommended: a **governed external policy contract** (a versioned JSON policy document mounted/loaded via the governed
-config mechanism, or a governed control-plane policy key — decided in the wiring WO), with: schema + `contract_version`,
-ownership (HELM), validation, reload behaviour, change-control, external accessibility, **secret-free**, **default-deny** when
-missing/invalid (→ `BLOCKED_POLICY`, planner idle), `policy_digest` (already implemented as `policy.digest()`), full
-auditability. **No actual policy values are added in this WO.**
+- **HERMES owns the deterministic regular schedule** via policy `regular_market_schedule` (XAU_USD: **Fri 22:00 → Sun 22:00
+  UTC**). Regular-closure periods → `INTENTIONALLY_UNAVAILABLE`. D1 anchor **22:00 / NY5PM** preserved; 00:00 remains a boundary defect.
+- **Exceptional or suspected closures without accepted governed evidence → `UNCLASSIFIED_MARKET_STATE`.** The planner MUST NOT
+  classify them `INTENTIONALLY_UNAVAILABLE`, MUST NOT guess a holiday, and MUST NOT silently discard the gap. An unresolved
+  exceptional-closure intersection with proposed segments yields the blocking status **`BLOCKED_UNCLASSIFIED_MARKET_STATE`** — the
+  affected planning scope **cannot** become `PROPOSAL_READY`; the period is preserved for later review under a stable warning/fault code.
+- **Exceptional-closure transport is a separate prerequisite DESIGN WO** — `WO-HERMES-PH2-EXCEPTIONAL-MARKET-CLOSURE-CONTRACT-DESIGN-0001`
+  — which must decide contract ownership, HERMES-vs-external-publisher responsibility, schema, authority, provenance, freshness,
+  conflict resolution, transport, fallback, and cross-application governance. This is **NOT** decided in the wiring implementation
+  WO. Until that contract exists, exceptional periods stay unclassified/blocking. (ADR-0004.)
+
+## E. Planning-policy acquisition — DECISION (governed mounted JSON, FROZEN)
+**Binding decision: the first runtime wiring loads `RecoveryPlanningPolicy` (+`CostModel`) from a READ-ONLY JSON file mounted
+into the HERMES container from externally governed configuration, at the exact canonical container path
+`/app/config/recovery_planner_policy.v1.json`.** No other transport may be invented by the implementation.
+
+- **Forbidden transports:** `/etc`, Redis, SQL, environment-embedded JSON, control-plane API, vendor API, shared application
+  config, ARES config, host-global hidden files. Config-in-code and material source defaults remain forbidden.
+- **Schema/version/ownership:** the full JSON Schema is `candidate_policy_schema.json` (evidence); `contract_version="1"`,
+  `instrument="XAU_USD"`, timeframe vocab `{M1,M5,M15,H1,H4,D1}`, required + optional fields, numeric bounds, UTC conventions,
+  canonical digest (`policy.digest()` over the canonical policy dict). Ownership HELM. Read-only mount; secret-free.
+- **Load/validation phase:** read + validate at runner initialisation. **Default-deny** — missing file / invalid JSON / schema
+  failure / unsupported version / non-`XAU_USD` instrument / invalid D1 anchor or floor → the planner component is
+  **BLOCKED/disabled** with a stable fault code (`POLICY_FILE_MISSING`, `POLICY_JSON_INVALID`, `POLICY_SCHEMA_INVALID`,
+  `POLICY_VERSION_UNSUPPORTED`, `POLICY_INSTRUMENT_INVALID`, `POLICY_DIGEST_FAILED`). **No fallback to code defaults; no fallback
+  to stale cached policy** (unless a separate governance decision authorises last-known-good). The planner may not produce
+  `PROPOSAL_READY` without a valid policy.
+- **Reload doctrine:** policy read at runner init; a periodic metadata/digest check may detect an **atomic replacement**; only a
+  fully valid replacement becomes active; an invalid replacement does **not** silently replace the last valid policy and is
+  reported in planner health; **a present-but-invalid policy change blocks new planning cycles until corrected** (preferred
+  fail-closed). Stale policy content must never be represented as newly valid. Dev/prod parity: same canonical path + schema.
+- **No actual policy values are installed in this WO** (schema + fixtures are documentation only). (ADR-0011.)
 
 ## F. Gate failure domain — DECISION (see `gate_failure_domain.md`)
 Gates: `HERMES_RECOVERY_PLANNER_ENABLED`, `HERMES_RECOVERY_PLANNER_AUTHORISED`. Truth table (already implemented):
@@ -125,11 +145,29 @@ Candidate key `hermes:recovery:proposal:XAU_USD:v1`; **TTL-bound (positive TTL, 
 plan is dangerous, so persistence is rejected by default. Exact-one-key invariant; fixed truths `execution_enabled=false`,
 `backfill_executed=false`, `repair_executed=false`, `consumer_live=false`, no active job, no completion %, no executable payload.
 
-## L. Health/observability — DESIGN-ONLY (see `candidate_health_schema.json`)
-A **dedicated** planner health surface (candidate `hermes:recovery:planner_health:XAU_USD:v1`) or control-plane telemetry —
-**do NOT overload `hermes:backfill:status:XAU_USD:v1`** (that describes recovery readiness, not planner runtime health). Fields:
-enabled/authorised, last_invocation_utc, last_success_utc, source digests, planner/policy versions, last_status, last_fault,
-consecutive_failures, invocation_duration_ms, output_disposition, `execution_enabled=false` always. Not created in this WO.
+## L. Immediate planner health — DECISION (Option A, FROZEN: logs + supervisor state only)
+**Binding decision: the first wiring implementation publishes NO Redis planner-health key.** It uses ONLY structured UTC logs,
+existing internal supervisor runner state, and the process-local component status the supervisor framework already provides. It
+**must not** create `hermes:recovery:planner_health:XAU_USD:v1` or any alternative planner-health Redis key, **must not** write
+planner status into `hermes:backfill:status:XAU_USD:v1`, and **must not** overload feed_health / gaps / backfill_status /
+instrument_catalogue / any existing contract.
+- **Immediate observability fields (logs + supervisor state):** component name, planner version, gate state, policy version,
+  policy digest, last invocation UTC, last success UTC, source digests, current planning status, last fault code, consecutive
+  failure count, invocation duration, retry/backoff state, `execution_enabled=false`, `publication_enabled=false`,
+  `consumer_live=false`.
+- **Log content is SUMMARY-ONLY** — proposal_id, status, segment count, deferred count, unclassified count, intentionally-
+  unavailable count, estimated_request_units. Full/sensitive proposal segment contents MUST NOT be dumped into logs.
+- Any future Redis planner-health contract is a **separate publication-contract WO** —
+  `WO-HERMES-PH2-RECOVERY-PLANNER-HEALTH-CONTRACT-DESIGN-0001` — which must define key, schema, TTL, freshness, publication
+  gates, exact-one-key invariant, failure handling, consumer governance. This is **not** a choice left to the wiring
+  implementation. (ADR-0012; `candidate_health_schema.json` is retained as DESIGN-ONLY for that future WO, not the first impl.)
+
+## F.1 Component-level fault 105 — concrete mechanism (consistency)
+`ENABLED=true` + `AUTHORISED=false` → terminal **planner-runner** fault code `105`: the planner runner does **not** invoke the
+planner; the runner is marked failed/blocked; **all other critical HERMES runners remain active**; the supervisor exposes the
+planner component fault; structured logs record the UTC fault; the planner does **not** silently fall back to a "disabled
+healthy" state. Correction requires governed gate repair + component restart/reload per the accepted lifecycle. **This is never
+converted into whole-container exit `105`.**
 
 ## M. Startup & lifecycle — DESIGN
 Startup after publisher runners; wait for gaps-key availability (readiness) with an initial delay; in-memory digest-dedup +
@@ -159,10 +197,12 @@ health exposed in-container; reproducible build; dev-host behaviour maps to clou
 
 ## S. Rollout sequence — see `rollout_sequence.md` (12 gated stages; not collapsed).
 
-## Unresolved questions
-1. Authoritative source for **beyond-retention** coverage completeness (recommend a separate coverage-truth surface).
-2. Whether exceptional-closure evidence will come from an ARES market-event contract (requires cross-app governance) or a
-   HERMES-owned closure contract.
-3. Final external-policy transport (mounted file vs governed control-plane key).
-4. Whether planner health lives in a dedicated key vs control-plane telemetry.
-These are ADR-tracked (see `docs/adr/`) and must be resolved in the wiring WO before implementation.
+## Unresolved-question register — BINDING dispositions (no item is "decided in the wiring WO")
+| Question | Binding disposition |
+|---|---|
+| Beyond-retention coverage truth | **Retention-only initial boundary**; a separate future **coverage-truth WO** establishes beyond-retention completeness. |
+| Exceptional-closure source | **Regular schedule only** (Option A); exceptional periods → `UNCLASSIFIED` / `BLOCKED_UNCLASSIFIED_MARKET_STATE`; separate **`WO-HERMES-PH2-EXCEPTIONAL-MARKET-CLOSURE-CONTRACT-DESIGN-0001`**. |
+| External-policy transport | **Governed read-only mounted JSON** at `/app/config/recovery_planner_policy.v1.json` (frozen; no alternative). |
+| Planner-health behaviour | **Structured logs + supervisor state only**; **no Redis health key**; future health key via **`WO-HERMES-PH2-RECOVERY-PLANNER-HEALTH-CONTRACT-DESIGN-0001`**. |
+
+The wiring implementation WO must contain **no architecture-choice branch** for these four matters — they are frozen here.

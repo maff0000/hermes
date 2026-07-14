@@ -1,0 +1,9 @@
+{
+  "_note": "DESIGN-ONLY fixtures; each must be rejected default-deny with the named fault",
+  "missing_field__no_cost_model": {"expected_fault": "POLICY_SCHEMA_INVALID", "contract_version": "1", "instrument": "XAU_USD", "enabled_timeframes": ["D1"], "timeframe_priority": ["D1"], "d1_history_floor": {"seconds": 10368000, "anchor_hour_utc": 22}, "retention_policy": {"m1_h4_days": 35, "d1_days": 120}, "staleness_policy": {"gaps_max_age_seconds": 120, "coverage_max_age_seconds": 900}, "workload_bounds": {"max_segments": 100, "max_candles_per_segment": 1000, "max_candles_per_proposal": 100000, "max_lookback_seconds": 12096000, "max_request_units": 1000000}, "regular_market_schedule": {"weekend_close_weekday": 4, "weekend_close_hour_utc": 22, "weekend_reopen_weekday": 6, "weekend_reopen_hour_utc": 22}, "partial_proposals_allowed": false},
+  "wrong_instrument": {"expected_fault": "POLICY_INSTRUMENT_INVALID", "instrument": "XAUUSD", "contract_version": "1"},
+  "unsupported_version": {"expected_fault": "POLICY_VERSION_UNSUPPORTED", "contract_version": "2", "instrument": "XAU_USD"},
+  "invalid_d1_anchor": {"expected_fault": "POLICY_SCHEMA_INVALID", "contract_version": "1", "instrument": "XAU_USD", "d1_history_floor": {"seconds": 10368000, "anchor_hour_utc": 0}},
+  "invalid_timeframe": {"expected_fault": "POLICY_SCHEMA_INVALID", "contract_version": "1", "instrument": "XAU_USD", "enabled_timeframes": ["H2"]},
+  "invalid_bound__zero_max_segments": {"expected_fault": "POLICY_SCHEMA_INVALID", "contract_version": "1", "instrument": "XAU_USD", "workload_bounds": {"max_segments": 0}}
+}

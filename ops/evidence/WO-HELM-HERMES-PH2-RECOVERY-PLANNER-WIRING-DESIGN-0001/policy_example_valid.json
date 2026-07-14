@@ -1,0 +1,11 @@
+{
+  "contract_version": "1", "instrument": "XAU_USD",
+  "enabled_timeframes": ["D1","H4","H1","M15","M5","M1"], "timeframe_priority": ["D1","H4","H1","M15","M5","M1"],
+  "d1_history_floor": {"seconds": 10368000, "anchor_hour_utc": 22},
+  "retention_policy": {"m1_h4_days": 35, "d1_days": 120},
+  "staleness_policy": {"gaps_max_age_seconds": 120, "coverage_max_age_seconds": 900},
+  "workload_bounds": {"max_segments": 100, "max_candles_per_segment": 1000, "max_candles_per_proposal": 100000, "max_lookback_seconds": 12096000, "max_request_units": 1000000},
+  "cost_model": {"candles_per_request": 100, "request_units_per_call": 1, "cost_tokens_per_request": 2, "fixed_overhead_units": 1, "timeframe_multipliers": {"D1": 2.0, "H4": 1.5, "H1": 1.0, "M15": 1.0, "M5": 1.0, "M1": 1.0}},
+  "regular_market_schedule": {"weekend_close_weekday": 4, "weekend_close_hour_utc": 22, "weekend_reopen_weekday": 6, "weekend_reopen_hour_utc": 22},
+  "partial_proposals_allowed": false, "merge_adjacent_threshold_seconds": 0
+}

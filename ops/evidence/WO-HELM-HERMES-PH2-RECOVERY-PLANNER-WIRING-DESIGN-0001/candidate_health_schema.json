@@ -1,14 +1,7 @@
 {
-  "_design_only": "CANDIDATE planner health surface — NOT created in this WO. Must NOT overload hermes:backfill:status:XAU_USD:v1.",
-  "candidate_key": "hermes:recovery:planner_health:XAU_USD:v1",
-  "location_decision": "dedicated planner-status key OR control-plane telemetry (decided in wiring WO); NEVER backfill:status",
-  "persistence": "TTL_BOUND (heartbeat)",
-  "fields": {
-    "component": "recovery_planner", "enabled": false, "authorised": false, "state": "DISABLED",
-    "last_invocation_utc": null, "last_success_utc": null,
-    "current_source_digests": {"gaps": null, "coverage": null, "closure": null}, "policy_version": null,
-    "planner_version": "v1", "last_status": null, "last_fault": null, "consecutive_failures": 0,
-    "invocation_duration_ms": null, "output_disposition": "IN_MEMORY_ONLY", "execution_enabled": false
-  },
-  "invariant": "execution_enabled ALWAYS false; describes PLANNER RUNTIME HEALTH, not recovery readiness (that is backfill:status)"
+  "_first_impl_decision": "Option A FROZEN: the FIRST wiring implementation publishes NO Redis planner-health key. Immediate health = structured UTC logs + existing supervisor runner state ONLY. This schema is DESIGN-ONLY for a SEPARATE future WO-HERMES-PH2-RECOVERY-PLANNER-HEALTH-CONTRACT-DESIGN-0001; it is NOT created in the first implementation.",
+  "must_not": ["create hermes:recovery:planner_health:XAU_USD:v1", "create any alternative planner-health Redis key", "write into hermes:backfill:status:XAU_USD:v1", "overload feed_health/gaps/backfill_status/instrument_catalogue/any existing contract"],
+  "immediate_observability_fields_logs_and_supervisor": ["component", "planner_version", "gate_state", "policy_version", "policy_digest", "last_invocation_utc", "last_success_utc", "source_digests", "current_status", "last_fault_code", "consecutive_failures", "invocation_duration_ms", "retry_backoff_state", "execution_enabled=false", "publication_enabled=false", "consumer_live=false"],
+  "log_content": "SUMMARY ONLY: proposal_id, status, segment_count, deferred_count, unclassified_count, intentionally_unavailable_count, estimated_request_units. NO full/sensitive segment contents.",
+  "future_health_key_candidate": {"key": "hermes:recovery:planner_health:XAU_USD:v1", "requires": "separate publication-contract WO defining key/schema/TTL/freshness/gates/exact-one-key/failure-handling/consumer-governance", "invariant": "execution_enabled ALWAYS false; describes planner runtime health, not recovery readiness"}
 }

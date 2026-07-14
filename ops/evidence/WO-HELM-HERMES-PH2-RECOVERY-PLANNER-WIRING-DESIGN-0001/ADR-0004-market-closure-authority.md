@@ -1,8 +1,10 @@
-# ADR-0004: Market-closure authority
+# ADR-0004: Market-closure authority (Option A — FROZEN)
 Context: closures must not become recovery targets; holidays must not be guessed; ARES must not be imported.
-Decision: HERMES owns the deterministic regular schedule (policy); exceptional closures are governed external evidence only;
-unverified -> UNCLASSIFIED (warn); if ARES publishes a market-event contract, consume ONLY via explicit cross-app governance.
-Alternatives: hardcode holiday calendar (rejected); vendor calendar (rejected: vendor call); import ARES (rejected).
-Consequences: deterministic weekend + governed exceptional evidence; honest uncertainty.
-Risks: missing exceptional evidence -> a closed period may appear as a gap -> surfaced honestly, not auto-recovered.
-Rollback: n/a. Unresolved: exceptional-closure evidence source (ARES contract vs HERMES-owned).
+Decision: the FIRST wiring implementation consumes ONLY the HERMES-owned deterministic regular schedule (Fri22->Sun22 UTC).
+Exceptional/suspected closures without accepted governed evidence -> UNCLASSIFIED_MARKET_STATE; an unresolved exceptional
+intersection blocks the affected scope (BLOCKED_UNCLASSIFIED_MARKET_STATE) and cannot become PROPOSAL_READY.
+Rejected alternatives: hardcode holiday calendar; vendor calendar; import ARES; assume an ARES contract in the first impl.
+Consequences: deterministic weekend handling; honest blocking of unresolved exceptional periods; zero ARES/vendor dependency.
+Failure behaviour: unresolved exceptional -> blocking status, preserved for review; never silently discarded or guessed.
+Reversal path: exceptional automatic classification only after a separate governed contract exists.
+Follow-on WO: WO-HERMES-PH2-EXCEPTIONAL-MARKET-CLOSURE-CONTRACT-DESIGN-0001.
