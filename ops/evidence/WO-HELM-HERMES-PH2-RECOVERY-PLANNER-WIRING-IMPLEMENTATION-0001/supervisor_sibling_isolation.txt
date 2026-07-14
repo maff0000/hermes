@@ -1,0 +1,2 @@
+Proven by tests/test_hermes_recovery_planner_runtime_v1.py (42 passed) + AST/runtime scans; see new_tests.txt, transitive_import_scan.txt, mutation_boundary_scan.txt, frozen_decisions_check.txt.
+supervisor sibling isolation: PublisherRunner._loop catches step Exceptions per daemon thread (a planner fault increments that runner's fault count and continues; siblings unaffected). Component-105 is a typed non-SystemExit fault contained the same way.

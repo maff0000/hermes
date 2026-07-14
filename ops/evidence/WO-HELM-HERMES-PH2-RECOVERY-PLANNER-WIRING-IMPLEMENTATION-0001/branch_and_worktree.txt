@@ -1,0 +1,1 @@
+branch=wo/WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-IMPLEMENTATION-0001; worktree=/srv/trading/hermes-worktrees/wo-planner-wiring-impl

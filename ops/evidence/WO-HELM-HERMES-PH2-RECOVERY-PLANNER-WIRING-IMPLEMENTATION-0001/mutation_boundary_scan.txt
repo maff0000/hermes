@@ -1,0 +1,8 @@
+redis mutation tokens: NONE
+redis .set( on client (excluding in-memory holder): False
+SQL tokens: NONE
+file-write tokens (excluding read-only policy reader): ['open(']
+subprocess/vendor: NONE
+
+open() occurrences are READ-ONLY (_FilePolicyReader): True | write-mode open: False
+runner/adapters perform NO Redis SET/DELETE/ZADD (in-memory holder.set is process-local, not Redis)

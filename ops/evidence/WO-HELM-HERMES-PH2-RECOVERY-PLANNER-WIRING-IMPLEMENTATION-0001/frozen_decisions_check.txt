@@ -1,0 +1,14 @@
+OK  1 dedicated runner + step: True
+OK  1 fully-qualified pure-planner import: True
+OK  2 component-105 is typed NOT SystemExit: True
+OK  2 no sys.exit / SystemExit in CODE: True
+OK  3 retention-bounded 35/120: True
+OK  4 Option A weekend + BLOCKED_UNCLASSIFIED: True
+OK  5 mounted policy exact path: True
+OK  6 no Redis planner-health key: True
+OK  7 legacy separation (AST: no bare recovery_planner/executor import): True
+OK  8 in-memory only (no proposal key in code): True
+OK  9 no executor construction/import (AST): True
+
+ALL 9 FROZEN DECISIONS PRESERVED (AST/runtime-verified; prose negations do not count as violations)
+note: the word 'executor'/'SystemExit'/'recovery_planner' appears ONLY in negative-declaration docstrings/comments, never in an import or call path (AST-verified).

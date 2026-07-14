@@ -1,0 +1,1 @@
+CROSS-APP: no Falcon/ARES/HELIOS/NEO/SOLO/market_map import or call; regular schedule is HERMES-owned (no ARES dependency)
