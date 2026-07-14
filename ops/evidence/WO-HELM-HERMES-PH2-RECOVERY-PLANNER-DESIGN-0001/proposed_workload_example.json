@@ -1,0 +1,98 @@
+{
+ "contract_version": "v1",
+ "proposal_id": "prop_338b87f0ce76261d048ccdc2",
+ "planner_version": "v1",
+ "target_instrument": "XAU_USD",
+ "generated_at_utc": "2026-07-14T12:00:00.000Z",
+ "source_gaps_generated_at_utc": "2026-07-14T11:55:00.000Z",
+ "planning_mode": "DRY_RUN_ONLY",
+ "execution_enabled": false,
+ "backfill_executed": false,
+ "repair_executed": false,
+ "consumer_live": false,
+ "overall_plan_status": "PROPOSAL_READY",
+ "estimated_request_units": 6,
+ "estimated_api_cost_tokens": 6,
+ "prioritized_segments_list": [
+  {
+   "segment_id": "seg_0f36a405113c8862a8bc",
+   "timeframe": "H1",
+   "start_utc": "2026-07-14T06:00:00.000Z",
+   "end_utc": "2026-07-14T08:00:00.000Z",
+   "candle_count": 2,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "RECOVERY_CANDIDATE",
+   "required_source": "governed_candle_history:H1",
+   "reason": "uncovered open-market gap"
+  },
+  {
+   "segment_id": "seg_0da758e2c019e9b5eee6",
+   "timeframe": "H1",
+   "start_utc": "2026-07-14T10:00:00.000Z",
+   "end_utc": "2026-07-14T12:00:00.000Z",
+   "candle_count": 2,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "RECOVERY_CANDIDATE",
+   "required_source": "governed_candle_history:H1",
+   "reason": "uncovered open-market gap"
+  },
+  {
+   "segment_id": "seg_e13a044f95a459550714",
+   "timeframe": "M15",
+   "start_utc": "2026-07-14T09:00:00.000Z",
+   "end_utc": "2026-07-14T10:00:00.000Z",
+   "candle_count": 4,
+   "priority_rank": 3,
+   "priority_tier": 3,
+   "segment_class": "RECOVERY_CANDIDATE",
+   "required_source": "governed_candle_history:M15",
+   "reason": "uncovered open-market gap"
+  }
+ ],
+ "intentionally_unavailable_segments": [
+  {
+   "segment_id": "seg_69dfc2cdae7b822d62bf",
+   "timeframe": "D1",
+   "start_utc": "2026-07-08T00:00:00.000Z",
+   "end_utc": "2026-07-08T22:00:00.000Z",
+   "candle_count": 0,
+   "priority_rank": 0,
+   "priority_tier": 1,
+   "segment_class": "INTENTIONALLY_UNAVAILABLE",
+   "required_source": "governed_candle_history:D1",
+   "reason": "governed market closure"
+  }
+ ],
+ "excluded_existing_coverage_segments": [
+  {
+   "segment_id": "seg_7f919d02cf415c9ae099",
+   "timeframe": "H1",
+   "start_utc": "2026-07-14T08:00:00.000Z",
+   "end_utc": "2026-07-14T10:00:00.000Z",
+   "candle_count": 2,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "EXISTING_COVERAGE_EXCLUDED",
+   "required_source": "governed_candle_history:H1",
+   "reason": "already covered locally"
+  }
+ ],
+ "unclassified_segments": [],
+ "deferred_segments": [],
+ "faults": [],
+ "warnings": [],
+ "input_provenance": {
+  "gaps_source_key": "hermes:gaps:XAU_USD:v1",
+  "gaps_generated_at_utc": "2026-07-14T11:55:00.000Z",
+  "coverage_provenances": [
+   "local_redis_history"
+  ],
+  "closure_provenances": [
+   "gov_calendar"
+  ],
+  "interval_convention": "HALF_OPEN_[start,end)"
+ },
+ "policy_digest": "3f08d1f8dcffb862c59481b1cf2cca8a5b534af042d33ea2527efd4c1014765e"
+}

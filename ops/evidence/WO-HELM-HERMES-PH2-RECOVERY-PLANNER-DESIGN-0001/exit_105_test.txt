@@ -1,0 +1,2 @@
+isolated subprocess exit rc=0 (0 = SystemExit(105) caught in-process)
+raw process exit code (must be 105): 105

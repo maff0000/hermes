@@ -1,0 +1,3 @@
+identical inputs+policy+clock -> identical JSON: True
+proposal_id stable: prop_338b87f0ce76261d048ccdc2==prop_338b87f0ce76261d048ccdc2 -> True
+clock+1s changes ONLY generated_at_utc, proposal_id stable: True

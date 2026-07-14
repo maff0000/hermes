@@ -1,0 +1,43 @@
+{
+ "overall_plan_status": "PROPOSAL_READY",
+ "intentionally_unavailable_segments": [
+  {
+   "segment_id": "seg_6c9ea51cfd5a8634f505",
+   "timeframe": "H1",
+   "start_utc": "2026-07-10T22:00:00.000Z",
+   "end_utc": "2026-07-12T22:00:00.000Z",
+   "candle_count": 48,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "INTENTIONALLY_UNAVAILABLE",
+   "required_source": "governed_candle_history:H1",
+   "reason": "governed market closure"
+  }
+ ],
+ "prioritized_segments_list": [
+  {
+   "segment_id": "seg_29a0a58a8b5dc990b40e",
+   "timeframe": "H1",
+   "start_utc": "2026-07-10T20:00:00.000Z",
+   "end_utc": "2026-07-10T22:00:00.000Z",
+   "candle_count": 2,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "RECOVERY_CANDIDATE",
+   "required_source": "governed_candle_history:H1",
+   "reason": "uncovered open-market gap"
+  },
+  {
+   "segment_id": "seg_c41b28fc3234eb3e0a93",
+   "timeframe": "H1",
+   "start_utc": "2026-07-12T22:00:00.000Z",
+   "end_utc": "2026-07-13T02:00:00.000Z",
+   "candle_count": 4,
+   "priority_rank": 2,
+   "priority_tier": 2,
+   "segment_class": "RECOVERY_CANDIDATE",
+   "required_source": "governed_candle_history:H1",
+   "reason": "uncovered open-market gap"
+  }
+ ]
+}

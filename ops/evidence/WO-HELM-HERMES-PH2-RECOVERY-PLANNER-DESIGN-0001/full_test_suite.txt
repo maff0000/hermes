@@ -1,0 +1,1845 @@
+........................................................................ [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 16%]
+........................................................................ [ 22%]
+........................................................................ [ 27%]
+........................................................................ [ 33%]
+...................F..FFFFFFFF...FF..................................... [ 38%]
+...............FFFF...F...................................FFFFFF........ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 55%]
+........................................................................ [ 60%]
+........................................................................ [ 66%]
+........................................................................ [ 71%]
+.........................FFFFFF......................................... [ 77%]
+............FFFFFFF..................................................... [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 93%]
+................................................................FFFFFFFF [ 99%]
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+__________________________ test_source_policy_reader ___________________________
+
+    def test_source_policy_reader():
+        """Policy reader returns per-instrument config with no inheritance."""
+        from env_config import get_db_config
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_collection_contract.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+______________________ TestConfigLoading.test_load_config ______________________
+
+self = <tests.test_config.TestConfigLoading object at 0x74242fba4890>
+
+    def test_load_config(self):
+        """Test basic config loading"""
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+____________________ TestConfigLoading.test_database_config ____________________
+
+self = <tests.test_config.TestConfigLoading object at 0x74242fba4320>
+
+    def test_database_config(self):
+        """Test database configuration loaded correctly"""
+        from env_config import get_env, get_env_int
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+_____________________ TestConfigLoading.test_redis_config ______________________
+
+self = <tests.test_config.TestConfigLoading object at 0x74242fba4f50>
+
+    def test_redis_config(self):
+        """Test Redis configuration loaded correctly"""
+        from env_config import get_env, get_env_int
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:40: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+_____________________ TestConfigLoading.test_oanda_config ______________________
+
+self = <tests.test_config.TestConfigLoading object at 0x74242fba54f0>
+
+    def test_oanda_config(self):
+        """Test OANDA configuration loaded correctly"""
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+__________________ TestConfigLoading.test_instruments_config ___________________
+
+self = <tests.test_config.TestConfigLoading object at 0x74242fba54c0>
+
+    def test_instruments_config(self):
+        """Test instruments list loaded"""
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+_______________ TestEnvVarCompliance.test_no_legacy_tas_db_vars ________________
+
+self = <tests.test_config.TestEnvVarCompliance object at 0x74242fba40b0>
+
+    def test_no_legacy_tas_db_vars(self):
+        """Verify no TAS_DB_* variables are used in config"""
+        # These should NOT be set (legacy)
+        legacy_vars = [
+            "TAS_DB_HOST",
+            "TAS_DB_PORT",
+            "TAS_DB_USER",
+            "TAS_DB_PASSWORD",
+            "TAS_DB_NAME"
+        ]
+        # Just verify the config loads without needing legacy vars
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+_____________ TestEnvVarCompliance.test_standardized_db_vars_used ______________
+
+self = <tests.test_config.TestEnvVarCompliance object at 0x74242fba56d0>
+
+    def test_standardized_db_vars_used(self):
+        """Verify {ENV}_DB_* variables are used per GOV-ENV-001"""
+        from env_config import ENV
+        # GOV-ENV-001: {ENV}_DB_HOST takes priority over DB_HOST
+        env_prefix = ENV  # DEV or PROD
+        prefixed_key = f"{env_prefix}_DB_HOST"
+    
+        # Save originals
+        original_prefixed = os.environ.get(prefixed_key)
+        original_unprefixed = os.environ.get("DB_HOST")
+    
+        # Set prefixed var
+        os.environ[prefixed_key] = "test-host-123"
+        os.environ.pop("DB_HOST", None)
+    
+        try:
+>           config = load_config()
+                     ^^^^^^^^^^^^^
+
+tests/test_config.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+____________ TestEnvVarCompliance.test_standardized_redis_vars_used ____________
+
+self = <tests.test_config.TestEnvVarCompliance object at 0x74242fba5a30>
+
+    def test_standardized_redis_vars_used(self):
+        """Verify {ENV}_REDIS_* variables are used per GOV-ENV-001"""
+        from env_config import ENV
+        # GOV-ENV-001: {ENV}_REDIS_HOST takes priority over REDIS_HOST
+        env_prefix = ENV  # DEV or PROD
+        prefixed_key = f"{env_prefix}_REDIS_HOST"
+    
+        # Save originals
+        original_prefixed = os.environ.get(prefixed_key)
+        original_unprefixed = os.environ.get("REDIS_HOST")
+    
+        # Set prefixed var
+        os.environ[prefixed_key] = "redis-test-host"
+        os.environ.pop("REDIS_HOST", None)
+    
+        try:
+>           config = load_config()
+                     ^^^^^^^^^^^^^
+
+tests/test_config.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+__________________ TestConfigDefaults.test_database_from_env ___________________
+
+self = <tests.test_config.TestConfigDefaults object at 0x74242fba6720>
+
+    def test_database_from_env(self):
+        """Test database config loads from prefixed env vars"""
+        from env_config import get_env, get_env_int
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+____________________ TestConfigDefaults.test_redis_from_env ____________________
+
+self = <tests.test_config.TestConfigDefaults object at 0x74242fba6a20>
+
+    def test_redis_from_env(self):
+        """Test Redis config loads from prefixed env vars"""
+        from env_config import get_env, get_env_int
+>       config = load_config()
+                 ^^^^^^^^^^^^^
+
+tests/test_config.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+config.py:115: in load_config
+    api_key=get_env("OANDA_API_KEY", required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'OANDA_API_KEY', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: OANDA_API_KEY (tried DEV_OANDA_API_KEY and OANDA_API_KEY)
+
+env_config.py:66: ValueError
+__________________ TestEnvFileCompliance.test_env_file_exists __________________
+
+self = <tests.test_env_compliance.TestEnvFileCompliance object at 0x74242fa4f860>
+
+    def test_env_file_exists(self):
+        """Test .env file exists"""
+        env_path = BASE_DIR / ".env"
+>       assert env_path.exists(), ".env file not found"
+E       AssertionError: .env file not found
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/srv/trading/hermes-worktrees/wo-recovery-planner/.env').exists
+
+tests/test_env_compliance.py:28: AssertionError
+______________ TestEnvFileCompliance.test_env_has_environment_tag ______________
+
+self = <tests.test_env_compliance.TestEnvFileCompliance object at 0x74242fa4f680>
+
+    def test_env_has_environment_tag(self):
+        """Test .env has ENVIRONMENT tag (GOV-ENV-001)"""
+        env_path = BASE_DIR / ".env"
+>       content = env_path.read_text()
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_env_compliance.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.12/pathlib.py:1029: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/srv/trading/hermes-worktrees/wo-recovery-planner/.env')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/srv/trading/hermes-worktrees/wo-recovery-planner/.env'
+
+/usr/lib/python3.12/pathlib.py:1015: FileNotFoundError
+________________ TestEnvFileCompliance.test_env_uses_db_prefix _________________
+
+self = <tests.test_env_compliance.TestEnvFileCompliance object at 0x74242fa4ef00>
+
+    def test_env_uses_db_prefix(self):
+        """Test .env uses DB_* not TAS_DB_*"""
+        env_path = BASE_DIR / ".env"
+>       content = env_path.read_text()
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_env_compliance.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.12/pathlib.py:1029: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/srv/trading/hermes-worktrees/wo-recovery-planner/.env')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/srv/trading/hermes-worktrees/wo-recovery-planner/.env'
+
+/usr/lib/python3.12/pathlib.py:1015: FileNotFoundError
+_______________ TestEnvFileCompliance.test_env_uses_redis_prefix _______________
+
+self = <tests.test_env_compliance.TestEnvFileCompliance object at 0x74242fa4dee0>
+
+    def test_env_uses_redis_prefix(self):
+        """Test .env uses REDIS_* not TAS_REDIS_*"""
+        env_path = BASE_DIR / ".env"
+>       content = env_path.read_text()
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_env_compliance.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.12/pathlib.py:1029: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/srv/trading/hermes-worktrees/wo-recovery-planner/.env')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/srv/trading/hermes-worktrees/wo-recovery-planner/.env'
+
+/usr/lib/python3.12/pathlib.py:1015: FileNotFoundError
+_______________ TestNoHardcodedPaths.test_no_hardcoded_srv_paths _______________
+
+self = <tests.test_env_compliance.TestNoHardcodedPaths object at 0x74242fa748f0>
+
+    def test_no_hardcoded_srv_paths(self):
+        """Test no hardcoded /srv-dev/ or /srv/ paths in main code"""
+        hardcoded_pattern = re.compile(r'["\'][/]srv[-/]')
+    
+        # Check all Python files except tests
+        for py_file in BASE_DIR.rglob("*.py"):
+            if "tests" in str(py_file) or "__pycache__" in str(py_file):
+                continue
+    
+            content = py_file.read_text()
+            matches = hardcoded_pattern.findall(content)
+>           assert len(matches) == 0, f"Hardcoded path in {py_file.relative_to(BASE_DIR)}: {matches}"
+E           AssertionError: Hardcoded path in hermes_logging/gelf.py: ["'/srv/", "'/srv-"]
+E           assert 2 == 0
+E            +  where 2 = len(["'/srv/", "'/srv-"])
+
+tests/test_env_compliance.py:106: AssertionError
+_________________________ test_real_incident_detection _________________________
+
+    def test_real_incident_detection():
+        """
+        Scan the real 2026-03-31 outage window.
+        Expected: M1 gap from ~02:55 to ~07:41 UTC.
+        """
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:112: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_____________________________ test_higher_tf_gaps ______________________________
+
+    def test_higher_tf_gaps():
+        """Check M15 and H1 gaps from the real incident."""
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+________________________ test_market_closed_suppression ________________________
+
+    def test_market_closed_suppression():
+        """Saturday window should produce zero gaps."""
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+__________________________ test_signal_gap_detection ___________________________
+
+    def test_signal_gap_detection():
+        """M15 signals should have gaps in the outage window. M1 signals should not be expected."""
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:191: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_________________________ test_idempotent_persistence __________________________
+
+    def test_idempotent_persistence():
+        """Persisting the same gaps twice should not create duplicates."""
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:219: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+__________________________ test_gap_count_for_health ___________________________
+
+    def test_gap_count_for_health():
+        """Verify unresolved count and latest gap summary work."""
+>       db_config = get_db_config()
+                    ^^^^^^^^^^^^^^^
+
+tests/test_gap_scanner.py:246: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_gap_scanner.py:27: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_______________________________ test_all_healthy _______________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+____________________________ test_single_tick_stale ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_single_m1_stale _____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+______________________________ test_market_closed ______________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+__________________________ test_snapshot_instruments ___________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________ test_global_not_green_when_inst_red ______________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_________________________ test_all_artifacts_governed __________________________
+
+    def test_all_artifacts_governed():
+        """Every enabled artifact has description + llm_reasoning."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_______________________________ test_graph_valid _______________________________
+
+    def test_graph_valid():
+        """Dependency graph has no cycles."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+________________________ test_rebuild_order_consistency ________________________
+
+    def test_rebuild_order_consistency():
+        """rebuild_order values must respect dependency graph."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+__________________________ test_dependency_references __________________________
+
+    def test_dependency_references():
+        """All dependency references point to existing artifacts."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_____________________________ test_full_validation _____________________________
+
+    def test_full_validation():
+        """All validations pass together."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+____________________________ test_real_outage_plan _____________________________
+
+    def test_real_outage_plan():
+        """Plan for 2026-03-31 outage window is correct."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:149: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+______________________________ test_partial_plan _______________________________
+
+    def test_partial_plan():
+        """Plan for specific artifacts includes dependencies."""
+>       db = get_db_config()
+             ^^^^^^^^^^^^^^^
+
+tests/test_recovery_library.py:201: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_library.py:25: in get_db_config
+    return _get()
+           ^^^^^^
+env_config.py:104: in get_db_config
+    'host': get_env('DB_HOST', required=True),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+key = 'DB_HOST', default = None, required = True
+
+    def get_env(key: str, default: str = None, required: bool = False) -> str:
+        """
+        Get environment variable with environment prefix fallback.
+    
+        Order of lookup:
+        1. {ENV}_{key} (e.g., DEV_DB_HOST or PROD_DB_HOST)
+        2. {key} (e.g., DB_HOST for shared variables)
+        3. default value (if not required)
+    
+        Args:
+            key: Variable name without environment prefix
+            default: Default value if not found (ignored if required=True)
+            required: If True, raise error when not found
+    
+        Returns:
+            Environment variable value
+    
+        Raises:
+            ValueError: If required=True and variable not found
+        """
+        # Try environment-specific first
+        env_key = f"{ENV}_{key}"
+        value = os.getenv(env_key)
+    
+        if value is not None:
+            return value
+    
+        # Fall back to non-prefixed (shared variables)
+        value = os.getenv(key)
+    
+        if value is not None:
+            return value
+    
+        if required:
+>           raise ValueError(f"Required environment variable not set: {key} (tried {env_key} and {key})")
+E           ValueError: Required environment variable not set: DB_HOST (tried DEV_DB_HOST and DB_HOST)
+
+env_config.py:66: ValueError
+_____________________________ test_false_reconnect _____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_tick_staleness ______________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+____________________________ test_candle_stagnation ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_recovery_exhaustion ___________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+________________________ test_market_closed_suppression ________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_flow_promotion ______________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_incident_lifecycle ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_no_per_tick_db ______________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_cadence_persistence ___________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_snapshot_in_memory ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+____________________________ test_stale_from_memory ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_burst_stability _____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+____________________________ test_logger_injection _____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+_____________________________ test_false_reconnect _____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_recovery_exhaustion ___________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+___________________________ test_promotion_persists ____________________________
+async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted
+=============================== warnings summary ===============================
+tests/test_models.py::TestSignalTick::test_tick_creation
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:29: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_derived_fields
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:43: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_to_dict
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:51: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ts = datetime.utcnow()
+
+tests/test_models.py::TestSignalTick::test_tick_to_json
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:86: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_redis_hash
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:109: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    source_time = datetime.utcnow() - timedelta(milliseconds=50)
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:110: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    received_time = datetime.utcnow()
+
+tests/test_models.py::TestSignalTick::test_tick_latency
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:115: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_creation
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:132: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_update
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:147: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandle::test_candle_to_dict
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandleAggregator::test_process_first_tick
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:228: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+tests/test_models.py::TestCandleAggregator::test_flush_all
+  /srv/trading/hermes-worktrees/wo-recovery-planner/tests/test_models.py:275: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_collection_contract.py::test_source_policy_reader - ValueEr...
+FAILED tests/test_config.py::TestConfigLoading::test_load_config - ValueError...
+FAILED tests/test_config.py::TestConfigLoading::test_database_config - ValueE...
+FAILED tests/test_config.py::TestConfigLoading::test_redis_config - ValueErro...
+FAILED tests/test_config.py::TestConfigLoading::test_oanda_config - ValueErro...
+FAILED tests/test_config.py::TestConfigLoading::test_instruments_config - Val...
+FAILED tests/test_config.py::TestEnvVarCompliance::test_no_legacy_tas_db_vars
+FAILED tests/test_config.py::TestEnvVarCompliance::test_standardized_db_vars_used
+FAILED tests/test_config.py::TestEnvVarCompliance::test_standardized_redis_vars_used
+FAILED tests/test_config.py::TestConfigDefaults::test_database_from_env - Val...
+FAILED tests/test_config.py::TestConfigDefaults::test_redis_from_env - ValueE...
+FAILED tests/test_env_compliance.py::TestEnvFileCompliance::test_env_file_exists
+FAILED tests/test_env_compliance.py::TestEnvFileCompliance::test_env_has_environment_tag
+FAILED tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_db_prefix
+FAILED tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_redis_prefix
+FAILED tests/test_env_compliance.py::TestNoHardcodedPaths::test_no_hardcoded_srv_paths
+FAILED tests/test_gap_scanner.py::test_real_incident_detection - ValueError: ...
+FAILED tests/test_gap_scanner.py::test_higher_tf_gaps - ValueError: Required ...
+FAILED tests/test_gap_scanner.py::test_market_closed_suppression - ValueError...
+FAILED tests/test_gap_scanner.py::test_signal_gap_detection - ValueError: Req...
+FAILED tests/test_gap_scanner.py::test_idempotent_persistence - ValueError: R...
+FAILED tests/test_gap_scanner.py::test_gap_count_for_health - ValueError: Req...
+FAILED tests/test_per_instrument_health.py::test_all_healthy - Failed: async ...
+FAILED tests/test_per_instrument_health.py::test_single_tick_stale - Failed: ...
+FAILED tests/test_per_instrument_health.py::test_single_m1_stale - Failed: as...
+FAILED tests/test_per_instrument_health.py::test_market_closed - Failed: asyn...
+FAILED tests/test_per_instrument_health.py::test_snapshot_instruments - Faile...
+FAILED tests/test_per_instrument_health.py::test_global_not_green_when_inst_red
+FAILED tests/test_recovery_library.py::test_all_artifacts_governed - ValueErr...
+FAILED tests/test_recovery_library.py::test_graph_valid - ValueError: Require...
+FAILED tests/test_recovery_library.py::test_rebuild_order_consistency - Value...
+FAILED tests/test_recovery_library.py::test_dependency_references - ValueErro...
+FAILED tests/test_recovery_library.py::test_full_validation - ValueError: Req...
+FAILED tests/test_recovery_library.py::test_real_outage_plan - ValueError: Re...
+FAILED tests/test_recovery_library.py::test_partial_plan - ValueError: Requir...
+FAILED tests/test_watchdog.py::test_false_reconnect - Failed: async def funct...
+FAILED tests/test_watchdog.py::test_tick_staleness - Failed: async def functi...
+FAILED tests/test_watchdog.py::test_candle_stagnation - Failed: async def fun...
+FAILED tests/test_watchdog.py::test_recovery_exhaustion - Failed: async def f...
+FAILED tests/test_watchdog.py::test_market_closed_suppression - Failed: async...
+FAILED tests/test_watchdog.py::test_flow_promotion - Failed: async def functi...
+FAILED tests/test_watchdog.py::test_incident_lifecycle - Failed: async def fu...
+FAILED tests/test_watchdog_load.py::test_no_per_tick_db - Failed: async def f...
+FAILED tests/test_watchdog_load.py::test_cadence_persistence - Failed: async ...
+FAILED tests/test_watchdog_load.py::test_snapshot_in_memory - Failed: async d...
+FAILED tests/test_watchdog_load.py::test_stale_from_memory - Failed: async de...
+FAILED tests/test_watchdog_load.py::test_burst_stability - Failed: async def ...
+FAILED tests/test_watchdog_load.py::test_logger_injection - Failed: async def...
+FAILED tests/test_watchdog_load.py::test_false_reconnect - Failed: async def ...
+FAILED tests/test_watchdog_load.py::test_recovery_exhaustion - Failed: async ...
+FAILED tests/test_watchdog_load.py::test_promotion_persists - Failed: async d...
+51 failed, 1253 passed, 13 warnings in 1.35s
+
+--- HONEST PRE-EXISTING FAILURE ACCOUNTING (NOT caused by this WO) ---
+51 failures = tests requiring the pytest-asyncio plugin ("async def not natively supported") across pre-existing files:
+  test_watchdog.py, test_watchdog_load.py, test_config.py, test_env_compliance.py, test_gap_scanner.py,
+  test_collection_contract.py, test_per_instrument_health.py, test_recovery_library.py.
+4 additional collection errors (ignored above) require REDIS_HOST env / httpx-starlette: test_api.py, test_canonical_engine.py,
+  test_m1_deriver.py, test_redis_publisher.py.
+None import utils.hermes_recovery_planner_v1 (additive module, zero coupling). All 40 new planner tests pass.
