@@ -1,0 +1,14 @@
+{
+  "_design_only": "CANDIDATE planner health surface — NOT created in this WO. Must NOT overload hermes:backfill:status:XAU_USD:v1.",
+  "candidate_key": "hermes:recovery:planner_health:XAU_USD:v1",
+  "location_decision": "dedicated planner-status key OR control-plane telemetry (decided in wiring WO); NEVER backfill:status",
+  "persistence": "TTL_BOUND (heartbeat)",
+  "fields": {
+    "component": "recovery_planner", "enabled": false, "authorised": false, "state": "DISABLED",
+    "last_invocation_utc": null, "last_success_utc": null,
+    "current_source_digests": {"gaps": null, "coverage": null, "closure": null}, "policy_version": null,
+    "planner_version": "v1", "last_status": null, "last_fault": null, "consecutive_failures": 0,
+    "invocation_duration_ms": null, "output_disposition": "IN_MEMORY_ONLY", "execution_enabled": false
+  },
+  "invariant": "execution_enabled ALWAYS false; describes PLANNER RUNTIME HEALTH, not recovery readiness (that is backfill:status)"
+}
