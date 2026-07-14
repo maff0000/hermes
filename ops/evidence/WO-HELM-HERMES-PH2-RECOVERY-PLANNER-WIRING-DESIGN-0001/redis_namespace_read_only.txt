@@ -1,0 +1,5 @@
+DESIGN-ONLY WO: no runtime touched. Confirmation (read-only):
+container: 1de1da99680b (expect 1de1da99680b) image: 952b92d23c36 health: healthy restarts: 0; deploy HEAD: 0a7d567a
+recovery/planner/proposal keys: []
+planner gates: None None
+gaps: GAPS_FOUND backfill: READY_FOR_BACKFILL_DESIGN consumer_live: False

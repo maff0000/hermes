@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_design_only": "CANDIDATE mounted-policy contract for /app/config/recovery_planner_policy.v1.json. DESIGN-ONLY; no live policy installed.",
+  "title": "HERMES RecoveryPlanningPolicy mounted contract v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["contract_version","instrument","enabled_timeframes","timeframe_priority","d1_history_floor","retention_policy","staleness_policy","workload_bounds","cost_model","regular_market_schedule","partial_proposals_allowed"],
+  "properties": {
+    "contract_version": {"const": "1"},
+    "instrument": {"const": "XAU_USD"},
+    "enabled_timeframes": {"type": "array", "items": {"enum": ["D1","H4","H1","M15","M5","M1"]}, "minItems": 1, "uniqueItems": true},
+    "timeframe_priority": {"type": "array", "items": {"enum": ["D1","H4","H1","M15","M5","M1"]}, "minItems": 1, "uniqueItems": true},
+    "d1_history_floor": {"type": "object", "additionalProperties": false, "required": ["seconds","anchor_hour_utc"],
+      "properties": {"seconds": {"type": "integer", "minimum": 86400, "maximum": 31536000}, "anchor_hour_utc": {"const": 22}}},
+    "retention_policy": {"type": "object", "additionalProperties": false, "required": ["m1_h4_days","d1_days"],
+      "properties": {"m1_h4_days": {"type": "integer", "minimum": 1, "maximum": 400}, "d1_days": {"type": "integer", "minimum": 1, "maximum": 1000}}},
+    "staleness_policy": {"type": "object", "additionalProperties": false, "required": ["gaps_max_age_seconds","coverage_max_age_seconds"],
+      "properties": {"gaps_max_age_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}, "coverage_max_age_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}}},
+    "workload_bounds": {"type": "object", "additionalProperties": false, "required": ["max_segments","max_candles_per_segment","max_candles_per_proposal","max_lookback_seconds","max_request_units"],
+      "properties": {"max_segments": {"type": "integer", "minimum": 1}, "max_candles_per_segment": {"type": "integer", "minimum": 1}, "max_candles_per_proposal": {"type": "integer", "minimum": 1}, "max_lookback_seconds": {"type": "integer", "minimum": 1}, "max_request_units": {"type": "integer", "minimum": 1}}},
+    "cost_model": {"type": "object", "additionalProperties": false, "required": ["candles_per_request","request_units_per_call","cost_tokens_per_request","fixed_overhead_units","timeframe_multipliers"],
+      "properties": {"candles_per_request": {"type": "integer", "minimum": 1}, "request_units_per_call": {"type": "integer", "minimum": 1}, "cost_tokens_per_request": {"type": "integer", "minimum": 0}, "fixed_overhead_units": {"type": "integer", "minimum": 0}, "timeframe_multipliers": {"type": "object"}}},
+    "regular_market_schedule": {"type": "object", "additionalProperties": false, "required": ["weekend_close_weekday","weekend_close_hour_utc","weekend_reopen_weekday","weekend_reopen_hour_utc"],
+      "properties": {"weekend_close_weekday": {"const": 4}, "weekend_close_hour_utc": {"const": 22}, "weekend_reopen_weekday": {"const": 6}, "weekend_reopen_hour_utc": {"const": 22}}},
+    "partial_proposals_allowed": {"type": "boolean"},
+    "merge_adjacent_threshold_seconds": {"type": "integer", "minimum": 0}
+  },
+  "digest_canonicalisation": "sha256 over JSON with sorted keys + compact separators (matches policy.digest())",
+  "utc_convention": "all durations in seconds; timestamps UTC Z; anchor 22:00 only",
+  "default_deny_faults": ["POLICY_FILE_MISSING","POLICY_JSON_INVALID","POLICY_SCHEMA_INVALID","POLICY_VERSION_UNSUPPORTED","POLICY_INSTRUMENT_INVALID","POLICY_DIGEST_FAILED"]
+}

@@ -1,0 +1,1 @@
+CROSS-APP: no ARES/Falcon/HELIOS/NEO/SOLO code import; ARES referenced only as an explicit NON-DEPENDENCY (Option A: no ARES in first impl)

@@ -1,0 +1,17 @@
+{
+  "wo": "WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-DESIGN-0001 (PR #94 correction)",
+  "verdict": "GREEN_PR94_UPDATED_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_CORRECTIONS",
+  "tracking": "HELM_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_PR94_CORRECTION::2026-07-14T17:05Z::GREEN_PR94_UPDATED_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_CORRECTIONS",
+  "blocked_audit": "R2D2_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_PR94_COLD_AUDIT::2026-07-14T16:36:38Z::AMBER_..._BLOCKED",
+  "pr": 94, "previous_blocked_head": "dddd117a048cfbc6d5e2aaf90a719144350ed7ce", "new_head": "33c96fbad2dfd5a06c664b519322c3f37bc4d678",
+  "mode": "DESIGN-ONLY correction (docs+evidence only)",
+  "correction_1_exceptional_closures": "Option A FROZEN: first wiring consumes ONLY HERMES regular schedule (Fri22->Sun22 UTC); exceptional w/o governed evidence -> UNCLASSIFIED_MARKET_STATE; unresolved intersection -> BLOCKED_UNCLASSIFIED_MARKET_STATE (affected scope NOT PROPOSAL_READY); no ARES import/assumption, no vendor; future WO-HERMES-PH2-EXCEPTIONAL-MARKET-CLOSURE-CONTRACT-DESIGN-0001",
+  "correction_2_policy_transport": "governed READ-ONLY mounted JSON at /app/config/recovery_planner_policy.v1.json; JSON Schema + version=1 + XAU_USD + digest; default-deny fault codes POLICY_FILE_MISSING/JSON_INVALID/SCHEMA_INVALID/VERSION_UNSUPPORTED/INSTRUMENT_INVALID/DIGEST_FAILED; no code-default/stale fallback; present-but-invalid replacement blocks new cycles; NO alternative transport",
+  "correction_3_immediate_health": "Option A FROZEN: NO Redis planner-health key; structured UTC logs + supervisor runner state only; summary-only logs; must not overload backfill:status/feed_health/gaps/catalogue; future WO-HERMES-PH2-RECOVERY-PLANNER-HEALTH-CONTRACT-DESIGN-0001",
+  "component_105_consistency": "ENABLED+!AUTHORISED -> terminal planner-runner fault 105; runner blocked; other critical runners live; no silent disabled-healthy; NEVER whole-container exit",
+  "unresolved_register": "all 4 questions BINDING; no 'decided in the wiring WO' deferral; no architecture-choice branch left to implementation",
+  "accepted_design_preserved": "caller model, fully-qualified import, component-105, gaps source + 120s age, retention-bounded coverage (35d/120d), OUT_OF_RETENTION excluded, D1 floor from policy, hybrid digest cadence, snapshot consistency, no stale-as-live, backoff, in-memory disposition, proposal TTL, legacy separation, 6-stage executor boundary, 12-stage rollout, accepted ADRs — UNCHANGED",
+  "contradiction_scan": "CLEAN (only negation statements)", "production_code_change": "NONE (docs/ + ops/evidence/ only)",
+  "runtime_mutation": "NONE (container 1de1da99680b, deploy 0a7d567; no planner/health/proposal key; gates None/None; gaps GAPS_FOUND; backfill READY_FOR_BACKFILL_DESIGN; consumer_live=false; Falcon untouched)",
+  "next_gate": "R2D2 re-audit of PR #94 at the new immutable head"
+}

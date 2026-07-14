@@ -1,0 +1,25 @@
+{
+  "_design_only": "CANDIDATE contract — NOT created, NOT published in this WO. Requires a separate publication-contract WO.",
+  "candidate_key": "hermes:recovery:proposal:XAU_USD:v1",
+  "persistence": "TTL_BOUND",
+  "ttl_seconds_recommended": 120,
+  "ttl_rationale": "a stale plan is dangerous; positive TTL with fail-loud expiry preferred over persistence; TTL ~= 2x cadence",
+  "overwrite_semantics": "exact-one-key; latest overwrites in place; NO second key",
+  "exact_one_key_invariant": true,
+  "refresh_cadence": "only when idempotency tuple changes (digest-gated); expiry if not refreshed",
+  "stale_behaviour": "key expires (fail-loud absence) rather than serving a stale plan",
+  "fields": {
+    "contract_version": "v1", "proposal_id": "deterministic (excludes clock)", "planner_version": "v1",
+    "target_instrument": "XAU_USD", "generated_at_utc": "UTC Z", "source_gaps_generated_at_utc": "UTC Z",
+    "source_digests": {"gaps": "sha256", "coverage": "sha256", "closure": "sha256"}, "policy_digest": "sha256",
+    "planning_mode": "DRY_RUN_ONLY", "overall_plan_status": "PROPOSAL_READY|PARTIAL_BOUNDED_PROPOSAL|NO_RECOVERY_REQUIRED|BLOCKED_*",
+    "prioritized_segments_list": [], "deferred_segments": [], "intentionally_unavailable_segments": [],
+    "unclassified_segments": [], "faults": [], "warnings": [],
+    "estimated_request_units": 0, "estimated_api_cost_tokens": 0
+  },
+  "fixed_truths": {
+    "execution_enabled": false, "backfill_executed": false, "repair_executed": false, "consumer_live": false,
+    "active_job": null, "completed_pct": null, "executable_payload": "FORBIDDEN — no command/API/SQL/Redis instruction"
+  },
+  "consumer_governance": "a published proposal is NOT an execution request and MUST NOT be auto-consumed by any executor"
+}
