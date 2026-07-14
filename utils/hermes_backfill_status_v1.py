@@ -13,7 +13,9 @@ surface); overall_status is fail-closed and NEVER OK (this surface will not clai
 source, which does not exist in this WO). Missing/invalid gaps input -> GAPS_SURFACE_MISSING (fail-closed), never OK.
 
 DARK by default: build_backfill_status_publisher_from_env() -> DisabledBackfillStatusPublisher (no I/O). The builder is PURE
-(data-injected). There is NO SET path in this WO — runtime publication is a SEPARATE later WO (PR#89 lesson: build inert first).
+(data-injected). Runtime publication (BackfillStatusPublisher.publish -> a single SET of BACKFILL_STATUS_KEY, wired as the gated
+backfill_status runtime step in WO-HELM-HERMES-PH2-BACKFILL-STATUS-PUBLISH-WIRING-0001) stays inert until
+HERMES_BACKFILL_STATUS_PUBLISH_ENABLED and HERMES_BACKFILL_STATUS_PUBLISH_AUTHORISED are both set; enabling activation is a SEPARATE later WO.
 """
 from __future__ import annotations
 import json
@@ -226,9 +228,11 @@ class DisabledBackfillStatusPublisher:
 
 
 class BackfillStatusPublisher:
-    """ENABLED + AUTHORISED status analyser. Builds the read-only status contract from the governed gaps surface. It does
-    NOT write the key in this WO — runtime publication (SET) + runner wiring are a SEPARATE later WO (PR#89 lesson). No
-    execution, no repair, no delete, no candle/history/SQL write."""
+    """ENABLED + AUTHORISED status publisher. Builds the read-only status contract from the governed gaps surface and, when
+    driven by the gated runtime step, publishes it to the SINGLE key BACKFILL_STATUS_KEY. It NEVER writes the gaps key or any
+    candle/history key, NEVER deletes, NEVER writes SQL, NEVER invokes the D1 seed/backfill engine, NEVER launches backfill/
+    repair, NEVER pulls a vendor, NEVER touches market_map/Falcon. Invariants execution_enabled/backfill_executed/
+    repair_executed/consumer_live stay HARD false; active_job/completed_pct null (enforced by validate_backfill_status_contract)."""
     enabled = True
 
     def __init__(self, *, redis_client):
@@ -239,15 +243,39 @@ class BackfillStatusPublisher:
     def analyze(self, *, now, gate_values=None):
         return analyze_backfill_status(self.redis_client, now=now, gate_values=gate_values)
 
+    def publish(self, *, now, gate_values=None):
+        """Governed publication: build the read-only status contract (analyze -> GET gaps key only) and SET exactly ONE key
+        (BACKFILL_STATUS_KEY). Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming
+        contract; overall_status=OK is rejected). No TTL (status truth surface, parity with the gaps surface). Writes NOTHING
+        else; no gaps-key write, no delete, no SQL, no backfill/repair, no vendor/market_map/Falcon."""
+        contract = self.analyze(now=now, gate_values=gate_values)
+        validate_backfill_status_contract(contract)               # fail-closed guard immediately before the single SET
+        self.redis_client.set(BACKFILL_STATUS_KEY, json.dumps(contract))   # the ONLY write this surface performs
+        return {"published": 1, "key": BACKFILL_STATUS_KEY, "overall_status": contract["overall_status"],
+                "consumer_live": False, "execution_enabled": False, "backfill_executed": False, "repair_executed": False}
+
     def status(self):
         return {"enabled": True, "key": BACKFILL_STATUS_KEY, "read_only": True, "execution_enabled": False,
                 "backfill_executed": False, "repair_executed": False}
 
 
+def backfill_status_publish_enabled():
+    """Env-ONLY governed gate (no Redis client, no I/O): True iff backfill-status publication is ENABLED+AUTHORISED. Used by
+    the runtime runner-spec assembly to decide whether to append the runner WITHOUT constructing a client. Same two gates and
+    same fail-closed as build_backfill_status_publisher_from_env: enabled-without-authorised -> SystemExit(101)."""
+    from env_config import get_env_bool
+    if not get_env_bool(STATUS_ENABLED_ENV, False):
+        return False
+    if not get_env_bool(STATUS_AUTHORISED_ENV, False):
+        raise SystemExit(HALT_CODE)
+    return True
+
+
 def build_backfill_status_publisher_from_env(*, redis_client=None, redis_client_factory=None):
     """Boot entrypoint. DISABLED by default -> DisabledBackfillStatusPublisher (no client, no I/O). Enabled-without-authorised
-    -> SystemExit(101). Enabled+authorised -> BackfillStatusPublisher (read-only analyser; NO key write in this WO). No hidden
-    default that activates publication; NO Redis client constructed when disabled."""
+    -> SystemExit(101). Enabled+authorised -> BackfillStatusPublisher (reads the governed gaps surface; publishes ONLY
+    BACKFILL_STATUS_KEY when its publish() is driven by the gated runtime step). No hidden default that activates publication;
+    NO Redis client constructed when disabled."""
     from env_config import get_env_bool
     if not get_env_bool(STATUS_ENABLED_ENV, False):
         return DisabledBackfillStatusPublisher()

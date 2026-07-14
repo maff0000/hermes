@@ -193,6 +193,14 @@ def default_runner_specs():
     from utils import hermes_gaps_v1 as gaps
     if gaps.gaps_publish_enabled():
         specs.append(("gaps", steps.gaps_step, DEFAULT_INTERVAL_SECONDS))
+    # WO-HELM-HERMES-PH2-BACKFILL-STATUS-PUBLISH-WIRING-0001 — PH2 backfill-status runner: DISABLED by default -> NOT
+    # appended. Enabled-without-authorised -> SystemExit(101) (fail-closed via the gate); enabled+authorised -> appended
+    # AFTER gaps as an additional governed runner whose step publishes ONLY hermes:backfill:status:XAU_USD:v1 (status-only
+    # telemetry; reads the live gaps key; NO execution/repair/backfill/delete/SQL/vendor/market_map/Falcon; consumer_live=false).
+    # Env read only here (backfill_status_publish_enabled builds NO Redis client); the step is itself gate-first/no-op when disabled.
+    from utils import hermes_backfill_status_v1 as bfs
+    if bfs.backfill_status_publish_enabled():
+        specs.append(("backfill_status", steps.backfill_status_step, DEFAULT_INTERVAL_SECONDS))
     return specs
 
 
