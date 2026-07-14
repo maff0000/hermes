@@ -1,1 +1,1 @@
-pending (after PR open)
+{"base":"main","file_count":45,"head":"02ad19e513b34532da6b3805121bf6ddeeaa2011","mergeable":"UNKNOWN","number":94,"state":"OPEN","url":"https://github.com/maff0000/hermes/pull/94"}
