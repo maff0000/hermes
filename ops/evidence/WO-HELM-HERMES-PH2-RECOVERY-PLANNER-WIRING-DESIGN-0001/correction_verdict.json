@@ -3,7 +3,7 @@
   "verdict": "GREEN_PR94_UPDATED_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_CORRECTIONS",
   "tracking": "HELM_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_PR94_CORRECTION::2026-07-14T17:05Z::GREEN_PR94_UPDATED_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_CORRECTIONS",
   "blocked_audit": "R2D2_HERMES_PH2_RECOVERY_PLANNER_WIRING_DESIGN_PR94_COLD_AUDIT::2026-07-14T16:36:38Z::AMBER_..._BLOCKED",
-  "pr": 94, "previous_blocked_head": "dddd117a048cfbc6d5e2aaf90a719144350ed7ce", "new_head": "PENDING",
+  "pr": 94, "previous_blocked_head": "dddd117a048cfbc6d5e2aaf90a719144350ed7ce", "new_head": "33c96fbad2dfd5a06c664b519322c3f37bc4d678",
   "mode": "DESIGN-ONLY correction (docs+evidence only)",
   "correction_1_exceptional_closures": "Option A FROZEN: first wiring consumes ONLY HERMES regular schedule (Fri22->Sun22 UTC); exceptional w/o governed evidence -> UNCLASSIFIED_MARKET_STATE; unresolved intersection -> BLOCKED_UNCLASSIFIED_MARKET_STATE (affected scope NOT PROPOSAL_READY); no ARES import/assumption, no vendor; future WO-HERMES-PH2-EXCEPTIONAL-MARKET-CLOSURE-CONTRACT-DESIGN-0001",
   "correction_2_policy_transport": "governed READ-ONLY mounted JSON at /app/config/recovery_planner_policy.v1.json; JSON Schema + version=1 + XAU_USD + digest; default-deny fault codes POLICY_FILE_MISSING/JSON_INVALID/SCHEMA_INVALID/VERSION_UNSUPPORTED/INSTRUMENT_INVALID/DIGEST_FAILED; no code-default/stale fallback; present-but-invalid replacement blocks new cycles; NO alternative transport",
