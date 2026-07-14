@@ -1,0 +1,9 @@
+=== RUNTIME NON-MUTATION (read-only) ===
+container: 1de1da99680b (expect 1de1da99680b) deploy: 0a7d567a (expect 0a7d567) health: healthy restarts: 0; policy file present: NO-absent; runtime module present in container: NO-not-deployed
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /app
+runners: ['control_plane', 'indicators', 'candle_features', 'sessions_levels', 'instrument_catalog', 'feed_health', 'quote', 'gaps', 'backfill_status'] count 9
+recovery/planner/health/proposal keys: []
+planner gates: None None
+gaps/backfill/consumer_live: GAPS_FOUND READY_FOR_BACKFILL_DESIGN False
+falcon/mm: falcon=6770 mm=6843

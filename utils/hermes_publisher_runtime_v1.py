@@ -201,6 +201,15 @@ def default_runner_specs():
     from utils import hermes_backfill_status_v1 as bfs
     if bfs.backfill_status_publish_enabled():
         specs.append(("backfill_status", steps.backfill_status_step, DEFAULT_INTERVAL_SECONDS))
+    # WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-IMPLEMENTATION-0001 — PH2 recovery-planner runner: PLAN-ONLY, DISABLED by
+    # default -> NOT appended (unset gates => zero reads/planning/writes). Appended ONLY when HERMES_RECOVERY_PLANNER_ENABLED
+    # is set (NON-raising env check). Component-level 105: enabled-without-authorised does NOT SystemExit here (that would
+    # crash the market-data spine); instead the runner STEP raises a typed component fault contained per-runner-thread, so
+    # tick/candle/quote/feed-health/gaps/backfill runners keep running. The step publishes NOTHING (in-memory proposal only;
+    # no Redis/SQL/vendor; no proposal/health key; no executor). Env read only here (no Redis client, no policy read).
+    from utils import hermes_recovery_planner_runtime_v1 as rpr
+    if rpr.recovery_planner_append_enabled():
+        specs.append(("recovery_planner", rpr.recovery_planner_step, DEFAULT_INTERVAL_SECONDS))
     return specs
 
 

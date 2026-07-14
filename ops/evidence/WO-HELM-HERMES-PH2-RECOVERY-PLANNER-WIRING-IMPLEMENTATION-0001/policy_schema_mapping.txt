@@ -1,0 +1,1 @@
+policy JSON contract mapped to RecoveryPlanningPolicy without changing planner semantics; retention 35/120 asserted; D1 anchor 22 asserted; digest = policy.digest()
