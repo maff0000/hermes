@@ -1,0 +1,3 @@
+MUTATION BOUNDARY SCAN on utils/hermes_recovery_planner_v1.py
+mutation/write tokens: NONE
+note: planner is pure — no Redis/SQL/file write path exists

@@ -1,0 +1,4 @@
+enabled=F authorised=F -> {'enabled': False, 'authorised': False, 'state': 'DISABLED', 'planning_permitted': False, 'execution_permitted': False}
+enabled=F authorised=T -> {'enabled': False, 'authorised': True, 'state': 'DISABLED', 'planning_permitted': False, 'execution_permitted': False}
+enabled=T authorised=F -> SystemExit(105)
+enabled=T authorised=T -> {'enabled': True, 'authorised': True, 'state': 'ENABLED_AUTHORISED_PLAN_ONLY', 'planning_permitted': True, 'execution_permitted': False}
