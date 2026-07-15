@@ -1,0 +1,3 @@
+FAULT-CODE COVERAGE:
+  design catalogue codes: 33 | implemented ALL_PUB_CODES: 33 | exact match: True
+  every code reachable by a test case: see test_each_governed_code_reachable[33 params] + test_all_33_codes_covered_by_cases

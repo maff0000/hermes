@@ -1,0 +1,6 @@
+d28102a [WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-ELIGIBILITY-VALIDATOR-0001] pure eligibility validator
+ .../eligibility_validator_implementation.md        |  59 +++
+ .../implementation_decomposition.md                |   2 +-
+ ...recovery_proposal_publication_eligibility_v1.py | 441 ++++++++++++++++++
+ ...recovery_proposal_publication_eligibility_v1.py | 495 +++++++++++++++++++++
+ 4 files changed, 996 insertions(+), 1 deletion(-)

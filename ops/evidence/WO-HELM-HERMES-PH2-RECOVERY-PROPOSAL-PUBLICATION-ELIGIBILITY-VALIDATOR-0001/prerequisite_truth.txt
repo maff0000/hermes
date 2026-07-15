@@ -1,0 +1,8 @@
+PREREQUISITE (§1/§3) verified 2026-07-15:
+- R2D2 merge-lineage audit GREEN (WO-supplied): ..._PR97_MERGE_LINEAGE_AUDITED; readiness READY_FOR_PURE_ELIGIBILITY_VALIDATOR_IMPLEMENTATION.
+- canonical HERMES main 0ef84a679dd415f2b54e0e805c960bf3606c5142 (== HEAD at branch base).
+- deployed runtime remains a798fbc4 (authorised canonical/deploy divergence; no deploy in this WO).
+- merged design PR #97 present in main; exact audited head 1710991 in lineage.
+- NO authorised recovery-proposal consumer exists (confirmed); Falcon not a consumer.
+- Merged design docs read: architecture, eligibility_matrix, state_transition_table, fault_code_catalogue (33 codes),
+  JSON Schema + 13 fixtures, gate_truth_table, ttl_freshness, restart_cold_start, gap_invariant, exceptional_closures, decomposition.

@@ -1,0 +1,2 @@
+CROSS-APPLICATION NON-MUTATION: validator imports only stdlib dataclasses/datetime/typing; NO ARES/Falcon/HELIOS/NEO/SOLO/
+PLUTUS/ARGUS/market-map/legacy-recovery/executor/publisher-runner import. Only HERMES repo touched. Falcon untouched.

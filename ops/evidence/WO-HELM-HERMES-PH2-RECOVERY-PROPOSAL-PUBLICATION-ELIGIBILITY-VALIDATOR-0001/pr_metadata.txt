@@ -1,0 +1,6 @@
+PR: #98  https://github.com/maff0000/hermes/pull/98
+base: main (0ef84a679dd415f2b54e0e805c960bf3606c5142)
+head: d28102a538dad94b390df8fbc5f80df6c260d7be
+branch: wo/WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-ELIGIBILITY-VALIDATOR-0001
+state: OPEN (implementation; NOT merged, NOT deployed, NOT operational)
+next gate: independent R2D2 cold audit of the validator PR at its exact immutable head

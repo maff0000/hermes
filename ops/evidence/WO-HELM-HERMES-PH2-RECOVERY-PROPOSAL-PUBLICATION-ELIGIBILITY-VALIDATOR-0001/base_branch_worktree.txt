@@ -1,0 +1,5 @@
+base SHA: 0ef84a679dd415f2b54e0e805c960bf3606c5142
+head SHA: d28102a538dad94b390df8fbc5f80df6c260d7be
+branch:   wo/WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-ELIGIBILITY-VALIDATOR-0001
+worktree: /srv/trading/hermes-worktrees/wo-eligibility-validator
+PR: #98  https://github.com/maff0000/hermes/pull/98

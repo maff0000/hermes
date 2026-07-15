@@ -1,0 +1,4 @@
+FULL SUITE (dead-redis env, --continue-on-collection-errors):
+  BASE 0ef84a6 : 1360 passed
+  HEAD (validator): 1449 passed  (+89 = new validator tests)
+  51 pre-existing async failures + 4 collection errors IDENTICAL both; zero regression; no new failure/collection error.
