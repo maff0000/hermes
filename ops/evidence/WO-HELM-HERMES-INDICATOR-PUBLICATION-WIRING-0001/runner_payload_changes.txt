@@ -1,0 +1,7 @@
+RUNNER / PAYLOAD CHANGES:
+- _compute_indicators (hermes_runtime_publisher_steps_v1.py): appended EMA50 + Bollinger(20,2) + ADX(+DI/-DI) with depth
+  guards + explicit null; existing ema_12/26, rsi_14, atr_14 lines untouched.
+- hermes_indicators_v1.py: trivial contract extension — "adx" added to HERMES_DETERMINISTIC_INDICATORS, _family_of,
+  INDICATOR_METHODS ("WILDER_ADX_14"), _METHOD_FIELD ("adx_method"). Bollinger/EMA already represented.
+- indicator_step, build_indicator_contract, indicator_key, cadence, TF grid, gating: UNCHANGED.
+- NO new module / runner / publisher class / Redis key family / TTL.

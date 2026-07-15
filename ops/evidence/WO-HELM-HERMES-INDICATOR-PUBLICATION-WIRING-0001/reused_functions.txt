@@ -1,0 +1,8 @@
+EXACT EXISTING FUNCTIONS REUSED (no new calc lib / framework):
+- utils.indicators.calculate_ema(closes, 50)            -> ema_50
+- utils.indicators.calculate_bollinger_bands(closes, 20, 2.0) -> bollinger_upper/middle/lower_20_2 (BollingerBandsResult)
+- utils.indicators.calculate_adx(highs, lows, closes, 14)     -> adx_14 / adx_plus_di_14 / adx_minus_di_14 (ADXResult, Wilder)
+- utils.atr_calculator.calculate_atr(candles, 14)      -> atr_14 (UNCHANGED)
+- utils.indicators.calculate_ema/calculate_rsi          -> ema_12/ema_26/rsi_14 (UNCHANGED)
+- utils.hermes_indicators_v1.build_indicator_contract / indicator_key -> existing payload + key hermes:indicators:XAU_USD:{TF}:v1
+- runner: utils.hermes_runtime_publisher_steps_v1.indicator_step (existing; wired at 60s DEFAULT_INTERVAL_SECONDS)

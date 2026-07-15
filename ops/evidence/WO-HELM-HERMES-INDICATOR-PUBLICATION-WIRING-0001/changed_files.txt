@@ -1,0 +1,5 @@
+b0906bd [WO-HELM-HERMES-INDICATOR-PUBLICATION-WIRING-0001] wire Bollinger(20,2), ADX(+DI/-DI), EMA50
+ ...rmes_indicator_wiring_bollinger_adx_ema50_v1.py | 213 +++++++++++++++++++++
+ utils/hermes_indicators_v1.py                      |   9 +-
+ utils/hermes_runtime_publisher_steps_v1.py         |  31 ++-
+ 3 files changed, 249 insertions(+), 4 deletions(-)

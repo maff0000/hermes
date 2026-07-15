@@ -1,0 +1,6 @@
+TIMEFRAME / HISTORY-DEPTH BEHAVIOUR:
+- TF coverage unchanged: LATEST_TFS = M1,M5,M15,H1,H4; D1 gated dark; INDICATOR_WINDOW=60 (covers EMA50/BB20/ADX14).
+- Depth guards (explicit null below threshold; never fabricated):
+  EMA50 >= 50 | Bollinger(20,2) >= 20 | ADX(14) >= 2*14+1=29 (settled Wilder; avoids calculate_adx neutral 20/20/20).
+- Existing thresholds preserved: ema_12>=12, ema_26>=26, rsi_14>=15, atr_14 via calculator (None if insufficient).
+- indicator_step still skips a TF entirely when history < 15 candles.

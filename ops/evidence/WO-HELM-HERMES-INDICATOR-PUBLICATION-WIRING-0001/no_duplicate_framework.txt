@@ -1,0 +1,6 @@
+PROOF NO DUPLICATE FRAMEWORK CREATED:
+- key unchanged: hermes:indicators:XAU_USD:{TF}:v1 (test_no_new_key_family_or_runner).
+- runner unchanged: single indicator_step at 60s DEFAULT_INTERVAL_SECONDS (asserted from default_runner_specs).
+- calc reused: from utils import indicators as ind_compute (test_reuses_existing_calc_library_not_a_new_one).
+- no new files except the test; 2 existing source files edited in place.
+- excluded: EMA200/MACD/VWAP/sweep/new-hydration/new-history-store/new-Redis-family/TTL-change (test_no_forbidden_indicators_emitted).
