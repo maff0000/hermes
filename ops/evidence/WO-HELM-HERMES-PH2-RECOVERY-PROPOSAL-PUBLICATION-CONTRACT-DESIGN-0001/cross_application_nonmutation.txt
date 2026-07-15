@@ -1,0 +1,4 @@
+CROSS-APPLICATION NON-MUTATION:
+- No ARES/Falcon/HELIOS/NEO/SOLO/PLUTUS/ARGUS/legacy import in any artefact (AST/regex scan in tests: PASS).
+- No cross-application repo modified. Only the HERMES repo/worktree touched.
+- Falcon untouched. No ARES dependency introduced.

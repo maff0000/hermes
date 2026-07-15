@@ -1,0 +1,7 @@
+PREREQUISITE (§1/§3) verified by value 2026-07-15:
+- R2D2 controlled-invocation audit GREEN (WO-supplied): ...READY_THEN_HELD_AUDITED_ROLLED_BACK.
+- helm:invocation:...controlled:latest = GREEN_..._READY_THEN_HELD_ROLLED_BACK; deployed_sha a798fbc4; ready=1 held=>=4(~9) planner_invocations=1; consumer_live false.
+- helm:state:hermes:current: canonical_main a798fbc4, deploy_head a798fbc4, consumer_live false.
+- canonical HEAD == a798fbc4a3c1500adce10cc6ede7d4c716f5d935.
+- NO authorised recovery-proposal consumer exists (HERMES source search empty) — not invented; Falcon not named a consumer.
+- Existing contract convention hermes:<family>:<INSTRUMENT>:v1 (gaps/backfill/catalog/quote/feed_health).

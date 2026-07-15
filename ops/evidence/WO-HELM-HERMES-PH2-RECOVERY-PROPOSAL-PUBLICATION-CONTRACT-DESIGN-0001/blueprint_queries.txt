@@ -1,0 +1,8 @@
+BLUEPRINT / TRUTH QUERIES (read-only):
+- helm:state:hermes:current, helm:invocation:...controlled:latest, helm:deploy_dark/merge/build (all GREEN chain to a798fbc4).
+- HERMES contract conventions read from source: hermes:contract:manifest:v1, hermes:instrument_catalog:XAU_USD:v1,
+  hermes:gaps:XAU_USD:v1, hermes:backfill:status:XAU_USD:v1, hermes:feed_health:XAU_USD:v1, hermes:quote:XAU_USD:v1,
+  hermes:publisher:heartbeat:v1, hermes:health:v1.
+- ProposedWorkload.to_dict fields + backfill/gaps envelope keys reviewed for envelope consistency.
+- ARES blueprint: boundary-awareness only; NO ARES edit, NO ARES dependency introduced.
+- Authorised recovery-proposal consumer: NONE found; not invented.

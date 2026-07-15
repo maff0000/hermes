@@ -1,0 +1,6 @@
+branch: wo/WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-CONTRACT-DESIGN-0001
+worktree: /srv/trading/hermes-worktrees/wo-proposal-publication-design
+base: a798fbc4a3c1500adce10cc6ede7d4c716f5d935 (== origin/main; canonical NOT edited)
+head: 8942d87e8d1ba41d366b4a33a1f13deba8e97e95
+tracked-dirty (design commit already made; only evidence pending): 0
+one branch / one worktree / one PR (#97). No work on main. No /etc, no deploy dir writes (read-only inspection only).

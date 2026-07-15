@@ -1,0 +1,5 @@
+base SHA (canonical main): a798fbc4a3c1500adce10cc6ede7d4c716f5d935
+head SHA (design branch):  8942d87e8d1ba41d366b4a33a1f13deba8e97e95
+branch:   wo/WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-CONTRACT-DESIGN-0001
+worktree: /srv/trading/hermes-worktrees/wo-proposal-publication-design
+PR: #97  https://github.com/maff0000/hermes/pull/97
