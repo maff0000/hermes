@@ -1,0 +1,68 @@
+{
+  "contract": "hermes.recovery_proposal.publication",
+  "contract_version": "1",
+  "schema_version": "1",
+  "instrument": "XAU_USD",
+  "canonical_instrument": "XAU_USD",
+  "proposal_id": "prop_5bc0bf50dc767a940740c37a",
+  "proposal_generation": 1,
+  "status": "STALE",
+  "publication_eligibility": "REFUSED",
+  "publication_reason_code": "PUB_PROPOSAL_STALE",
+  "planner_version": "v1",
+  "policy_version": "1",
+  "policy_digest": "1bfa6ead3f9d52c75b7c8f73686b23cd69d3fd597aeaf4ef0e579680013d79ee",
+  "gaps_contract_version": "v1",
+  "gaps_semantic_digest": "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00",
+  "coverage_contract_version": "v1",
+  "coverage_semantic_digest": "00ffeeddccbbaa998877665544332211009f8e7d6c5b4a39281706f5e4d3c2b1",
+  "closure_model_version": "1",
+  "closure_digest": "deadbeefcafef00d0011223344556677889900aabbccddeeff0011223344abcd",
+  "snapshot_consistency_status": "CONSISTENT",
+  "generated_at_utc": "2026-07-15T10:31:12.632Z",
+  "validated_at_utc": "2026-07-15T10:20:00.000Z",
+  "published_at_utc": "2026-07-15T10:20:00.100Z",
+  "source_as_of_utc": "2026-07-15T10:31:14.980Z",
+  "expires_at_utc": "2026-07-15T10:23:00.100Z",
+  "supersedes_proposal_id": null,
+  "supersedes_generation": null,
+  "revocation_reason": null,
+  "summary": {
+    "segment_count": 35,
+    "deferred_count": 0,
+    "unclassified_count": 0,
+    "intentionally_unavailable_count": 0,
+    "estimated_request_units": 81,
+    "segments_published": 2,
+    "segments_truncated": true,
+    "segments": [
+      {
+        "timeframe": "H1",
+        "start_utc": "2026-07-14T06:00:00Z",
+        "end_utc": "2026-07-14T07:00:00Z",
+        "segment_class": "RECOVERABLE"
+      },
+      {
+        "timeframe": "M15",
+        "start_utc": "2026-07-14T06:00:00Z",
+        "end_utc": "2026-07-14T06:15:00Z",
+        "segment_class": "RECOVERABLE"
+      }
+    ]
+  },
+  "safety": {
+    "execution_authorised": false,
+    "execution_started": false,
+    "publication_only": true,
+    "executor_bound": false,
+    "consumer_live": false,
+    "backfill_executed": false,
+    "repair_executed": false
+  },
+  "provenance": {
+    "publisher_instance_id": "hermes-signal-dev/5bf9a5e9e534",
+    "publisher_component": "hermes.recovery_proposal_publisher",
+    "source_commit": "a798fbc",
+    "source_image": "78896539f740"
+  }
+}

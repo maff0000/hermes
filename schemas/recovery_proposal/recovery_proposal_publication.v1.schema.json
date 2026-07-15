@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes.local/schemas/recovery_proposal_publication.v1.schema.json",
+  "title": "HERMES Recovery-Proposal Publication Contract v1",
+  "description": "DESIGN-ONLY. Bounded, fail-closed external contract for a published HERMES recovery proposal. Advisory market-data-recovery truth only; never execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract", "contract_version", "schema_version", "instrument", "canonical_instrument",
+    "proposal_id", "proposal_generation", "status", "publication_eligibility", "publication_reason_code",
+    "planner_version", "policy_version", "policy_digest",
+    "gaps_contract_version", "gaps_semantic_digest", "coverage_contract_version", "coverage_semantic_digest",
+    "closure_model_version", "closure_digest", "snapshot_consistency_status",
+    "generated_at_utc", "validated_at_utc", "published_at_utc", "source_as_of_utc", "expires_at_utc",
+    "summary", "safety", "provenance"
+  ],
+  "properties": {
+    "contract": { "const": "hermes.recovery_proposal.publication" },
+    "contract_version": { "const": "1" },
+    "schema_version": { "const": "1" },
+    "instrument": { "const": "XAU_USD" },
+    "canonical_instrument": { "const": "XAU_USD" },
+    "proposal_id": { "type": "string", "pattern": "^prop_[0-9a-f]{16,64}$" },
+    "proposal_generation": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["PUBLISHED", "HELD_CURRENT", "SUPERSEDED", "STALE", "REVOKED", "BLOCKED", "FAILED", "EXPIRED", "WITHDRAWN"] },
+    "publication_eligibility": { "enum": ["ELIGIBLE", "REFUSED"] },
+    "publication_reason_code": {
+      "type": "string",
+      "pattern": "^(PUB_[A-Z_]+|ELIGIBLE)$"
+    },
+    "planner_version": { "type": "string", "minLength": 1 },
+    "policy_version": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gaps_contract_version": { "type": "string", "minLength": 1 },
+    "gaps_semantic_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "coverage_contract_version": { "type": "string", "minLength": 1 },
+    "coverage_semantic_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "closure_model_version": { "type": "string", "minLength": 1 },
+    "closure_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "snapshot_consistency_status": { "enum": ["CONSISTENT", "BLOCKED_INPUT_INCONSISTENCY"] },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "validated_at_utc": { "type": "string", "format": "date-time" },
+    "published_at_utc": { "type": "string", "format": "date-time" },
+    "source_as_of_utc": { "type": "string", "format": "date-time" },
+    "expires_at_utc": { "type": "string", "format": "date-time" },
+    "supersedes_proposal_id": { "type": ["string", "null"], "pattern": "^prop_[0-9a-f]{16,64}$" },
+    "supersedes_generation": { "type": ["integer", "null"], "minimum": 1 },
+    "revocation_reason": { "type": ["string", "null"] },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_count", "deferred_count", "unclassified_count", "intentionally_unavailable_count", "estimated_request_units", "segments_published", "segments_truncated", "segments"],
+      "properties": {
+        "segment_count": { "type": "integer", "minimum": 0 },
+        "deferred_count": { "type": "integer", "minimum": 0 },
+        "unclassified_count": { "type": "integer", "minimum": 0 },
+        "intentionally_unavailable_count": { "type": "integer", "minimum": 0 },
+        "estimated_request_units": { "type": "integer", "minimum": 0 },
+        "segments_published": { "type": "integer", "minimum": 0 },
+        "segments_truncated": { "type": "boolean" },
+        "segments": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["timeframe", "start_utc", "end_utc", "segment_class"],
+            "properties": {
+              "timeframe": { "enum": ["M1", "M5", "M15", "H1", "H4", "D1"] },
+              "start_utc": { "type": "string", "format": "date-time" },
+              "end_utc": { "type": "string", "format": "date-time" },
+              "segment_class": { "enum": ["RECOVERABLE", "DEFERRED", "UNCLASSIFIED", "INTENTIONALLY_UNAVAILABLE"] }
+            }
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_authorised", "execution_started", "publication_only", "executor_bound", "consumer_live", "backfill_executed", "repair_executed"],
+      "properties": {
+        "execution_authorised": { "const": false },
+        "execution_started": { "const": false },
+        "publication_only": { "const": true },
+        "executor_bound": { "const": false },
+        "consumer_live": { "const": false },
+        "backfill_executed": { "const": false },
+        "repair_executed": { "const": false }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publisher_instance_id", "source_commit", "source_image", "publisher_component"],
+      "properties": {
+        "publisher_instance_id": { "type": "string", "minLength": 1 },
+        "publisher_component": { "const": "hermes.recovery_proposal_publisher" },
+        "source_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "source_image": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
