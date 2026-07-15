@@ -2,7 +2,7 @@
 
 Bounded, independently-auditable WOs (each its own branch/PR/cold-audit; nothing here implements runtime publication):
 
-1. **WO-PUB-1 — Pure eligibility validator** (code-only): deterministic `(proposal, live-input snapshots, config) -> ELIGIBLE
+1. **WO-PUB-1 — Pure eligibility validator** (code-only) — IMPLEMENTED in PR (WO-...-ELIGIBILITY-VALIDATOR-0001); NOT merged, NOT operational: deterministic `(proposal, live-input snapshots, config) -> ELIGIBLE
    | REFUSED(code)`; no I/O; unit-tested against the full test matrix; the eligibility matrix encoded exactly.
 2. **WO-PUB-2 — Contract schema + fixtures hardening** (code-only): promote this schema/fixtures; consumer-side validator lib
    (HERMES-owned); additive-evolution rules.
