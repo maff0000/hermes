@@ -1,0 +1,8 @@
+RUNTIME NON-MUTATION (read-only probe) 2026-07-15T11:20:02Z:
+  deploy HEAD: a798fbc4a3c1500adce10cc6ede7d4c716f5d935 (expect 115a19c? NO -> a798fbc4 from prior deploy-dark)
+  container: 5bf9a5e9e534 image: 78896539f740 restarts: 0 health: healthy
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /app
+  runners: 9 | recovery_planner: False | recovery_proposal keys: []
+  planner gates: None None | publisher gates: None None
+  PH1 D1: ACTIVE | PH2 gaps/backfill: GAPS_FOUND READY_FOR_BACKFILL_DESIGN | feed: GREEN | consumer_live: False

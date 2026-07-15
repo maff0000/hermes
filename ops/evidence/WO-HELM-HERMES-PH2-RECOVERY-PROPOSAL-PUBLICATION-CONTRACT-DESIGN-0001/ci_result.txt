@@ -1,0 +1,5 @@
+CI (full repo suite, dead-redis env, --continue-on-collection-errors):
+  BASE a798fbc4 : 1336 passed
+  HEAD (design) : 1360 passed  (+24 = the new design tests)
+  51 pre-existing async-plugin failures + 4 collection errors (env/starlette) — IDENTICAL on both, baseline separated.
+  Zero regression. Design-only additive (docs/schema/fixtures/test); no runtime source touched.
