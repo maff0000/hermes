@@ -1,0 +1,14 @@
+WO-HELM-HERMES-PID-MVP-CLOSURE-001 — documentation only.
+base: f69df68daca944fdbff5be1e28eabdb0c325e172 (canonical main after PR #98+#99 merges)
+head: 9cc7464ef8f09235ba06cbb6dd7ecccae2370a31 | branch: wo/WO-HELM-HERMES-PID-MVP-CLOSURE-001 | worktree: /srv/trading/hermes-worktrees/wo-pid-mvp-closure
+PR: #100 https://github.com/maff0000/hermes/pull/100
+Created: docs/governance/PID-HERMES-MVP-001.md (binding MVP-closure mandate) + docs/governance/README.md (governance index).
+Linked from: hermes_build_run.md (canonical entry doc); applicable agent instructions = Helm auto-memory
+  (/root/.claude/projects/-srv/memory/MEMORY.md + helm_hermes_pid_mvp_closure.md — loaded each session).
+Changed files: docs/governance/PID-HERMES-MVP-001.md, docs/governance/README.md, hermes_build_run.md (3 docs; NO code).
+Content recorded: fact-spine only; no strategy/risk/trade authority; indicator DoD (code+deployed+fresh-payload);
+  gap key is evidence not authority + binding chain; EMA50 vs EMA200 separate lanes; DEL-PUB-01/02/03;
+  Layer 5 blocked until Layer 4; one WO/branch/worktree/PR; R2D2 GREEN before merge/deploy/activation; external config only;
+  no duplicate utilities; canonical/deployed/operational separate. Status table set to current truth.
+Boundaries: NO runtime source / deploy / restart / config install / Redis-app-write / SQL / other-application.
+next_gate: R2D2 cold audit of the exact immutable PID documentation PR #100 head.

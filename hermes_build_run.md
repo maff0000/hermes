@@ -3,6 +3,10 @@
 > **Hermes** (Greek: messenger of the gods) - Single source of truth for market data.
 > "HERMES signals. Zeus decides. Tyche executes."
 
+> **Governance:** the binding MVP-closure mandate is [PID-HERMES-MVP-001](docs/governance/PID-HERMES-MVP-001.md)
+> (HERMES is a pure market-data fact spine — no strategy/risk/trade authority; indicator DoD = code-in-main + deployed runner +
+> fresh payload; canonical/deployed/operational recorded separately). See [docs/governance/](docs/governance/README.md).
+
 **Version:** 1.0.0
 **Built:** 2026-01-05
 **Updated:** 2026-01-23
