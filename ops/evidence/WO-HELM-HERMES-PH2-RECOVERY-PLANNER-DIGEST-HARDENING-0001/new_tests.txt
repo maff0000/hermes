@@ -1,0 +1,6 @@
+=== new tests ===
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 0.13s
+83
+(collected test count for the runtime suite: 42 original + 41 new = 83)

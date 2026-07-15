@@ -1,0 +1,5 @@
+REDIS NAMESPACE READ-ONLY — adapters use GET/EXISTS/ZRANGE only; policy read via read-only open('r').
+GapsAdapter: GET only on hermes:gaps:XAU_USD:v1.  CoverageAdapter: EXISTS+ZRANGE on hermes:candles:XAU_USD:<tf>:history:v1:index.
+No SET/DEL/ZADD/EXPIRE/HSET anywhere. No proposal key, no planner-health key, no job/queue/progress key written.
+...                                                                      [100%]
+3 passed, 80 deselected in 0.03s

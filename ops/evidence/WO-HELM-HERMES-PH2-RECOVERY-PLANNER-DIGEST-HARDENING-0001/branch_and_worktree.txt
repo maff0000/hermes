@@ -1,0 +1,4 @@
+branch:   wo/WO-HELM-HERMES-PH2-RECOVERY-PLANNER-DIGEST-HARDENING-0001
+worktree: /srv/trading/hermes-worktrees/wo-planner-digest-hardening
+repo:     git@github.com:maff0000/hermes.git (HERMES canonical /srv/trading/hermes)
+base:     115a19cd9490f0e3f279761f7cfdc1b65adb4fd3 (one branch, one worktree, one PR; canonical main NOT edited; deploy repo NOT edited)

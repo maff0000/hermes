@@ -1,0 +1,3 @@
+CYCLE CLOCK (I) — single clock sample per cycle; unrelated wall-clock progression stable; retention reclassification changes digest:
+...                                                                      [100%]
+3 passed, 80 deselected in 0.02s

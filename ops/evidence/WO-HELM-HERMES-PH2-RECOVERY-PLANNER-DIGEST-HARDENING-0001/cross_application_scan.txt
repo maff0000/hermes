@@ -1,0 +1,2 @@
+CROSS-APPLICATION SCAN — no reference to Falcon / ARES / HELIOS / NEO / SOLO / vendor / seed-backfill in executable code.
+  executable code: NO falcon/ares/helios/neo/solo/seed_backfill/market_map/ibkr/vendor references. CLEAN.

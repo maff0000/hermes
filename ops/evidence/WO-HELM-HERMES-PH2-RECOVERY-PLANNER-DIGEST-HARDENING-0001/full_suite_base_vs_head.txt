@@ -1,0 +1,9 @@
+FULL REPOSITORY SUITE — base vs head, identical invocation (dead-redis env, --continue-on-collection-errors).
+The 4 collection ERRORS (test_api starlette dep; test_canonical_engine/test_m1_deriver/test_redis_publisher REDIS_HOST) and the
+51 async-plugin FAILURES (pytest-asyncio not enabled) are PRE-EXISTING and IDENTICAL on both commits — reproduced, not assumed.
+
+BASE  115a19c : 51 failed, 1295 passed, 13 warnings, 4 errors
+HEAD  9049e36 : 51 failed, 1336 passed, 13 warnings, 4 errors
+
+DELTA: passed +41 (exactly the 41 new hardening tests) · failed +0 · errors +0 · collection not reduced.
+No head-only failure. No changed failure signature. No hidden skip. Zero regression.

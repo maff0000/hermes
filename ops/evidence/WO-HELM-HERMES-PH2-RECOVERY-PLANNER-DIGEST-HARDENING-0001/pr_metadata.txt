@@ -1,0 +1,7 @@
+PR: #96
+URL: https://github.com/maff0000/hermes/pull/96
+base: main (115a19cd9490f0e3f279761f7cfdc1b65adb4fd3)
+head branch: wo/WO-HELM-HERMES-PH2-RECOVERY-PLANNER-DIGEST-HARDENING-0001
+head commit (code): 9049e362b7cfac6223ed3f7ef4d001f8a918694e
+state: OPEN (code-only; NOT merged, NOT deployed)
+next gate: R2D2 cold audit of the open digest-hardening PR

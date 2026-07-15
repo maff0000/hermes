@@ -1,0 +1,3 @@
+COVERAGE CANONICALISATION (C) — retrieval order + duplicate entries + beyond-retention/far exclusion:
+.......                                                                  [100%]
+7 passed, 76 deselected in 0.02s

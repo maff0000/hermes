@@ -1,0 +1,9 @@
+FIRST CONTROLLED IN-MEMORY INVOCATION — findings that motivated this hardening:
+- Governed policy valid; runner transition 9 -> 10 -> 9; planner entered PLAN_ONLY_ENABLED.
+- Deterministic proposal prop_5bc0bf50dc767a940740c37a; 35 segments; 81 request units; identical semantic output across cycles.
+- No publication; no execution; rollback complete.
+- R2D2 finding: recomputation occurred ~every 60s because the WHOLE-WINDOW coverage semantic digest changed when current-edge
+  candles sealed and the retention window advanced. Output stayed identical because those coverage changes did NOT affect the
+  actual recovery workload. Safe but unnecessarily expensive; not recovery-relevant idempotency.
+- Defence-in-depth observation preserved: gaps checked before/after acquisition; policy+coverage were single-read per cycle.
+This WO makes recompute recovery-relevant, and adds policy + recovery-relevant-coverage pre/post rechecks.

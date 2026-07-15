@@ -1,0 +1,10 @@
+MUTATION BOUNDARY (L) — no Redis write/delete, no SQL, no disk write, no publication; in-memory holder only.
+Static AST scan (string/docstring-stripped) of the hardened module + pure planner:
+  [runtime] executable hits: {'.set(': 1}  (runtime '.set(' == in-memory holder.set(), process-local, not Redis)
+  [runtime] open() in executable: 1  (runtime: read-mode _FilePolicyReader only)
+  [pure] executable hits: NONE  (runtime '.set(' == in-memory holder.set(), process-local, not Redis)
+  [pure] open() in executable: 0  (runtime: read-mode _FilePolicyReader only)
+
+Dynamic proof: every runner test asserts FakeRedis.writes == [] (no set/delete/zadd) — see test_no_health_or_proposal_key_written, test_enabled_invokes_planner_holds_in_memory.
+.....                                                                    [100%]
+5 passed, 78 deselected in 0.05s

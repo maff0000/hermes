@@ -1,0 +1,14 @@
+SNAPSHOT ACQUISITION ORDER (H) — implemented in acquire_consistent_snapshot():
+1 gate  2 policy read+digest+identity  3 gaps A  4 retained gap scope  5 recovery-relevant coverage A  6 closures
+7 gaps B  8 policy recheck B  9 recovery-relevant coverage B  10 compare all identities  11 bounded retry/block  12 tuple  13 hold/invoke
+
+514:        gaps_snap, gd_pre = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)   # 3 gaps A
+515:        cov, _cov_presence = coverage_adapter.acquire(now=now)                            # 5 coverage A (full snapshots)
+518:        closures = build_regular_closures(policy=policy, now=now)                          # 6 closures
+519:        _g2, gd_post = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)         # 7 gaps B
+520:        raw2 = policy_reader.read()                                                        # 8 policy recheck B
+525:        cov2, _ = coverage_adapter.acquire(now=now)                                        # 9 coverage B
+528:        if gd_pre == gd_post and rel_pre == rel_post:                                      # 10 all material identities stable
+532:        last = (gd_pre, gd_post, rel_pre, rel_post)                                        # 11 material change -> bounded retry
+604:    #     They are NOT the same number — held/deduplicated cycles run no planner call. Process-local; summary-logged only.
+665:            #      pre/post recheck so the recheck compares the SAME acquisition rather than racing a re-read.

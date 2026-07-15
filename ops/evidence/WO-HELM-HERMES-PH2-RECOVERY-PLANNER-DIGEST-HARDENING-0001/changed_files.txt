@@ -1,0 +1,5 @@
+9049e36 [WO-HELM-HERMES-PH2-RECOVERY-PLANNER-DIGEST-HARDENING-0001] recovery-relevant digest + pre/post recheck
+ .../recovery_planner_wiring/digest_hardening.md    | 120 ++++++
+ tests/test_hermes_recovery_planner_runtime_v1.py   | 405 +++++++++++++++++++++
+ utils/hermes_recovery_planner_runtime_v1.py        | 244 ++++++++++---
+ 3 files changed, 727 insertions(+), 42 deletions(-)
