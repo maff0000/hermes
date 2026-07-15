@@ -1,0 +1,5 @@
+INPUT IMMUTABILITY (§23):
+- All models are frozen dataclasses (CandidateProposal/ValidationContext/PublicationConfig/GapInterval/EligibilityDecision).
+- test_inputs_not_mutated: deepcopy-compare before/after validation -> unchanged.
+- test_decision_is_frozen / test_models_are_frozen: FrozenInstanceError on mutation attempt.
+- validator does not sort/rewrite caller collections in place (scoped_intervals iterated read-only).

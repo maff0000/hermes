@@ -1,0 +1,5 @@
+2630ca1 [WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-ELIGIBILITY-VALIDATOR-0001] rename validator to governed canonical path
+ .../eligibility_validator_implementation.md                             | 2 +-
+ ...blication_eligibility_v1.py => test_hermes_proposal_validator_v1.py} | 2 +-
+ ...al_publication_eligibility_v1.py => hermes_proposal_validator_v1.py} | 0
+ 3 files changed, 2 insertions(+), 2 deletions(-)

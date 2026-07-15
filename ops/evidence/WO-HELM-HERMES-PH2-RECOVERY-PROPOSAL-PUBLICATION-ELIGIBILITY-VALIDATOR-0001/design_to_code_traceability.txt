@@ -1,0 +1,10 @@
+DESIGN-TO-CODE TRACEABILITY (merged PR#97 -> validator):
+  eligibility_matrix G/H/P/S/I/C -> validate_publication_eligibility layered checks + CODE_ORDER
+  fault_code_catalogue 33 codes -> ALL_PUB_CODES (exact set match asserted by test_design_catalogue_matches_implementation)
+  gate_truth_table -> gate layer (PUB_GATES_DISABLED/PUB_GATE_MISMATCH, no SystemExit; pure)
+  ttl_freshness -> freshness boundaries (<=max fresh, now>=expires expired) + logical expires_at on eligible
+  restart doctrine -> last_validated_at staleness; validator never trusts retained state (caller supplies facts)
+  gap_invariant -> _gap_invariant_ok end=start+period / PUB_GAP_INVARIANT_VIOLATION
+  exceptional_closures -> EXCEPTIONAL_OK set / PUB_UNRESOLVED_EXCEPTIONAL_CLOSURE
+  supersession_atomicity -> generation strictly-monotonic / PUB_STALE_WRITER, PUB_SUPERSEDED, fence/atomic facts
+  pub-vs-exec -> required_safety_flags const-locked; execution_authority=False always
