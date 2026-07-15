@@ -11,7 +11,7 @@ import threading
 
 import pytest
 
-import utils.hermes_recovery_proposal_publication_eligibility_v1 as E
+import utils.hermes_proposal_validator_v1 as E
 
 UTC = dt.timezone.utc
 NOW = dt.datetime(2026, 7, 15, 10, 31, 18, 0, tzinfo=UTC)

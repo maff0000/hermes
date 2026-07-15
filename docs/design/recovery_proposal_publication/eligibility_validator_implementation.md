@@ -5,7 +5,7 @@ WO-HELM-HERMES-PH2-RECOVERY-PROPOSAL-PUBLICATION-ELIGIBILITY-VALIDATOR-0001 · b
 > This module determines ELIGIBILITY ONLY. It does not publish, persist, revoke, execute or mutate runtime state.
 
 ## Module
-`utils/hermes_recovery_proposal_publication_eligibility_v1.py`
+`utils/hermes_proposal_validator_v1.py`
 
 ## Public API
 - `validate_publication_eligibility(candidate, context, config, now_utc) -> EligibilityDecision` — the pure entry point.
