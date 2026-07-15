@@ -1,0 +1,11 @@
+{"wo":"WO-HELM-HERMES-INDICATOR-PUBLICATION-WIRING-0001",
+ "verdict":"GREEN_HERMES_EXISTING_INDICATORS_BOLLINGER_ADX_EMA50_WIRED_PR_OPEN","utc":"2026-07-15T14:36:50Z",
+ "base_sha":"0ef84a679dd415f2b54e0e805c960bf3606c5142","head_sha":"b0906bdd07842b9220fb6c583aa04a7b7c04af19",
+ "pr":{"number":99,"url":"https://github.com/maff0000/hermes/pull/99","state":"OPEN"},
+ "reused":"utils.indicators.calculate_ema/calculate_bollinger_bands/calculate_adx + atr_calculator + hermes_indicators_v1 contract + indicator_step runner",
+ "changes":"_compute_indicators extended (EMA50/BB20/ADX) + trivial adx family in contract; key/cadence/TF/gating unchanged",
+ "fabrication_guards":"EMA50>=50, BB>=20, ADX>=29 else explicit null (never the neutral/current-price fallback)",
+ "tests":"15 wiring + 31 existing indicator pass; HEAD 1375 = base 1360 +15; baseline unchanged; zero regression",
+ "no_duplicate_framework":"same key hermes:indicators:XAU_USD:{TF}:v1; single indicator_step @60s; reused calc lib; no new module/service/Redis-family/TTL",
+ "runtime_nonmutation":"deploy a798fbc4; container 5bf9a5e9e534 not recreated; live fields still old set (not deployed)",
+ "next_gate":"independent R2D2 cold audit of the exact immutable indicator-wiring PR #99 head"}

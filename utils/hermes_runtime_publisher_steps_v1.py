@@ -37,7 +37,13 @@ from utils import candle_d1_history_v1 as d1h          # D1 history depth guard 
 UTC = datetime.timezone.utc
 INST = "XAU_USD"
 LATEST_TFS = ("M1", "M5", "M15", "H1", "H4")        # D1 gated until D1 latest GREEN
-INDICATOR_WINDOW = 60                                # bounded read per TF
+INDICATOR_WINDOW = 60                                # bounded read per TF (covers EMA50 / BB20 / ADX14)
+# WO-HELM-HERMES-INDICATOR-PUBLICATION-WIRING-0001: minimum depth for a SETTLED Wilder ADX(14). Below this the reused
+# calculate_adx() returns a NEUTRAL fabricated (20/20/20) result, so we emit explicit null instead of publishing it.
+ADX_PERIOD = 14
+ADX_MIN_DEPTH = 2 * ADX_PERIOD + 1                   # 29
+BOLLINGER_PERIOD = 20
+EMA_LONG_PERIOD = 50
 SESSION_PRIORITY = ("overlap_ldn_ny", "london", "newyork", "asia", "off_hours")
 
 
@@ -320,6 +326,7 @@ def control_plane_step(client):
 def _compute_indicators(candles):
     closes = [c["close"] for c in candles]
     out = {}
+    # ---- existing indicators (behaviour PRESERVED exactly) ----
     if len(closes) >= 12:
         out["ema_12"] = round(ind_compute.calculate_ema(closes, 12), 6)
     if len(closes) >= 26:
@@ -328,6 +335,28 @@ def _compute_indicators(candles):
         out["rsi_14"] = round(ind_compute.calculate_rsi(closes, 14), 4)
     atr = atr_calculator.calculate_atr(candles, 14)
     out["atr_14"] = round(atr, 6) if atr is not None else None
+    # ---- WO-...-INDICATOR-PUBLICATION-WIRING-0001: EMA50 + Bollinger(20,2) + ADX(+DI/-DI) ----
+    # Extends the existing EMA calc set; reuses utils.indicators; explicit null when depth insufficient (never fabricated).
+    out["ema_50"] = round(ind_compute.calculate_ema(closes, EMA_LONG_PERIOD), 6) if len(closes) >= EMA_LONG_PERIOD else None
+    # Bollinger Bands (20, 2) — reuse calculate_bollinger_bands; guard its current-price fabrication branch (< period).
+    if len(closes) >= BOLLINGER_PERIOD:
+        bb = ind_compute.calculate_bollinger_bands(closes, BOLLINGER_PERIOD, 2.0)
+        out["bollinger_upper_20_2"] = round(bb.upper, 6)
+        out["bollinger_middle_20_2"] = round(bb.middle, 6)
+        out["bollinger_lower_20_2"] = round(bb.lower, 6)
+    else:
+        out["bollinger_upper_20_2"] = out["bollinger_middle_20_2"] = out["bollinger_lower_20_2"] = None
+    # ADX(14) with +DI/-DI — reuse calculate_adx (Wilder); require 2*period+1 so the neutral (20/20/20) fabrication path
+    # is never published; below that emit explicit null.
+    if len(candles) >= ADX_MIN_DEPTH:
+        highs = [c["high"] for c in candles]
+        lows = [c["low"] for c in candles]
+        adxr = ind_compute.calculate_adx(highs, lows, closes, ADX_PERIOD)
+        out["adx_14"] = round(adxr.adx, 4)
+        out["adx_plus_di_14"] = round(adxr.plus_di, 4)
+        out["adx_minus_di_14"] = round(adxr.minus_di, 4)
+    else:
+        out["adx_14"] = out["adx_plus_di_14"] = out["adx_minus_di_14"] = None
     return out
 
 

@@ -29,7 +29,9 @@ INDICATOR_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1")   # D1 gated until 
 _D1 = "D1"
 
 # The HERMES-owned deterministic indicator set this contract carries (extensible).
-HERMES_DETERMINISTIC_INDICATORS = ("ema", "sma", "rsi", "macd", "atr", "bollinger", "vwap")
+# WO-HELM-HERMES-INDICATOR-PUBLICATION-WIRING-0001: "adx" added (trivial extension so ADX/+DI/-DI are a first-class
+# deterministic family with a declared method — reuses the SAME contract/key, no new surface).
+HERMES_DETERMINISTIC_INDICATORS = ("ema", "sma", "rsi", "macd", "atr", "bollinger", "vwap", "adx")
 # Field-key tokens forbidden in an indicator payload (ARES-owned / auth). Deterministic indicators only.
 _FORBIDDEN_FIELD_KEY_TOKENS = ("regime", "regime_confidence", "risk", "order_block", "liquidity",
                                "decision", "trade", "gate", "password", "secret", "credential", "acl", "noauth")
@@ -52,13 +54,14 @@ INDICATOR_METHODS = {
     "macd": "EMA12_EMA26_SIGNAL9",                 # if MACD present
     "bollinger": "SMA_N_STD_2",                    # if bands present
     "vwap": "CUMULATIVE_PRICE_VOLUME",             # if VWAP present
+    "adx": "WILDER_ADX_14",                        # ADX/+DI/-DI: Wilder-smoothed directional movement (settled at 2*period)
 }
 _METHOD_FIELD = {"ema": "ema_method", "rsi": "rsi_method", "atr": "atr_method",
-                 "macd": "macd_method", "bollinger": "bands_method", "vwap": "vwap_method"}
+                 "macd": "macd_method", "bollinger": "bands_method", "vwap": "vwap_method", "adx": "adx_method"}
 
 
 def _family_of(name):
-    for fam in ("ema", "rsi", "atr", "macd", "bollinger", "vwap"):
+    for fam in ("ema", "rsi", "atr", "macd", "bollinger", "vwap", "adx"):
         if str(name).startswith(fam):
             return fam
     return None

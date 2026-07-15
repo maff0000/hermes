@@ -1,0 +1,4 @@
+RUNTIME + CROSS-APPLICATION NON-MUTATION (read-only) 2026-07-15T14:36:48Z:
+  deploy: a798fbc4a3c1500adce10cc6ede7d4c716f5d935 (a798fbc4, unchanged) container: 5bf9a5e9e534 restarts: 0 health: healthy
+  live indicator fields (still old set = my code NOT deployed): ['atr_14', 'ema_12', 'ema_26', 'rsi_14']
+  ARES/Falcon/other apps: not touched by this code-only WO
