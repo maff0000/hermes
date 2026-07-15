@@ -1,0 +1,7 @@
+LEGACY SEPARATION (M) — no import/call/gate/config/fallback to utils.recovery_planner, utils.recovery_executor, RecoveryLibrary.
+AST ImportFrom/Import of the hardened module:
+  imports: ['__future__', 'dataclasses', 'datetime', 'env_config', 'hermes_logging', 'json', 'logging', 'os', 'threading', 'time', 'typing', 'utils.hermes_recovery_planner_v1']
+  legacy imports (utils.recovery_planner/recovery_executor/RecoveryLibrary): NONE
+  pure planner import is fully-qualified: True
+.                                                                        [100%]
+1 passed, 82 deselected in 0.02s

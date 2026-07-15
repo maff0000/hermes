@@ -1,0 +1,21 @@
+RUNTIME NON-MUTATION (U) — read-only probe 2026-07-15T08:46:02Z. This is a CODE-ONLY WO: no deploy, no policy install, no gate activation.
+deploy HEAD: 115a19cd9490f0e3f279761f7cfdc1b65adb4fd3
+[ENV_CONFIG] Environment: DEV
+[ENV_CONFIG] Base directory: /app
+runners: 9 | recovery_planner present: False
+gates: None None
+policy file: False | planner threads: NONE
+proposal/health/job/queue keys: []
+PH1 D1: ACTIVE ACTIVE
+PH2 gaps/backfill: GAPS_FOUND READY_FOR_BACKFILL_DESIGN
+quote/tick/feed/consumer_live: RUNTIME_PUBLISHED True GREEN False
+--- deployed source blob UNCHANGED (still PR#95 wiring, NOT this WO): runtime module sha on host ---
+8aa7bd7ee1be8835782710893af8586dbe619edd3c4b5935b317be2281f93723  /app/utils/hermes_recovery_planner_runtime_v1.py
+Falcon 6770 / market-maker 6843 / ARES untouched:
+falcon/mm listeners up: 0
+
+--- Falcon / market-maker / ARES container liveness (docker, unaffected by this WO) ---
+ares-core Up 2 weeks
+ares-publish-redis Up 2 weeks
+
+CODE-ONLY confirmation: host runtime blob 8aa7bd7e != worktree hardened blob de4281b8 -> host NOT running this WO's code.

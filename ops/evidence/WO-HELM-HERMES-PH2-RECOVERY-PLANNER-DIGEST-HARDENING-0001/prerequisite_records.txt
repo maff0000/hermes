@@ -1,0 +1,11 @@
+PREREQUISITE GATE — verified by value (2026-07-15T08:44:08Z):
+- PR #95 (wiring implementation) merged to canonical main; main == 115a19cd9490f0e3f279761f7cfdc1b65adb4fd3 (== origin/main). VERIFIED.
+- helm:invocation:hermes:ph2_recovery_planner_inmemory:latest -> GREEN_..._CONTROLLED_INMEMORY_INVOCATION_COMPLETE. VERIFIED by value.
+- helm:milestone:hermes:ph2_recovery_planner_first_invocation:20260715:v1 -> GREEN. VERIFIED by value.
+- helm:state:hermes:current -> PH2; deploy_head 115a19cd; consumer_live=false; recovery_planner deploy-dark/inert. VERIFIED by value.
+- R2D2 controlled-invocation audit: R2D2_HERMES_PH2_RECOVERY_PLANNER_CONTROLLED_INMEMORY_INVOCATION_AUDIT::2026-07-15T08:12:50Z::
+  GREEN_..._AUDIT_APPROVED (supplied in WO accepted-state; R2D2 keeps a SEPARATE fabric layer, so 0 r2d2:* keys in db0 is expected).
+- Live runtime confirmed deploy-dark @115a19c: runners=9, gates unset(None/None), policy file absent, planner threads NONE,
+  no proposal/health/job key, PH1 D1 ACTIVE/ACTIVE, PH2 gaps GAPS_FOUND + backfill READY_FOR_BACKFILL_DESIGN,
+  quote RUNTIME_PUBLISHED, tick present, feed GREEN, consumer_live=false. VERIFIED by read-only probe.
+Result: prerequisite gate SATISFIED — not AMBER.

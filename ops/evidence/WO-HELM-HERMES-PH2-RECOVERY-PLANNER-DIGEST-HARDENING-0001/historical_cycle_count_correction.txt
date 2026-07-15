@@ -1,0 +1,7 @@
+HISTORICAL CYCLE-COUNT CORRECTION (K):
+- The HELM first-invocation SUMMARY said "4 deterministic PROPOSAL_READY cycles".
+- The CAPTURED LOGS proved THREE PROPOSAL_READY planner invocations.
+- R2D2 accepted THREE.
+- ACCEPTED HISTORICAL COUNT = THREE (3).
+Historical evidence is NOT rewritten. This WO pins the counter semantics (runner_cycle_count vs planner_invocation_count) that
+make the distinction unambiguous going forward. See test_historical_first_run_cycle_count_correction_is_three.

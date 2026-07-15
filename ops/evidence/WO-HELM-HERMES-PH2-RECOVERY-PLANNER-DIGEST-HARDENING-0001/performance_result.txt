@@ -1,0 +1,2 @@
+PERFORMANCE (N) — see idempotency_five_cycle_proof: >=5 unrelated-advance cycles -> planner_invocation_count==1, proposal_held_count==4.
+Confirmed by test_five_cycles_unrelated_advance_invokes_once_holds_four (planner_invocation_count==1, held==4, runner_cycle_count==5).

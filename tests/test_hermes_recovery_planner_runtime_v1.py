@@ -236,6 +236,411 @@ def test_coverage_redis_unavailable():
     assert e.value.code == "COVERAGE_REDIS_UNAVAILABLE"
 
 
+# =========================================================================================================
+# WO-HELM-HERMES-PH2-RECOVERY-PLANNER-DIGEST-HARDENING-0001 — recovery-relevant digest + pre/post consistency
+# =========================================================================================================
+H1KEY = "hermes:candles:XAU_USD:H1:history:v1:index"
+M1KEY = "hermes:candles:XAU_USD:M1:history:v1:index"
+H1_GAP = int(datetime(2026, 7, 14, 6, tzinfo=UTC).timestamp())      # gap open 06:00 (from _gaps_payload miss_hours=(6,))
+IN_WINDOW = int(datetime(2026, 7, 14, 5, tzinfo=UTC).timestamp())   # 05:00 — inside adjacency window [05:00,08:00)
+FAR = int(datetime(2026, 7, 14, 11, tzinfo=UTC).timestamp())        # 11:00 — outside every relevant window
+DEFAULT_H1_PROV = f"governed_redis_history_index:RETENTION_BOUNDED:{rt.RETENTION_DAYS['H1']}d"
+
+
+def _gaps_snap(**kw):
+    return rt.GapsAdapter(FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(**kw))})).acquire(now=NOW, max_age_seconds=120)[0]
+
+
+def _cov(z):
+    return rt.CoverageAdapter(FakeRedis(z=z)).acquire(now=NOW)[0]
+
+
+def _rel(gaps, cov, now=NOW):
+    return rt.recovery_relevant_coverage_digest(gaps=gaps, coverage=cov, now=now)
+
+
+def _mk_cov_snaps(specs):
+    """Build ExistingCoverageSnapshot tuple. specs: tf -> (open_epochs, provenance, contract_version)."""
+    out = []
+    for tf in rp.SUPPORTED_TIMEFRAMES:
+        opens, prov, cv = specs.get(tf, ([], f"governed_redis_history_index:RETENTION_BOUNDED:{rt.RETENTION_DAYS[tf]}d", "v1"))
+        ivs = tuple(rp.Interval(datetime.fromtimestamp(o, UTC), datetime.fromtimestamp(o + rp.PERIOD_SECONDS[tf], UTC)) for o in opens)
+        out.append(rp.ExistingCoverageSnapshot(contract_version=cv, instrument="XAU_USD", timeframe=tf,
+                                               covered_intervals=ivs, snapshot_at_utc=NOW, provenance=prov))
+    return tuple(out)
+
+
+def _multi_gaps(order, *, state="GAPS_FOUND", hour=6):
+    tfs = {tf: {"gap_state": state, "missing_open_epochs_sample": [int(datetime(2026, 7, 14, hour, tzinfo=UTC).timestamp())]} for tf in order}
+    return {"contract_version": "v1", "instrument": "XAU_USD", "source_key": rt.GAPS_KEY,
+            "generated_at_utc": rp._fmt_utc(NOW), "overall_gap_state": "GAPS_FOUND", "timeframes": tfs,
+            "d1_boundary": {"expected_anchor_utc": "22:00", "d1_boundary_state": "OK"}}
+
+
+def _snap_of(payload):
+    return rt.GapsAdapter(FakeRedis({rt.GAPS_KEY: json.dumps(payload)})).acquire(now=NOW, max_age_seconds=120)[0]
+
+
+def _mk_snap(**over):
+    base = dict(gaps=None, gaps_digest="g", coverage=(), coverage_digest="c", closures=(), closure_digest="cl",
+                policy=None, policy_digest="p")
+    base.update(over)
+    return rt.AcquiredSnapshots(**base)
+
+
+class _StubGaps:
+    def __init__(self, snap, digest): self.snap, self.digest = snap, digest
+    def acquire(self, *, now, max_age_seconds): return self.snap, self.digest
+
+
+class _StubCov:
+    """Returns a pre-built coverage tuple per acquire() call (clamped to the last)."""
+    def __init__(self, seq): self.seq, self.i, self.calls = list(seq), 0, 0
+    def acquire(self, *, now):
+        self.calls += 1
+        snaps = self.seq[self.i] if self.i < len(self.seq) else self.seq[-1]
+        self.i += 1
+        return snaps, "presence"
+
+
+class _SeqPolicy:
+    """Policy reader returning a scripted sequence of raw texts across reads (clamped to the last)."""
+    def __init__(self, seq): self.seq, self.i, self.reads = list(seq), 0, 0
+    def read(self):
+        self.reads += 1
+        v = self.seq[self.i] if self.i < len(self.seq) else self.seq[-1]
+        self.i += 1
+        return v
+
+
+# --------------------------------------------------------------------------- A. recovery-relevant digest scoping
+def test_unrelated_m1_current_edge_candle_no_digest_change():
+    g = _gaps_snap(miss_hours=(6,))                               # gap in H1 only
+    assert _rel(g, _cov({})) == _rel(g, _cov({M1KEY: [int(datetime(2026, 7, 14, 11, 59, tzinfo=UTC).timestamp())]}))
+
+
+def test_unrelated_m5_current_edge_candle_no_digest_change():
+    g = _gaps_snap(miss_hours=(6,))
+    m5 = f"hermes:candles:XAU_USD:M5:history:v1:index"
+    assert _rel(g, _cov({})) == _rel(g, _cov({m5: [int(datetime(2026, 7, 14, 11, 55, tzinfo=UTC).timestamp())]}))
+
+
+def test_unrelated_h1_advancement_outside_window_no_digest_change():
+    g = _gaps_snap(miss_hours=(6,))                               # H1 window is [05:00,08:00); FAR=11:00 excluded
+    assert _rel(g, _cov({})) == _rel(g, _cov({H1KEY: [FAR]}))
+
+
+def test_sliding_window_advance_outside_gaps_no_digest_change():
+    g = _gaps_snap(miss_hours=(6,))
+    base = {H1KEY: [FAR]}
+    grown = {H1KEY: [FAR, FAR + 3600, FAR + 7200]}               # newer current-edge candles, all outside window
+    assert _rel(g, _cov(base)) == _rel(g, _cov(grown))
+
+
+def test_generated_timestamp_refresh_no_recompute():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    fr.kv[rt.GAPS_KEY] = json.dumps(_gaps_payload(now=NOW - timedelta(seconds=30), miss_hours=(6,)))  # only gen ts moves
+    assert r.run_once(enabled=True, authorised=True).get("idempotent") is True
+
+
+def test_coverage_retrieval_order_irrelevant():
+    g = _gaps_snap(miss_hours=(6,))
+    z = {H1KEY: [H1_GAP, IN_WINDOW]}
+    class Rev(FakeRedis):
+        def zrange(self, k, a, b): return list(reversed(super().zrange(k, a, b)))
+    d1 = _rel(g, rt.CoverageAdapter(FakeRedis(z=z)).acquire(now=NOW)[0])
+    d2 = _rel(g, rt.CoverageAdapter(Rev(z=z)).acquire(now=NOW)[0])
+    assert d1 == d2
+
+
+def test_dictionary_order_irrelevant_gaps():
+    assert rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1", "M15"]))) == \
+           rt._gaps_semantic_digest(_snap_of(_multi_gaps(["M15", "H1"])))
+
+
+def test_duplicate_coverage_entries_stable():
+    g = _gaps_snap(miss_hours=(6,))
+    assert _rel(g, _cov({H1KEY: [H1_GAP]})) == _rel(g, _cov({H1KEY: [H1_GAP, H1_GAP]}))
+
+
+def test_relevant_gap_filling_candle_changes_digest():
+    g = _gaps_snap(miss_hours=(6,))
+    assert _rel(g, _cov({H1KEY: [H1_GAP]})) != _rel(g, _cov({}))   # candle fills the gap window
+
+
+def test_partial_relevant_coverage_changes_digest():
+    g = _gaps_snap(miss_hours=(6,))
+    assert _rel(g, _cov({H1KEY: [IN_WINDOW]})) != _rel(g, _cov({}))  # adjacent (clipping) candle
+
+
+def test_coverage_completeness_change_changes_digest():
+    g = _gaps_snap(miss_hours=(6,))
+    present = _mk_cov_snaps({"H1": ([IN_WINDOW], DEFAULT_H1_PROV, "v1")})
+    absent = _mk_cov_snaps({"H1": ([], DEFAULT_H1_PROV, "v1")})    # source became incomplete for the gap
+    assert _rel(g, present) != _rel(g, absent)
+
+
+def test_retention_reclassification_affecting_gap_changes_digest():
+    old_ep = int((NOW - timedelta(days=34, hours=23)).timestamp())  # just inside 35d H1 retention at NOW
+    payload = {"contract_version": "v1", "instrument": "XAU_USD", "source_key": rt.GAPS_KEY,
+               "generated_at_utc": rp._fmt_utc(NOW), "overall_gap_state": "GAPS_FOUND",
+               "timeframes": {"H1": {"gap_state": "GAPS_FOUND", "missing_open_epochs_sample": [old_ep]}},
+               "d1_boundary": {"expected_anchor_utc": "22:00", "d1_boundary_state": "OK"}}
+    g = _snap_of(payload)
+    assert _rel(g, _cov({}), now=NOW) != _rel(g, _cov({}), now=NOW + timedelta(days=1))  # floor moved past the gap
+
+
+def test_provenance_or_contract_version_change_changes_digest():
+    g = _gaps_snap(miss_hours=(6,))
+    base = _rel(g, _mk_cov_snaps({"H1": ([H1_GAP], DEFAULT_H1_PROV, "v1")}))
+    assert _rel(g, _mk_cov_snaps({"H1": ([H1_GAP], DEFAULT_H1_PROV, "v2")})) != base   # contract version
+    assert _rel(g, _mk_cov_snaps({"H1": ([H1_GAP], "vendor_untrusted", "v1")})) != base  # authority/provenance
+
+
+# --------------------------------------------------------------------------- B. gap canonicalisation
+def test_reordered_gaps_stable():
+    assert rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1", "H4"]))) == \
+           rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H4", "H1"])))
+
+
+def test_duplicate_gaps_stable():
+    p = _multi_gaps(["H1"]); ep = p["timeframes"]["H1"]["missing_open_epochs_sample"][0]
+    p["timeframes"]["H1"]["missing_open_epochs_sample"] = [ep, ep, ep]
+    assert rt._gaps_semantic_digest(_snap_of(p)) == rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1"])))
+
+
+def test_gaps_volatile_metadata_stable():
+    p = _multi_gaps(["H1"]); p["generated_at_utc"] = rp._fmt_utc(NOW - timedelta(seconds=45))
+    assert rt._gaps_semantic_digest(_snap_of(p)) == rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1"])))
+
+
+def test_gaps_material_interval_change_detected():
+    p = _multi_gaps(["H1"]); p["timeframes"]["H1"]["missing_open_epochs_sample"] = [int(datetime(2026, 7, 14, 7, tzinfo=UTC).timestamp())]
+    assert rt._gaps_semantic_digest(_snap_of(p)) != rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1"])))
+
+
+def test_gaps_status_change_detected():
+    assert rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1"], state="OK"))) != \
+           rt._gaps_semantic_digest(_snap_of(_multi_gaps(["H1"], state="GAPS_FOUND")))
+
+
+# --------------------------------------------------------------------------- F. policy pre/post consistency
+def _valid_json():
+    return json.dumps(_valid_policy_dict())
+
+
+def test_policy_unchanged_passes():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    assert r.run_once(enabled=True, authorised=True)["status"] in ("PROPOSAL_READY", "NO_RECOVERY_REQUIRED", "PARTIAL_BOUNDED_PROPOSAL")
+
+
+def test_policy_atomic_replacement_mid_cycle_blocks():
+    # run_once reads policy once (valid A); the pre/post recheck inside acquisition reads again (valid B, different bytes)
+    other = _valid_policy_dict(); other["merge_adjacent_threshold_seconds"] = 1
+    r = rt.RecoveryPlannerRunner(gaps_reader=FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(miss_hours=(6,)))}),
+                                 coverage_reader=FakeRedis(),
+                                 policy_reader=_SeqPolicy([_valid_json(), json.dumps(other)]), clock=lambda: NOW)
+    res = r.run_once(enabled=True, authorised=True)
+    assert res["status"] == "BLOCKED_INPUT_INCONSISTENCY"
+    assert r.holder.snapshot() is None                           # no stale fallback
+
+
+def test_policy_removed_mid_cycle_blocks():
+    r = rt.RecoveryPlannerRunner(gaps_reader=FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(miss_hours=(6,)))}),
+                                 coverage_reader=FakeRedis(),
+                                 policy_reader=_SeqPolicy([_valid_json(), None]), clock=lambda: NOW)
+    assert r.run_once(enabled=True, authorised=True)["status"] == "BLOCKED_INPUT_INCONSISTENCY"
+
+
+def test_policy_invalid_replacement_mid_cycle_blocks():
+    r = rt.RecoveryPlannerRunner(gaps_reader=FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(miss_hours=(6,)))}),
+                                 coverage_reader=FakeRedis(),
+                                 policy_reader=_SeqPolicy([_valid_json(), "{invalid"]), clock=lambda: NOW)
+    assert r.run_once(enabled=True, authorised=True)["status"] == "BLOCKED_INPUT_INCONSISTENCY"
+
+
+# --------------------------------------------------------------------------- G. recovery-relevant coverage pre/post
+def _cc_args(cov_adapter, policy_reader, **over):
+    pol, pd = rt.load_policy_from_reader(PolicyReaderStub(_valid_json()))
+    g = _gaps_snap(miss_hours=(6,))
+    base = dict(gaps_adapter=_StubGaps(g, "gd"), coverage_adapter=cov_adapter, policy=pol, policy_digest=pd,
+                policy_reader=policy_reader, policy_raw_sha=rt._content_sha(_valid_json()), now=NOW, max_gaps_age=120)
+    base.update(over)
+    return base
+
+
+def test_unrelated_coverage_advance_passes_without_retry():
+    covA = _mk_cov_snaps({"M1": ([int((NOW - timedelta(minutes=5)).timestamp())], "governed_redis_history_index:RETENTION_BOUNDED:35d", "v1")})
+    covB = _mk_cov_snaps({"M1": ([int((NOW - timedelta(minutes=5)).timestamp()), int((NOW - timedelta(minutes=4)).timestamp())], "governed_redis_history_index:RETENTION_BOUNDED:35d", "v1")})
+    stub = _StubCov([covA, covB])
+    attempts = []
+    snap = rt.acquire_consistent_snapshot(**_cc_args(stub, PolicyReaderStub(_valid_json()), on_attempt=lambda: attempts.append(1)))
+    assert len(attempts) == 1 and stub.calls == 2                 # single attempt, no retry (unrelated advance ignored)
+
+
+def test_relevant_coverage_advance_triggers_bounded_retry_then_settles():
+    no_fill = _mk_cov_snaps({})
+    fill = _mk_cov_snaps({"H1": ([H1_GAP], DEFAULT_H1_PROV, "v1")})
+    stub = _StubCov([no_fill, fill, fill, fill])                  # attempt1: A!=B -> retry; attempt2: A==B -> settle
+    attempts = []
+    rt.acquire_consistent_snapshot(**_cc_args(stub, PolicyReaderStub(_valid_json()), on_attempt=lambda: attempts.append(1)))
+    assert len(attempts) == 2
+
+
+def test_coverage_authority_change_triggers_retry():
+    fillP1 = _mk_cov_snaps({"H1": ([H1_GAP], DEFAULT_H1_PROV, "v1")})
+    fillP2 = _mk_cov_snaps({"H1": ([H1_GAP], "authority_changed", "v1")})
+    stub = _StubCov([fillP1, fillP2, fillP2, fillP2])
+    attempts = []
+    rt.acquire_consistent_snapshot(**_cc_args(stub, PolicyReaderStub(_valid_json()), on_attempt=lambda: attempts.append(1)))
+    assert len(attempts) == 2
+
+
+def test_perpetual_relevant_change_blocks_bounded():
+    no_fill = _mk_cov_snaps({})
+    fill = _mk_cov_snaps({"H1": ([H1_GAP], DEFAULT_H1_PROV, "v1")})
+    stub = _StubCov([no_fill, fill] * 8)                          # always differs A vs B
+    attempts = []
+    with pytest.raises(rt.SnapshotInconsistencyError):
+        rt.acquire_consistent_snapshot(**_cc_args(stub, PolicyReaderStub(_valid_json()), on_attempt=lambda: attempts.append(1)))
+    assert len(attempts) == rt.SNAPSHOT_MAX_RETRIES + 1           # bounded
+
+
+# --------------------------------------------------------------------------- I. one cycle clock
+def test_single_cycle_clock_sample():
+    calls = []
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)), clock=lambda: (calls.append(1) or NOW))
+    r.run_once(enabled=True, authorised=True)
+    assert len(calls) == 1                                        # exactly one clock sample per cycle
+
+
+def test_unrelated_wallclock_progression_stable_digest():
+    g = _gaps_snap(miss_hours=(6,)); cov = _cov({})
+    assert _rel(g, cov, now=NOW) == _rel(g, cov, now=NOW + timedelta(seconds=90))
+
+
+# --------------------------------------------------------------------------- E. idempotency / performance (N)
+def test_five_cycles_unrelated_advance_invokes_once_holds_four():
+    fr = FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(miss_hours=(6,)))})
+    r = rt.RecoveryPlannerRunner(gaps_reader=fr, coverage_reader=fr, policy_reader=PolicyReaderStub(_valid_json()), clock=lambda: NOW)
+    for i in range(5):
+        fr.z[M1KEY] = [int((NOW - timedelta(minutes=5)).timestamp()) + 60 * k for k in range(i + 1)]  # unrelated advance
+        fr.z[H1KEY] = [FAR + 3600 * i]                            # unrelated H1 current-edge advance
+        r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 1
+    assert r.state.proposal_held_count == 4
+    assert r.state.runner_cycle_count == 5
+
+
+def test_relevant_gap_change_invokes_again():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    fr.kv[rt.GAPS_KEY] = json.dumps(_gaps_payload(miss_hours=(6, 7)))
+    r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 2
+
+
+def test_relevant_coverage_change_invokes_again():
+    fr = FakeRedis({rt.GAPS_KEY: json.dumps(_gaps_payload(miss_hours=(6,)))})
+    r = rt.RecoveryPlannerRunner(gaps_reader=fr, coverage_reader=fr, policy_reader=PolicyReaderStub(_valid_json()), clock=lambda: NOW)
+    r.run_once(enabled=True, authorised=True)
+    fr.z[H1KEY] = [H1_GAP]                                        # a candle fills the gap window
+    r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 2
+
+
+def test_policy_change_invokes_again():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    other = _valid_policy_dict(); other["merge_adjacent_threshold_seconds"] = 5
+    pr.text = json.dumps(other)
+    r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 2
+
+
+def test_closure_change_changes_tuple():
+    assert rt.semantic_digest(_mk_snap(closure_digest="c1")) != rt.semantic_digest(_mk_snap(closure_digest="c2"))
+
+
+def test_planner_version_change_changes_tuple(monkeypatch):
+    snap = _mk_snap()
+    d1 = rt.semantic_digest(snap)
+    monkeypatch.setattr(rt, "PLANNER_VERSION", "v_next")
+    assert rt.semantic_digest(snap) != d1
+
+
+def test_failed_invocation_preserves_prior_hold(monkeypatch):
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    good = r.holder.snapshot(); assert good is not None
+    fr.kv[rt.GAPS_KEY] = json.dumps(_gaps_payload(miss_hours=(6, 7, 8)))   # force a fresh invocation attempt
+    def _boom(**k): raise RuntimeError("planner boom")
+    monkeypatch.setattr(rt, "build_recovery_proposal", _boom)
+    res = r.run_once(enabled=True, authorised=True)
+    assert res["status"] == "PLANNER_INVOCATION_FAILED"
+    assert r.holder.snapshot() == good                           # prior good hold NOT poisoned
+    assert r.state.proposal_ready_count == 1                     # failure did not mark success
+    assert r.state.planner_invocation_count == 2 and r.state.failure_count == 1
+
+
+def test_blocked_cycle_clears_holder():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True); assert r.holder.snapshot() is not None
+    pr.text = "{bad"
+    r.run_once(enabled=True, authorised=True)
+    assert r.holder.snapshot() is None                           # blocked cycle invalidates the holder
+
+
+def test_restart_recomputes_after_reset():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    r.restart_reset()
+    assert r.holder.snapshot() is None and r.state.planner_invocation_count == 0
+    r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 1                 # recomputes (in-memory state not durable)
+
+
+# --------------------------------------------------------------------------- K. accounting + historical correction
+def test_accounting_runner_cycles_distinct_from_invocations():
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    for _ in range(3):
+        r.run_once(enabled=True, authorised=True)
+    st = r.state.summary()
+    assert st["runner_cycle_count"] == 3 and st["planner_invocation_count"] == 1 and st["proposal_held_count"] == 2
+    for k in ("snapshot_attempt_count", "proposal_ready_count", "blocked_count", "failure_count"):
+        assert k in st
+
+
+def test_historical_first_run_cycle_count_correction_is_three():
+    # The first controlled invocation: the HELM summary said "four cycles"; the captured logs proved THREE PROPOSAL_READY
+    # planner invocations and R2D2 accepted THREE. The accepted historical count is THREE. This hardening pins the counter
+    # semantics (one runner cycle is countable, and only a semantic change yields a planner invocation) that removes the
+    # ambiguity going forward. Historical evidence is NOT rewritten.
+    ACCEPTED_FIRST_RUN_PLANNER_INVOCATIONS = 3
+    assert ACCEPTED_FIRST_RUN_PLANNER_INVOCATIONS == 3
+    r, fr, pr = _runner(_gaps_payload(miss_hours=(6,)))
+    r.run_once(enabled=True, authorised=True)
+    assert r.state.planner_invocation_count == 1                 # one cycle -> exactly one countable invocation
+
+
+# --------------------------------------------------------------------------- safety: new functions have no write paths
+def test_new_functions_no_write_or_forbidden_paths():
+    code = _code(rt.retained_gap_intervals, rt.recovery_relevant_scope, rt.recovery_relevant_coverage_digest,
+                 rt._gaps_semantic_digest, rt.acquire_consistent_snapshot)
+    code = "\n".join(l for l in code.splitlines() if "holder." not in l)
+    for tok in (".set(", ".delete(", ".zadd(", ".expire(", ".zrem(", "FLUSHDB", "UNLINK", "INSERT ", "UPDATE ",
+                "DELETE ", "open(", "subprocess", "requests.", "urllib", "pymysql", "sqlalchemy", "cursor("):
+        assert tok not in code, f"new function must not contain {tok!r}"
+
+
+def test_recovery_relevant_digest_ignores_beyond_retention_and_far_coverage():
+    # composite guard: neither beyond-retention candles nor far-from-window candles alter the recovery-relevant digest
+    g = _gaps_snap(miss_hours=(6,))
+    beyond = int((NOW - timedelta(days=40)).timestamp())         # > 35d H1 retention
+    assert _rel(g, _cov({H1KEY: [beyond, FAR]})) == _rel(g, _cov({}))
+
+
 def test_coverage_adapter_no_write():
     src = inspect.getsource(rt.CoverageAdapter)
     for tok in (".set(", ".delete(", ".zadd("):

@@ -1,0 +1,3 @@
+COUNTER ACCOUNTING (K) — runner cycles distinct from planner invocations; historical=3:
+..                                                                       [100%]
+2 passed, 81 deselected in 0.03s

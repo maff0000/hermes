@@ -1,5 +1,6 @@
 """HERMES PH2 recovery-planner PLAN-ONLY runtime wiring v1.
 WO-HELM-HERMES-PH2-RECOVERY-PLANNER-WIRING-IMPLEMENTATION-0001.
+Hardened by WO-HELM-HERMES-PH2-RECOVERY-PLANNER-DIGEST-HARDENING-0001.
 
 This wiring invokes a deterministic planner only. It does not publish, authorise or execute recovery.
 
@@ -11,6 +12,17 @@ tuple, invokes the pure planner, retains the single result IN-MEMORY only, and r
 runner state. It performs NO Redis write/delete, NO SQL, NO vendor call, NO file write, NO proposal/health publication, NO
 recovery execution/backfill/repair, and has NO import/call path to utils.recovery_planner / utils.recovery_executor /
 RecoveryLibrary / D1 seed-backfill / Falcon / ARES / HELIOS / NEO / SOLO. The nine frozen blueprint decisions are honoured.
+
+DIGEST-HARDENING (0001): the invocation-idempotency tuple's coverage element is now the RECOVERY-RELEVANT coverage digest
+(recovery_relevant_coverage_digest) rather than the whole-window presence digest. Live candle advancement OUTSIDE recovery-relevant
+gap scope MUST NOT trigger a new planner invocation. Only coverage facts that can change clipping/overlap/segment bounds/
+recoverability/cost/status for the current gaps are digested: retained gap intervals, coverage intersecting-or-adjacent to those
+retained gaps, and the coverage provenance/version authority for those timeframes. The pure planner STILL receives the FULL
+coverage snapshots (its output is unchanged); only the recompute trigger is scoped. Policy and recovery-relevant coverage are
+verified pre/post (bounded retry; material change -> BLOCKED_INPUT_INCONSISTENCY). One injected UTC cycle clock drives freshness,
+retention, closures, relevant-scope and the digest. Structured counters distinguish runner cycles from planner invocations.
+The pure planner's recovery logic, the proposal/policy schema, retention doctrine, caller model, gate behaviour, output
+disposition, publication boundary and executor boundary are UNCHANGED.
 """
 from __future__ import annotations
 
@@ -63,8 +75,8 @@ GAPS_FAULTS = ("GAPS_MISSING", "GAPS_JSON_INVALID", "GAPS_CONTRACT_INVALID", "GA
                "GAPS_REDIS_UNAVAILABLE", "GAPS_INCONSISTENT")
 COVERAGE_FAULTS = ("COVERAGE_INCOMPLETE_SOURCE", "COVERAGE_REDIS_UNAVAILABLE")
 RUNTIME_STATUSES = ("PLAN_ONLY_ENABLED", "DISABLED", "GATE_FAILCLOSED_105", "BLOCKED_POLICY", "BLOCKED_STALE_GAPS",
-                    "BLOCKED_INPUT_INCONSISTENCY", "BLOCKED_UNCLASSIFIED_MARKET_STATE", "PROPOSAL_HELD",
-                    "NO_RECOVERY_REQUIRED")
+                    "BLOCKED_INPUT_INCONSISTENCY", "BLOCKED_UNCLASSIFIED_MARKET_STATE", "PLANNER_INVOCATION_FAILED",
+                    "PROPOSAL_HELD", "NO_RECOVERY_REQUIRED")
 
 
 # --------------------------------------------------------------------------- typed exceptions (NON-SystemExit)
@@ -155,10 +167,22 @@ def recovery_planner_append_enabled() -> bool:
 
 
 # --------------------------------------------------------------------------- mounted policy loader (frozen decision 5)
+def _content_sha(text: Optional[str]) -> Optional[str]:
+    """Raw-content identity of the mounted policy text (atomic-replacement detector). None iff the file is absent."""
+    if text is None:
+        return None
+    return _sha({"raw": text})
+
+
 def load_policy_from_reader(reader: PolicyReader) -> tuple[RecoveryPlanningPolicy, str]:
-    """Read + validate the mounted JSON policy; map to the pure RecoveryPlanningPolicy (+CostModel) WITHOUT changing its
-    semantics. Default-deny: any failure raises PolicyError with a POLICY_* code. Returns (policy, digest)."""
-    raw = reader.read()
+    """Read + validate the mounted JSON policy via the reader, then delegate to load_policy_from_text. Returns (policy, digest)."""
+    return load_policy_from_text(reader.read())
+
+
+def load_policy_from_text(raw: Optional[str]) -> tuple[RecoveryPlanningPolicy, str]:
+    """Validate already-read policy text; map to the pure RecoveryPlanningPolicy (+CostModel) WITHOUT changing its
+    semantics. Default-deny: any failure raises PolicyError with a POLICY_* code. Returns (policy, digest). Reading the
+    text once and validating it here lets the runner recheck the same bytes' identity without a re-read race."""
     if raw is None:
         raise PolicyError("POLICY_FILE_MISSING", f"policy file absent at {POLICY_PATH}")
     try:
@@ -304,9 +328,16 @@ class GapsAdapter:
                                   source_generated_at_utc=gen, overall_gap_state=payload.get("overall_gap_state", "OK"),
                                   gap_records=tuple(records), d1_boundary_state=d1b.get("d1_boundary_state", "OK"),
                                   d1_anchor_hour_utc=anchor, source_observed_at_utc=now)
-        return snap, _sha({"overall": snap.overall_gap_state, "d1_boundary": snap.d1_boundary_state,
-                           "tf": {r.timeframe: [r.gap_state, sorted(int(iv.start_utc.timestamp()) for iv in r.missing_intervals)]
-                                  for r in records}})
+        return snap, _gaps_semantic_digest(snap)
+
+
+def _gaps_semantic_digest(snap: GapSurfaceSnapshot) -> str:
+    """Canonical gaps digest (B): canonical timeframe keys (sort_keys), explicit gap_state + classification, deterministically
+    sorted + DEDUPLICATED missing-open epochs, UTC epoch endpoints. Excludes generated_at/observed_at/TTL/refresh metadata and
+    is independent of dictionary/retrieval order. Changes iff a material gap fact (state, boundary, or missing interval) changes."""
+    return _sha({"overall": snap.overall_gap_state, "d1_boundary": snap.d1_boundary_state,
+                 "tf": {r.timeframe: [r.gap_state, sorted({int(iv.start_utc.timestamp()) for iv in r.missing_intervals})]
+                        for r in snap.gap_records}})
 
 
 def _missing_epochs_from_block(blk: dict, tf: str) -> list[int]:
@@ -357,6 +388,68 @@ class CoverageAdapter:
         return tuple(snaps), _sha(digest_parts)
 
 
+# --------------------------------------------------------------------------- recovery-relevant coverage scope + digest (A/C/D)
+def retained_gap_intervals(*, gaps: GapSurfaceSnapshot, now: datetime.datetime) -> dict:
+    """Per-timeframe RETAINED gap intervals: each gap's missing intervals clipped to the timeframe retention floor
+    (now - RETENTION_DAYS[tf]). Intervals wholly beyond retention are dropped (not recoverable -> irrelevant). Endpoints are
+    UTC epoch seconds; results are DEDUPLICATED and deterministically sorted. Canonical timeframe order. This is the only
+    scope in which coverage can materially change the current recovery proposal, so retention-boundary movement that
+    reclassifies a gap DOES change this scope by design."""
+    out: dict = {}
+    for rec in gaps.gap_records:
+        tf = rec.timeframe
+        if tf not in RETENTION_DAYS:
+            continue
+        floor_ep = int((now - datetime.timedelta(days=RETENTION_DAYS[tf])).timestamp())
+        ivs = set()
+        for iv in rec.missing_intervals:
+            s = int(iv.start_utc.timestamp())
+            e = int(iv.end_utc.timestamp())
+            if e <= floor_ep:
+                continue                                        # entirely beyond retention -> excluded
+            ivs.add((max(s, floor_ep), e))                      # retained portion only
+        if ivs:
+            out[tf] = sorted(ivs)
+    return out
+
+
+def recovery_relevant_scope(*, gaps: GapSurfaceSnapshot, coverage: tuple, now: datetime.datetime,
+                            merge_threshold_seconds: int = 0) -> dict:
+    """The canonical set of coverage facts that could change the CURRENT recovery proposal (A). For every timeframe with a
+    retained gap: the retained gap intervals, the coverage intervals intersecting-or-adjacent to those gaps, and the coverage
+    provenance+contract version (authority/interpretation) for that timeframe. The adjacency half-width is
+    max(one period, merge_adjacent_threshold_seconds) each side — one period captures a boundary candle that changes clipping,
+    and the merge threshold captures any covered candle that could change whether two gap segments merge; this keeps the scope
+    provably COMPLETE (a wider window never HIDES a material change). Unrelated current-edge candles OUTSIDE every relevant
+    window are excluded and cannot trigger a recompute. Deterministic and retrieval-order-independent."""
+    retained = retained_gap_intervals(gaps=gaps, now=now)
+    cov_by_tf = {c.timeframe: c for c in coverage}
+    scope: dict = {}
+    for tf, gap_ivs in retained.items():
+        half = max(PERIOD_SECONDS[tf], int(merge_threshold_seconds))  # adjacency+merge window where output can change
+        windows = [(s - half, e + half) for (s, e) in gap_ivs]
+        cov = cov_by_tf.get(tf)
+        rel = set()
+        if cov is not None:
+            for iv in cov.covered_intervals:
+                cs = int(iv.start_utc.timestamp())
+                ce = int(iv.end_utc.timestamp())
+                if any(cs < we and ce > ws for (ws, we) in windows):
+                    rel.add((cs, ce))
+        scope[tf] = {"retained_gaps": [[s, e] for (s, e) in gap_ivs],
+                     "relevant_coverage": [[s, e] for (s, e) in sorted(rel)],
+                     "authority": (None if cov is None else [cov.provenance, cov.contract_version])}
+    return scope
+
+
+def recovery_relevant_coverage_digest(*, gaps: GapSurfaceSnapshot, coverage: tuple, now: datetime.datetime,
+                                      merge_threshold_seconds: int = 0) -> str:
+    """Digest of the recovery-relevant scope (A). Stable under unrelated candle advancement / sliding-window movement /
+    volatile refresh metadata / retrieval order; changes iff a gap-relevant coverage fact, retained-gap set, retention
+    reclassification, or coverage authority/version changes."""
+    return _sha(recovery_relevant_scope(gaps=gaps, coverage=coverage, now=now, merge_threshold_seconds=merge_threshold_seconds))
+
+
 # --------------------------------------------------------------------------- regular closure + exceptional detection (decision 4)
 def build_regular_closures(*, policy: RecoveryPlanningPolicy, now: datetime.datetime) -> tuple[MarketClosureSnapshot, ...]:
     """The FIRST implementation consumes ONLY the HERMES-owned deterministic regular weekend schedule (Fri22->Sun22 UTC).
@@ -391,8 +484,8 @@ def detect_unresolved_exceptional(*, gaps: GapSurfaceSnapshot,
 class AcquiredSnapshots:
     gaps: GapSurfaceSnapshot
     gaps_digest: str
-    coverage: tuple[ExistingCoverageSnapshot, ...]
-    coverage_digest: str
+    coverage: tuple[ExistingCoverageSnapshot, ...]      # FULL retention-bounded snapshots -> passed to the pure planner
+    coverage_digest: str                                # RECOVERY-RELEVANT digest -> used only for the idempotency tuple
     closures: tuple[MarketClosureSnapshot, ...]
     closure_digest: str
     policy: RecoveryPlanningPolicy
@@ -400,26 +493,51 @@ class AcquiredSnapshots:
 
 
 def acquire_consistent_snapshot(*, gaps_adapter: GapsAdapter, coverage_adapter: CoverageAdapter,
-                                policy: RecoveryPlanningPolicy, policy_digest: str, now: datetime.datetime,
-                                max_gaps_age: int) -> AcquiredSnapshots:
-    """Acquire gaps + coverage with pre/post digest consistency. If gaps changes between the two reads, retry (bounded);
-    exceeding retries -> BLOCKED_INPUT_INCONSISTENCY. Closures are deterministic from policy."""
+                                policy: RecoveryPlanningPolicy, policy_digest: str, policy_reader: PolicyReader,
+                                policy_raw_sha: Optional[str], now: datetime.datetime, max_gaps_age: int,
+                                on_attempt=None) -> AcquiredSnapshots:
+    """Acquire gaps + RECOVERY-RELEVANT coverage + closures with pre/post consistency in one exact order (H):
+      1 gate (caller)  2 policy read+digest (caller, identity = policy_raw_sha)  3 gaps A  4 derive relevant gap scope
+      5 recovery-relevant coverage A  6 closures  7 gaps B  8 policy recheck B  9 recovery-relevant coverage B
+      10 compare all material identities  11 retry (bounded) or block  12 build tuple  (13 hold/invoke by caller).
+    Gaps digest and the recovery-relevant coverage digest are each verified pre/post; an unrelated current-edge candle does
+    NOT change the recovery-relevant digest and so does NOT force a retry. A material gap-relevant coverage change causes a
+    bounded retry; a mid-cycle policy replacement/removal is rejected immediately. Exhausting retries or a policy change
+    raises SnapshotInconsistencyError -> BLOCKED_INPUT_INCONSISTENCY. Closures are deterministic from policy + the one clock.
+    The returned AcquiredSnapshots.coverage holds the FULL snapshots for the pure planner; .coverage_digest holds the
+    recovery-relevant digest for the idempotency tuple."""
+    merge_thr = getattr(policy, "merge_adjacent_threshold_seconds", 0) or 0
     last = None
     for _attempt in range(SNAPSHOT_MAX_RETRIES + 1):
-        gaps_snap, gd_pre = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)
-        cov, cd = coverage_adapter.acquire(now=now)
-        _gaps2, gd_post = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)
-        if gd_pre == gd_post:
-            closures = build_regular_closures(policy=policy, now=now)
+        if on_attempt is not None:
+            on_attempt()
+        gaps_snap, gd_pre = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)   # 3 gaps A
+        cov, _cov_presence = coverage_adapter.acquire(now=now)                            # 5 coverage A (full snapshots)
+        rel_pre = recovery_relevant_coverage_digest(gaps=gaps_snap, coverage=cov, now=now,
+                                                    merge_threshold_seconds=merge_thr)     # 4+5 relevant scope A
+        closures = build_regular_closures(policy=policy, now=now)                          # 6 closures
+        _g2, gd_post = gaps_adapter.acquire(now=now, max_age_seconds=max_gaps_age)         # 7 gaps B
+        raw2 = policy_reader.read()                                                        # 8 policy recheck B
+        if raw2 is None:
+            raise SnapshotInconsistencyError("policy removed mid-cycle")
+        if _content_sha(raw2) != policy_raw_sha:
+            raise SnapshotInconsistencyError("policy changed mid-cycle")
+        cov2, _ = coverage_adapter.acquire(now=now)                                        # 9 coverage B
+        rel_post = recovery_relevant_coverage_digest(gaps=gaps_snap, coverage=cov2, now=now,
+                                                     merge_threshold_seconds=merge_thr)
+        if gd_pre == gd_post and rel_pre == rel_post:                                      # 10 all material identities stable
             closure_digest = _sha([[int(c.closure_interval.start_utc.timestamp()),
                                     int(c.closure_interval.end_utc.timestamp())] for c in closures])
-            return AcquiredSnapshots(gaps_snap, gd_pre, cov, cd, closures, closure_digest, policy, policy_digest)
-        last = (gd_pre, gd_post)
-    raise SnapshotInconsistencyError(f"gaps changed mid-cycle across retries: {last}")
+            return AcquiredSnapshots(gaps_snap, gd_pre, cov, rel_pre, closures, closure_digest, policy, policy_digest)
+        last = (gd_pre, gd_post, rel_pre, rel_post)                                        # 11 material change -> bounded retry
+    raise SnapshotInconsistencyError(f"inputs changed mid-cycle across retries: {last}")
 
 
 def semantic_digest(snap: AcquiredSnapshots) -> str:
-    """Deterministic idempotency tuple digest — invariant to volatile refresh timestamps; changes only on semantic change."""
+    """Deterministic idempotency-tuple digest (D). Structure preserved: (semantic gaps digest, RECOVERY-RELEVANT coverage
+    digest, closure digest, policy digest, planner version). INVARIANT: it changes when and only when a material input change
+    can alter planner status, proposed/deferred/unclassified/intentionally-unavailable segments, workload cost, proposal
+    identity, or a blocking fault. Volatile refresh timestamps and unrelated current-edge candles do NOT change it."""
     return _sha({"gaps": snap.gaps_digest, "coverage": snap.coverage_digest, "closure": snap.closure_digest,
                  "policy": snap.policy_digest, "planner_version": PLANNER_VERSION})
 
@@ -482,6 +600,15 @@ class ComponentState:
     execution_enabled: bool = False
     publication_enabled: bool = False
     consumer_live: bool = False
+    # --- accounting counters (K): a runner cycle is one supervisor tick; a planner invocation is one pure-planner call.
+    #     They are NOT the same number — held/deduplicated cycles run no planner call. Process-local; summary-logged only.
+    runner_cycle_count: int = 0
+    snapshot_attempt_count: int = 0
+    planner_invocation_count: int = 0
+    proposal_ready_count: int = 0
+    proposal_held_count: int = 0
+    blocked_count: int = 0
+    failure_count: int = 0
 
     def summary(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -513,7 +640,8 @@ class RecoveryPlannerRunner:
         if not self._lock.acquire(blocking=False):
             return {"published": 0, "status": "SKIPPED_CONCURRENT"}
         try:
-            now = self.clock()
+            now = self.clock()                                  # ONE injected UTC cycle clock (I) — used everywhere below
+            self.state.runner_cycle_count += 1                  # a runner cycle != a planner invocation (K)
             # ---- gate ----
             try:
                 gs = (evaluate_recovery_planner_component_gate(enabled=enabled, authorised=authorised)
@@ -523,6 +651,7 @@ class RecoveryPlannerRunner:
                 self.state.status = STATE_BLOCKED_105
                 self.state.last_fault_code = STATE_BLOCKED_105
                 self.state.consecutive_failures += 1
+                self.state.blocked_count += 1
                 _LOG.error("[RECOVERY_PLANNER] GATE_FAILCLOSED_105 component blocked (code=%d); planner NOT invoked; "
                            "critical runners unaffected", COMPONENT_105)
                 return {"published": 0, "status": STATE_BLOCKED_105, "fault": STATE_BLOCKED_105, "code": COMPONENT_105}
@@ -532,48 +661,70 @@ class RecoveryPlannerRunner:
                 return {"published": 0, "status": STATE_DISABLED}     # NO reads, NO policy, NO planner
             # ---- enabled+authorised: plan-only ----
             self.state.last_invocation_utc = _fmt(now)
+            # (H2) read the policy bytes ONCE; validate + digest from those exact bytes; capture their identity for the
+            #      pre/post recheck so the recheck compares the SAME acquisition rather than racing a re-read.
+            raw_policy = self.policy_reader.read()
             try:
-                policy, pol_digest = load_policy_from_reader(self.policy_reader)
+                policy, pol_digest = load_policy_from_text(raw_policy)
             except PolicyError as e:
-                return self._fault("BLOCKED_POLICY", e.code, now)
+                return self._fault("BLOCKED_POLICY", e.code, now, kind="blocked")
+            policy_raw_sha = _content_sha(raw_policy)
             self.state.policy_version = POLICY_CONTRACT_VERSION
             self.state.policy_digest = pol_digest
             max_gaps_age = policy.stale_gaps_max_age_seconds or DEFAULT_MAX_GAPS_AGE_SECONDS
             try:
-                snap = acquire_consistent_snapshot(gaps_adapter=self.gaps_adapter, coverage_adapter=self.coverage_adapter,
-                                                   policy=policy, policy_digest=pol_digest, now=now, max_gaps_age=max_gaps_age)
+                snap = acquire_consistent_snapshot(
+                    gaps_adapter=self.gaps_adapter, coverage_adapter=self.coverage_adapter, policy=policy,
+                    policy_digest=pol_digest, policy_reader=self.policy_reader, policy_raw_sha=policy_raw_sha,
+                    now=now, max_gaps_age=max_gaps_age,
+                    on_attempt=lambda: setattr(self.state, "snapshot_attempt_count", self.state.snapshot_attempt_count + 1))
             except GapsError as e:
-                return self._fault("BLOCKED_STALE_GAPS" if e.code == "GAPS_STALE" else e.code, e.code, now)
+                blocked = e.code == "GAPS_STALE"
+                return self._fault("BLOCKED_STALE_GAPS" if blocked else e.code, e.code, now,
+                                   kind="blocked" if blocked else "failure")
             except CoverageError as e:
-                return self._fault(e.code, e.code, now)
+                return self._fault(e.code, e.code, now, kind="failure")
             except SnapshotInconsistencyError as e:
-                return self._fault("BLOCKED_INPUT_INCONSISTENCY", e.code, now)
+                return self._fault("BLOCKED_INPUT_INCONSISTENCY", e.code, now, kind="blocked")
             self.state.source_digests = {"gaps": snap.gaps_digest, "coverage": snap.coverage_digest,
                                          "closure": snap.closure_digest, "policy": snap.policy_digest}
             # ---- exceptional-closure Option A: unresolved -> block affected scope ----
             if detect_unresolved_exceptional(gaps=snap.gaps, regular_closures=snap.closures):
                 self.state.status = "BLOCKED_UNCLASSIFIED_MARKET_STATE"
                 self.state.last_fault_code = "BLOCKED_UNCLASSIFIED_MARKET_STATE"
+                self.state.blocked_count += 1
                 self.holder.clear()
                 _LOG.warning("[RECOVERY_PLANNER] BLOCKED_UNCLASSIFIED_MARKET_STATE — suspected exceptional closure without "
                              "governed evidence; scope not PROPOSAL_READY")
                 return {"published": 0, "status": "BLOCKED_UNCLASSIFIED_MARKET_STATE"}
-            # ---- idempotency: recompute only on semantic change ----
+            # ---- idempotency (E): recompute ONLY on recovery-relevant semantic change; held cycles run NO planner call ----
             sd = semantic_digest(snap)
             if self.holder.digest == sd:
                 self.state.status = "PROPOSAL_HELD"
+                self.state.proposal_held_count += 1
                 return {"published": 0, "status": "PROPOSAL_HELD", "idempotent": True}
-            # ---- invoke the PURE planner ----
+            # ---- invoke the PURE planner (full coverage snapshots; output unchanged by the hardening) ----
             start = _monotonic_ms()
-            wl = build_recovery_proposal(gaps=snap.gaps, coverage=snap.coverage, closures=snap.closures,
-                                         policy=snap.policy, now_utc=now)
-            wl_dict = wl.to_dict()
-            validate_proposed_workload(wl_dict)                # defence-in-depth
-            self.holder.set(wl_dict, sd)                       # IN-MEMORY only; execution flags validated false inside
+            try:
+                self.state.planner_invocation_count += 1        # a planner invocation is one pure-planner call (K)
+                wl = build_recovery_proposal(gaps=snap.gaps, coverage=snap.coverage, closures=snap.closures,
+                                             policy=snap.policy, now_utc=now)
+                wl_dict = wl.to_dict()
+                validate_proposed_workload(wl_dict)            # defence-in-depth
+                self.holder.set(wl_dict, sd)                   # IN-MEMORY only; execution flags validated false inside
+            except Exception as exc:  # noqa: BLE001 — a failed invocation must NOT poison a prior good hold or mark success
+                self.state.failure_count += 1
+                self.state.consecutive_failures += 1
+                self.state.backoff_state = min(MAX_BACKOFF_SECONDS, (self.state.backoff_state or CHECK_CADENCE_SECONDS) * 2)
+                self.state.status = "PLANNER_INVOCATION_FAILED"
+                self.state.last_fault_code = "PLANNER_INVOCATION_FAILED"
+                _LOG.error("[RECOVERY_PLANNER] planner invocation failed (held tuple preserved, not marked successful): %r", exc)
+                return {"published": 0, "status": "PLANNER_INVOCATION_FAILED", "fault": "PLANNER_INVOCATION_FAILED"}
             dur = _monotonic_ms() - start
             self.state.invocation_duration_ms = dur
             self.state.consecutive_failures = 0
             self.state.backoff_state = 0
+            self.state.proposal_ready_count += 1
             self.state.last_success_utc = _fmt(now)
             self.state.proposal_id = wl_dict["proposal_id"]
             self.state.status = "NO_RECOVERY_REQUIRED" if wl_dict["overall_plan_status"] == "NO_RECOVERY_REQUIRED" else "PROPOSAL_HELD"
@@ -583,20 +734,29 @@ class RecoveryPlannerRunner:
             self.state.intentionally_unavailable_count = len(wl_dict["intentionally_unavailable_segments"])
             self.state.estimated_request_units = wl_dict["estimated_request_units"]
             _LOG.info("[RECOVERY_PLANNER] plan-only cycle: status=%s proposal_id=%s segments=%d deferred=%d unclassified=%d "
-                      "unavailable=%d req_units=%d duration_ms=%d execution_enabled=false publication_enabled=false consumer_live=false",
+                      "unavailable=%d req_units=%d duration_ms=%d runner_cycles=%d planner_invocations=%d held=%d "
+                      "execution_enabled=false publication_enabled=false consumer_live=false",
                       wl_dict["overall_plan_status"], wl_dict["proposal_id"], self.state.segment_count, self.state.deferred_count,
-                      self.state.unclassified_count, self.state.intentionally_unavailable_count, self.state.estimated_request_units, dur)
+                      self.state.unclassified_count, self.state.intentionally_unavailable_count, self.state.estimated_request_units,
+                      dur, self.state.runner_cycle_count, self.state.planner_invocation_count, self.state.proposal_held_count)
             return {"published": 0, "status": wl_dict["overall_plan_status"], "proposal_id": wl_dict["proposal_id"], "held_in_memory": True}
         finally:
             self._lock.release()
 
-    def _fault(self, status: str, code: str, now: datetime.datetime) -> dict:
+    def _fault(self, status: str, code: str, now: datetime.datetime, *, kind: str = "failure") -> dict:
+        """Governed non-plan outcome. kind='blocked' -> a deliberate governed block (stale/policy/inconsistency/unclassified);
+        kind='failure' -> an infrastructure/parse fault. Both bump backoff; the holder is cleared because the inputs are not
+        trustworthy for this cycle (a fresh recompute is required next cycle)."""
         self.state.status = status
         self.state.last_fault_code = code
         self.state.consecutive_failures += 1
+        if kind == "blocked":
+            self.state.blocked_count += 1
+        else:
+            self.state.failure_count += 1
         self.state.backoff_state = min(MAX_BACKOFF_SECONDS, (self.state.backoff_state or CHECK_CADENCE_SECONDS) * 2)
         self.holder.clear()
-        _LOG.warning("[RECOVERY_PLANNER] plan-only blocked: status=%s fault=%s consecutive=%d", status, code,
+        _LOG.warning("[RECOVERY_PLANNER] plan-only %s: status=%s fault=%s consecutive=%d", kind, status, code,
                      self.state.consecutive_failures)
         return {"published": 0, "status": status, "fault": code}
 
