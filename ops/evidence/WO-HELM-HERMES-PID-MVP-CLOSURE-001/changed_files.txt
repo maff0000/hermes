@@ -1,0 +1,5 @@
+9cc7464 [WO-HELM-HERMES-PID-MVP-CLOSURE-001] PID: HERMES MVP closure mandate (docs only)
+ docs/governance/PID-HERMES-MVP-001.md | 93 +++++++++++++++++++++++++++++++++++
+ docs/governance/README.md             | 13 +++++
+ hermes_build_run.md                   |  4 ++
+ 3 files changed, 110 insertions(+)
