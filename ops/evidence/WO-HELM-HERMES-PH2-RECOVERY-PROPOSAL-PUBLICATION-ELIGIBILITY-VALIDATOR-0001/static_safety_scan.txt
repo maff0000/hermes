@@ -1,5 +1,5 @@
-AST/STATIC SAFETY + IMPORT SIDE-EFFECT:
-  threads created on import: 0 (expect 0)
+AST/STATIC SAFETY + IMPORT SIDE-EFFECT (utils/hermes_proposal_validator_v1.py):
+  threads on import: 0 (expect 0)
   imports: ['__future__', 'dataclasses', 'datetime', 'typing']
-  forbidden imports: NONE
-  module singleton / thread / task: NONE (constants + frozen dataclasses + pure functions only)
+  forbidden: NONE
+  ALL_PUB_CODES: 33

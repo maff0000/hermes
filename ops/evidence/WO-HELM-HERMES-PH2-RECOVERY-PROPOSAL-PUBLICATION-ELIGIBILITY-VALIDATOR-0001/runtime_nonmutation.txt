@@ -1,6 +1,5 @@
-RUNTIME NON-MUTATION (§29, read-only, after) 2026-07-15T13:33:10Z:
-  deploy: a798fbc4a3c1 container: 5bf9a5e9e534 image: 78896539f740 restarts: 0 health: healthy
+RUNTIME NON-MUTATION (read-only, after rename) 2026-07-15T14:06:13Z:
+  deploy: a798fbc4a3c1 container: 5bf9a5e9e534 restarts: 0 health: healthy
 [ENV_CONFIG] Environment: DEV
 [ENV_CONFIG] Base directory: /app
-  runners: 9 | recovery_proposal keys: [] | publisher gates: None | planner gates: None
-  PH1 D1: ACTIVE | PH2: GAPS_FOUND READY_FOR_BACKFILL_DESIGN | feed: GREEN
+  runners: 9 | recovery_proposal keys: [] | publisher gate: None
