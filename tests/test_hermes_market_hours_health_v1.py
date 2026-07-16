@@ -16,7 +16,7 @@ import utils.hermes_market_hours_health_v1 as M
 UTC = dt.timezone.utc
 CFG = json.loads((pathlib.Path(__file__).resolve().parents[1] / "config/market_hours_schedule.v1.json").read_text())
 XAU = M.load_schedule(CFG, "XAU_USD")
-SPX = M.load_schedule(CFG, "SPX500_USD")
+SPX = M.load_schedule(CFG, "XAG_USD")   # SPX500 now fail-closed(None); XAG_USD is metals w/ the same daily break
 FX = M.load_schedule(CFG, "EUR_USD")           # falls back to _default_fx
 FRESH = dt.datetime(2026, 7, 15, 20, 58, tzinfo=UTC)
 
@@ -123,8 +123,7 @@ def test_13_malformed_schedule_fails_closed_open():
 
 
 def test_14_unknown_instrument_no_schedule_fails_closed():
-    bad = json.loads(json.dumps(CFG)); bad["instruments"].pop("_default_fx")
-    assert M.load_schedule(bad, "ZZZ_UNKNOWN") is None   # unknown -> None -> caller fails closed
+    assert M.load_schedule(CFG, "ZZZ_UNKNOWN") is None   # unmapped/unknown -> None -> caller fails closed (no silent _default_fx)
     d = ih("ZZZ_UNKNOWN", None, U(2026, 7, 15, 21, 30), tick=FRESH, candle=FRESH)
     assert d.fail_closed and d.incident_eligible
 

@@ -1,29 +1,33 @@
 {
   "schema_version": "1",
-  "config_version": "1",
-  "provenance": "WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-AND-RECOVERY-SUPPRESSION-0001",
+  "config_version": "2",
+  "provenance": "WO-HELM-HERMES-PR101-MARKET-HOURS-STREAM-HEALTH-DEPLOYMENT-READINESS-0001 (hardened: explicit per-instrument map, no silent _default_fx, SPX500/ICO fail-closed pending OANDA validation)",
   "market_timezone": "America/New_York",
-  "note": "Schedules are expressed in the MARKET timezone and converted to UTC deterministically per-date (DST-aware). No secrets. Design-only until separately deployed. Holiday engine not yet supported -> holidays fail closed (treated as open => normal detection).",
+  "note": "Schedules in MARKET timezone, converted to UTC per-date (DST-aware). NY-times reflect when OANDA is EXPECTED TO PRODUCE STREAM DATA, not merely when an underlying exchange is open. Evidence: hermes_market_hours DB (metals daily break 21:00-22:00 UTC = 17:00-18:00 EDT) + observed Incident #1104 (XAU no data 20:59-22:04 UTC on 2026-07-15 EDT). Every configured instrument MUST map explicitly; unmapped/unvalidated -> resolves to None -> FAIL LOUD (behave as open, normal detection). No secrets. Design-only until separately deployed.",
   "reopening_grace_seconds": 300,
   "holiday_support": false,
-  "instruments": {
-    "XAU_USD": {
+  "holiday_semantics": "No governed holiday calendar. On public holidays / provider closures / shortened sessions / exceptional shutdowns / off-break provider maintenance, the schedule is NOT holiday-aware -> the instrument is treated per its normal weekly/daily rule. If the market is actually closed on a holiday while the rule says open, expected data will be absent and a stale incident MAY fire (incident NOISE). Deliberate: noise is preferred over fault-hiding. A governed holiday calendar is a separate future WO.",
+  "named_schedules": {
+    "metals": {
       "market_type": "METAL",
-      "weekly_open": {"weekday": 6, "local_time": "17:00"},
-      "weekly_close": {"weekday": 4, "local_time": "17:00"},
-      "daily_breaks": [{"local_start": "17:00", "local_end": "18:00", "label": "OANDA_DAILY_ROLLOVER"}]
-    },
-    "SPX500_USD": {
-      "market_type": "INDEX_CFD",
       "weekly_open": {"weekday": 6, "local_time": "18:00"},
       "weekly_close": {"weekday": 4, "local_time": "17:00"},
-      "daily_breaks": [{"local_start": "17:00", "local_end": "18:00", "label": "INDEX_DAILY_BREAK"}]
+      "daily_breaks": [{"local_start": "17:00", "local_end": "18:00", "label": "OANDA_METAL_DAILY_ROLLOVER"}]
     },
-    "_default_fx": {
+    "fx": {
       "market_type": "FOREX",
       "weekly_open": {"weekday": 6, "local_time": "17:00"},
       "weekly_close": {"weekday": 4, "local_time": "17:00"},
       "daily_breaks": []
     }
+  },
+  "instrument_map": {
+    "XAU_USD": "metals", "XAG_USD": "metals", "XPT_USD": "metals", "XCU_USD": "metals",
+    "EUR_USD": "fx", "GBP_USD": "fx", "USD_JPY": "fx", "USD_CHF": "fx",
+    "USD_CAD": "fx", "AUD_USD": "fx", "NZD_USD": "fx", "EUR_GBP": "fx"
+  },
+  "fail_closed_unvalidated": {
+    "SPX500_USD": "SCHEDULE_AMBIGUOUS_FAIL_CLOSED — OANDA index CFD hours (esp. around 16:00-17:00 ET) NOT empirically validated here (no DB row, not streamed in this deployment); must NOT be marked closed merely because the US cash market closes. Resolves to None -> fail loud until OANDA session evidence is obtained.",
+    "ICO_USD": "SCHEDULE_AMBIGUOUS_FAIL_CLOSED — crypto-class instrument likely trading ~24/7; MUST NOT inherit an FX weekend (would suppress genuine weekend staleness). No governed schedule; resolves to None -> fail loud."
   }
 }
