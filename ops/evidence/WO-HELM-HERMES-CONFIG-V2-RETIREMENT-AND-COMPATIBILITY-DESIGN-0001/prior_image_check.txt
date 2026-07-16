@@ -1,0 +1,12 @@
+# Prior / rollback image check — c79100851c05 (dell 192.168.11.10), read-only
+# generated 2026-07-16T14:59:45Z UTC. Method: throwaway 'docker create' + 'docker cp'; NO live container run/recreate.
+
+## image identity
+id=sha256:c79100851c05332ccd17ab4b731b421627e16fb7773aaadda7c37c1ec8e477e1 created=2026-07-15T20:56:21.098529524+01:00
+
+## /app/config/market_hours_schedule.v1.json + module presence
+SCHEDULE FILE: ABSENT (no /app/config)
+MODULE: ABSENT
+
+## CONCLUSION: prior/rollback image ships neither the schedule config nor the module ->
+## v2 was never a deployed runtime state and rollback has NO v2 dependency.

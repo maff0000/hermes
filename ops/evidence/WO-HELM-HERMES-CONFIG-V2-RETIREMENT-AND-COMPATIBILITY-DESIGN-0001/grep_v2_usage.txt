@@ -1,0 +1,63 @@
+# grep evidence — config_version / v2 usage across repo (generated 2026-07-16T14:59:33Z UTC)
+
+## config_version occurrences (whole tree, excl .git/pycache)
+./config/market_hours_schedule.v1.json:3:  "config_version": "3",
+./config/market_hours_schedule.v1.json:4:  "provenance": "WO-HELM-HERMES-PR102-REAL-INVENTORY-WTICO-CORRECTION-0001 (real runtime inventory: WTICO_USD is the actual configured instrument; the earlier ICO_USD was a HELM regex misread of WTICO_USD and is removed; WTICO_USD + SPX500_USD explicitly fail-closed pending OANDA CFD session evidence). Supersedes config_version 2.",
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:1:# HERMES market-hours schedule — `config_version` 2 retirement & compatibility ruling (v1)
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:17:The deployed `config/market_hours_schedule.v1.json` is `config_version "3"`. Version 2 was the earlier
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:31:| Every `config_version` occurrence in the tree | `grep -rn config_version` | Only value present is `"3"` (the one deployed config). No v2 config file exists in the tree. |
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:34:| Test fixtures | `grep -rn config_version tests/` | Fixtures load the real v3 config. The only version-gate tests use `"3"` (valid) and `"999"` (unsupported). **No test asserts v2 is supported or structurally safe.** |
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:35:| Other `config_version` in repo | `grep -rn config_version` | `utils/candle_features.py` (`"v1"`) and `main.py` log the loaded version — unrelated to the schedule-version gate. |
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:53:`load_schedule()` uses `config_version` **only** as an accept/reject gate:
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:56:if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:99:  actual JSON decide what resolves. Accepting `config_version "2"` on the *current v3 JSON body* yields identical
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:135:| `validate_config_completeness(cfg_v2, ...)` | appends `unsupported config_version '2' (supported: ['3'])` to `report["errors"]`, `ok=False`. Startup/readiness surfaces a **loud validator error**. |
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:144:- Retained `test_unsupported_config_version_fails_closed` (`"999"`) unchanged.
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:164:   `config_version "3"` (readiness validator `ok=True`) before/after — already covered by
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:179:  so any stray v2 config self-documents: `unsupported config_version '2' (supported: ['3'])`.
+./docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md:180:- Config provenance in `market_hours_schedule.v1.json` already states "Supersedes config_version 2" — consistent
+./docs/hermes_forward_derivation_and_features.md:96:  (`config_key`/`config_id`/`config_version`). The old hidden constants are removed (asserted by test).
+./main.py:1146:        logger.info("[MARKET_HOURS] governed DST-aware market-hours source loaded (config_version=%s)",
+./main.py:1147:                    _mh_cfg.get("config_version"))
+./tests/test_hermes_market_hours_readiness_v1.py:86:def test_unsupported_config_version_fails_closed():
+./tests/test_hermes_market_hours_readiness_v1.py:88:    bad = _j.loads(_j.dumps(CFG)); bad["config_version"] = "999"
+./tests/test_hermes_market_hours_readiness_v1.py:91:    assert not ok and any("config_version" in e for e in rep["errors"])
+./tests/test_hermes_market_hours_readiness_v1.py:100:    v2 = _j.loads(_j.dumps(CFG)); v2["config_version"] = "2"
+./tests/test_hermes_market_hours_readiness_v1.py:103:    assert not ok and any("config_version" in e for e in rep["errors"])
+./tests/test_hermes_market_hours_readiness_v1.py:111:    assert rep["errors"] == [] and rep["config_version"] == "3" and rep["holiday_support"] is False
+./tests/test_hermes_market_hours_readiness_v1.py:167:    assert p.is_file() and json.loads(p.read_text())["config_version"] == "3"
+./utils/candle_features.py:39:    config_version: str = "v1"
+./utils/candle_features.py:56:                "config_version": self.config_version}
+./utils/hermes_market_hours_health_v1.py:90:        if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+./utils/hermes_market_hours_health_v1.py:126:    report = {"resolved": {}, "fail_closed": [], "unmapped": [], "errors": [], "config_version": cfg.get("config_version"),
+./utils/hermes_market_hours_health_v1.py:128:    if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+./utils/hermes_market_hours_health_v1.py:129:        report["errors"].append(f"unsupported config_version {cfg.get('config_version')!r} (supported: {sorted(SUPPORTED_CONFIG_VERSIONS)})")
+
+## SUPPORTED_CONFIG_VERSIONS references (src)
+./tests/test_hermes_market_hours_readiness_v1.py:99:    assert "2" not in M.SUPPORTED_CONFIG_VERSIONS and M.SUPPORTED_CONFIG_VERSIONS == frozenset({"3"})
+./utils/hermes_market_hours_health_v1.py:34:SUPPORTED_CONFIG_VERSIONS = frozenset({"3"})
+./utils/hermes_market_hours_health_v1.py:90:        if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+./utils/hermes_market_hours_health_v1.py:128:    if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+./utils/hermes_market_hours_health_v1.py:129:        report["errors"].append(f"unsupported config_version {cfg.get('config_version')!r} (supported: {sorted(SUPPORTED_CONFIG_VERSIONS)})")
+
+## config-file config_version history (git log -p, uniq)
+      1 +  "config_version": "1",
+      1 -  "config_version": "1",
+      1 +  "config_version": "2",
+      1 -  "config_version": "2",
+      1 +  "config_version": "3",
+
+## SUPPORTED_CONFIG_VERSIONS assignment history (git log -p on main, pre-WO)
++SUPPORTED_CONFIG_VERSIONS = frozenset({"2", "3"})
+
+## tests referencing the version gate (excl pycache)
+tests/test_hermes_market_hours_readiness_v1.py:86:def test_unsupported_config_version_fails_closed():
+tests/test_hermes_market_hours_readiness_v1.py:88:    bad = _j.loads(_j.dumps(CFG)); bad["config_version"] = "999"
+tests/test_hermes_market_hours_readiness_v1.py:91:    assert not ok and any("config_version" in e for e in rep["errors"])
+tests/test_hermes_market_hours_readiness_v1.py:99:    assert "2" not in M.SUPPORTED_CONFIG_VERSIONS and M.SUPPORTED_CONFIG_VERSIONS == frozenset({"3"})
+tests/test_hermes_market_hours_readiness_v1.py:100:    v2 = _j.loads(_j.dumps(CFG)); v2["config_version"] = "2"
+tests/test_hermes_market_hours_readiness_v1.py:103:    assert not ok and any("config_version" in e for e in rep["errors"])
+tests/test_hermes_market_hours_readiness_v1.py:111:    assert rep["errors"] == [] and rep["config_version"] == "3" and rep["holiday_support"] is False
+tests/test_hermes_market_hours_readiness_v1.py:167:    assert p.is_file() and json.loads(p.read_text())["config_version"] == "3"
+
+## FINDING: no v2 config file in tree; no test asserts v2 supported; only deployed config is v3.

@@ -23,9 +23,15 @@ from zoneinfo import ZoneInfo
 
 UTC = datetime.timezone.utc
 DECISION_VERSION = "1"
-# WO-...-WTICO-CORRECTION: governed config versions this loader accepts. An unsupported version resolves to None
-# (fail loud = behave as open, normal detection) and is flagged as an error by the completeness validator. Never suppress.
-SUPPORTED_CONFIG_VERSIONS = frozenset({"2", "3"})
+# Governed config versions this loader accepts. An unsupported version resolves to None (fail loud = behave as open,
+# normal detection) and is flagged as an error by the completeness validator. Never suppress.
+# WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001: v2 RETIRED. v2 was the pre-WTICO-correction
+# deployment-readiness iteration whose real-inventory assumption (phantom ICO_USD) was superseded by v3 BEFORE any deploy;
+# the prior/rollback image c79100851c05 shipped NEITHER this module NOR the schedule file, so v2 was never a deployed
+# runtime state and rollback carries no v2 dependency. Retiring v2 removes a mild ambiguity (a stale v2 config being
+# silently accepted). Fail semantics unchanged: a v2 config now resolves to None (fail loud, never suppress) + validator
+# error. Inert on the running v3 deployment. See docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md.
+SUPPORTED_CONFIG_VERSIONS = frozenset({"3"})
 
 # --------------------------------------------------------------------------- instrument market-hours health states (§ArchPrinciple)
 MARKET_OPEN_FLOWING = "MARKET_OPEN_FLOWING"                     # open + data fresh
