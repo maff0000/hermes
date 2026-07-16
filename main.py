@@ -1129,12 +1129,31 @@ async def lifespan(app: FastAPI):
         'per_instrument_max_recovery_attempts_per_hour': get_hermes_config('per_instrument_max_recovery_attempts_per_hour', 'int'),
     }
     _persistence = HealthPersistence(_watchdog_db, service_name='hermes', environment=ENV, logger=logger)
+    # WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-...-0001: prefer the governed DST-aware market-hours source (NY-tz,
+    # daily-break aware) so the OANDA daily rollover break is not misread as a stale feed (Incident #1104 / R2D2 F-1, F-2).
+    # Fail SAFE: on any config/load error, fall back to the legacy fixed-UTC checker (never worse than today).
+    _mh_stream_checker = is_market_open
+    _mh_truth_checker = None
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        from utils.hermes_market_hours_health_v1 import DstAwareMarketHours as _DstMH
+        _mh_cfg_path = _Path(__file__).parent / "config" / "market_hours_schedule.v1.json"
+        _mh_cfg = _json.loads(_mh_cfg_path.read_text())
+        _mh = _DstMH(_mh_cfg, primary_instrument="XAU_USD")
+        _mh_stream_checker = _mh.is_market_open
+        _mh_truth_checker = _mh
+        logger.info("[MARKET_HOURS] governed DST-aware market-hours source loaded (config_version=%s)",
+                    _mh_cfg.get("config_version"))
+    except Exception as _e:
+        logger.warning("[MARKET_HOURS] governed DST-aware schedule unavailable (%r); falling back to legacy checker", _e)
     state.watchdog = HermesWatchdog(
         service_state=state,
         persistence=_persistence,
         config=_watchdog_config,
-        market_hours_checker=is_market_open,
+        market_hours_checker=_mh_stream_checker,
         logger=logger,
+        market_truth_checker=_mh_truth_checker,
     )
 
     # Fatal exit callback — clean async shutdown

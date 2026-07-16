@@ -1,0 +1,29 @@
+{
+  "schema_version": "1",
+  "config_version": "1",
+  "provenance": "WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-AND-RECOVERY-SUPPRESSION-0001",
+  "market_timezone": "America/New_York",
+  "note": "Schedules are expressed in the MARKET timezone and converted to UTC deterministically per-date (DST-aware). No secrets. Design-only until separately deployed. Holiday engine not yet supported -> holidays fail closed (treated as open => normal detection).",
+  "reopening_grace_seconds": 300,
+  "holiday_support": false,
+  "instruments": {
+    "XAU_USD": {
+      "market_type": "METAL",
+      "weekly_open": {"weekday": 6, "local_time": "17:00"},
+      "weekly_close": {"weekday": 4, "local_time": "17:00"},
+      "daily_breaks": [{"local_start": "17:00", "local_end": "18:00", "label": "OANDA_DAILY_ROLLOVER"}]
+    },
+    "SPX500_USD": {
+      "market_type": "INDEX_CFD",
+      "weekly_open": {"weekday": 6, "local_time": "18:00"},
+      "weekly_close": {"weekday": 4, "local_time": "17:00"},
+      "daily_breaks": [{"local_start": "17:00", "local_end": "18:00", "label": "INDEX_DAILY_BREAK"}]
+    },
+    "_default_fx": {
+      "market_type": "FOREX",
+      "weekly_open": {"weekday": 6, "local_time": "17:00"},
+      "weekly_close": {"weekday": 4, "local_time": "17:00"},
+      "daily_breaks": []
+    }
+  }
+}
