@@ -1,0 +1,3 @@
+PREREQUISITE: r2d2:audit:...pr101:market_hours_stream_health = GREEN_..._EXACT_HEAD_AUDITED; r2d2:audit:...pr101:merge_lineage = GREEN_..._CONFIRMED. Reconciled. canonical 13122cf4 == origin/main, clean; deploy f69df68; container fa90360969f7.
+INVENTORY (14 configured, .env): FX(8) AUD/EURGBP/EURUSD/GBP/NZD/USDCAD/USDCHF/USDJPY; METALS(4) XAU/XAG/XPT/XCU; SPX500_USD; ICO_USD. DB hermes_market_hours governs FX(no break)+metals(21:00-22:00 UTC break); SPX500+ICO NO row. Only XAU streams live.
+SCHEDULE MAP: metals->4 metals; fx->8 FX; SPX500_USD+ICO_USD->fail_closed_unvalidated(None->fail loud); unknown->None.

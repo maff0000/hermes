@@ -1,0 +1,4 @@
+TESTS: 41 pass (25 existing market-hours + 16 readiness).
+41 passed in 0.03s
+BASELINE: BASE 13122cf4 1489 passed | HEAD 1505 (+16); 51 async + 4 collection errors unchanged; zero regression.
+COMPLETENESS (real 14): ok=True, 12 resolved, 2 fail_closed(SPX500,ICO), 0 unmapped, 0 errors.

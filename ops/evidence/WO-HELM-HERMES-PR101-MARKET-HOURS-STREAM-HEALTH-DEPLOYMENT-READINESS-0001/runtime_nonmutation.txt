@@ -1,0 +1,4 @@
+RUNTIME NON-MUTATION (read-only) 2026-07-16T09:00:38Z:
+  deploy f69df68daca9 (f69df68) container fa90360969f7 image c79100851c05 restarts 0 healthy
+  schedule in container: ABSENT (expect ABSENT — not deployed)
+  dev-only: no build/recreate/restart/config-install/Redis/SQL; live behaviour unchanged.

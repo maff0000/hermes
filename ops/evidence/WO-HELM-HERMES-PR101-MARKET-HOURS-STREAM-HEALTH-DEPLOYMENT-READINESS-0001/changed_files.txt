@@ -1,0 +1,7 @@
+c510ad9 [WO-HELM-HERMES-PR101-MARKET-HOURS-STREAM-HEALTH-DEPLOYMENT-READINESS-0001] hardening: fail-closed unknowns, explicit map, SPX500/ICO fail-closed, completeness validator
+ config/market_hours_schedule.v1.json               |  30 ++---
+ .../market_hours_health/deployment_readiness.md    | 113 ++++++++++++++++++
+ tests/test_hermes_market_hours_health_v1.py        |   5 +-
+ tests/test_hermes_market_hours_readiness_v1.py     | 127 +++++++++++++++++++++
+ utils/hermes_market_hours_health_v1.py             |  69 +++++++++--
+ 5 files changed, 320 insertions(+), 24 deletions(-)
