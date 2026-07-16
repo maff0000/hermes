@@ -1,0 +1,11 @@
+{"wo":"WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-AND-RECOVERY-SUPPRESSION-0001",
+ "verdict":"GREEN_HERMES_MARKET_HOURS_AWARE_STREAM_HEALTH_RECOVERY_SUPPRESSION_PR_OPEN","utc":"2026-07-16T07:25:06Z",
+ "base_sha":"82701a8fea4c4e7febecd2f09013ba6ca7f7d568","head_sha":"ebda47bcb56e41919bc18a529390b1aa98c97df5","pr":101,"pr_url":"https://github.com/maff0000/hermes/pull/101",
+ "root_cause":"trading_hours.is_market_open fixed-UTC, no daily break, DST-blind -> 17:00-ET break read as OPEN (F-1)",
+ "core":"utils/hermes_market_hours_health_v1.py (pure, zoneinfo DST-aware) + config/market_hours_schedule.v1.json",
+ "states":"5-state model; incident/per-instrument-recovery/full-stream eligibility; reopening grace; gap classification; fail-closed=open",
+ "wiring":"DstAwareMarketHours injected via main.py; watchdog market_truth_checker=None default (zero regression)",
+ "tests":"25 (24-scenario + Incident #1104 replay); BASE 1464 -> HEAD 1489 (+25); baseline unchanged; zero regression",
+ "boundaries":"no new key family/schema/publisher; v1 unchanged; no backfill/repair; consumer_live unchanged; genuine faults never suppressed; REST quote not an input",
+ "runtime_nonmutation":"deploy f69df68 unchanged; container fa90360969f7 not recreated; dev-only",
+ "next_gate":"independent R2D2 audit of the exact PR #101 head (code, contracts, DST, mixed-market, Incident #1104 replay, open-market fault preservation)"}

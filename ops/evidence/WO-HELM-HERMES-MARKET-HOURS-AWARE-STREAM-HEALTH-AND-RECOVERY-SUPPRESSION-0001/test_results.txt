@@ -1,0 +1,4 @@
+TESTS: 25 pass (24-scenario matrix + Incident #1104 replay).
+25 passed in 0.03s
+BASELINE: BASE 82701a8 = 1464 passed | HEAD = 1489 passed (+25); 51 async + 4 collection errors identical; zero regression.
+existing watchdog tests: async-plugin baseline (identical on base) — no new failures.

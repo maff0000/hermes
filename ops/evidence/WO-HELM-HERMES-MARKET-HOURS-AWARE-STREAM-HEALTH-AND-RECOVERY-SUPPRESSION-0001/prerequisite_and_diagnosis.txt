@@ -1,0 +1,6 @@
+PREREQUISITE: r2d2:audit:hermes:incident_1104... = GREEN_..._NO_ACTION_REQUIRED (root cause: scheduled upstream vendor
+stream loss); r2d2:blueprint:hermes:current:v1 reconciled (canonical 82701a8, deploy f69df68, runners 9). MATCH.
+CURRENT-PATH DIAGNOSIS: F-1 root cause = utils/trading_hours.is_market_open fixed-UTC (Fri/Sun 22:00 UTC), NO daily break,
+DST-blind -> OANDA 17:00-ET break (21:00 UTC EDT) read as OPEN -> STALE_CANDLE (Incident #1104). Per-instrument uses SQL
+MarketHoursPolicy.is_truth_expected (also fixed-UTC). Closed instruments already -> AMBER (excluded from recovery) once
+market-hours is correct -> F-2 is a correctness fix.
