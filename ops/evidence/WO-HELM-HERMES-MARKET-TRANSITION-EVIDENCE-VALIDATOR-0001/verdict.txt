@@ -1,0 +1,50 @@
+WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001 — EVIDENCE VERDICT
+==========================================================================
+Lane: HELM (HERMES market-data). Deliverable: read-only deterministic parser +
+validator for XAU market-transition observer logs. INERT — not wired into any
+runtime, compose, systemd, or main.py. Code-only PR. No secrets. UTC only.
+
+Base branch point (canonical main): 71ea3bd
+Branch: wo/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001
+
+ARTIFACTS
+  tools/hermes_transition_evidence_validator_v1.py        (validator + CLI, stdlib only)
+  tests/test_transition_evidence_validator_v1.py          (25 tests)
+  tests/fixtures/transition_evidence_v1/*.log             (16 scenario fixtures)
+  tests/fixtures/transition_evidence_v1/_generate.py      (deterministic fixture generator)
+  tests/fixtures/transition_evidence_v1/runtime_identity_*.json
+  schemas/transition_evidence/transition_evidence_verdict.v1.schema.json
+  docs/design/hermes_transition_evidence_validator_v1.md
+
+GOVERNED WINDOW (computed DST-aware, NOT trusted from log)
+  XAU_USD -> metals daily break 17:00-18:00 America/New_York
+  2026-07-16 (EDT): closure 21:00:00Z..22:00:00Z, reopening 22:00:00Z, grace_end 22:05:00Z
+
+TESTS
+  Command: python3 -m pytest tests/test_transition_evidence_validator_v1.py -q
+  Result:  25 passed
+  (Repo-wide pre-existing async-plugin baseline failures/collection errors are
+   OUT OF SCOPE and untouched — only this WO's test file was run.)
+
+SCHEMA
+  All 16 fixture verdicts validate against transition_evidence_verdict.v1.schema.json
+
+SCENARIO MATRIX (overall verdict -> primary condition)
+  01 correct closure+reopening        -> PASS
+  02 missing END marker               -> INDETERMINATE (END_MARKER_PRESENT)
+  03 sampling gap                     -> FAIL (SAMPLE_CONTINUITY)
+  04 XAU falsely open during closure  -> FAIL (CLOSURE_CLASSIFICATION)
+  05 tick ts refreshed in closure     -> FAIL (NO_FABRICATED_FRESHNESS/tick)
+  06 candle fabricated in closure     -> FAIL (NO_FABRICATED_FRESHNESS/candle)
+  07 incident fired in closure        -> FAIL (NO_INACTIVITY_INCIDENT_DURING_CLOSURE)
+  08 reconnect churn in closure       -> FAIL (NO_CLOSURE_DRIVEN_RECONNECT)
+  09 REST quote masks dead stream     -> FAIL (REST_QUOTE_VS_STREAM_SEPARATION)
+  10 false GREEN during grace         -> FAIL (NO_FALSE_GREEN_DURING_GRACE)
+  11 flow resumes within grace        -> PASS
+  12 flow absent + escalation (Path B)-> PASS (GENUINE_RESUMED_FLOW_OR_ESCALATION)
+  13 flow absent + no escalation      -> FAIL (GENUINE_RESUMED_FLOW_OR_ESCALATION)
+  14 runtime container identity change-> FAIL (RUNTIME_IDENTITY_CONTINUITY)
+  15 WTICO guessed closed             -> FAIL (WTICO_FAIL_LOUD)
+  16 SPX500 guessed closed            -> FAIL (SPX500_FAIL_LOUD)
+
+VERDICT: GREEN_HERMES_MARKET_TRANSITION_EVIDENCE_VALIDATOR_PR_OPEN

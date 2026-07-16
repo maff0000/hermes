@@ -1,0 +1,94 @@
+{
+  "01_pass_correct_closure_reopening.log": {
+    "overall": "PASS",
+    "non_pass_conditions": []
+  },
+  "02_missing_end_marker.log": {
+    "overall": "INDETERMINATE",
+    "non_pass_conditions": [
+      "END_MARKER_PRESENT",
+      "RUNTIME_IDENTITY_CONTINUITY"
+    ]
+  },
+  "03_sampling_gap.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "SAMPLE_CONTINUITY"
+    ]
+  },
+  "04_false_open_during_closure.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "CLOSURE_CLASSIFICATION"
+    ]
+  },
+  "05_tick_refreshed_during_closure.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "NO_FABRICATED_FRESHNESS"
+    ]
+  },
+  "06_candle_fabricated_during_closure.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "NO_FABRICATED_FRESHNESS"
+    ]
+  },
+  "07_incident_during_closure.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "NO_INACTIVITY_INCIDENT_DURING_CLOSURE"
+    ]
+  },
+  "08_reconnect_during_closure.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "NO_CLOSURE_DRIVEN_RECONNECT"
+    ]
+  },
+  "09_rest_masks_stream.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "REST_QUOTE_VS_STREAM_SEPARATION"
+    ]
+  },
+  "10_false_green_during_grace.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "GENUINE_RESUMED_FLOW_OR_ESCALATION",
+      "NO_FALSE_GREEN_DURING_GRACE"
+    ]
+  },
+  "11_resume_within_grace.log": {
+    "overall": "PASS",
+    "non_pass_conditions": []
+  },
+  "12_pathb_escalation_after_grace.log": {
+    "overall": "PASS",
+    "non_pass_conditions": []
+  },
+  "13_no_escalation_silent_stall.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "GENUINE_RESUMED_FLOW_OR_ESCALATION"
+    ]
+  },
+  "14_runtime_identity_change.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "RUNTIME_IDENTITY_CONTINUITY"
+    ]
+  },
+  "15_wtico_guessed_closed.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "WTICO_FAIL_LOUD"
+    ]
+  },
+  "16_spx500_guessed_closed.log": {
+    "overall": "FAIL",
+    "non_pass_conditions": [
+      "SPX500_FAIL_LOUD"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "start": {
+    "container_id": "sha256:aaaa",
+    "image_sha": "img:1"
+  },
+  "end": {
+    "container_id": "sha256:aaaa",
+    "image_sha": "img:1"
+  }
+}
