@@ -23,6 +23,9 @@ from zoneinfo import ZoneInfo
 
 UTC = datetime.timezone.utc
 DECISION_VERSION = "1"
+# WO-...-WTICO-CORRECTION: governed config versions this loader accepts. An unsupported version resolves to None
+# (fail loud = behave as open, normal detection) and is flagged as an error by the completeness validator. Never suppress.
+SUPPORTED_CONFIG_VERSIONS = frozenset({"2", "3"})
 
 # --------------------------------------------------------------------------- instrument market-hours health states (§ArchPrinciple)
 MARKET_OPEN_FLOWING = "MARKET_OPEN_FLOWING"                     # open + data fresh
@@ -71,16 +74,32 @@ def _parse_hhmm(s: str) -> datetime.time:
 
 
 def load_schedule(cfg: Mapping, instrument: str) -> Optional[InstrumentSchedule]:
-    """Build an InstrumentSchedule from the governed config mapping. Returns None if the instrument is unknown (caller
-    fails closed). Raises ScheduleError on a malformed/timezone-invalid entry (caller fails closed)."""
+    """Resolve an instrument to a governed InstrumentSchedule. HARDENED (readiness WO): NO silent _default_fx. Resolution:
+      1. instrument listed in `fail_closed_unvalidated` -> None (fail loud: behave as open, normal detection).
+      2. v2: `instrument_map`[instrument] -> `named_schedules`[name]. UNMAPPED instrument -> None (fail loud).
+      3. v1 back-compat: explicit `instruments`[instrument] ONLY (still NO _default_fx). Unknown -> None.
+    Returns None when the instrument has no governed schedule (caller treats as open = conservative). Raises ScheduleError
+    on a malformed/timezone-invalid entry (caller fails closed = open)."""
     try:
-        tzname = cfg["market_timezone"]
-        tz = ZoneInfo(tzname)
-        insts = cfg["instruments"]
-        entry = insts.get(instrument) or insts.get("_default_fx")
-        if entry is None:
-            return None
+        if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+            return None                                    # unsupported config version -> fail loud (conservative, never suppress)
+        tz = ZoneInfo(cfg["market_timezone"])
         grace = int(cfg.get("reopening_grace_seconds", 300))
+        if instrument in cfg.get("fail_closed_unvalidated", {}):
+            return None                                    # explicitly unvalidated -> fail loud (never suppress)
+        entry = None
+        imap, named = cfg.get("instrument_map"), cfg.get("named_schedules")
+        if imap is not None and named is not None:
+            sched_name = imap.get(instrument)
+            if sched_name is None:
+                return None                                # UNMAPPED configured/unknown instrument -> fail loud
+            entry = named.get(sched_name)
+            if entry is None:
+                raise ScheduleError(f"instrument_map points {instrument!r} at missing named schedule {sched_name!r}")
+        else:
+            entry = cfg.get("instruments", {}).get(instrument)   # v1 back-compat, explicit only (no _default_fx)
+            if entry is None:
+                return None
         breaks = tuple((_parse_hhmm(b["local_start"]), _parse_hhmm(b["local_end"])) for b in entry.get("daily_breaks", []))
         return InstrumentSchedule(
             instrument=instrument, tz=tz,
@@ -91,6 +110,47 @@ def load_schedule(cfg: Mapping, instrument: str) -> Optional[InstrumentSchedule]
         raise
     except Exception as exc:  # noqa: BLE001
         raise ScheduleError(f"malformed market-hours schedule for {instrument!r}: {exc!r}")
+
+
+def validate_config_completeness(cfg: Mapping, configured_instruments: Sequence[str]) -> Tuple[bool, dict]:
+    """Deterministic startup/readiness validator (§7). Pure: no I/O, no secrets, no live query. Proves every configured
+    instrument resolves to exactly one schedule OR is explicitly fail-closed-unvalidated (which resolves to None ->
+    fail loud, never suppresses). Returns (ok, report). ok=False if any instrument is silently ungoverned, a named
+    schedule is missing, a timezone/grace is invalid, or an alias would double-resolve."""
+    report = {"resolved": {}, "fail_closed": [], "unmapped": [], "errors": [], "config_version": cfg.get("config_version"),
+              "provenance": cfg.get("provenance"), "holiday_support": cfg.get("holiday_support")}
+    if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+        report["errors"].append(f"unsupported config_version {cfg.get('config_version')!r} (supported: {sorted(SUPPORTED_CONFIG_VERSIONS)})")
+    try:
+        ZoneInfo(cfg["market_timezone"])
+    except Exception as exc:  # noqa: BLE001
+        report["errors"].append(f"invalid market_timezone: {exc!r}")
+    g = cfg.get("reopening_grace_seconds", 300)
+    if not isinstance(g, int) or isinstance(g, bool) or not (0 < g <= 86400):
+        report["errors"].append("reopening_grace_seconds must be a bounded positive int (<=86400)")
+    fcu = cfg.get("fail_closed_unvalidated", {})
+    seen = set()
+    for inst in configured_instruments:
+        if inst in seen:
+            report["errors"].append(f"duplicate configured instrument {inst!r} (double-voting risk)")
+        seen.add(inst)
+        if inst in fcu:
+            report["fail_closed"].append(inst)
+            continue
+        try:
+            sched = load_schedule(cfg, inst)
+        except ScheduleError as e:
+            report["errors"].append(f"{inst}: {e}")
+            continue
+        if sched is None:
+            report["unmapped"].append(inst)     # ungoverned -> fail loud (acceptable ONLY if intentional)
+        else:
+            report["resolved"][inst] = f"open_wd{sched.open_weekday}@{sched.open_local} close_wd{sched.close_weekday}@{sched.close_local} breaks={len(sched.daily_breaks)}"
+    # completeness: every configured instrument must be resolved OR explicitly fail-closed. An UNMAPPED instrument is a
+    # governance gap (it fails loud so it cannot suppress, but the operator must have declared it) -> not OK.
+    ok = not report["errors"] and not report["unmapped"]
+    report["ok"] = ok
+    return ok, report
 
 
 # --------------------------------------------------------------------------- phase classification (DST-aware, UTC in/out)

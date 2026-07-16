@@ -1,0 +1,11 @@
+VERDICT: GREEN_HERMES_PR102_REAL_INVENTORY_WTICO_CORRECTED_PR_UPDATED
+WO: WO-HELM-HERMES-PR102-REAL-INVENTORY-WTICO-CORRECTION-0001
+B-1 inventory reconciled: real 14 (WTICO_USD actual; ICO_USD phantom regex-misread) — DONE
+B-2 WTICO governed: Outcome B explicit fail-closed (no OANDA CFD evidence; NYMEX NOT substituted) — DONE
+B-3 phantom ICO removed from all governance (kept only as provenance correction note + phantom-removal tests) — DONE
+B-4 completeness re-run: ok=True 12 resolved / 2 fail_closed [SPX500_USD,WTICO_USD] / 0 unmapped / 0 errors / cfg v3 — DONE
+config_version gating added (supported {2,3}; unsupported -> None fail-loud + completeness error) — DONE
+tests 45 pass; full suite BASE 13122cf4 1489 -> HEAD 1509 (+20); 51 async + 4 errors unchanged — DONE
+PR #102 updated in place (prior head c1c5dd4 -> corrected head f45a01c9a058ce843d2aeb14ed3af34f04efa9e7); NOT a competing PR; NOT merged — DONE
+supersession record written; prior evidence bundle left intact (history not rewritten) — DONE
+runtime non-mutation proven; correction file ABSENT from container (dark); no r2d2:* touched — DONE

@@ -1,0 +1,2 @@
+VALIDATOR vs REAL inventory:
+  ok=True total=14 resolved=12 fail_closed=['SPX500_USD', 'WTICO_USD'] unmapped=[] errors=[] config_version=3

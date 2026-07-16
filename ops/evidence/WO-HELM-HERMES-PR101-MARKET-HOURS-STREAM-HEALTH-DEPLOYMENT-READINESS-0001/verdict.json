@@ -1,0 +1,13 @@
+{"wo":"WO-HELM-HERMES-PR101-MARKET-HOURS-STREAM-HEALTH-DEPLOYMENT-READINESS-0001",
+ "verdict":"GREEN_HERMES_PR101_DEPLOYMENT_READINESS_HARDENING_PR_OPEN","utc":"2026-07-16T09:00:39Z",
+ "base_sha":"13122cf4a6df6c32d7aa522c861929ba9c530573","head_sha":"c510ad9e1517bf0eb54ef9f8e0148582e4aace75","pr":102,"pr_url":"https://github.com/maff0000/hermes/pull/102",
+ "correction_required":true,
+ "hardening":"config v2 explicit instrument_map (no silent _default_fx); unmapped/unknown -> None -> fail loud; SPX500_USD+ICO_USD fail_closed_unvalidated; validate_config_completeness()",
+ "spx500_ruling":"SCHEDULE_AMBIGUOUS_FAIL_CLOSED (OANDA CFD hours not validated; not marked closed by cash-market)",
+ "unknown_doctrine":"explicit map or explicit fail-closed; unknown -> None -> fail loud (behave as open); closes ICO crypto-weekend suppression hazard",
+ "completeness":"real 14: ok, 12 resolved, 2 fail_closed, 0 unmapped, 0 errors",
+ "deployment_mode":"Mode C live guarded activation (recommended); startup completeness validator gate",
+ "wired_after_deploy":"LIVE: is_market_open/is_truth_expected/loader/fallback. LIBRARY-ONLY: 5-state/quorum/gap/validator",
+ "tests":"41 pass (25+16); BASE 1489 -> HEAD 1505 (+16); zero regression",
+ "runtime_nonmutation":"deploy f69df68 unchanged; container fa90360969f7 not recreated; schedule absent from container; dev-only",
+ "next_gate":"independent R2D2 exact-head code + contract audit of PR #102"}

@@ -1,0 +1,3 @@
+TESTS: 45 pass (health + readiness); 
+45 passed in 0.04s
+FULL SUITE: BASE 13122cf4 1489 -> HEAD 1509 (+20 readiness); 51 async + 4 collection errors unchanged; zero regression.

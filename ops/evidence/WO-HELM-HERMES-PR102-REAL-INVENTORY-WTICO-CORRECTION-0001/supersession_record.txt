@@ -1,0 +1,14 @@
+CORRECTION / SUPERSESSION (does NOT rewrite prior evidence):
+- PRIOR ERROR: HELM claimed configured instrument "ICO_USD" — a PHANTOM. It arose from a regex misread ([A-Z]{3}_[A-Z]{3}
+  matched the "ICO_USD" substring of "WTICO_USD"). ICO_USD is NOT configured, streamed or governed in HERMES.
+- REAL configured instrument: WTICO_USD (OANDA WTI-crude CFD), corroborated by pre-existing tests (test_tick_gap_ledger.py,
+  test_tick_live_emitter_v1.py) and the authoritative container INSTRUMENTS env + .env.
+- AUTHORITATIVE INVENTORY (14): XAU_USD,XAG_USD,XPT_USD,XCU_USD,GBP_USD,EUR_USD,USD_JPY,AUD_USD,NZD_USD,USD_CAD,USD_CHF,EUR_GBP,WTICO_USD,SPX500_USD
+- prior PR head (AMBER): c1c5dd49d9ee7fa551c36a91a9dbff178457f56a
+- corrected PR head: f45a01c9a058ce843d2aeb14ed3af34f04efa9e7  (base 13122cf4a6df6c32d7aa522c861929ba9c530573)
+- This record SUPERSEDES the config_version-2 readiness claim (WO-...-DEPLOYMENT-READINESS-0001). The earlier PR#102 evidence
+  bundle is left intact as an immutable historical record; this bundle is the current truth.
+- WTICO disposition: Outcome B — explicit fail-closed/unvalidated (no OANDA CFD session evidence; NYMEX/WTI exchange hours NOT
+  used as a substitute). Normal stale detection stays active; genuine faults eligible.
+- SPX500 disposition: unchanged — explicit fail-closed/unvalidated.
+- ICO disposition: removed from all governance; retained only in the config provenance correction note + phantom-removal tests.
