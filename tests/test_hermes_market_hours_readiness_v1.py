@@ -91,6 +91,18 @@ def test_unsupported_config_version_fails_closed():
     assert not ok and any("config_version" in e for e in rep["errors"])
 
 
+def test_config_v2_retired_fails_loud():
+    # WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001: v2 is retired. A v2 config must now be REJECTED
+    # (fail loud = None, never suppress) exactly like any other unsupported version -> no silent acceptance of a stale,
+    # superseded (phantom-inventory) config. Supported set is {"3"} only.
+    import json as _j
+    assert "2" not in M.SUPPORTED_CONFIG_VERSIONS and M.SUPPORTED_CONFIG_VERSIONS == frozenset({"3"})
+    v2 = _j.loads(_j.dumps(CFG)); v2["config_version"] = "2"
+    assert M.load_schedule(v2, "XAU_USD") is None            # retired version -> fail loud (None), no _default_fx path
+    ok, rep = M.validate_config_completeness(v2, ["XAU_USD"])
+    assert not ok and any("config_version" in e for e in rep["errors"])
+
+
 # --------------------------------------------------------------------------- config completeness validator
 def test_config_completeness_all_configured_resolve_or_failclosed():
     ok, rep = M.validate_config_completeness(CFG, CONFIGURED)

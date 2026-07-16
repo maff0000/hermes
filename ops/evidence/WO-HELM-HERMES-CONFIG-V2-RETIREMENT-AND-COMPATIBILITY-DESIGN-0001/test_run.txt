@@ -1,0 +1,5 @@
+# Market-hours test run after v2 retirement (generated 2026-07-16T14:59:55Z UTC)
+# cmd: python3 -m pytest tests/test_hermes_market_hours_health_v1.py tests/test_hermes_market_hours_readiness_v1.py -q
+
+..............................................                           [100%]
+46 passed in 0.04s
