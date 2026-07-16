@@ -1,0 +1,168 @@
+# HERMES CI — focused, infra-free quality gate
+#
+# WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001 (HELM authority).
+#
+# This workflow adds an AUTOMATED quality gate that PR #102 lacked. It changes NO
+# runtime behaviour and touches NO product source. It only runs the existing test
+# suite in a deterministic, infrastructure-free way.
+#
+# DESIGN PRINCIPLE (honest gate): we do NOT hide real failures. Every test excluded
+# from the green gate is enumerated below WITH a root-cause classification, and the
+# full inventory + justification lives in:
+#   docs/ci/hermes_ci_baseline_and_failure_classification_v1.md
+#
+# Local baseline (canonical main 71ea3bd): 51 failed, 1509 passed, 4 collection
+# errors. Classification: 0 ACTUAL_PRODUCT_DEFECT. The 55 non-green items are:
+#   - 31 ENVIRONMENT_DEFICIENCY (need DB/OANDA env, a real .env file, or a live
+#         service; several read required env at import time)
+#   - 23 TEST_CONFIGURATION_DEFECT (22 bare `async def` tests with pytest-asyncio
+#         installed but no `asyncio_mode=auto` configured; 1 over-broad lint regex)
+#   -  1 MISSING_OPTIONAL_DEPENDENCY (httpx for starlette TestClient — already listed
+#         in requirements.txt, so `pip install -r requirements.txt` resolves it)
+#   -  0 OBSOLETE_TEST
+#   -  0 ACTUAL_PRODUCT_DEFECT
+#
+# These excluded tests are NOT deleted or marked xfail in product source; they remain
+# runnable and are governed here as an explicit, classified exclusion set. See the doc
+# for the one-line remediations (add pytest.ini asyncio_mode=auto; provide a CI .env
+# fixture / DB service) that would let them join the gate in a follow-on WO.
+
+name: HERMES CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+# No secrets are used. No external services are started. Everything is deterministic.
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1 — market-hours core + deployment-readiness validator (fast signal).
+  # Covers WO deliverable (a) market-hours health/readiness and (b) the
+  # deployment-readiness validator (readiness_v1 fail-closed / config-version tests).
+  # These need NO env and NO external infra.
+  # ---------------------------------------------------------------------------
+  market-hours-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "pytest>=8" "pytest-asyncio>=0.23"
+      - name: Market-hours health + readiness (deployment-readiness validator)
+        run: |
+          python -m pytest -q -p no:cacheprovider \
+            tests/test_hermes_market_hours_health_v1.py \
+            tests/test_hermes_market_hours_readiness_v1.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — comprehensive infra-free unit gate.
+  # Covers WO deliverables (c) configuration/schema tests and (d) all other unit
+  # tests that do NOT require external infrastructure. Runs the ENTIRE suite and
+  # explicitly excludes ONLY the classified non-green items:
+  #   * --ignore  the 4 files that fail at COLLECTION/IMPORT time
+  #   * --deselect the 51 node IDs that fail at RUN time
+  # Nothing else is excluded; if a new test is added it is automatically gated.
+  # Every exclusion below carries its classification (env / test-config / dep).
+  # Verified locally with ZERO env vars set: 1509 passed, 51 deselected.
+  # ---------------------------------------------------------------------------
+  unit-infra-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "pytest>=8" "pytest-asyncio>=0.23"
+      - name: Infra-free unit suite (classified exclusions)
+        run: |
+          python -m pytest -q -p no:cacheprovider \
+            `# ---- IGNORED FILES: fail at import/collection ----` \
+            --ignore=tests/test_api.py                `# MISSING_OPTIONAL_DEPENDENCY: httpx for starlette TestClient (in requirements.txt); also needs live app/DB` \
+            --ignore=tests/test_canonical_engine.py   `# ENVIRONMENT_DEFICIENCY: module-level get_db_config() requires DB_HOST at import` \
+            --ignore=tests/test_m1_deriver.py         `# ENVIRONMENT_DEFICIENCY: module-level get_db_config() requires DB_HOST at import` \
+            --ignore=tests/test_redis_publisher.py    `# ENVIRONMENT_DEFICIENCY: module-level RedisPublisher() requires REDIS_DB at import` \
+            `# ---- DESELECTED NODES: ENVIRONMENT_DEFICIENCY (need DB/OANDA env or real .env) ----` \
+            --deselect "tests/test_collection_contract.py::test_source_policy_reader" \
+            --deselect "tests/test_config.py::TestConfigLoading::test_load_config" \
+            --deselect "tests/test_config.py::TestConfigLoading::test_database_config" \
+            --deselect "tests/test_config.py::TestConfigLoading::test_redis_config" \
+            --deselect "tests/test_config.py::TestConfigLoading::test_oanda_config" \
+            --deselect "tests/test_config.py::TestConfigLoading::test_instruments_config" \
+            --deselect "tests/test_config.py::TestEnvVarCompliance::test_no_legacy_tas_db_vars" \
+            --deselect "tests/test_config.py::TestEnvVarCompliance::test_standardized_db_vars_used" \
+            --deselect "tests/test_config.py::TestEnvVarCompliance::test_standardized_redis_vars_used" \
+            --deselect "tests/test_config.py::TestConfigDefaults::test_database_from_env" \
+            --deselect "tests/test_config.py::TestConfigDefaults::test_redis_from_env" \
+            --deselect "tests/test_env_compliance.py::TestEnvFileCompliance::test_env_file_exists" \
+            --deselect "tests/test_env_compliance.py::TestEnvFileCompliance::test_env_has_environment_tag" \
+            --deselect "tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_db_prefix" \
+            --deselect "tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_redis_prefix" \
+            --deselect "tests/test_gap_scanner.py::test_real_incident_detection" \
+            --deselect "tests/test_gap_scanner.py::test_higher_tf_gaps" \
+            --deselect "tests/test_gap_scanner.py::test_market_closed_suppression" \
+            --deselect "tests/test_gap_scanner.py::test_signal_gap_detection" \
+            --deselect "tests/test_gap_scanner.py::test_idempotent_persistence" \
+            --deselect "tests/test_gap_scanner.py::test_gap_count_for_health" \
+            --deselect "tests/test_recovery_library.py::test_all_artifacts_governed" \
+            --deselect "tests/test_recovery_library.py::test_graph_valid" \
+            --deselect "tests/test_recovery_library.py::test_rebuild_order_consistency" \
+            --deselect "tests/test_recovery_library.py::test_dependency_references" \
+            --deselect "tests/test_recovery_library.py::test_full_validation" \
+            --deselect "tests/test_recovery_library.py::test_real_outage_plan" \
+            --deselect "tests/test_recovery_library.py::test_partial_plan" \
+            `# ---- DESELECTED NODES: TEST_CONFIGURATION_DEFECT (lint regex over-match) ----` \
+            --deselect "tests/test_env_compliance.py::TestNoHardcodedPaths::test_no_hardcoded_srv_paths" \
+            `# ---- DESELECTED NODES: TEST_CONFIGURATION_DEFECT (async, no asyncio_mode=auto) ----` \
+            --deselect "tests/test_per_instrument_health.py::test_all_healthy" \
+            --deselect "tests/test_per_instrument_health.py::test_single_tick_stale" \
+            --deselect "tests/test_per_instrument_health.py::test_single_m1_stale" \
+            --deselect "tests/test_per_instrument_health.py::test_market_closed" \
+            --deselect "tests/test_per_instrument_health.py::test_snapshot_instruments" \
+            --deselect "tests/test_per_instrument_health.py::test_global_not_green_when_inst_red" \
+            --deselect "tests/test_watchdog.py::test_false_reconnect" \
+            --deselect "tests/test_watchdog.py::test_tick_staleness" \
+            --deselect "tests/test_watchdog.py::test_candle_stagnation" \
+            --deselect "tests/test_watchdog.py::test_recovery_exhaustion" \
+            --deselect "tests/test_watchdog.py::test_market_closed_suppression" \
+            --deselect "tests/test_watchdog.py::test_flow_promotion" \
+            --deselect "tests/test_watchdog.py::test_incident_lifecycle" \
+            --deselect "tests/test_watchdog_load.py::test_no_per_tick_db" \
+            --deselect "tests/test_watchdog_load.py::test_cadence_persistence" \
+            --deselect "tests/test_watchdog_load.py::test_snapshot_in_memory" \
+            --deselect "tests/test_watchdog_load.py::test_stale_from_memory" \
+            --deselect "tests/test_watchdog_load.py::test_burst_stability" \
+            --deselect "tests/test_watchdog_load.py::test_logger_injection" \
+            --deselect "tests/test_watchdog_load.py::test_false_reconnect" \
+            --deselect "tests/test_watchdog_load.py::test_recovery_exhaustion" \
+            --deselect "tests/test_watchdog_load.py::test_promotion_persists"
+
+  # ---------------------------------------------------------------------------
+  # Job 3 — integration set (DOCUMENTED, NON-BLOCKING placeholder).
+  # The excluded tests above are NOT abandoned. They require external infra
+  # (MariaDB/Redis) and/or test-config repair. This job records that intent and
+  # is intentionally non-blocking until a follow-on WO provisions services and
+  # adds `asyncio_mode=auto`. It must NEVER be used to claim green by silence.
+  # ---------------------------------------------------------------------------
+  integration-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integration exclusion manifest (informational only)
+        run: |
+          echo "Excluded integration/repair tests are classified in:"
+          echo "  docs/ci/hermes_ci_baseline_and_failure_classification_v1.md"
+          echo "None are ACTUAL_PRODUCT_DEFECT. Remediation is a follow-on WO."

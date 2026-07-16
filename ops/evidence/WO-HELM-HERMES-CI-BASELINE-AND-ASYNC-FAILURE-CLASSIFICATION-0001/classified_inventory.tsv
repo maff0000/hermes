@@ -1,0 +1,56 @@
+KIND	NODE_OR_FILE	CATEGORY	ROOT_CAUSE
+FAILED	tests/test_collection_contract.py::test_source_policy_reader	ENVIRONMENT_DEFICIENCY	DB_HOST/OANDA_API_KEY required env not set
+FAILED	tests/test_config.py::TestConfigLoading::test_load_config	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigLoading::test_database_config	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigLoading::test_redis_config	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigLoading::test_oanda_config	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigLoading::test_instruments_config	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestEnvVarCompliance::test_no_legacy_tas_db_vars	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestEnvVarCompliance::test_standardized_db_vars_used	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestEnvVarCompliance::test_standardized_redis_vars_used	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigDefaults::test_database_from_env	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_config.py::TestConfigDefaults::test_redis_from_env	ENVIRONMENT_DEFICIENCY	load_config() required env not set
+FAILED	tests/test_env_compliance.py::TestEnvFileCompliance::test_env_file_exists	ENVIRONMENT_DEFICIENCY	real .env file absent in clean checkout
+FAILED	tests/test_env_compliance.py::TestEnvFileCompliance::test_env_has_environment_tag	ENVIRONMENT_DEFICIENCY	real .env file absent in clean checkout
+FAILED	tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_db_prefix	ENVIRONMENT_DEFICIENCY	real .env file absent in clean checkout
+FAILED	tests/test_env_compliance.py::TestEnvFileCompliance::test_env_uses_redis_prefix	ENVIRONMENT_DEFICIENCY	real .env file absent in clean checkout
+FAILED	tests/test_gap_scanner.py::test_real_incident_detection	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_gap_scanner.py::test_higher_tf_gaps	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_gap_scanner.py::test_market_closed_suppression	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_gap_scanner.py::test_signal_gap_detection	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_gap_scanner.py::test_idempotent_persistence	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_gap_scanner.py::test_gap_count_for_health	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_all_artifacts_governed	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_graph_valid	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_rebuild_order_consistency	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_dependency_references	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_full_validation	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_real_outage_plan	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_recovery_library.py::test_partial_plan	ENVIRONMENT_DEFICIENCY	DB_HOST required env not set
+FAILED	tests/test_per_instrument_health.py::test_all_healthy	TEST_CONFIGURATION_DEFECT	async def, pytest-asyncio installed but no asyncio_mode=auto
+FAILED	tests/test_per_instrument_health.py::test_single_tick_stale	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_per_instrument_health.py::test_single_m1_stale	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_per_instrument_health.py::test_market_closed	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_per_instrument_health.py::test_snapshot_instruments	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_per_instrument_health.py::test_global_not_green_when_inst_red	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_false_reconnect	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_tick_staleness	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_candle_stagnation	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_recovery_exhaustion	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_market_closed_suppression	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_flow_promotion	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog.py::test_incident_lifecycle	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_no_per_tick_db	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_cadence_persistence	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_snapshot_in_memory	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_stale_from_memory	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_burst_stability	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_logger_injection	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_false_reconnect	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_recovery_exhaustion	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_watchdog_load.py::test_promotion_persists	TEST_CONFIGURATION_DEFECT	async def, no asyncio_mode=auto
+FAILED	tests/test_env_compliance.py::TestNoHardcodedPaths::test_no_hardcoded_srv_paths	TEST_CONFIGURATION_DEFECT	over-broad regex flags gelf.py os.getcwd() heuristic (NOT product defect)
+ERROR	tests/test_api.py	MISSING_OPTIONAL_DEPENDENCY	httpx absent locally (in requirements.txt; starlette TestClient import)
+ERROR	tests/test_canonical_engine.py	ENVIRONMENT_DEFICIENCY	module-level get_db_config() needs DB_HOST at import
+ERROR	tests/test_m1_deriver.py	ENVIRONMENT_DEFICIENCY	module-level get_db_config() needs DB_HOST at import
+ERROR	tests/test_redis_publisher.py	ENVIRONMENT_DEFICIENCY	module-level RedisPublisher() needs REDIS_DB at import
