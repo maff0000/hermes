@@ -1,0 +1,66 @@
+{
+  "config_path": "config/market_hours_schedule.v1.json",
+  "config_sha256": "8cc461feaabbec1923f55e1e31f6f6ff8b0cbd755af41b7ce4068f164e06972c",
+  "config_version": "3",
+  "duplicates": [],
+  "exit_code": 18,
+  "expected_inventory_provided": true,
+  "failures": [
+    {
+      "class": "PHANTOM_SUBSTITUTION",
+      "detail": "phantom substitution: expected 'WTICO_USD' but found 'ICO_USD' (substring of the expected token)"
+    },
+    {
+      "class": "UNMAPPED",
+      "detail": "instrument 'ICO_USD' resolves to no governed schedule and is not declared fail-closed (ungoverned gap)"
+    }
+  ],
+  "intentionally_fail_closed": [
+    "SPX500_USD"
+  ],
+  "invalid": [],
+  "inventory_digest": "361f98050b0df20038fd23a379c407591fec3860c17aecd5b443e831141763d0",
+  "inventory_drift": {
+    "missing": [
+      "WTICO_USD"
+    ],
+    "phantom_substitutions": [
+      {
+        "expected": "WTICO_USD",
+        "substituted_with": "ICO_USD"
+      }
+    ],
+    "unexpected": [
+      "ICO_USD"
+    ]
+  },
+  "inventory_token_count": 14,
+  "scheduled": [
+    "AUD_USD",
+    "EUR_GBP",
+    "EUR_USD",
+    "GBP_USD",
+    "NZD_USD",
+    "USD_CAD",
+    "USD_CHF",
+    "USD_JPY",
+    "XAG_USD",
+    "XAU_USD",
+    "XCU_USD",
+    "XPT_USD"
+  ],
+  "source_sha": "71ea3bd4598d8af5628f78de10f8022088ad3f05",
+  "supported_config_versions": [
+    "2",
+    "3"
+  ],
+  "tool": "hermes_predeploy_gate_v1",
+  "tool_version": "1",
+  "unmapped": [
+    "ICO_USD"
+  ],
+  "utc_execution_timestamp": "2026-07-16T15:00:49Z",
+  "validator_ok": false,
+  "validator_version": "1",
+  "verdict": "FAIL"
+}

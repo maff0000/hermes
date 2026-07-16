@@ -1,0 +1,25 @@
+usage: hermes_predeploy_gate_v1 [-h]
+                                [--inventory INVENTORY | --inventory-file INVENTORY_FILE]
+                                [--config CONFIG]
+                                [--expected-inventory EXPECTED_INVENTORY]
+                                [--expected-inventory-file EXPECTED_INVENTORY_FILE]
+
+HERMES INERT pre-deployment market-hours config/inventory validation gate.
+Exit 0 = clean pass; distinct non-zero code per failure class. UTC only. Not
+runtime-wired.
+
+options:
+  -h, --help            show this help message and exit
+  --inventory INVENTORY
+                        configured inventory as a comma/newline-separated
+                        string (atomic tokens)
+  --inventory-file INVENTORY_FILE
+                        path to a file with the configured inventory (one
+                        instrument per line, or comma-separated)
+  --config CONFIG       path to the governed market-hours config (default:
+                        repo config/market_hours_schedule.v1.json)
+  --expected-inventory EXPECTED_INVENTORY
+                        optional expected inventory string for drift detection
+  --expected-inventory-file EXPECTED_INVENTORY_FILE
+                        optional path to an expected-inventory file for drift
+                        detection

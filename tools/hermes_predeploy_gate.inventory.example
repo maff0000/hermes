@@ -1,0 +1,18 @@
+# HERMES configured instrument inventory — EXAMPLE (non-secret).
+# One instrument per line. Blank lines and lines starting with '#' are ignored (comment convention).
+# Tokens are atomic: no substring extraction; contaminated/lowercase tokens fail the gate.
+# This example is the real 14-instrument HERMES inventory (12 scheduled + SPX500_USD & WTICO_USD fail-closed).
+XAU_USD
+XAG_USD
+XPT_USD
+XCU_USD
+GBP_USD
+EUR_USD
+USD_JPY
+AUD_USD
+NZD_USD
+USD_CAD
+USD_CHF
+EUR_GBP
+WTICO_USD
+SPX500_USD
