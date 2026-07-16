@@ -1,0 +1,3 @@
+RUNTIME NON-MUTATION (read-only) 2026-07-16T07:25:05Z:
+  deploy: f69df68daca9 (f69df68, unchanged) container: fa90360969f7 restarts: 0 health: healthy
+  dev-only WO: no image build, no container recreate, no config install, no Redis/SQL write, live market-hours behaviour unchanged.

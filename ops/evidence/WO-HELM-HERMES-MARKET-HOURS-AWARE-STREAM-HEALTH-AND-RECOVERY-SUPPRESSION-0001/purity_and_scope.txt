@@ -1,0 +1,3 @@
+STATIC PURITY (decision core): imports = 
+['__future__', 'dataclasses', 'datetime', 'typing', 'zoneinfo']
+no secrets in config: 1 literal-secret hits

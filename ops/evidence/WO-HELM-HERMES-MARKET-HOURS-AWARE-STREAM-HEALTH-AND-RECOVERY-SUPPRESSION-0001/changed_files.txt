@@ -1,0 +1,8 @@
+ebda47b [WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-AND-RECOVERY-SUPPRESSION-0001] DST-aware market-hours health & recovery suppression
+ config/market_hours_schedule.v1.json        |  29 +++
+ docs/design/market_hours_health/design.md   |  47 ++++
+ main.py                                     |  21 +-
+ tests/test_hermes_market_hours_health_v1.py | 235 ++++++++++++++++++
+ utils/hermes_market_hours_health_v1.py      | 353 ++++++++++++++++++++++++++++
+ utils/watchdog.py                           |  23 +-
+ 6 files changed, 700 insertions(+), 8 deletions(-)

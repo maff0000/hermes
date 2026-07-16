@@ -253,11 +253,16 @@ class HermesWatchdog:
     """
 
     def __init__(self, service_state, persistence: HealthPersistence,
-                 config: dict, market_hours_checker, logger=None):
+                 config: dict, market_hours_checker, logger=None, market_truth_checker=None):
         self._state = service_state
         self._persist = persistence
         self._config = config
         self._is_market_open = market_hours_checker
+        # WO-HELM-HERMES-MARKET-HOURS-AWARE-STREAM-HEALTH-...-0001: optional governed DST-aware per-instrument truth checker
+        # (utils.hermes_market_hours_health_v1.DstAwareMarketHours). When None, the legacy SQL MarketHoursPolicy is used
+        # (zero behaviour change). When injected, it supersedes the fixed-UTC per-instrument schedule so a scheduled
+        # market-closed instrument (e.g. the XAU_USD daily NY rollover break, DST-correct) is not treated as a stale fault.
+        self._market_truth_checker = market_truth_checker
         self._logger = logger
 
         # ---- Per-instrument in-memory state (WO-0010) ----
@@ -531,12 +536,16 @@ class HermesWatchdog:
         """WO-0010: Evaluate per-instrument health from in-memory state."""
         now = datetime.now(timezone.utc)
 
-        # Check market hours for each tracked instrument
-        try:
-            from utils.market_hours_policy import MarketHoursPolicy
-            mh_policy = MarketHoursPolicy(self._persist._db_config)
-        except Exception:
-            mh_policy = None
+        # Check market hours for each tracked instrument.
+        # WO-...-MARKET-HOURS-...-0001: prefer the injected governed DST-aware truth checker (per-instrument, NY-tz,
+        # daily-break aware). Fall back to the legacy fixed-UTC SQL MarketHoursPolicy only when it is not injected.
+        mh_policy = self._market_truth_checker
+        if mh_policy is None:
+            try:
+                from utils.market_hours_policy import MarketHoursPolicy
+                mh_policy = MarketHoursPolicy(self._persist._db_config)
+            except Exception:
+                mh_policy = None
 
         degraded_count = 0
         red_count = 0
