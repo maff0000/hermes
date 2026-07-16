@@ -13,8 +13,8 @@ UTC = dt.timezone.utc
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CFG = json.loads((ROOT / "config/market_hours_schedule.v1.json").read_text())
 # actual configured HERMES inventory (from .env INSTRUMENTS, observed 2026-07-16)
-CONFIGURED = ["AUD_USD", "EUR_GBP", "EUR_USD", "GBP_USD", "ICO_USD", "NZD_USD", "SPX500_USD",
-              "USD_CAD", "USD_CHF", "USD_JPY", "XAG_USD", "XAU_USD", "XCU_USD", "XPT_USD"]
+CONFIGURED = ["AUD_USD", "EUR_GBP", "EUR_USD", "GBP_USD", "NZD_USD", "SPX500_USD",
+              "USD_CAD", "USD_CHF", "USD_JPY", "XAG_USD", "XAU_USD", "XCU_USD", "XPT_USD", "WTICO_USD"]
 
 
 def ih(inst, now, tick, candle):
@@ -29,9 +29,11 @@ def test_truly_unknown_instrument_resolves_none_no_default():
 
 
 def test_unknown_instrument_never_suppresses_weekend_staleness():
-    # crypto-like/unknown on a Saturday: fail-closed -> classify open -> stale incident eligible (NOT suppressed)
+    # a SYNTHETIC unknown instrument (crypto-like ~24/7) on a Saturday: no schedule -> fail-closed -> classify open ->
+    # stale incident eligible (NOT suppressed). Proves no generic fallback can re-introduce the weekend-suppression hazard.
     sat = dt.datetime(2026, 7, 18, 12, 0, tzinfo=UTC)
-    d = ih("ICO_USD", sat, sat - dt.timedelta(hours=1), sat - dt.timedelta(hours=1))
+    d = ih("UNKNOWN_TEST_INSTRUMENT", sat, sat - dt.timedelta(hours=1), sat - dt.timedelta(hours=1))
+    assert M.load_schedule(CFG, "UNKNOWN_TEST_INSTRUMENT") is None
     assert d.fail_closed and d.incident_eligible and d.recovery_eligible
 
 
@@ -57,16 +59,44 @@ def test_spx500_fail_closed_pending_validation():
     assert d.fail_closed and d.state in (M.MARKET_OPEN_FLOWING, M.MARKET_OPEN_STALE)  # not CLOSED_EXPECTED
 
 
-def test_ico_fail_closed():
-    assert M.load_schedule(CFG, "ICO_USD") is None and "ICO_USD" in CFG["fail_closed_unvalidated"]
+def test_wtico_fail_closed():
+    # WTICO_USD (WTI crude CFD): fail-closed pending OANDA evidence; NOT silently unmapped; NOT guessed via NYMEX hours
+    assert M.load_schedule(CFG, "WTICO_USD") is None and "WTICO_USD" in CFG["fail_closed_unvalidated"]
+    ok, rep = M.validate_config_completeness(CFG, CONFIGURED)
+    assert "WTICO_USD" in rep["fail_closed"] and "WTICO_USD" not in rep["unmapped"]
+
+
+def test_no_phantom_ico_in_config():
+    assert "ICO_USD" not in CFG.get("instrument_map", {}) and "ICO_USD" not in CFG.get("fail_closed_unvalidated", {})
+    assert "ICO_USD" not in CONFIGURED   # phantom removed from the real inventory
+
+
+def test_ico_not_required_for_success():
+    ok, rep = M.validate_config_completeness(CFG, CONFIGURED)  # CONFIGURED has WTICO not ICO
+    assert ok and "ICO_USD" not in rep["resolved"] and "ICO_USD" not in rep["fail_closed"]
+
+
+def test_inventory_substitution_wtico_to_ico_differs():
+    # substituting the phantom ICO_USD for the real WTICO_USD yields a DIFFERENT (failing) result: ICO is unmapped
+    sub = [i for i in CONFIGURED if i != "WTICO_USD"] + ["ICO_USD"]
+    ok, rep = M.validate_config_completeness(CFG, sub)
+    assert not ok and "ICO_USD" in rep["unmapped"]
+
+
+def test_unsupported_config_version_fails_closed():
+    import json as _j
+    bad = _j.loads(_j.dumps(CFG)); bad["config_version"] = "999"
+    assert M.load_schedule(bad, "XAU_USD") is None            # unsupported version -> fail loud (None)
+    ok, rep = M.validate_config_completeness(bad, ["XAU_USD"])
+    assert not ok and any("config_version" in e for e in rep["errors"])
 
 
 # --------------------------------------------------------------------------- config completeness validator
 def test_config_completeness_all_configured_resolve_or_failclosed():
     ok, rep = M.validate_config_completeness(CFG, CONFIGURED)
     assert ok, rep
-    assert len(rep["resolved"]) == 12 and set(rep["fail_closed"]) == {"SPX500_USD", "ICO_USD"} and rep["unmapped"] == []
-    assert rep["errors"] == [] and rep["config_version"] == "2" and rep["holiday_support"] is False
+    assert len(rep["resolved"]) == 12 and set(rep["fail_closed"]) == {"SPX500_USD", "WTICO_USD"} and rep["unmapped"] == []
+    assert rep["errors"] == [] and rep["config_version"] == "3" and rep["holiday_support"] is False
 
 
 def test_completeness_rejects_ungoverned_configured_instrument():
@@ -122,6 +152,6 @@ def test_adapter_unknown_instrument_truth_expected_open():
 
 def test_schedule_file_is_packaged_at_expected_path():
     p = ROOT / "config" / "market_hours_schedule.v1.json"
-    assert p.is_file() and json.loads(p.read_text())["config_version"] == "2"
+    assert p.is_file() and json.loads(p.read_text())["config_version"] == "3"
     import re
     assert not re.search(r"(password|secret|api[_-]?key|token)\s*[:=]\s*[\"\047]?[A-Za-z0-9]{6}", p.read_text(), re.I)

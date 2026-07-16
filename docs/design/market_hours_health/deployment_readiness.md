@@ -4,8 +4,8 @@ WO-HELM-HERMES-PR101-MARKET-HOURS-STREAM-HEALTH-DEPLOYMENT-READINESS-0001 · bas
 
 ## Configured instrument inventory (observed 2026-07-16, .env INSTRUMENTS — 14)
 FX(8): AUD_USD, EUR_GBP, EUR_USD, GBP_USD, NZD_USD, USD_CAD, USD_CHF, USD_JPY · METALS(4): XAU_USD, XAG_USD, XPT_USD, XCU_USD
-· SPX500_USD · ICO_USD. Only **XAU_USD** streams live (sole candle/catalog/gaps). DB `hermes_market_hours`: FX (no break),
-metals (break 21:00-22:00 UTC = 17:00-18:00 EDT, DST-blind fixed-UTC); **SPX500_USD + ICO_USD have NO row (NO_POLICY)**.
+· SPX500_USD · WTICO_USD. Only **XAU_USD** streams live (sole candle/catalog/gaps). DB `hermes_market_hours`: FX (no break),
+metals (break 21:00-22:00 UTC = 17:00-18:00 EDT, DST-blind fixed-UTC); **SPX500_USD + WTICO_USD have NO row (NO_POLICY)**.
 
 ## Schedule mapping per instrument (hardened config v2)
 | Instrument(s) | Resolution |
@@ -13,7 +13,7 @@ metals (break 21:00-22:00 UTC = 17:00-18:00 EDT, DST-blind fixed-UTC); **SPX500_
 | XAU/XAG/XPT/XCU_USD | `metals` (Sun18:00→Fri17:00 ET, daily break 17:00-18:00 ET, DST-aware) |
 | 8 FX pairs | `fx` (Sun17:00→Fri17:00 ET, no daily break) |
 | **SPX500_USD** | `fail_closed_unvalidated` → None → **fail loud (open)** |
-| **ICO_USD** | `fail_closed_unvalidated` → None → **fail loud (open)** |
+| **WTICO_USD** | `fail_closed_unvalidated` → None → **fail loud (open)** |
 | any other (unknown) | unmapped → None → **fail loud (open)** — NO silent `_default_fx` |
 
 ## OANDA evidence hierarchy (used)
@@ -31,8 +31,7 @@ Requires OANDA session evidence before a schedule is added.
 ## Unknown-instrument doctrine (§6)
 Hardened: NO silent `_default_fx`. Every configured instrument must resolve via explicit `instrument_map`→`named_schedules`
 or be explicitly `fail_closed_unvalidated`. Unmapped/unknown → `load_schedule` returns None → caller behaves as OPEN
-(fail loud, normal detection). This closes the ICO_USD hazard (crypto ~24/7 must not inherit an FX weekend and suppress
-genuine weekend staleness). Reason codes: `MARKET_HOURS_UNKNOWN_FAILCLOSED`, `MARKET_HOURS_MALFORMED_FAILCLOSED`.
+(fail loud, normal detection). This closes the generic-fallback hazard: an unknown/24-7-class instrument must not inherit an FX weekend and suppress genuine weekend staleness (WTICO_USD is the real WTI-crude CFD; the earlier ICO_USD was a regex misread of WTICO_USD). Reason codes: `MARKET_HOURS_UNKNOWN_FAILCLOSED`, `MARKET_HOURS_MALFORMED_FAILCLOSED`.
 
 ## Configuration-completeness validator (§7)
 `validate_config_completeness(cfg, configured_instruments)` (pure, no I/O/secrets): every configured instrument resolves

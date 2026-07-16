@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
-  "config_version": "2",
-  "provenance": "WO-HELM-HERMES-PR101-MARKET-HOURS-STREAM-HEALTH-DEPLOYMENT-READINESS-0001 (hardened: explicit per-instrument map, no silent _default_fx, SPX500/ICO fail-closed pending OANDA validation)",
+  "config_version": "3",
+  "provenance": "WO-HELM-HERMES-PR102-REAL-INVENTORY-WTICO-CORRECTION-0001 (real runtime inventory: WTICO_USD is the actual configured instrument; the earlier ICO_USD was a HELM regex misread of WTICO_USD and is removed; WTICO_USD + SPX500_USD explicitly fail-closed pending OANDA CFD session evidence). Supersedes config_version 2.",
   "market_timezone": "America/New_York",
   "note": "Schedules in MARKET timezone, converted to UTC per-date (DST-aware). NY-times reflect when OANDA is EXPECTED TO PRODUCE STREAM DATA, not merely when an underlying exchange is open. Evidence: hermes_market_hours DB (metals daily break 21:00-22:00 UTC = 17:00-18:00 EDT) + observed Incident #1104 (XAU no data 20:59-22:04 UTC on 2026-07-15 EDT). Every configured instrument MUST map explicitly; unmapped/unvalidated -> resolves to None -> FAIL LOUD (behave as open, normal detection). No secrets. Design-only until separately deployed.",
   "reopening_grace_seconds": 300,
@@ -28,6 +28,6 @@
   },
   "fail_closed_unvalidated": {
     "SPX500_USD": "SCHEDULE_AMBIGUOUS_FAIL_CLOSED — OANDA index CFD hours (esp. around 16:00-17:00 ET) NOT empirically validated here (no DB row, not streamed in this deployment); must NOT be marked closed merely because the US cash market closes. Resolves to None -> fail loud until OANDA session evidence is obtained.",
-    "ICO_USD": "SCHEDULE_AMBIGUOUS_FAIL_CLOSED — crypto-class instrument likely trading ~24/7; MUST NOT inherit an FX weekend (would suppress genuine weekend staleness). No governed schedule; resolves to None -> fail loud."
+    "WTICO_USD": "SCHEDULE_AMBIGUOUS_FAIL_CLOSED — OANDA WTI-crude CFD (West Texas Intermediate). NO DB market_hours row, not streamed here; OANDA CFD session hours are NOT the NYMEX/WTI exchange hours and are NOT validated. No governed schedule; resolves to None -> fail loud (normal stale detection stays active) until OANDA session evidence is obtained."
   }
 }

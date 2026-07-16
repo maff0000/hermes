@@ -23,6 +23,9 @@ from zoneinfo import ZoneInfo
 
 UTC = datetime.timezone.utc
 DECISION_VERSION = "1"
+# WO-...-WTICO-CORRECTION: governed config versions this loader accepts. An unsupported version resolves to None
+# (fail loud = behave as open, normal detection) and is flagged as an error by the completeness validator. Never suppress.
+SUPPORTED_CONFIG_VERSIONS = frozenset({"2", "3"})
 
 # --------------------------------------------------------------------------- instrument market-hours health states (§ArchPrinciple)
 MARKET_OPEN_FLOWING = "MARKET_OPEN_FLOWING"                     # open + data fresh
@@ -78,6 +81,8 @@ def load_schedule(cfg: Mapping, instrument: str) -> Optional[InstrumentSchedule]
     Returns None when the instrument has no governed schedule (caller treats as open = conservative). Raises ScheduleError
     on a malformed/timezone-invalid entry (caller fails closed = open)."""
     try:
+        if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+            return None                                    # unsupported config version -> fail loud (conservative, never suppress)
         tz = ZoneInfo(cfg["market_timezone"])
         grace = int(cfg.get("reopening_grace_seconds", 300))
         if instrument in cfg.get("fail_closed_unvalidated", {}):
@@ -114,6 +119,8 @@ def validate_config_completeness(cfg: Mapping, configured_instruments: Sequence[
     schedule is missing, a timezone/grace is invalid, or an alias would double-resolve."""
     report = {"resolved": {}, "fail_closed": [], "unmapped": [], "errors": [], "config_version": cfg.get("config_version"),
               "provenance": cfg.get("provenance"), "holiday_support": cfg.get("holiday_support")}
+    if str(cfg.get("config_version")) not in SUPPORTED_CONFIG_VERSIONS:
+        report["errors"].append(f"unsupported config_version {cfg.get('config_version')!r} (supported: {sorted(SUPPORTED_CONFIG_VERSIONS)})")
     try:
         ZoneInfo(cfg["market_timezone"])
     except Exception as exc:  # noqa: BLE001
