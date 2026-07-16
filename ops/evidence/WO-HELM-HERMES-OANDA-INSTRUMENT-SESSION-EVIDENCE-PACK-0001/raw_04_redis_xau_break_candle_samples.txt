@@ -1,0 +1,31 @@
+# XAU_USD M1 candle payloads: (A) backfilled flat candle INSIDE metals break window (REST history filler); (B) last live candle before the 2026-07-15 stream gap.
+## A: 2026-06-01T21:09:00Z (17:09 EDT, inside 17:00-18:00 ET break) — flat, volume=1, zero-range (REST-backfilled filler)
+{
+ "instrument": "XAU_USD",
+ "timeframe": "M1",
+ "timestamp_utc": "2026-06-01T21:09:00.000Z",
+ "open": 4484.725,
+ "high": 4484.725,
+ "low": 4484.725,
+ "close": 4484.725,
+ "volume": 1,
+ "body_high": 4484.725,
+ "body_low": 4484.725,
+ "body_size": 0.0,
+ "range_size": 0.0,
+ "wick_high": 0.0,
+ "wick_low": 0.0,
+ "candle_direction": "FLAT",
+ "is_closed": true,
+ "source_timeframe": "M1",
+ "source_coverage": 1.0,
+ "source_count": 1,
+ "expected_source_count": 1,
+ "gap_state": "NONE",
+ "derivation_policy": "NONE_DIRECT",
+ "source_policy_epoch": "DIRECT_NATIVE_V1",
+ "publisher": "HERMES",
+ "contract_version": "v1"
+}
+## B: 2026-07-15T20:58:00Z last live snapshot before hard stream gap (next snapshot 22:04Z)
+generated_at= 2026-07-15T20:59:02.035Z candle_ts= 2026-07-15T20:58:00.000Z freshness= FRESH
