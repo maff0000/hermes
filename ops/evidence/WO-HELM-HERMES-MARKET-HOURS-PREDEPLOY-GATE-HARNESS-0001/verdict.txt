@@ -1,0 +1,41 @@
+VERDICT: GREEN_HERMES_MARKET_HOURS_PREDEPLOY_GATE_HARNESS_PR_OPEN
+WO: WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001
+Owner: HERMES (Helm)
+UTC: 2026-07-16
+Base: canonical main 71ea3bd4598d8af5628f78de10f8022088ad3f05
+Branch: wo/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001
+Repo: git@github.com:maff0000/hermes.git
+
+STATUS: INERT. Pure new code. NOT wired into main.py / docker-compose.yml / Dockerfile /
+systemd / any startup path. config/market_hours_schedule.v1.json NOT modified. No deploy,
+no container touch, no Redis, no SQL, no network. UTC only. Project-relative paths.
+
+DELIVERABLES:
+  tools/hermes_predeploy_gate_v1.py            (INERT pre-deploy CLI gate; reuses the governed
+                                                pure validate_config_completeness())
+  tools/hermes_predeploy_gate.inventory.example (real 14-instrument inventory, non-secret)
+  tests/test_predeploy_gate_v1.py              (21 assertion-rich tests)
+  docs/tools/hermes_predeploy_gate_v1.md       (usage + exit-code matrix + CI command)
+  ops/ci/hermes_predeploy_gate_check.sh        (documented INERT CI command)
+
+TESTS: python3 -m pytest tests/test_predeploy_gate_v1.py -q  ->  21 passed
+  (Repo-wide async failures/collection errors are pre-existing and unrelated to this WO.)
+
+EXIT-CODE MATRIX (verified):
+  0  clean pass
+  10 invalid/contaminated token (internal whitespace / lowercase / malformed)
+  11 inventory drift vs expected
+  12 duplicate instrument / alias
+  13 unmapped instrument (ungoverned, not fail-closed)
+  14 unsupported config version
+  15 invalid market timezone
+  16 mapping to a missing / malformed schedule
+  17 fail-closed entry that would resolve to a REAL (suppressive) schedule
+  18 phantom-instrument substitution (ICO_USD where WTICO_USD expected)
+  19 other invalid config (e.g. reopening_grace out of bounds)
+  64 usage error (no / both inventory sources)
+  66 config file missing / not JSON
+
+KEY PROOF: WTICO_USD is a single ATOMIC token; the gate never regex-extracts ICO_USD out of
+it (sample_run_pass.json shows WTICO_USD -> intentionally_fail_closed; sample_run_phantom_fail.json
+shows exit 18 when ICO_USD is substituted for WTICO_USD against the expected inventory).

@@ -1,0 +1,47 @@
+{
+  "config_path": "config/market_hours_schedule.v1.json",
+  "config_sha256": "8cc461feaabbec1923f55e1e31f6f6ff8b0cbd755af41b7ce4068f164e06972c",
+  "config_version": "3",
+  "duplicates": [],
+  "exit_code": 0,
+  "expected_inventory_provided": true,
+  "failures": [],
+  "intentionally_fail_closed": [
+    "SPX500_USD",
+    "WTICO_USD"
+  ],
+  "invalid": [],
+  "inventory_digest": "204dd2569396dff03f559583c719478fa9b2dde4e4396a1c533b7472aa89a865",
+  "inventory_drift": {
+    "missing": [],
+    "phantom_substitutions": [],
+    "unexpected": []
+  },
+  "inventory_token_count": 14,
+  "scheduled": [
+    "AUD_USD",
+    "EUR_GBP",
+    "EUR_USD",
+    "GBP_USD",
+    "NZD_USD",
+    "USD_CAD",
+    "USD_CHF",
+    "USD_JPY",
+    "XAG_USD",
+    "XAU_USD",
+    "XCU_USD",
+    "XPT_USD"
+  ],
+  "source_sha": "71ea3bd4598d8af5628f78de10f8022088ad3f05",
+  "supported_config_versions": [
+    "2",
+    "3"
+  ],
+  "tool": "hermes_predeploy_gate_v1",
+  "tool_version": "1",
+  "unmapped": [],
+  "utc_execution_timestamp": "2026-07-16T15:00:49Z",
+  "validator_ok": true,
+  "validator_version": "1",
+  "verdict": "PASS"
+}
