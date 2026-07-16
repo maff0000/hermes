@@ -1,0 +1,4 @@
+# WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001
+# These synthetic observer-log fixtures are committed test inputs, not runtime
+# logs. Re-include them despite the repo-root "*.log" ignore rule.
+!*.log

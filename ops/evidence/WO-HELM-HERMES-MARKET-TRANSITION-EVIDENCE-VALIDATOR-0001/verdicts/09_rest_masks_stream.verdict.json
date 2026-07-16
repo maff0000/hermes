@@ -1,0 +1,172 @@
+{
+  "tool": "hermes_transition_evidence_validator_v1",
+  "tool_version": "1.0.0",
+  "inputs": {
+    "instrument": "XAU_USD",
+    "date": "2026-07-16",
+    "cadence_seconds": 60,
+    "grace_seconds": 300,
+    "log_sha256": "72447af26ef80238b0378a958bc98e98268f6b7550429985cdc52433b982ecd7",
+    "runtime_identity_provided": false
+  },
+  "governed_window": {
+    "market_timezone": "America/New_York",
+    "named_schedule": "metals",
+    "schedule_resolution": "RESOLVED",
+    "break_label": "OANDA_METAL_DAILY_ROLLOVER",
+    "detail": "metals daily break 17:00-18:00 America/New_York -> closure 2026-07-16T21:00:00Z..2026-07-16T22:00:00Z UTC, grace 300s -> grace_end 2026-07-16T22:05:00Z"
+  },
+  "observer_start": "2026-07-16T20:50:00Z",
+  "observer_start_pid": 886481,
+  "observer_end": "2026-07-16T22:10:05Z",
+  "observer_end_pid": 886481,
+  "end_marker_present": true,
+  "entering_window_ts": "2026-07-16T21:00:00Z",
+  "window_complete_ts": "2026-07-16T22:10:00Z",
+  "d1_after_seal": {
+    "ts": "2026-07-16T00:00:00.000Z",
+    "freshness": "FRESH"
+  },
+  "sample_count": 76,
+  "malformed_line_count": 0,
+  "malformed_lines": [],
+  "monotonic": true,
+  "max_sample_gap_s": 60.0,
+  "sample_gap_threshold_s": 180,
+  "pre_close_window": {
+    "start": "2026-07-16T20:55:00Z",
+    "end": "2026-07-16T21:00:00Z",
+    "sample_count": 5
+  },
+  "closure_window": {
+    "start": "2026-07-16T21:00:00Z",
+    "end": "2026-07-16T22:00:00Z",
+    "sample_count": 60
+  },
+  "reopening": "2026-07-16T22:00:00Z",
+  "grace_end": "2026-07-16T22:05:00Z",
+  "post_grace_window": {
+    "start": "2026-07-16T22:05:00Z",
+    "end": "2026-07-16T22:10:00Z",
+    "sample_count": 6
+  },
+  "last_pre_close_tick": "2026-07-16T20:58:59Z",
+  "last_pre_close_candle": "2026-07-16T20:59:00Z",
+  "samples_during_closure": 60,
+  "first_resumed_tick": "2026-07-16T21:59:59Z",
+  "first_resumed_candle": "2026-07-16T22:00:00Z",
+  "health_restoration_ts": "2026-07-16T22:00:00Z",
+  "incident_counts": {
+    "pre_close": 0,
+    "closure": 0,
+    "grace": 0,
+    "post_grace": 0,
+    "baseline_pre_close": 0,
+    "delta_closure": 0
+  },
+  "reconnect_counts": {
+    "pre_close": 0,
+    "closure": 0,
+    "grace": 0,
+    "post_grace": 0,
+    "baseline_pre_close": 0,
+    "delta_closure": 0
+  },
+  "rest_quote_vs_stream_separation": {
+    "state": "FAIL",
+    "detail": "REST quote FRESH masks a STALE stream feed with no fault raised at 2026-07-16T20:57:00Z (quote=OK/FRESH feed=STALE/STALE fault=NONE)"
+  },
+  "runtime_identity_continuity": {
+    "state": "PASS",
+    "detail": "observer pid stable (886481)"
+  },
+  "wtico_fail_loud_evidence": {
+    "state": "PASS",
+    "detail": "WTICO_USD correctly fails loud (schedule=None state=MARKET_OPEN_STALE reason=NO_POLICY)",
+    "observed": {
+      "schedule": "None",
+      "resolved_state": "MARKET_OPEN_STALE",
+      "reason": "NO_POLICY"
+    }
+  },
+  "spx500_fail_loud_evidence": {
+    "state": "PASS",
+    "detail": "SPX500_USD correctly fails loud (schedule=None state=MARKET_OPEN_STALE reason=NO_POLICY)",
+    "observed": {
+      "schedule": "None",
+      "resolved_state": "MARKET_OPEN_STALE",
+      "reason": "NO_POLICY"
+    }
+  },
+  "conditions": {
+    "END_MARKER_PRESENT": {
+      "state": "PASS",
+      "detail": "OBSERVER END marker present"
+    },
+    "REQUIRED_WINDOW_COVERED": {
+      "state": "PASS",
+      "detail": "pre_close=5 closure=60 grace=5 post_grace=6; last_sample=2026-07-16T22:10:00Z grace_end=2026-07-16T22:05:00Z"
+    },
+    "SAMPLE_CONTINUITY": {
+      "state": "PASS",
+      "detail": "max_sample_gap_s=60.0 threshold=180 (3x cadence) monotonic=True first_gap_at=2026-07-16T20:55:00Z"
+    },
+    "CLOSURE_CLASSIFICATION": {
+      "state": "PASS",
+      "detail": "all 60 closure samples classified MARKET_CLOSED_EXPECTED / truth_expected=false"
+    },
+    "NO_FABRICATED_FRESHNESS": {
+      "state": "PASS",
+      "detail": "last-data timestamps frozen through closure (no candle/tick advance)",
+      "fabricated_candle": false,
+      "fabricated_tick": false
+    },
+    "NO_INACTIVITY_INCIDENT_DURING_CLOSURE": {
+      "state": "PASS",
+      "detail": "incident counter unchanged across closure (=0)"
+    },
+    "NO_CLOSURE_DRIVEN_RECONNECT": {
+      "state": "PASS",
+      "detail": "reconnect counter unchanged across closure (=0)"
+    },
+    "GENUINE_RESUMED_FLOW_OR_ESCALATION": {
+      "state": "PASS",
+      "detail": "genuine flow resumed: first_resumed_candle=2026-07-16T22:00:00Z first_resumed_tick=2026-07-16T21:59:59Z"
+    },
+    "CORRECT_GRACE_TIMING": {
+      "state": "PASS",
+      "detail": "grace window 2026-07-16T22:00:00Z..2026-07-16T22:05:00Z respected; no premature escalation"
+    },
+    "NO_FALSE_GREEN_DURING_GRACE": {
+      "state": "PASS",
+      "detail": "no premature health/GREEN declared during grace"
+    },
+    "REST_QUOTE_VS_STREAM_SEPARATION": {
+      "state": "FAIL",
+      "detail": "REST quote FRESH masks a STALE stream feed with no fault raised at 2026-07-16T20:57:00Z (quote=OK/FRESH feed=STALE/STALE fault=NONE)"
+    },
+    "RUNTIME_IDENTITY_CONTINUITY": {
+      "state": "PASS",
+      "detail": "observer pid stable (886481)"
+    },
+    "WTICO_FAIL_LOUD": {
+      "state": "PASS",
+      "detail": "WTICO_USD correctly fails loud (schedule=None state=MARKET_OPEN_STALE reason=NO_POLICY)",
+      "observed": {
+        "schedule": "None",
+        "resolved_state": "MARKET_OPEN_STALE",
+        "reason": "NO_POLICY"
+      }
+    },
+    "SPX500_FAIL_LOUD": {
+      "state": "PASS",
+      "detail": "SPX500_USD correctly fails loud (schedule=None state=MARKET_OPEN_STALE reason=NO_POLICY)",
+      "observed": {
+        "schedule": "None",
+        "resolved_state": "MARKET_OPEN_STALE",
+        "reason": "NO_POLICY"
+      }
+    }
+  },
+  "overall": "FAIL"
+}
