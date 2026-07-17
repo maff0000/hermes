@@ -1,0 +1,34 @@
+WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001
+VERDICT: GREEN_HERMES_SHARED_STREAM_RECOVERY_PHASE1_PURE_DECISION_CORE_PR_OPEN
+
+Scope: PHASE-1 PRODUCTION-OWNED PURE DECISION CORE only. INERT / NOT WIRED / CODE-ONLY / NOT-FOR-MERGE-BY-IMPL-WO.
+No runtime file edited. No deploy, no image build, no restart. No Redis/SQL contract, no migration, no schedule
+invented. UTC only. No secrets. Base: canonical main ae80d113 (contains merged PR#108 design contract).
+
+Promoted the audited PR#108 prototype into a production-owned pure core following HERMES conventions:
+  utils/hermes_shared_stream_recovery_v1.py  (frozen dataclasses, stdlib-only, injected clock, versioned header).
+The design/ prototype is preserved UNCHANGED as the audited historical artefact + parity oracle.
+
+Proof:
+- Pure core: stdlib only; no I/O, no env, no wall-clock (evaluated timestamp injected), no reconnect execution,
+  no logging, no Redis/SQL, no provider SDK. Inputs frozen; DecisionEnvelope frozen. Static-guard + purity tests PASS.
+- Inertness: imported by NO runtime/infra path (main.py / utils/watchdog.py / provider client / services / cron /
+  systemd / docker-compose / Dockerfile). Only the module + its test reference it. See inertness_proof.txt and
+  tests/test_hermes_shared_stream_recovery_v1.py::test_static_guard_no_runtime_or_infra_imports_the_core.
+- Tests: tests/test_hermes_shared_stream_recovery_v1.py (65) + tests/test_shared_stream_recovery_contract_v1.py (25)
+  = 90 PASS. Regression (market-hours health 25 / readiness 21 / PR104 predeploy 21 / PR107 transition-validator 25 /
+  proposal-validator 89) = 181 PASS. See test_output.txt.
+  * July-16 regression fixture: XAU expected-closed; SPX500/WTICO stale+unvalidated; socket connected; hb healthy;
+      validated FX progressing; no genuine fault -> RECOVERY_PROPOSAL_ONLY, reconnect_authorised=false,
+      emergency_bypass_eligible=false, reason UNVALIDATED_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY. No false GREEN.
+  * 12 genuine-fault fixtures -> RECONNECT_AUTHORISED / RECONNECT_RATE_LIMITED / NO_ACTION / OPERATOR_ESCALATION as designed.
+  * Emergency bypass is NARROW (genuine provider/socket/auth/shared faults only), reason-coded, and NOT caller-settable
+      (no 'emergency' input field). Ordinary freshness never bypasses.
+  * Fail-safe: naive/non-UTC/negative/malformed rejected at construction; unsupported version + missing/contradictory
+      transport truth fail closed. Determinism proven (same input -> same decision_id + JSON; order-independent).
+- Parity: 14 shared fixtures decision-equivalent to the prototype (action + reconnect authority + reason-code set +
+  transport state). See docs/design/shared_stream_recovery/prototype_parity_matrix_v1.md.
+- CI: added focused infra-free job 'shared-stream-recovery-core' (least-privilege, governed deps, no branch-protection
+  change, no hidden exclusion); files are also auto-gated by the existing unit-infra-free job.
+
+17 binding invariants preserved. Rollback carries no schema/migration/config dependency (module + test are unimported).

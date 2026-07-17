@@ -1,0 +1,15 @@
+# Inertness proof — utils/hermes_shared_stream_recovery_v1.py imported by NO runtime/infra path
+# WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001 · 2026-07-17T12:19:22Z
+
+$ grep -rn 'hermes_shared_stream_recovery' main.py utils/watchdog.py docker-compose*.yml Dockerfile
+(no matches — NOT imported by runtime/compose/Dockerfile)
+
+$ grep -rn 'hermes_shared_stream_recovery' adapters/ services/ cron/ healthcheck/ *.service
+(no matches — NOT imported by provider client / services / cron / systemd unit)
+
+$ grep -rln hermes_shared_stream_recovery --include=*.py . (excluding .git)
+./tests/test_hermes_shared_stream_recovery_v1.py
+./utils/hermes_shared_stream_recovery_v1.py
+
+=> ONLY the module itself and its test reference it. Static-guard test enforces this in CI:
+   tests/test_hermes_shared_stream_recovery_v1.py::test_static_guard_no_runtime_or_infra_imports_the_core

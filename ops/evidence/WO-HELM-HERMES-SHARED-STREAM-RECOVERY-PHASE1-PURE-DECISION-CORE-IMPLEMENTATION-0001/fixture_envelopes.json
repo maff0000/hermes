@@ -1,0 +1,556 @@
+{
+  "all_governed_closed": {
+    "action": "NO_ACTION",
+    "adapter_bounding_required": false,
+    "authority_status": "not_authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "1aa073cc78cd402a",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "note": "all governed instruments closed; transport healthy"
+    },
+    "expected_flow_instruments": [],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "ALL_GOVERNED_INSTRUMENTS_CLOSED",
+      "RECONNECT_NOT_AUTHORISED"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "TRANSPORT_HEALTHY"
+  },
+  "auth_failure": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "8643286a45ec01e5",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "AUTHENTICATION_FAILURE",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "AUTHENTICATION_FAILURE",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "AUTH_FAILED"
+  },
+  "hb_stale_corroborated": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": false,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "0efb45b92d907995",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": false,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD",
+      "SPX500_USD"
+    ],
+    "heartbeat_age_s": 120.0,
+    "heartbeat_state": "HARD_STALE",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "TRANSPORT_SIGNAL_CONFLICT",
+      "HEARTBEAT_STALE",
+      "ALL_EXPECTED_FLOW_INSTRUMENTS_STALE",
+      "SHARED_STREAM_PROGRESS_STALE",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 120.0,
+    "shared_progress_state": "HARD_STALE",
+    "socket_connected": true,
+    "stale_governed_instruments": [
+      "EUR_USD",
+      "SPX500_USD"
+    ],
+    "stale_unvalidated_instruments": [
+      "SPX500_USD"
+    ],
+    "transport_state": "SILENT_UNCONFIRMED"
+  },
+  "july16_proposal_only": {
+    "action": "RECOVERY_PROPOSAL_ONLY",
+    "adapter_bounding_required": false,
+    "authority_status": "not_authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "ea173723de1dc142",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "note": "instrument stale but transport proven alive; proposal only (no transport mutation)"
+    },
+    "expected_flow_instruments": [
+      "EUR_USD",
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "RECONNECT_NOT_AUTHORISED",
+      "UNVALIDATED_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY",
+      "RECOVERY_PROPOSAL_ONLY"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "stale_unvalidated_instruments": [
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "transport_state": "TRANSPORT_HEALTHY"
+  },
+  "limiter_bypass": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "bfe1c6c2f707521f",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "PROVIDER_DISCONNECT_EVENT",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": true
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 3,
+      "available": true,
+      "exhausted": true,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "PROVIDER_DISCONNECT_EVENT",
+      "EMERGENCY_BYPASS_LIMITER",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "DISCONNECTED"
+  },
+  "limiter_rate_limited": {
+    "action": "RECONNECT_RATE_LIMITED",
+    "adapter_bounding_required": false,
+    "authority_status": "rate_limited",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "68986e350757aef2",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": false,
+      "limiter_exhausted": true
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 120.0,
+    "heartbeat_state": "HARD_STALE",
+    "limiter_state": {
+      "attempts_in_window": 3,
+      "available": true,
+      "exhausted": true,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "TRANSPORT_SIGNAL_CONFLICT",
+      "HEARTBEAT_STALE",
+      "ALL_EXPECTED_FLOW_INSTRUMENTS_STALE",
+      "SHARED_STREAM_PROGRESS_STALE",
+      "RECONNECT_RATE_LIMITED"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": 120.0,
+    "shared_progress_state": "HARD_STALE",
+    "socket_connected": true,
+    "stale_governed_instruments": [
+      "EUR_USD"
+    ],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "SILENT_UNCONFIRMED"
+  },
+  "parser_fatal": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "0f73150826c096d8",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "PARSER_EXCEPTION_FATAL",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "PARSER_EXCEPTION_FATAL",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "FAULT_CONFIRMED"
+  },
+  "provider_disconnect": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "dddc66aeba767efc",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "PROVIDER_DISCONNECT_EVENT",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "PROVIDER_DISCONNECT_EVENT",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "DISCONNECTED"
+  },
+  "reconnect_in_progress": {
+    "action": "NO_ACTION",
+    "adapter_bounding_required": false,
+    "authority_status": "not_authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "8425f5c78916e87e",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "note": "reconnect already running; do not stack"
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "RECONNECT_IN_PROGRESS"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": false,
+    "stale_governed_instruments": [
+      "EUR_USD"
+    ],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "RECONNECTING"
+  },
+  "shared_stream_silent": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "dc99212126635e88",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "SHARED_STREAM_PROGRESS_STALE",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD",
+      "SPX500_USD"
+    ],
+    "heartbeat_age_s": 200.0,
+    "heartbeat_state": "HARD_STALE",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "SHARED_STREAM_PROGRESS_STALE",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 200.0,
+    "shared_progress_state": "HARD_STALE",
+    "socket_connected": true,
+    "stale_governed_instruments": [
+      "EUR_USD",
+      "SPX500_USD"
+    ],
+    "stale_unvalidated_instruments": [
+      "SPX500_USD"
+    ],
+    "transport_state": "FAULT_CONFIRMED"
+  },
+  "socket_disconnected": {
+    "action": "RECONNECT_AUTHORISED",
+    "adapter_bounding_required": true,
+    "authority_status": "authorised",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "bf752de89a398e05",
+    "emergency_bypass_eligible": true,
+    "emergency_bypass_reason": "SOCKET_DISCONNECTED",
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "emergency_bypass": true,
+      "limiter_exhausted": false
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "FRESH",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "SOCKET_DISCONNECTED",
+      "RECONNECT_AUTHORISED"
+    ],
+    "reconnect_authorised": true,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "FRESH",
+    "socket_connected": false,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "DISCONNECTED"
+  },
+  "transport_truth_missing_failclosed": {
+    "action": "OPERATOR_ESCALATION",
+    "adapter_bounding_required": false,
+    "authority_status": "fail_closed",
+    "config_version": "3",
+    "contract_version": "1",
+    "decision_id": "2227dea9f641408b",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "2026-07-16T21:15:00+00:00",
+    "evidence_summary": {
+      "fail_closed": true,
+      "note": "heartbeat gap w/o validated corroboration"
+    },
+    "expected_flow_instruments": [
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "heartbeat_age_s": null,
+    "heartbeat_state": "UNKNOWN",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "TRANSPORT_SIGNAL_CONFLICT",
+      "UNVALIDATED_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY",
+      "RECONNECT_NOT_AUTHORISED"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": null,
+    "shared_progress_state": "UNKNOWN",
+    "socket_connected": false,
+    "stale_governed_instruments": [
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "stale_unvalidated_instruments": [
+      "SPX500_USD",
+      "WTICO_USD"
+    ],
+    "transport_state": "SILENT_UNCONFIRMED"
+  },
+  "unsupported_contract_failsafe": {
+    "action": "OPERATOR_ESCALATION",
+    "adapter_bounding_required": false,
+    "authority_status": "fail_closed",
+    "config_version": "3",
+    "contract_version": "99",
+    "decision_id": "4a15405554787686",
+    "emergency_bypass_eligible": false,
+    "emergency_bypass_reason": null,
+    "envelope_version": "1",
+    "evaluated_at_utc": "INVALID_CONTRACT",
+    "evidence_summary": {
+      "cause": "unsupported contract_version",
+      "fail_closed": true
+    },
+    "expected_flow_instruments": [
+      "EUR_USD"
+    ],
+    "heartbeat_age_s": 5.0,
+    "heartbeat_state": "UNKNOWN",
+    "limiter_state": {
+      "attempts_in_window": 0,
+      "available": true,
+      "exhausted": false,
+      "max_per_window": 3,
+      "window_seconds": 3600
+    },
+    "provider": "OANDA",
+    "reason_codes": [
+      "NO_TRANSPORT_TRUTH_FAILCLOSED",
+      "TRANSPORT_SIGNAL_CONFLICT"
+    ],
+    "reconnect_authorised": false,
+    "shared_progress_age_s": 5.0,
+    "shared_progress_state": "UNKNOWN",
+    "socket_connected": true,
+    "stale_governed_instruments": [],
+    "stale_unvalidated_instruments": [],
+    "transport_state": "SILENT_UNCONFIRMED"
+  }
+}

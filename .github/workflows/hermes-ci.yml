@@ -65,6 +65,34 @@ jobs:
             tests/test_hermes_market_hours_readiness_v1.py
 
   # ---------------------------------------------------------------------------
+  # Job 1b — shared-stream recovery-authority PURE decision core (Phase 1, INERT).
+  # WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001.
+  # Runs the PRODUCTION pure-core fixtures + the audited design contract fixtures + the
+  # inertness static-guard. Needs NO env and NO external infra (pure, stdlib-only core).
+  # Least-privilege (inherits workflow `permissions: contents: read`); no branch-protection
+  # change; governed deps (requirements.txt + pinned pytest); no hidden exclusion. NOTE: these
+  # files are ALSO auto-gated by Job 2 (unit-infra-free) with no exclusion; this focused job
+  # gives a fast, isolated signal for the recovery-authority contract.
+  # ---------------------------------------------------------------------------
+  shared-stream-recovery-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "pytest>=8" "pytest-asyncio>=0.23"
+      - name: Shared-stream recovery pure core (production + design + inertness guard)
+        run: |
+          python -m pytest -q -p no:cacheprovider \
+            tests/test_hermes_shared_stream_recovery_v1.py \
+            tests/test_shared_stream_recovery_contract_v1.py
+
+  # ---------------------------------------------------------------------------
   # Job 2 — comprehensive infra-free unit gate.
   # Covers WO deliverables (c) configuration/schema tests and (d) all other unit
   # tests that do NOT require external infrastructure. Runs the ENTIRE suite and
