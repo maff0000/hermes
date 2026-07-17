@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/shared_stream_recovery/shadow_decision_record.v1.schema.json",
+  "title": "HERMES Shared-Stream Recovery Phase-2 Shadow Decision Record v1",
+  "description": "Immutable, versioned, offline-replayable record of ONE shadow evaluation: (evidence snapshot) -> Phase-1 core.decide() -> DecisionEnvelope -> comparison vs the current sustained-red authority. INERT / DESIGN-ONLY. shadow_only is ALWAYS true and consumer_live ALWAYS false: it is MECHANICALLY impossible to mistake for a reconnect command. No secrets, UTC only. WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "record_version", "snapshot_id", "decided_at_utc", "adapter_version", "source_sha", "config_version",
+    "contract_version", "shadow_action", "shadow_authority_status", "shadow_transport_state", "shadow_reason_codes",
+    "shadow_reconnect_authorised", "shadow_emergency_bypass_eligible", "shadow_decision_id", "shadow_limiter_state",
+    "current_authority", "comparison_class", "divergence_reasons", "evidence_completeness", "envelope",
+    "shadow_only", "consumer_live"
+  ],
+  "properties": {
+    "record_version": { "type": "string", "const": "1" },
+    "contract_version": { "type": "string", "const": "1" },
+    "record_id": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "Deterministic sha256[:16] over the canonical record." },
+    "snapshot_id": { "type": "string", "description": "FK to the EvidenceSnapshot that produced this decision." },
+    "decided_at_utc": { "type": "string", "description": "ISO-8601 UTC instant the shadow decision was recorded." },
+    "adapter_version": { "type": "string" },
+    "source_sha": { "type": "string" },
+    "runtime_identity": { "type": "object", "description": "Sanitised — never secrets/tokens/account-ids." },
+    "config_version": { "type": ["string", "null"] },
+    "shadow_action": { "type": "string", "enum": ["NO_ACTION", "INCIDENT_ONLY", "RECOVERY_PROPOSAL_ONLY", "RECONNECT_AUTHORISED", "RECONNECT_RATE_LIMITED", "OPERATOR_ESCALATION"] },
+    "shadow_authority_status": { "type": "string", "enum": ["authorised", "not_authorised", "fail_closed", "rate_limited"] },
+    "shadow_transport_state": { "type": "string", "enum": ["TRANSPORT_HEALTHY", "TRANSPORT_DEGRADED", "SILENT_UNCONFIRMED", "FAULT_CONFIRMED", "AUTH_FAILED", "DISCONNECTED", "RECONNECTING", "RATE_LIMITED", "RECOVERED"] },
+    "shadow_reason_codes": { "type": "array", "items": { "type": "string" } },
+    "shadow_reconnect_authorised": { "type": "boolean", "description": "TRUE only when action == RECONNECT_AUTHORISED. A shadow record NEVER acts on it." },
+    "shadow_emergency_bypass_eligible": { "type": "boolean" },
+    "shadow_decision_id": { "type": "string" },
+    "shadow_limiter_state": { "type": "object" },
+    "current_authority": {
+      "type": "object",
+      "description": "PASSIVE observation of the existing sustained-red authority (read-only; observation never changes its timing).",
+      "additionalProperties": false,
+      "required": ["evaluated", "recovery_requested", "reconnect_executed"],
+      "properties": {
+        "evaluated": { "type": "boolean" },
+        "triggering_instrument": { "type": ["string", "null"] },
+        "recovery_requested": { "type": "boolean" },
+        "reconnect_executed": { "type": "boolean" },
+        "reconnect_suppressed": { "type": "boolean" },
+        "reason": { "type": ["string", "null"] },
+        "observed_at_utc": { "type": ["string", "null"] }
+      }
+    },
+    "comparison_class": {
+      "type": "string",
+      "enum": ["AGREE_NO_ACTION", "AGREE_RECONNECT", "SHADOW_DENIES_CURRENT_RECONNECT", "SHADOW_AUTHORIZES_CURRENT_NO_RECONNECT", "SHADOW_PROPOSAL_CURRENT_RECONNECT", "CURRENT_AUTHORITY_NOT_EVALUATED", "SHADOW_INDETERMINATE", "EVIDENCE_INCOMPLETE", "EVIDENCE_CONFLICT", "ADAPTER_ERROR"]
+    },
+    "divergence_reasons": { "type": "array", "items": { "type": "string" } },
+    "evidence_completeness": { "type": "string", "enum": ["COMPLETE", "PARTIAL", "INCOMPLETE"] },
+    "envelope": { "type": "object", "description": "The full embedded Phase-1 DecisionEnvelope for offline reproduction." },
+    "shadow_only": { "type": "boolean", "const": true, "description": "ALWAYS true — mechanically prevents mistaking the record for authority." },
+    "consumer_live": { "type": "boolean", "const": false, "description": "ALWAYS false in Phase 2." }
+  }
+}
