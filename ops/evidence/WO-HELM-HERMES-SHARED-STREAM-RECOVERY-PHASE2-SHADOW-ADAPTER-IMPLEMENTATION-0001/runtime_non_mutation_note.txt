@@ -1,0 +1,2 @@
+### Runtime non-mutation note
+This WO adds ONLY inert utils/hermes_sss_*_v1.py modules + one test file. It does NOT modify main.py, utils/watchdog.py, adapters/oanda.py, adapters/base.py, the Phase-1 core module, docker-compose*, Dockerfile, systemd units, cron, or any SQL/migration. The sustained-red authority, limiter/cooldown, and the one-shot recovery request are untouched and never consumed. The current recovery authority is unchanged. No image is built; nothing is deployed/enabled/executed against live data.

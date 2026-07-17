@@ -1,0 +1,2 @@
+[PERF] shadow-eval p99=0.111ms mean=0.105ms n=300 (synthetic, no I/O)
+METHODOLOGY: synthetic single-process unit timing of the pure map->decide->classify->build_record path (no live surfaces, no I/O), 300 samples after 20 warmups. This bounds the PURE bounded shadow-adapter operation only; it is NOT production validation. Budget: p99 <= 25ms (architecture_phase2_v1 §20).

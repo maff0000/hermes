@@ -1,0 +1,11 @@
+None (absent)                                        enabled=False  reason=config absent -> disabled
+{} (shadow_enabled absent)                           enabled=False  reason=None
+{shadow_enabled:false}                               enabled=False  reason=None
+{shadow_enabled:"true"} (string, no coerce)          enabled=False  reason=invalid config -> disabled (shadow_enabled must be an explicit boolean (no implicit/coerced enable))
+{shadow_enabled:1} (int, no coerce)                  enabled=False  reason=invalid config -> disabled (shadow_enabled must be an explicit boolean (no implicit/coerced enable))
+{shadow_enabled:true, consumer_live:true}            enabled=False  reason=invalid config -> disabled (shadow_consumer_live MUST be false in Phase 2 (no live consumer is permitted))
+{shadow_enabled:true, hard<soft}                     enabled=False  reason=invalid config -> disabled (heartbeat_hard_horizon_s must be >= heartbeat_soft_horizon_s)
+{shadow_enabled:true, token:secret}                  enabled=False  reason=config contains prohibited field(s) -> disabled (prohibited_key)
+{shadow_enabled:true} (VALID)                        enabled=True  reason=None
+  provisional horizons labelled: True | output_path externalised: ops/evidence/shadow_stream_recovery/decisions.jsonl
+  NOTE: valid-true is representable but merely running an eval NEVER reconnects (adapter is inert, unwired).

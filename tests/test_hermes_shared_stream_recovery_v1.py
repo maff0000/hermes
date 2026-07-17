@@ -428,11 +428,20 @@ def test_prototype_parity_action_reconnect_and_reasons(name, spec, kw):
 _ALLOWED_REFERRERS = {"tests", "schemas", "docs", "ops", "design"}
 
 def test_static_guard_no_runtime_or_infra_imports_the_core():
-    """FAIL if any runtime / infra file references the new module. Only tests/schemas/docs/ops may."""
+    """FAIL if any runtime / infra file references the new module. Only tests/schemas/docs/ops may.
+
+    The inert Phase-2 shadow-adapter modules (utils/hermes_sss_*_v1.py) legitimately import the pure core — the
+    shadow FEEDS the unchanged core (WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001
+    explicitly authorises `import utils.hermes_shared_stream_recovery_v1`). They are themselves inert (imported by NO
+    runtime path, proven by tests/test_hermes_sss_shadow_adapter_v1.py::
+    test_static_guard_no_runtime_or_infra_imports_sss). Like design/, they are an ALLOWED inert referrer. This guard
+    still catches any LIVE runtime/infra import (main.py / watchdog.py / adapters / compose / Dockerfile / cron /
+    systemd)."""
     referrers = []
     for path in REPO.rglob("*.py"):
         rel = path.relative_to(REPO)
-        if rel.parts[0] in _ALLOWED_REFERRERS or rel.name == "hermes_shared_stream_recovery_v1.py":
+        if rel.parts[0] in _ALLOWED_REFERRERS or rel.name == "hermes_shared_stream_recovery_v1.py" \
+                or (rel.name.startswith("hermes_sss_") and rel.name.endswith("_v1.py")):
             continue
         if "hermes_shared_stream_recovery" in path.read_text(encoding="utf-8", errors="ignore"):
             referrers.append(str(rel))

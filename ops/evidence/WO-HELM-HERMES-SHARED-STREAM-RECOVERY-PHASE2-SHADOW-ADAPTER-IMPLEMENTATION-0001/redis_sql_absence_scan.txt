@@ -1,0 +1,2 @@
+### Redis / SQL / migration absence in sss modules (import + call scan)
+RESULT: NO Redis/SQL/migration import in any sss module

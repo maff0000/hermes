@@ -1,0 +1,6 @@
+### §15 INERTNESS GREP (WO-specified) — expect EMPTY
+$ grep -rn 'hermes_sss_shadow|sss_shadow_adapter' main.py utils/watchdog.py adapters/oanda.py docker-compose*.yml Dockerfile
+(empty — no runtime/infra reference)
+
+### broader: any hermes_sss_ token in runtime .py (excluding tests/design/docs/ops/schemas + the sss modules themselves)
+(none)
