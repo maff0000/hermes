@@ -1,0 +1,35 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /srv/trading/hermes-worktrees/wo-shared-stream-recovery
+plugins: asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 25 items
+
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_01_july16_spx_wtico_stale_transport_healthy_NOT_AUTHORISED PASSED [  4%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_02_socket_disconnected_AUTHORISED PASSED [  8%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_03_provider_disconnect_event_AUTHORISED PASSED [ 12%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_04_auth_failure_AUTHORISED PASSED [ 16%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_05_heartbeat_stale_all_expected_flow_stale_AUTHORISED PASSED [ 20%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_06_heartbeat_stale_but_fx_progressing_NOT_AUTHORISED PASSED [ 24%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_07_shared_stream_silent_AUTHORISED PASSED [ 28%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_08_parser_fatal_AUTHORISED PASSED [ 32%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_09_only_unvalidated_stale_transport_healthy_PROPOSAL PASSED [ 36%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_10_single_validated_open_stale_partial_PROPOSAL PASSED [ 40%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_11_all_governed_closed_weekend_NO_ACTION PASSED [ 44%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_12_all_governed_closed_but_genuine_disconnect_AUTHORISED PASSED [ 48%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_13_holiday_all_closed_NO_ACTION PASSED [ 52%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_14_reopening_grace_absence_tolerated_NO_ACTION PASSED [ 56%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_15_limiter_exhausted_application_authority_RATE_LIMITED PASSED [ 60%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_16_limiter_exhausted_genuine_provider_disconnect_BYPASS PASSED [ 64%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_17_restart_resets_inmemory_limiter_AUTHORISED PASSED [ 68%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_18_limiter_store_unreadable_redis_down_application_authority_RATE_LIMITED PASSED [ 72%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_19_transport_truth_missing_socket_unknown_hb_none_FAILCLOSED PASSED [ 76%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_20_conflicting_socket_connected_heartbeat_missing_all_validated_stale_AUTHORISED PASSED [ 80%]
+tests/test_shared_stream_recovery_contract_v1.py::test_fixture_21_clock_error_naive_datetime_OPERATOR_ESCALATION PASSED [ 84%]
+tests/test_shared_stream_recovery_contract_v1.py::test_all_actions_and_reasons_are_in_contract PASSED [ 88%]
+tests/test_shared_stream_recovery_contract_v1.py::test_mandated_reason_codes_defined PASSED [ 92%]
+tests/test_shared_stream_recovery_contract_v1.py::test_only_authorised_actions_carry_authority PASSED [ 96%]
+tests/test_shared_stream_recovery_contract_v1.py::test_determinism_same_input_same_decision_id PASSED [100%]
+
+============================== 25 passed in 0.02s ==============================

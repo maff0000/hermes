@@ -1,0 +1,10 @@
+68ab4a3534df55a37a3f7d14b10fc829efb1c47d3512a44ff06a831460650437  design_index.md
+d654305fe60ce9aff3c68eb91aa4ee6720c7b0fe58725b37e26fde539897e207  current_recovery_path_trace.md
+694352533a415b67a61e8f7a5c66e5aab1f667e8f314bb949ac7aeb44d022f94  july16_reconnect_chronology.md
+f4b14025d17804a53f3060950cdfc682b88ca5fe02b3ec4c82987e3913cfd0e9  inertness_proof.txt
+2f3234b045a3268592d44e5cc592c82e4995a02ecbc615a4fb64743264d66ba1  test_output.txt
+f80ef62422ff7f55b2b54f5c55aed698ac45c4284833efd15b114038448ffee2  verdict.txt
+28aa471fa0d82c0fbf0f187f7443f217bf32d60107b227adaacd754d3fe67476  ../../../design/shared_stream_recovery_contract_v1.py
+82d2315507e96921abaacb6bed8021f91e87792690c01f8b6ce16ba6ce52426c  ../../../tests/test_shared_stream_recovery_contract_v1.py
+9f39275c6053f5c439a6bbb19d88305f01f435f05673b4485969c2d3a9170e81  ../../../schemas/shared_stream_recovery/decision_envelope.v1.schema.json
+1595a56c51f1d7c395441f916b4c5b9aea557d114fd84109ac9e338fa102745f  ../../../docs/design/shared_stream_recovery/architecture_v1.md
