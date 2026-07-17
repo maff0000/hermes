@@ -1,0 +1,14 @@
+# Test output — SSR Phase 1 pure decision core
+# WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001
+# Captured (UTC): 2026-07-17T12:19:04Z
+
+$ python3 -m pytest tests/test_hermes_shared_stream_recovery_v1.py tests/test_shared_stream_recovery_contract_v1.py -q
+........................................................................ [ 80%]
+..................                                                       [100%]
+90 passed in 0.10s
+
+$ # regression: market-hours health/readiness + PR104 predeploy + PR107 transition-validator + proposal-validator
+........................................................................ [ 39%]
+........................................................................ [ 79%]
+.....................................                                    [100%]
+181 passed in 0.39s
