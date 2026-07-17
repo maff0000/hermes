@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/shared_stream_recovery/decision_envelope.v1.schema.json",
+  "title": "HERMES Shared-Stream Recovery Decision Envelope v1",
+  "description": "Immutable, side-effect-free decision produced by the shared-stream recovery-authority core (design/shared_stream_recovery_contract_v1.py). INERT/DESIGN-ONLY. A future executor consumes ONLY a decision whose action == RECONNECT_AUTHORISED; every other action is advisory or throttled. WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_version", "decision_id", "evaluated_at_utc", "provider", "transport_state",
+    "socket_connected", "heartbeat_state", "shared_progress_state", "expected_flow_instruments",
+    "stale_instruments", "unvalidated_stale_instruments", "authority_status", "transport_authority",
+    "emergency_bypass", "action", "reason_codes", "limiter_state", "evidence_summary"
+  ],
+  "properties": {
+    "decision_version": { "type": "string", "const": "1" },
+    "decision_id": { "type": "string", "pattern": "^[0-9a-f]{16}$",
+      "description": "Deterministic sha256[:16] over (evaluated_at_utc, transport_state, action, sorted reasons)." },
+    "evaluated_at_utc": { "type": "string",
+      "description": "ISO-8601 UTC instant of evaluation, or the sentinel 'INVALID_CLOCK' when the clock guard fired." },
+    "provider": { "type": "string", "examples": ["OANDA"] },
+    "transport_state": {
+      "type": "string",
+      "enum": ["TRANSPORT_HEALTHY", "TRANSPORT_DEGRADED", "SILENT_UNCONFIRMED", "FAULT_CONFIRMED",
+               "AUTH_FAILED", "DISCONNECTED", "RECONNECTING", "RATE_LIMITED", "RECOVERED"],
+      "description": "Transport-authority state machine state. Derived PURELY from transport signals, never from per-instrument freshness."
+    },
+    "socket_connected": { "type": "boolean" },
+    "heartbeat_state": { "type": "string", "enum": ["FRESH", "SOFT_STALE", "HARD_STALE", "UNKNOWN"] },
+    "heartbeat_age_s": { "type": ["number", "null"], "minimum": 0,
+      "description": "Age of last transport heartbeat/price (adapter last_tick_at). null when the heartbeat truth is unavailable -> fail closed." },
+    "shared_progress_state": { "type": "string", "enum": ["FRESH", "SOFT_STALE", "HARD_STALE", "UNKNOWN"],
+      "description": "Shared-stream progress proxy (heartbeat freshness, bumped by ANY instrument's price or a heartbeat)." },
+    "shared_progress_age_s": { "type": ["number", "null"], "minimum": 0 },
+    "expected_flow_instruments": { "type": "array", "items": { "type": "string" },
+      "description": "Instruments governed-OPEN + past reopening grace => data expected right now." },
+    "stale_instruments": { "type": "array", "items": { "type": "string" },
+      "description": "Non-governed-closed instruments whose data is stale past threshold (fail-loud, visible)." },
+    "unvalidated_stale_instruments": { "type": "array", "items": { "type": "string" },
+      "description": "Stale instruments lacking a validated schedule (e.g. WTICO_USD, SPX500_USD). Fail-loud health YES; transport vote NO (alone)." },
+    "authority_status": { "type": "string", "enum": ["AUTHORISED", "NOT_AUTHORISED", "ESCALATE"] },
+    "transport_authority": { "type": "boolean",
+      "description": "True only when a transport-authority condition is present (socket/provider/auth fault, confirmed shared fault, or corroborated shared-progress loss)." },
+    "emergency_bypass": { "type": "boolean",
+      "description": "True for genuine provider/socket/auth/shared faults that must reconnect even when the application limiter is exhausted." },
+    "action": {
+      "type": "string",
+      "enum": ["NO_ACTION", "INCIDENT_ONLY", "RECOVERY_PROPOSAL_ONLY", "RECONNECT_AUTHORISED",
+               "RECONNECT_RATE_LIMITED", "OPERATOR_ESCALATION"],
+      "description": "The single decided action. Executor obeys ONLY RECONNECT_AUTHORISED."
+    },
+    "reason_codes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["SOCKET_DISCONNECTED", "PROVIDER_DISCONNECT_EVENT", "AUTHENTICATION_FAILURE",
+                 "HEARTBEAT_STALE", "SHARED_STREAM_PROGRESS_STALE",
+                 "PARTIAL_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY",
+                 "UNVALIDATED_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY",
+                 "ALL_EXPECTED_FLOW_INSTRUMENTS_STALE", "ALL_GOVERNED_INSTRUMENTS_CLOSED",
+                 "TRANSPORT_SIGNAL_CONFLICT", "RECONNECT_RATE_LIMITED", "RECONNECT_AUTHORISED",
+                 "RECONNECT_NOT_AUTHORISED", "RECOVERY_PROPOSAL_ONLY", "PARSER_EXCEPTION_FATAL",
+                 "RECONNECT_IN_PROGRESS", "EMERGENCY_BYPASS_LIMITER", "NO_TRANSPORT_TRUTH_FAILCLOSED"]
+      }
+    },
+    "limiter_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempts_in_window", "max_per_window", "window_seconds", "available", "exhausted"],
+      "properties": {
+        "attempts_in_window": { "type": "integer", "minimum": 0 },
+        "max_per_window": { "type": "integer", "minimum": 1 },
+        "window_seconds": { "type": "integer", "minimum": 1 },
+        "available": { "type": "boolean", "description": "False models limiter store unreadable (Redis/SQL down) -> fail closed = exhausted for non-emergency authority." },
+        "exhausted": { "type": "boolean" }
+      }
+    },
+    "evidence_summary": { "type": "object", "description": "Free-form, secret-free diagnostic context." },
+    "config_version": { "type": ["string", "null"], "description": "Governed market-hours config version in force (3 on 8de293de)." }
+  }
+}

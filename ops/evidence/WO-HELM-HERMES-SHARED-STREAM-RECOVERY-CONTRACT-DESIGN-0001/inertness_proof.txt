@@ -1,0 +1,7 @@
+# Inertness proof — design/shared_stream_recovery_contract_v1.py imported by NO runtime path
+
+$ grep -rn 'shared_stream_recovery_contract\|from design\|import design' main.py utils/watchdog.py docker-compose.yml Dockerfile adapters/ services/
+(no matches — NOT imported by runtime)
+
+$ grep -rln shared_stream_recovery_contract_v1 --include=*.py .
+./tests/test_shared_stream_recovery_contract_v1.py

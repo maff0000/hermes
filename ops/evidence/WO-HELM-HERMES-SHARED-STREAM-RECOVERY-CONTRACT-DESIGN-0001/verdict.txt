@@ -1,0 +1,23 @@
+WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001
+VERDICT: GREEN_HERMES_SHARED_STREAM_RECOVERY_CONTRACT_DESIGN_PR_OPEN
+
+Scope: DESIGN + CONTRACT only. No runtime code edited. No deploy. No image build. No schedule change.
+No Redis/SQL writes. No reconnect/recovery triggered. Rate limiter unchanged. UTC only.
+
+Ruling implemented: Option C — shared-stream reconnect authority SEPARATED from unvalidated per-instrument
+freshness. Full-stream reconnect requires a TRANSPORT-AUTHORITY condition. Fail-loud per-instrument health
+retained. Genuine faults never silenced. Fail closed when transport truth missing/contradictory.
+
+Proof:
+- Pure inert core: design/shared_stream_recovery_contract_v1.py (stdlib only, no side effects).
+- Inertness: imported by NO runtime path (see inertness_proof.txt); only tests import it.
+- Tests: tests/test_shared_stream_recovery_contract_v1.py -> 25 passed (see test_output.txt).
+  * Fixture #1 (exact July 16): SPX/WTICO stale + socket connected + heartbeat healthy + FX flowing
+      -> RECONNECT_NOT_AUTHORISED / RECOVERY_PROPOSAL_ONLY (UNVALIDATED_INSTRUMENT_STALE_NO_TRANSPORT_AUTHORITY).
+  * Genuine transport faults (socket disconnect / provider disconnect / auth / heartbeat-stale-all-flow /
+      silent stall / parser) -> RECONNECT_AUTHORISED.
+  * Limiter-exhausted + genuine provider disconnect -> RECONNECT_AUTHORISED (emergency bypass).
+  * Fail-safe rows (clock error, Redis down, transport-truth missing) -> fail closed to safety.
+
+Deliverables: architecture doc (24 tasks), decision-envelope JSON schema, inert pure core + 20+ fixtures,
+evidence bundle. Runner count unchanged (9). consumer_live=false. Rollback preserves image c5fc2a62f424.
