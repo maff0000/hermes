@@ -1,0 +1,79 @@
+{
+  "_comment": "FIXTURE OF RECORD — July-16 2026 metals-break transition, evaluation instant 21:09:00Z (current authority reconnect #1, triggering_instrument=SPX500_USD). DIRECTLY_OBSERVED historical facts: socket CONNECTED, provider fault NONE, XAU/metals prices stopped 21:00->22:04, SPX500/WTICO stale+RED, FX progressing, 3 SPX-driven reconnects at 21:09/21:19/21:29Z. JUSTIFIED_INFERENCE (NOT a logged measurement): heartbeat healthy/age — the historical observer log did NOT record heartbeat age; it is INFERRED from (a) adapter bumps last_tick_at on HEARTBEAT ~every 5s, (b) socket CONNECTED + fault NONE throughout, (c) FX prices progressing. Provenance below marks this distinction.",
+  "snapshot": {
+    "snapshot_version": "1",
+    "contract_version": "1",
+    "provider": "OANDA",
+    "captured_at_utc": "2026-07-16T21:09:00+00:00",
+    "evaluated_at_utc": "2026-07-16T21:09:00+00:00",
+    "config_version": "3",
+    "source_sha": "8355044ba04a2afbf94c0d92cf371145577d16d6",
+    "adapter_version": "sss-phase2-design-v1",
+    "runtime_identity": {"service": "hermes", "environment": "DEV", "note": "sanitised; no secrets/account-ids/tokens"},
+    "connection_generation": 1,
+    "socket_state": "connected",
+    "provider_disconnect_event": false,
+    "auth_failure": false,
+    "heartbeat_available": true,
+    "heartbeat_age_s": 3.0,
+    "shared_stream_silent": false,
+    "parser_fatal": false,
+    "reconnect_in_progress": false,
+    "shared_progress_available": true,
+    "shared_progress_age_s": 3.0,
+    "provider_maintenance_indication": false,
+    "error_count_delta": 0,
+    "heartbeat_soft_horizon_s": 15.0,
+    "heartbeat_hard_horizon_s": 45.0,
+    "instruments": [
+      {"instrument": "XAU_USD", "expected_flow": false, "stale": false, "validated": true, "governed_closed": true, "reopening_grace": false},
+      {"instrument": "XAG_USD", "expected_flow": false, "stale": false, "validated": true, "governed_closed": true, "reopening_grace": false},
+      {"instrument": "XPT_USD", "expected_flow": false, "stale": false, "validated": true, "governed_closed": true, "reopening_grace": false},
+      {"instrument": "XCU_USD", "expected_flow": false, "stale": false, "validated": true, "governed_closed": true, "reopening_grace": false},
+      {"instrument": "EUR_USD", "expected_flow": true, "stale": false, "validated": true, "governed_closed": false, "reopening_grace": false},
+      {"instrument": "GBP_USD", "expected_flow": true, "stale": false, "validated": true, "governed_closed": false, "reopening_grace": false},
+      {"instrument": "USD_JPY", "expected_flow": true, "stale": false, "validated": true, "governed_closed": false, "reopening_grace": false},
+      {"instrument": "AUD_USD", "expected_flow": true, "stale": false, "validated": true, "governed_closed": false, "reopening_grace": false},
+      {"instrument": "SPX500_USD", "expected_flow": true, "stale": true, "validated": false, "governed_closed": false, "reopening_grace": false},
+      {"instrument": "WTICO_USD", "expected_flow": true, "stale": true, "validated": false, "governed_closed": false, "reopening_grace": false}
+    ],
+    "limiter_attempts_in_window": 0,
+    "limiter_max_per_window": 3,
+    "limiter_window_seconds": 3600,
+    "limiter_available": true,
+    "field_provenance": [
+      {"field": "socket_state", "source_module": "adapters/oanda.py+utils/watchdog.py", "source_symbol": "AdapterState/_current_stream_state", "owner": "HERMES", "representation": "enum string", "clock": "n/a (control-plane state)", "freshness_basis": "explicit control-plane transition; CONNECTED != flow", "availability": "AVAILABLE_AUTHORITATIVE", "authority": "AUTHORITATIVE", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "conn=CONNECTED logged throughout the break"},
+      {"field": "provider_disconnect_event", "source_module": "main.py", "source_symbol": "oanda_stream_task outer-except / StopAsyncIteration", "owner": "HERMES", "representation": "bool", "clock": "UTC (log)", "freshness_basis": "provider-initiated drop event", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "fault=NONE at 21:09 (the 21:01/21:03 disconnects had already recovered)"},
+      {"field": "auth_failure", "source_module": "adapters/oanda.py", "source_symbol": "connect() False / stream status!=200 (401/403)", "owner": "HERMES", "representation": "bool", "clock": "UTC (log)", "freshness_basis": "auth/session reject", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "no auth error observed"},
+      {"field": "heartbeat_available", "source_module": "adapters/base.py", "source_symbol": "AdapterHealth.last_tick_at (bumped on HEARTBEAT and PRICE)", "owner": "HERMES", "representation": "bool", "clock": "UTC wall (adapter)", "freshness_basis": "OANDA pricing-stream HEARTBEAT cadence ~5s -> soft 15s / hard 45s (PROVISIONAL, Phase-2 calibration)", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "JUSTIFIED_INFERENCE", "read_only_safe": true, "note": "HONESTY: heartbeat age was NOT logged on July-16; healthy is INFERRED from CONNECTED+fault NONE+FX progressing, NOT measured"},
+      {"field": "heartbeat_age_s", "source_module": "adapters/base.py", "source_symbol": "now - AdapterHealth.last_tick_at", "owner": "HERMES", "representation": "seconds float", "clock": "UTC wall (adapter)", "freshness_basis": "age since last ANY provider message", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "JUSTIFIED_INFERENCE", "read_only_safe": true, "note": "3.0s is a representative inferred value within the ~5s cadence; NOT a logged measurement"},
+      {"field": "shared_progress_available", "source_module": "adapters/base.py", "source_symbol": "AdapterHealth.last_tick_at (any-message liveness)", "owner": "HERMES", "representation": "bool", "clock": "UTC wall (adapter)", "freshness_basis": "any provider message advances it — DISTINCT from per-instrument freshness", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "JUSTIFIED_INFERENCE", "read_only_safe": true, "note": "FX progressing is directly observed; shared-progress mirrors heartbeat proxy (not independently logged on July-16)"},
+      {"field": "shared_stream_silent", "source_module": "main.py", "source_symbol": "asyncio.TimeoutError on stream_iter.__anext__ (silent stall)", "owner": "HERMES", "representation": "bool", "clock": "UTC (log)", "freshness_basis": "no line at all past tick_staleness_threshold_sec", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "no silent-stall timeout fired; FX ticks kept arriving"},
+      {"field": "parser_fatal", "source_module": "adapters/oanda.py", "source_symbol": "stream() async-for/task termination (NOT ordinary json.JSONDecodeError)", "owner": "HERMES", "representation": "bool", "clock": "UTC (log)", "freshness_basis": "enumerated FATAL only; ordinary malformed stays recoverable/advisory", "availability": "AVAILABLE_DERIVED", "authority": "AUTHORITATIVE", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "no parser fault"},
+      {"field": "SPX500_USD.stale", "source_module": "utils/watchdog.py", "source_symbol": "_instrument_health / _instrument_last_tick", "owner": "HERMES", "representation": "bool", "clock": "UTC", "freshness_basis": "tick/M1 freshness past threshold (validated=False -> no transport vote)", "availability": "AVAILABLE_ADVISORY", "authority": "ADVISORY", "observation": "DIRECTLY_OBSERVED", "read_only_safe": true, "note": "SPX500 RED, unvalidated (schedule None) -> fail-loud, no transport vote"},
+      {"field": "provider_maintenance_indication", "source_module": "(none)", "source_symbol": "n/a — OANDA emits no maintenance signal", "owner": "HERMES", "representation": "bool", "clock": "n/a", "freshness_basis": "UNSAFE_TO_INFER -> never inferred, value False", "availability": "NOT_CURRENTLY_AVAILABLE", "authority": "ADVISORY", "observation": "UNAVAILABLE", "read_only_safe": true, "note": "marked unavailable; never inferred from a metals break"}
+    ],
+    "unavailable_fields": [
+      {"field": "provider_maintenance_indication", "reason": "OANDA emits no explicit maintenance signal; UNSAFE_TO_INFER -> unavailable, never defaulted favourable"}
+    ],
+    "contradictory_evidence": [],
+    "evidence_completeness": "COMPLETE"
+  },
+  "current_authority": {
+    "evaluated": true,
+    "triggering_instrument": "SPX500_USD",
+    "recovery_requested": true,
+    "reconnect_executed": true,
+    "reconnect_suppressed": false,
+    "reason": "sustained_red instrument=SPX500_USD age_s=540 red_count=2 state=PARTIAL_FLOWING",
+    "observed_at_utc": "2026-07-16T21:09:00+00:00"
+  },
+  "expected": {
+    "shadow_action": "RECOVERY_PROPOSAL_ONLY",
+    "shadow_reconnect_authorised": false,
+    "shadow_transport_state": "TRANSPORT_HEALTHY",
+    "comparison_class": "SHADOW_DENIES_CURRENT_RECONNECT",
+    "comparison_class_granular": "SHADOW_PROPOSAL_CURRENT_RECONNECT",
+    "stale_unvalidated_instruments": ["SPX500_USD", "WTICO_USD"]
+  }
+}

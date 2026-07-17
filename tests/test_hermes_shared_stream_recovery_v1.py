@@ -421,7 +421,11 @@ def test_prototype_parity_action_reconnect_and_reasons(name, spec, kw):
 
 
 # =========================================================================== Task 12 — inertness / purity static guards
-_ALLOWED_REFERRERS = {"tests", "schemas", "docs", "ops"}
+# "design" is the INERT design location (the audited prototype + the Phase-2 shadow-adapter design modules live
+# here). It is NOT a runtime/infra path — no runner, compose, or systemd unit imports it, proven independently by
+# tests/test_sss_phase2_shadow_design_v1.py::test_static_guard_no_runtime_imports_phase2_design. The Phase-2 replay
+# harness legitimately imports the pure core from design/, so design/ is an allowed inert referrer here too.
+_ALLOWED_REFERRERS = {"tests", "schemas", "docs", "ops", "design"}
 
 def test_static_guard_no_runtime_or_infra_imports_the_core():
     """FAIL if any runtime / infra file references the new module. Only tests/schemas/docs/ops may."""

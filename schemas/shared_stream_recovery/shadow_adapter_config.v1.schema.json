@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/shared_stream_recovery/shadow_adapter_config.v1.schema.json",
+  "title": "HERMES Shared-Stream Recovery Phase-2 Shadow Adapter Config v1",
+  "description": "Configuration contract for the FUTURE Phase-2 shadow adapter. DESIGN-ONLY; nothing here is loaded by any runtime today. Config lives in governed hermes_config (DB), NOT in code. shadow_enabled DEFAULTS DISABLED with no implicit enable. Every key: owner/type/allowed/default/fail-safe/source/reload/validation. No secrets. WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["shadow_enabled"],
+  "properties": {
+    "shadow_enabled": { "type": "boolean", "default": false, "description": "MASTER GATE. owner HERMES. DEFAULT false. fail-safe: absent/invalid -> disabled. source hermes_config. reload lifespan-init. No implicit enable anywhere." },
+    "shadow_consumer_live": { "type": "boolean", "const": false, "default": false, "description": "MUST remain false in Phase 2. A true value is a validation error (no shadow reconnect is emittable)." },
+    "shadow_eval_cadence_sec": { "type": "integer", "minimum": 5, "maximum": 300, "default": 15, "description": "Shadow eval max frequency. Aligned to watchdog_interval_sec. owner HERMES. fail-safe: invalid -> disabled." },
+    "heartbeat_soft_horizon_s": { "type": "number", "minimum": 1, "maximum": 120, "default": 15, "description": "PROVISIONAL — OANDA heartbeat ~5s cadence basis; Phase-2 empirical calibration. fail-safe: invalid -> disabled." },
+    "heartbeat_hard_horizon_s": { "type": "number", "minimum": 1, "maximum": 300, "default": 45, "description": "PROVISIONAL. MUST be >= soft. fail-safe: invalid -> disabled." },
+    "shared_progress_soft_horizon_s": { "type": "number", "minimum": 1, "maximum": 300, "default": 15, "description": "Any-message liveness soft horizon. PROVISIONAL." },
+    "shared_progress_hard_horizon_s": { "type": "number", "minimum": 1, "maximum": 600, "default": 60, "description": "Any-message liveness hard horizon. PROVISIONAL." },
+    "callback_dedup_window_sec": { "type": "number", "minimum": 0.1, "maximum": 60, "default": 2.0, "description": "Debounce window for provider disconnect callbacks (bounding). A genuinely NEW connection-generation disconnect is never deduped away." },
+    "max_callback_shadow_events_per_min": { "type": "integer", "minimum": 1, "maximum": 120, "default": 20, "description": "Upper bound on callback-driven shadow evaluations per minute." },
+    "quorum_requires_all_validated_expected_flow_stale": { "type": "boolean", "const": true, "default": true, "description": "Derived-authority quorum is ALL validated expected-flow instruments stale (architecture_v1 §6). Not tunable to a percentage." },
+    "snapshot_retention_days": { "type": "integer", "minimum": 1, "maximum": 365, "default": 30, "description": "Retention for shadow evidence records." },
+    "log_sampling_ratio": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "1.0 = log every decision; <1 samples AGREE_* only (divergences always logged)." },
+    "evidence_output_path": { "type": "string", "default": "ops/evidence/shadow_stream_recovery/decisions.jsonl", "description": "Project-local append-only JSONL sink. NOT Redis/SQL (see §18). owner HERMES." },
+    "alert_on_comparison_classes": { "type": "array", "items": { "type": "string" }, "default": ["SHADOW_DENIES_CURRENT_RECONNECT", "SHADOW_AUTHORIZES_CURRENT_NO_RECONNECT", "EVIDENCE_CONFLICT", "ADAPTER_ERROR"], "description": "Comparison classes that raise an operator alert." }
+  }
+}

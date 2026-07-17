@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/shared_stream_recovery/evidence_snapshot.v1.schema.json",
+  "title": "HERMES Shared-Stream Recovery Phase-2 Evidence Snapshot v1",
+  "description": "Immutable, versioned, provenance-bearing LIVE-evidence snapshot a future Phase-2 shadow adapter would hand to the UNCHANGED Phase-1 pure core (utils/hermes_shared_stream_recovery_v1.decide). INERT / DESIGN-ONLY. Sufficient to reproduce the shadow decision OFFLINE. Missing evidence is represented as UNAVAILABLE, NEVER defaulted to a favourable value. WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "snapshot_version", "provider", "captured_at_utc", "evaluated_at_utc", "config_version",
+    "source_sha", "adapter_version", "connection_generation",
+    "socket_state", "provider_disconnect_event", "auth_failure", "heartbeat_available", "heartbeat_age_s",
+    "shared_stream_silent", "parser_fatal", "reconnect_in_progress",
+    "shared_progress_available", "shared_progress_age_s", "provider_maintenance_indication", "error_count_delta",
+    "heartbeat_soft_horizon_s", "heartbeat_hard_horizon_s", "instruments",
+    "limiter_attempts_in_window", "limiter_max_per_window", "limiter_window_seconds", "limiter_available",
+    "field_provenance", "unavailable_fields", "contradictory_evidence", "evidence_completeness"
+  ],
+  "properties": {
+    "snapshot_version": { "type": "string", "const": "1" },
+    "contract_version": { "type": "string", "const": "1" },
+    "snapshot_id": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "Deterministic sha256[:16] over the canonical snapshot. No randomness, no wall-clock." },
+    "provider": { "type": "string", "examples": ["OANDA"] },
+    "captured_at_utc": { "type": "string", "description": "ISO-8601 UTC instant the evidence was captured." },
+    "evaluated_at_utc": { "type": "string", "description": "ISO-8601 UTC instant injected into decide() (usually == captured_at_utc)." },
+    "config_version": { "type": ["string", "null"], "description": "Governed market-hours config version (e.g. '3')." },
+    "source_sha": { "type": "string", "description": "Canonical git sha of the evidence-producing code — offline reproduction anchor." },
+    "adapter_version": { "type": "string" },
+    "runtime_identity": { "type": "object", "description": "Sanitised host/pid/env. MUST NOT contain secrets, tokens, or account ids." },
+    "connection_generation": { "type": "integer", "minimum": 0, "description": "Monotonic connection generation for callback dedup/bounding scoping." },
+    "socket_state": { "type": "string", "enum": ["connected", "connecting", "reconnecting", "disconnected", "failed", "unknown"], "description": "Control-plane socket state. CONNECTED != healthy flow (connect() only proves auth reachability)." },
+    "provider_disconnect_event": { "type": "boolean" },
+    "auth_failure": { "type": "boolean" },
+    "heartbeat_available": { "type": "boolean", "description": "Whether AdapterHealth.last_tick_at heartbeat truth is available (bumped by HEARTBEAT and PRICE)." },
+    "heartbeat_age_s": { "type": ["number", "null"], "minimum": 0, "description": "now - last_tick_at. null when heartbeat truth is unavailable -> fail closed, never healthy-defaulted." },
+    "shared_stream_silent": { "type": "boolean", "description": "No line at all (incl heartbeat) past the stall horizon (asyncio.TimeoutError seam)." },
+    "parser_fatal": { "type": "boolean", "description": "Enumerated FATAL parser/task termination ONLY; ordinary malformed is recoverable/advisory, not this." },
+    "reconnect_in_progress": { "type": "boolean" },
+    "shared_progress_available": { "type": ["boolean", "null"], "description": "Any-message liveness availability, DISTINCT from per-instrument freshness. null => mirror heartbeat." },
+    "shared_progress_age_s": { "type": ["number", "null"], "minimum": 0 },
+    "provider_maintenance_indication": { "type": "boolean", "description": "OANDA emits no maintenance signal -> value False + provenance NOT_CURRENTLY_AVAILABLE; never inferred." },
+    "error_count_delta": { "type": "integer" },
+    "heartbeat_soft_horizon_s": { "type": "number", "minimum": 0 },
+    "heartbeat_hard_horizon_s": { "type": "number", "minimum": 0 },
+    "instruments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["instrument", "expected_flow", "stale", "validated"],
+        "properties": {
+          "instrument": { "type": "string" },
+          "expected_flow": { "type": "boolean" },
+          "stale": { "type": "boolean" },
+          "validated": { "type": "boolean", "description": "Governed validated schedule. WTICO_USD/SPX500_USD -> false (no transport vote)." },
+          "governed_closed": { "type": "boolean" },
+          "reopening_grace": { "type": "boolean" }
+        }
+      }
+    },
+    "limiter_attempts_in_window": { "type": "integer", "minimum": 0 },
+    "limiter_max_per_window": { "type": "integer", "minimum": 1 },
+    "limiter_window_seconds": { "type": "integer", "minimum": 1 },
+    "limiter_available": { "type": "boolean", "description": "False models the limiter store being unreadable -> fail closed for non-emergency authority." },
+    "field_provenance": {
+      "type": "array",
+      "description": "Per-field provenance. The honesty spine: availability class + directly-observed-vs-inferred.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "source_module", "source_symbol", "owner", "representation", "clock", "freshness_basis", "availability", "authority", "observation"],
+        "properties": {
+          "field": { "type": "string" },
+          "source_module": { "type": "string" },
+          "source_symbol": { "type": "string" },
+          "owner": { "type": "string" },
+          "representation": { "type": "string" },
+          "clock": { "type": "string" },
+          "freshness_basis": { "type": "string" },
+          "availability": { "type": "string", "enum": ["AVAILABLE_AUTHORITATIVE", "AVAILABLE_DERIVED", "AVAILABLE_ADVISORY", "NOT_CURRENTLY_AVAILABLE", "AMBIGUOUS", "UNSAFE_TO_INFER"] },
+          "authority": { "type": "string", "enum": ["AUTHORITATIVE", "ADVISORY"] },
+          "observation": { "type": "string", "enum": ["DIRECTLY_OBSERVED", "JUSTIFIED_INFERENCE", "UNAVAILABLE"] },
+          "read_only_safe": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "unavailable_fields": {
+      "type": "array",
+      "items": { "type": "object", "required": ["field", "reason"], "properties": { "field": { "type": "string" }, "reason": { "type": "string" } } }
+    },
+    "contradictory_evidence": {
+      "type": "array",
+      "items": { "type": "object", "properties": { "fields": { "type": "string" }, "description": { "type": "string" } } }
+    },
+    "evidence_completeness": { "type": "string", "enum": ["COMPLETE", "PARTIAL", "INCOMPLETE"], "description": "INCOMPLETE => an authority-bearing field is UNAVAILABLE => shadow fails closed, decision withheld." }
+  }
+}

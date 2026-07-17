@@ -1,0 +1,24 @@
+VERDICT: GREEN_HERMES_SHARED_STREAM_RECOVERY_PHASE2_SHADOW_ADAPTER_DESIGN_PR_OPEN
+
+WO: WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001
+Authority: HELM (HERMES market-data lane). Base: canonical main 8355044b. DESIGN-ONLY / INERT / NOT FOR MERGE.
+
+Basis for GREEN:
+- Every AUTHORITY-BEARING field (socket/heartbeat/shared-progress/parser/auth/disconnect/reconnect-in-progress/
+  horizons/limiter/instruments) has a TRUTHFUL, code-supported source on canonical 8355044b (evidence_source_trace.md,
+  availability_matrix.md). The only genuinely UNAVAILABLE field is ADVISORY (provider_maintenance_indication) and is
+  never inferred. socket "connected" is treated as UNPROVEN (design leans on heartbeat) — honest, not false-green.
+- All fail-closed conditions AVOIDED/HONOURED: missing evidence -> INCOMPLETE (not healthy); contradictory ->
+  EVIDENCE_CONFLICT; adapter/core error -> ADAPTER_ERROR; heartbeat inferred-not-measured for July-16 is marked
+  JUSTIFIED_INFERENCE; parser-fatal distinguished from ordinary malformed; shared-progress independent of
+  unvalidated instruments; current authority observed PASSIVELY (no ordering/timing change); shadow MECHANICALLY
+  incapable of executing a reconnect (RefusingShadowExecutor raises; shadow_only const True; no connect/disconnect
+  handle; static import guard).
+- July-16 offline replay: shadow RECOVERY_PROPOSAL_ONLY / NOT AUTHORISED; comparison SHADOW_DENIES_CURRENT_RECONNECT.
+- Genuine faults: AGREE_RECONNECT (or SHADOW_AUTHORIZES_CURRENT_NO_RECONNECT / EVIDENCE_* as appropriate).
+- Config shadow_enabled DEFAULT DISABLED, no implicit enable, consumer_live const false.
+- Storage: project-local append-only JSONL (no Redis/SQL, no migration). Runner count unchanged (9).
+- Tests: 118 passed (28 Phase-2 design + Phase-1 suite green). Inertness proven by grep + static guard.
+
+NOT DONE (by design): no adapter implementation, no runtime import/wire, no execution, no runner/daemon/timer/cron/
+systemd, no reconnect, no config/schedule change, no Redis/SQL write, no deploy, no merge.
