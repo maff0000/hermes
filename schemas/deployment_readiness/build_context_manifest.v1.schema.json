@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes/schemas/deployment_readiness/build_context_manifest.v1.schema.json",
+  "title": "HERMES clean build-context manifest v1",
+  "description": "Machine-readable, deterministic manifest describing the exact-SHA clean build context produced by tools/hermes_clean_build_context_v1.py. No secrets, no raw file contents — only safe paths, checksums, and rule ids. WO-HELM-HERMES-PRE-STAGE-B-BUILD-CONTEXT-OCI-PROVENANCE-AND-SAFETY-GATE-CORRECTIONS-IMPLEMENTATION-0001.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "application",
+    "repo_remote",
+    "repo_name",
+    "source_sha",
+    "created_utc",
+    "tool_version",
+    "exported_file_count",
+    "files",
+    "excluded_category_summary",
+    "prohibited_findings",
+    "secret_findings",
+    "scanned_path_count",
+    "result",
+    "manifest_checksum"
+  ],
+  "properties": {
+    "contract_version": {"type": "string", "const": "1"},
+    "application": {"type": "string", "const": "hermes"},
+    "repo_remote": {"type": "string", "minLength": 1},
+    "repo_name": {"type": "string", "minLength": 1},
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full 40-hex commit id. Abbreviated/branch/tag/'latest' are not permitted."
+    },
+    "created_utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(\\+00:00|Z)$",
+      "description": "tz-aware UTC ISO-8601 creation timestamp."
+    },
+    "tool_version": {"type": "string", "const": "1"},
+    "exported_file_count": {"type": "integer", "minimum": 0},
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "excluded_category_summary": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0},
+      "description": ".dockerignore-excluded categories -> count. Independent-defence summary; NOT a substitute for the exact-SHA export."
+    },
+    "prohibited_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "rule_id"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "rule_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "secret_findings": {
+      "type": "array",
+      "description": "Secret-pattern findings over the EFFECTIVE (post-.dockerignore) build context. Reports safe path + rule id ONLY, never the matched value.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "rule_id"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "rule_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "scanned_path_count": {"type": "integer", "minimum": 0},
+    "result": {"type": "string", "enum": ["PASS", "FAIL"]},
+    "manifest_checksum": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

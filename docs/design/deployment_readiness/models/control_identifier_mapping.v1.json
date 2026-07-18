@@ -1,0 +1,45 @@
+{
+  "model_version": "1",
+  "wo": "WO-HELM-HERMES-PRE-STAGE-B-BUILD-CONTEXT-OCI-PROVENANCE-AND-SAFETY-GATE-CORRECTIONS-IMPLEMENTATION-0001",
+  "supersedes_note": "Canonical, SINGLE control-identifier mapping for the pre-Stage-B build-provenance controls. No contradictory duplicate identifiers exist. F-DR-01 and F-DR-02 are the two mandatory pre-Stage-B controls; each maps to exactly one acceptance test family and its lifecycle gate + blocking effect.",
+  "generated_utc": "2026-07-18",
+  "authority": "HELM",
+  "design_only": true,
+  "controls": [
+    {
+      "control_id": "F-DR-01",
+      "name": "Clean exact-SHA build context + .dockerignore hardening",
+      "acceptance_tests": ["T-DOCKERIGNORE", "T-CLEAN-CONTEXT", "T-BUILD-MANIFEST", "T-SECRET-SCAN", "T-PROHIBITED-PATH"],
+      "mechanisms": [
+        "tools/hermes_clean_build_context_v1.py (git-archive exact-SHA export + deterministic manifest + security scan)",
+        ".dockerignore hardening (independent defence)",
+        "schemas/deployment_readiness/build_context_manifest.v1.schema.json"
+      ],
+      "lifecycle_gate": "Stage A (verify) + Stage B (build)",
+      "blocking": true,
+      "blocking_effect": "Stage B FAILS (image build MUST NOT proceed) if the clean exact-SHA context cannot be produced, if the manifest diverges from tracked git content, or if a prohibited-path / secret finding appears in the effective (post-.dockerignore) build context.",
+      "mandatory_for": "every future Stage-B candidate image",
+      "legacy_scope": "The clean-context requirement governs FUTURE candidate builds; the running legacy image c5fc2a62f424 is not retroactively rebuilt."
+    },
+    {
+      "control_id": "F-DR-02",
+      "name": "Source-SHA + build-UTC OCI provenance labels",
+      "acceptance_tests": ["T-SBOM-SCAN", "T-OCI-LABELS"],
+      "future_wo": ["FW-08-IMAGE-BUILD", "FW-19-SOURCE-SHA-LABEL"],
+      "mechanisms": [
+        "Dockerfile runtime-stage ARG SOURCE_SHA + ARG BUILD_UTC + LABEL org.opencontainers.image.revision + org.opencontainers.image.created",
+        "tools/hermes_image_label_verify_v1.py (full-40-hex revision + tz-aware UTC created; candidate-readiness fail-closed)"
+      ],
+      "lifecycle_gate": "Stage B (build) — label emission; verified before Stage C readiness audit",
+      "blocking": true,
+      "blocking_effect": "Stage B FAILS if EITHER label is absent, empty or malformed, or if the revision label does not match the clean build-context source SHA. Labels are MANDATORY, not optional recommendations.",
+      "mandatory_for": "every future Stage-B candidate image",
+      "legacy_scope": "The legacy image c5fc2a62f424 carries no provenance labels; it is NOT retroactively invalid. The requirement applies to FUTURE candidate images only. The legacy image does NOT set the contract for new candidate images."
+    }
+  ],
+  "safety_gate_acceptance": [
+    {"gate_id": "T-SOCKET-AMBIGUITY", "purpose": "Socket CONNECTED is never transport health; connected alone can neither authorise nor deny reconnect as-if-proven.", "blocking": true, "implemented_here": true},
+    {"gate_id": "T-HISTORICAL-INFERENCE", "purpose": "Strict mode: unavailable July-16 heartbeat -> evidence-incomplete -> reconnect unauthorised. Inference-permitted mode: JUSTIFIED_INFERENCE preserved and never relabelled DIRECTLY_OBSERVED; shadow proposal-only.", "blocking": true, "implemented_here": true}
+  ],
+  "no_duplicate_identifiers": true
+}

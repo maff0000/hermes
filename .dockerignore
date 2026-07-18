@@ -1,14 +1,36 @@
 # Zero-leak build context — WO-HELM-HERMES-CONTAINER-ISOLATION-0002.
-# Keep secrets, VCS, caches, backups, and test/dev cruft OUT of the image.
+# Hardened pre-Stage-B — WO-HELM-HERMES-PRE-STAGE-B-BUILD-CONTEXT-OCI-PROVENANCE-AND-SAFETY-GATE-CORRECTIONS-IMPLEMENTATION-0001.
+# Keep secrets, VCS, caches, backups, evidence, and dev cruft OUT of the image.
+# INDEPENDENT DEFENCE: layered on top of the exact-SHA clean build context
+# (tools/hermes_clean_build_context_v1.py), never a substitute for it.
 
 # Secrets / environment (NEVER baked into the image — provided at runtime via env_file)
 .env
 .env.*
 !.env.example
 
-# Version control
+# Version control (top-level AND any nested .git that was ever committed)
 .git
 .gitignore
+**/.git
+**/.gitignore
+
+# Agent / assistant metadata (NEVER shipped)
+.claude/
+**/.claude/
+
+# Git worktrees (never part of an image context)
+worktrees/
+**/worktrees/
+
+# Virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
+virtualenv/
+virtualenvs/
+**/virtualenvs/
 
 # Python caches / build artifacts
 __pycache__/
@@ -23,13 +45,56 @@ __pycache__/
 tests/
 mock/
 
-# Operational evidence / backups / local archives (not part of the runtime)
+# Operational evidence / HELM+R2D2 bundles / backups / local archives (not part of the runtime)
 ops/evidence/
+**/ops-evidence/
+*.jsonl
+**/*.jsonl
 **/*.pre_*_backup_*
 *.bak
 *.log
 /data/
 signal_history/
+
+# Runtime process / socket artefacts
+*.pid
+*.sock
+
+# Private key / certificate material (must never enter an image)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local database artefacts
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage / generated reports
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Container image exports / build output
+*.tar
+*.tar.gz
+build/
+dist/
+
+# Editor / IDE metadata
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# OS metadata
+.DS_Store
+**/.DS_Store
+Thumbs.db
+._*
 
 # Container/CI meta (not needed inside the image)
 .github/

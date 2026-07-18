@@ -1,0 +1,53 @@
+### candidate good labels
+{
+  "build_utc": "2026-07-18T12:00:00+00:00",
+  "checks": {
+    "created_present_and_valid": true,
+    "revision_matches_clean_context": true,
+    "revision_present_and_valid": true
+  },
+  "contract_version": "1",
+  "errors": [],
+  "is_candidate": true,
+  "legacy_scope_note": "legacy image c5fc2a62f424 predates the provenance-label contract; NOT retroactively invalid; requirement applies to FUTURE candidate images only",
+  "ok": true,
+  "source_sha": "adc21c4dfef571debd0ef05bb22bc7af0b289ea3",
+  "tool_version": "1"
+}
+exit=0
+### candidate MISSING labels (must FAIL, exit 3)
+{
+  "build_utc": null,
+  "checks": {
+    "created_present_and_valid": false,
+    "revision_present_and_valid": false
+  },
+  "contract_version": "1",
+  "errors": [
+    "org.opencontainers.image.revision: revision label absent (no env fallback invents a source SHA)",
+    "org.opencontainers.image.created: created label absent"
+  ],
+  "is_candidate": true,
+  "legacy_scope_note": "legacy image c5fc2a62f424 predates the provenance-label contract; NOT retroactively invalid; requirement applies to FUTURE candidate images only",
+  "ok": false,
+  "source_sha": null,
+  "tool_version": "1"
+}
+exit=3
+### legacy image inspect (non-candidate, NOT retroactively invalid)
+{
+  "build_utc": null,
+  "checks": {
+    "created_present_and_valid": false,
+    "legacy_scope_exempt": true,
+    "revision_present_and_valid": false
+  },
+  "contract_version": "1",
+  "errors": [],
+  "is_candidate": false,
+  "legacy_scope_note": "legacy image c5fc2a62f424 predates the provenance-label contract; NOT retroactively invalid; requirement applies to FUTURE candidate images only",
+  "ok": true,
+  "source_sha": null,
+  "tool_version": "1"
+}
+exit=0
