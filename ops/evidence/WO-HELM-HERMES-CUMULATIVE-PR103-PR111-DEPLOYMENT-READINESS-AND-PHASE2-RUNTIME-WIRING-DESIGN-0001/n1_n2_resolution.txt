@@ -1,0 +1,53 @@
+# N-1 / N-2 storage-hardening resolution (grounded in canonical code). UTC 2026-07-18
+## N-1: append atomicity gap (utils/hermes_sss_jsonl_writer_v1.py append()):
+        try:
+            violations = scan_for_prohibited(payload)
+            if violations:
+                return WriteResult(ok=False, reason=f"redaction_violation:{violations[0].kind}")
+
+            line = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+            encoded = (line + "\n").encode("utf-8")
+            if len(encoded) > _MAX_RECORD_BYTES:
+                return WriteResult(ok=False, reason="record_too_large")
+
+            rotated = False
+            try:
+                self._ensure_dir()
+                if self._should_rotate(len(encoded)):
+                    self._rotate()
+                    rotated = True
+                with open(self._path, "ab") as fh:
+                    fh.write(encoded)
+                self._chmod(self._path, self._file_mode)
+            except OSError as exc:
+                # Disk full / permission / IO error -> visible, bounded, non-raising. No retry loop.
+                return WriteResult(ok=False, reason=f"io_error:{exc.__class__.__name__}", rotated=rotated)
+
+            return WriteResult(ok=True, bytes_written=len(encoded), rotated=rotated)
+        except Exception as exc:  # noqa: BLE001 - final isolation boundary; a shadow write must NEVER escape.
+            # Deliberate last-resort catch: the writer is off the hot path and MUST NOT raise into the market-data
+            # or recovery path (§21). The failure is reported, not swallowed silently.
+            return WriteResult(ok=False, reason=f"unexpected_error:{exc.__class__.__name__}")
+
+    def active_checksum(self) -> Optional[str]:
+-> buffered open(path,'ab')+write, NO fsync, NO per-record framing/checksum. Rotation uses atomic os.replace.
+-> RESOLUTION (FW-01, blocking before Stage F): line framing + read-side partial-tail validator + bounded fsync policy + interrupted-rotation recovery + single-writer invariant. INCREMENTAL harden, not replace.
+
+## N-2: redaction covers string VALUES only (utils/hermes_sss_redaction_v1.py _walk):
+        if isinstance(node, Mapping):
+            for k, v in node.items():
+                child = f"{path}.{k}" if path else str(k)
+                if isinstance(k, str):
+                    _key_violation(k, child)
+                _walk(v, child, depth + 1)
+        elif isinstance(node, (list, tuple)):
+            for idx, item in enumerate(node):
+                _walk(item, f"{path}[{idx}]", depth + 1)
+        elif isinstance(node, str):
+            _value_violation(node, path)
+        # numbers / bools / None carry no secret surface.
+
+    _walk(payload, "", 0)
+    return tuple(violations)
+-> bytes/bytearray/int-identifiers NOT scanned ('numbers/bools/None carry no secret surface').
+-> RESOLUTION (FW-02, blocking before Stage F): FIXED closed record schema is PRIMARY defence; scan extended to bytes/int-id/list/tuple/mapping/dataclass/enum/encoded/nested/raw-obj as defence-in-depth; raw provider/SDK objects rejected. Blocking type-matrix tests before activation.

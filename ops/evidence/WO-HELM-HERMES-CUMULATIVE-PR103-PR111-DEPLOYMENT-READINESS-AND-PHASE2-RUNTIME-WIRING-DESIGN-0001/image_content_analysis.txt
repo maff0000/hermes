@@ -1,0 +1,40 @@
+# Image-content analysis — modules that ship in a candidate image from adc21c4d
+## Phase-1 pure core (present-but-inactive):
+utils/hermes_shared_stream_recovery_v1.py
+## Phase-2 sss modules (present-but-inactive, disabled-by-default):
+utils/hermes_sss_comparator_v1.py
+utils/hermes_sss_config_v1.py
+utils/hermes_sss_evidence_adapters_v1.py
+utils/hermes_sss_evidence_snapshot_v1.py
+utils/hermes_sss_jsonl_writer_v1.py
+utils/hermes_sss_mapper_v1.py
+utils/hermes_sss_observer_v1.py
+utils/hermes_sss_redaction_v1.py
+utils/hermes_sss_shadow_adapter_v1.py
+utils/hermes_sss_shadow_record_v1.py
+## design prototypes (inert):
+design/shared_stream_recovery_contract_v1.py
+design/sss_phase2_comparator_v1.py
+design/sss_phase2_evidence_snapshot_v1.py
+design/sss_phase2_interfaces_v1.py
+design/sss_phase2_replay_harness_v1.py
+design/sss_phase2_shadow_record_v1.py
+design/sss_phase2_test_doubles_v1.py
+## operator tools (not runtime-imported):
+tools/hermes_predeploy_gate_v1.py
+tools/hermes_transition_evidence_validator_v1.py
+## PR103 runtime-imported loader:
+utils/hermes_market_hours_health_v1.py
+## EXCLUDED (tests dir) — sample:
+tests/test_hermes_sss_shadow_adapter_v1.py
+
+requirements.txt unchanged across PR103-111 (no dependency drift):
+  PR eb928a1c: requirements.txt untouched
+  PR ff497f36: requirements.txt untouched
+  PR f08f7df8: requirements.txt untouched
+  PR 8de293de: requirements.txt untouched
+  PR 458d430f: requirements.txt untouched
+  PR ae80d113: requirements.txt untouched
+  PR 8355044b: requirements.txt untouched
+  PR b50162a2: requirements.txt untouched
+  PR adc21c4d: requirements.txt untouched

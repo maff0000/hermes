@@ -1,0 +1,35 @@
+# Active-import analysis — proof no runtime path imports Phase-2 / Phase-1 recovery. UTC 2026-07-18
+## App-root runtime files:
+backfill_atr_metrics.py
+config.py
+env_config.py
+__init__.py
+main.py
+signal_builder.py
+adapters/:
+adapters/base.py
+adapters/__init__.py
+adapters/oanda.py
+utils/watchdog.py present:
+utils/watchdog.py
+
+## grep for sss/shared_stream_recovery imports OUTSIDE tests/design/sibling-sss:
+(none) <- NO runtime importer
+
+## All importers (broad) — only tests + sibling sss + design prototypes:
+./design/sss_phase2_comparator_v1.py
+./design/sss_phase2_evidence_snapshot_v1.py
+./design/sss_phase2_interfaces_v1.py
+./design/sss_phase2_replay_harness_v1.py
+./design/sss_phase2_shadow_record_v1.py
+./tests/test_hermes_shared_stream_recovery_v1.py
+./tests/test_hermes_sss_shadow_adapter_v1.py
+./tests/test_sss_phase2_shadow_design_v1.py
+./utils/hermes_sss_comparator_v1.py
+./utils/hermes_sss_evidence_adapters_v1.py
+./utils/hermes_sss_evidence_snapshot_v1.py
+./utils/hermes_sss_mapper_v1.py
+./utils/hermes_sss_shadow_adapter_v1.py
+./utils/hermes_sss_shadow_record_v1.py
+
+RULING: no runtime path (main.py/signal_builder/config/env_config/backfill/adapters/watchdog) imports Phase-1 or Phase-2. Present-but-inactive CONFIRMED.

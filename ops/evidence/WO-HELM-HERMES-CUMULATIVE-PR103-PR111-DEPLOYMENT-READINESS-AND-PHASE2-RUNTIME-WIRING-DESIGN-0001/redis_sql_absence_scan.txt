@@ -1,0 +1,7 @@
+# Redis/SQL absence scan across THIS WO's added design artifacts. UTC 2026-07-18
+## grep for redis/sql/mysql/pymysql in added docs+schemas+models+examples:
+docs/design/deployment_readiness/models/deployment_stage_model.v1.json:18:    "No stage introduces Redis or SQL.",
+docs/design/deployment_readiness/models/acceptance_matrix.v1.json:8:    {"id": "T-DESIGN", "category": "design-validation", "stage": "design-PR", "owner": "HELM", "input": "This PR's JSON models + schemas + examples", "expected": "Schemas valid; 9 PRs present; stage/rollback/consumer_live/redis-sql/N1-N2/Phase-3 invariants hold", "blocking_failure": "any invariant violated", "evidence": "pytest tests/test_deployment_readiness_design_v1.py", "implemented_here": true},
+docs/design/deployment_readiness/models/future_wo_sequence.v1.json:14:    {"seq": 7, "id": "FW-07-EVIDENCE-MOUNT", "purpose": "Provision project-owned evidence mount (UID/GID/perms/quota/rotation). No secrets/Redis/SQL.", "kind": "infra", "depends_on": [], "parallelisable_with": ["FW-05", "FW-06"], "gate_before": "deploy-dark", "combines_merge_deploy_activate": false},
+
+RULING: design introduces NO Redis and NO SQL. Every deployment stage has introduces_redis_or_sql=false. Observability is a bounded project-local surface unless a SEPARATE architectural decision authorises otherwise.

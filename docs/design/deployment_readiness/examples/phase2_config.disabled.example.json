@@ -1,0 +1,25 @@
+{
+  "config_version": "1",
+  "shadow_enabled": false,
+  "shadow_consumer_live": false,
+  "shadow_eval_cadence_sec": 15,
+  "heartbeat_soft_horizon_s": 15.0,
+  "heartbeat_hard_horizon_s": 45.0,
+  "shared_progress_soft_horizon_s": 15.0,
+  "shared_progress_hard_horizon_s": 60.0,
+  "callback_dedup_window_sec": 2.0,
+  "max_callback_shadow_events_per_min": 60,
+  "snapshot_retention_days": 14,
+  "max_jsonl_bytes": 10485760,
+  "max_retained_files": 10,
+  "write_timeout_s": 1.0,
+  "log_sampling_ratio": 0.0,
+  "evidence_output_path": "/data/shadow_stream_recovery/decisions.jsonl",
+  "alert_on_comparison_classes": [
+    "SHADOW_DENIES_CURRENT_RECONNECT",
+    "EVIDENCE_CONFLICT",
+    "ADAPTER_ERROR"
+  ],
+  "horizons_provisional": true,
+  "disabled_reason": null
+}

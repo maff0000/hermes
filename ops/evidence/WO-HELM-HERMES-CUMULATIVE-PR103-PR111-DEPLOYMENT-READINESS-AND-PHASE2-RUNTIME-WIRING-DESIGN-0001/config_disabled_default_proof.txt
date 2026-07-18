@@ -1,0 +1,26 @@
+# Config disabled-by-default proof (utils/hermes_sss_config_v1.py). UTC 2026-07-18
+14:  * shadow_enabled DEFAULTS false. Absent/malformed config -> DISABLED. No implicit enable anywhere. No source
+16:  * shadow_consumer_live is a const false; a true value is a validation error -> DISABLED.
+43:    shadow_enabled: bool
+44:    shadow_consumer_live: bool
+63:    def enabled(self) -> bool:
+64:        """The ONLY gate the adapter consults. Never true unless a valid config explicitly set shadow_enabled True
+66:        return bool(self.shadow_enabled) and self.shadow_consumer_live is False
+69:def disabled_config(reason: str) -> ShadowAdapterConfig:
+70:    """The canonical DISABLED, fail-safe config. shadow_enabled is False; enabled is False."""
+73:        shadow_enabled=False,
+74:        shadow_consumer_live=False,
+123:    A MISSING config, a non-mapping, a malformed value, an out-of-range horizon, shadow_consumer_live=True, or a
+136:        # shadow_enabled MUST be an explicit bool True. Anything else (absent, string 'true', 1) -> disabled.
+137:        enabled_raw = raw.get("shadow_enabled", False)
+139:            raise _Invalid("shadow_enabled must be an explicit boolean (no implicit/coerced enable)")
+141:        consumer_live_raw = raw.get("shadow_consumer_live", False)
+143:            raise _Invalid("shadow_consumer_live must be a boolean")
+145:            raise _Invalid("shadow_consumer_live MUST be false in Phase 2 (no live consumer is permitted)")
+178:        shadow_enabled=enabled_raw,
+179:        shadow_consumer_live=False,
+
+RULING: shadow_enabled defaults False; shadow_consumer_live const False; .enabled true ONLY for explicit True + consumer_live False. No env string coercion, no source constant/env fallback enables. consumer_live=true can NEVER activate. Absent/malformed -> DISABLED.
+
+Design schema: schemas/deployment_readiness/phase2_config.v1.schema.json (shadow_enabled type=boolean; shadow_consumer_live const false; horizons_provisional const true).
+Disabled example: docs/design/deployment_readiness/examples/phase2_config.disabled.example.json

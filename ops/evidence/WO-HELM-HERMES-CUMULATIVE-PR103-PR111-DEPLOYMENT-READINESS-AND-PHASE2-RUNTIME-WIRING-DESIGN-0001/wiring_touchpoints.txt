@@ -1,0 +1,51 @@
+# Passive-wiring touchpoints — files a FUTURE impl WO would touch (NOT touched here). UTC 2026-07-18
+## main.py DstAwareMarketHours assembly + stream loop:
+671:    retry_count = 0
+677:            retry_count = 0  # Reset on successful connection
+681:            # on first tick receipt via record_tick() -> _promote_to_flowing()
+716:                        state.watchdog.set_stream_state(StreamState.STALE)
+731:                    _recovery_reason = state.watchdog.consume_recovery_request()
+798:                record_tick()
+802:                    state.watchdog.record_tick(tick.timestamp, instrument=tick.instrument)
+852:                                state.watchdog.record_candle_m1(candle.timestamp, instrument=candle.instrument)
+923:                state.watchdog.set_stream_state(StreamState.RECOVERING)
+964:                        state.watchdog.set_stream_state(StreamState.FAILED)
+1140:        from utils.hermes_market_hours_health_v1 import DstAwareMarketHours as _DstMH
+1345:            state.watchdog.set_stream_state(StreamState.CONNECTED_UNPROVEN)
+
+## Current authority one-shot (must be OBSERVED, never CONSUMED by shadow):
+main.py:731:                    _recovery_reason = state.watchdog.consume_recovery_request()
+utils/watchdog.py:625:        ``consume_recovery_request()``. The existing reconnect path then runs.
+utils/watchdog.py:702:    def consume_recovery_request(self):
+
+## oanda same-source surface (heartbeat + shared-progress collapse):
+141:                        self._health.last_tick_at = datetime.now(timezone.utc)
+
+## watchdog private observation surfaces:
+223:    def get_open_incidents(self) -> list:
+265:        self._market_truth_checker = market_truth_checker
+269:        self._instrument_last_tick = {}      # {instrument: datetime}
+279:        self._per_instrument_red_since = {}       # {instrument: datetime first RED}
+280:        self._recovery_request_pending = False
+283:        self._recovery_attempts_window = []       # list[datetime]; trimmed to last hour
+340:            self._instrument_last_tick[instrument] = tick_utc
+401:    def stream_state(self) -> str:
+412:    def get_health_snapshot(self) -> dict:
+482:                    "last_tick_utc": str(self._instrument_last_tick.get(inst)) if self._instrument_last_tick.get(inst) else None,
+542:        mh_policy = self._market_truth_checker
+572:            last_tick = self._instrument_last_tick.get(instrument)
+635:                if inst not in self._per_instrument_red_since:
+636:                    self._per_instrument_red_since[inst] = now
+638:                self._per_instrument_red_since.pop(inst, None)
+650:        if self._recovery_request_pending:
+664:            for inst, since in self._per_instrument_red_since.items()
+678:        self._recovery_attempts_window = [
+679:            t for t in self._recovery_attempts_window if t >= cutoff
+681:        if len(self._recovery_attempts_window) >= max_recovery_attempts_per_hour:
+696:        self._recovery_request_pending = True
+699:        self._recovery_attempts_window.append(now)
+709:        if not self._recovery_request_pending:
+712:        self._recovery_request_pending = False
+725:                    last_tick = self._instrument_last_tick.get(instrument)
+
+RULING: passive wiring would edit main.py (assembly + observer invocation) and add an ADDITIVE read-only accessor to utils/watchdog.py (and/or adapters/oanda.py) for current-authority observation. Read-only, immutable copy, no consume.

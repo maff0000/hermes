@@ -1,0 +1,41 @@
+{
+  "model_version": "1",
+  "wo": "WO-HELM-HERMES-CUMULATIVE-PR103-PR111-DEPLOYMENT-READINESS-AND-PHASE2-RUNTIME-WIRING-DESIGN-0001",
+  "generated_utc": "2026-07-18",
+  "design_only": true,
+  "governance_rule": "Safe coherent implementation WOs MAY be combined, but merge + deploy + activation are NEVER combined in one WO. Each gate is explicit.",
+  "wos": [
+    {"seq": 1, "id": "FW-01-N1-JSONL-HARDENING", "purpose": "Resolve N-1: append atomicity (framing, partial-tail detection, fsync policy, rotation-race, read-side validation).", "kind": "impl", "depends_on": [], "parallelisable_with": ["FW-02"], "gate_before": "shadow-enable (Stage F)", "combines_merge_deploy_activate": false},
+    {"seq": 2, "id": "FW-02-N2-REDACTION-HARDENING", "purpose": "Resolve N-2: redaction for non-string values (bytes/int-id/list/mapping/dataclass/enum/nested/raw-obj); fixed closed schema primary.", "kind": "impl", "depends_on": [], "parallelisable_with": ["FW-01"], "gate_before": "shadow-enable (Stage F)", "combines_merge_deploy_activate": false},
+    {"seq": 3, "id": "FW-03-PASSIVE-WIRING-IMPL", "purpose": "Add passive shadow-adapter invocation reading an immutable snapshot of watchdog/adapter state (main.py assembly point). Read-only, no consume, RefusingShadowExecutor.", "kind": "impl", "depends_on": ["FW-01", "FW-02"], "parallelisable_with": [], "gate_before": "image build", "combines_merge_deploy_activate": false},
+    {"seq": 4, "id": "FW-04-CURRENT-AUTHORITY-OBSERVATION-SURFACE", "purpose": "Additive passive observation surface exposing an immutable copy of current-authority outcome without consuming the one-shot recovery request.", "kind": "impl", "depends_on": [], "parallelisable_with": ["FW-01", "FW-02"], "gate_before": "passive wiring", "combines_merge_deploy_activate": false},
+    {"seq": 5, "id": "FW-05-PERF-VALIDATION", "purpose": "Production-representative perf gate: snapshot/map/decide/compare/write/rotation; p99<=25ms; non-interference.", "kind": "validation", "depends_on": ["FW-03"], "parallelisable_with": [], "gate_before": "image build", "combines_merge_deploy_activate": false},
+    {"seq": 6, "id": "FW-06-CONFIG-INSTALL", "purpose": "Install the governed DISABLED Phase-2 config (DB/mounted), schema-validated. No activation.", "kind": "config", "depends_on": ["FW-03"], "parallelisable_with": ["FW-05"], "gate_before": "deploy-dark", "combines_merge_deploy_activate": false},
+    {"seq": 7, "id": "FW-07-EVIDENCE-MOUNT", "purpose": "Provision project-owned evidence mount (UID/GID/perms/quota/rotation). No secrets/Redis/SQL.", "kind": "infra", "depends_on": [], "parallelisable_with": ["FW-05", "FW-06"], "gate_before": "deploy-dark", "combines_merge_deploy_activate": false},
+    {"seq": 8, "id": "FW-08-IMAGE-BUILD", "purpose": "Build reproducible image from pinned canonical SHA + source-SHA/build-UTC labels + SBOM/scans. Stage B.", "kind": "build", "depends_on": ["FW-03", "FW-05"], "parallelisable_with": [], "gate_before": "readiness audit", "combines_merge_deploy_activate": false},
+    {"seq": 9, "id": "FW-09-DEPLOY-READINESS-AUDIT", "purpose": "R2D2 deployment-readiness audit of the built image. Stage C.", "kind": "audit", "depends_on": ["FW-08"], "parallelisable_with": [], "gate_before": "deploy-dark", "combines_merge_deploy_activate": false},
+    {"seq": 10, "id": "FW-10-DEPLOY-DARK", "purpose": "Deploy-dark with disabled config; validate health/market-data/authority. Stage D. Deploy ONLY, no activation.", "kind": "deploy", "depends_on": ["FW-06", "FW-07", "FW-09"], "parallelisable_with": [], "gate_before": "post-deploy audit", "combines_merge_deploy_activate": false},
+    {"seq": 11, "id": "FW-11-POST-DEPLOY-DARK-AUDIT", "purpose": "R2D2 post-deploy-dark audit: present-but-inactive, no JSONL, authority unchanged, N-1/N-2 closed. Stage E.", "kind": "audit", "depends_on": ["FW-10"], "parallelisable_with": [], "gate_before": "shadow-enable", "combines_merge_deploy_activate": false},
+    {"seq": 12, "id": "FW-12-OBSERVABILITY-SURFACE", "purpose": "Bounded project-local status/health surface for shadow state (no Redis/SQL unless separate architecture decision).", "kind": "impl", "depends_on": ["FW-03"], "parallelisable_with": ["FW-05", "FW-06"], "gate_before": "shadow-enable", "combines_merge_deploy_activate": false},
+    {"seq": 13, "id": "FW-13-SHADOW-ENABLE", "purpose": "Separately-authorised config-only shadow_enabled=true. Stage F. Activation ONLY, no image change.", "kind": "activate", "depends_on": ["FW-11"], "parallelisable_with": [], "gate_before": "live observation", "combines_merge_deploy_activate": false},
+    {"seq": 14, "id": "FW-14-LIVE-SHADOW-OBSERVATION", "purpose": "Bounded live observation; collect evidence. Stage G.", "kind": "observe", "depends_on": ["FW-13"], "parallelisable_with": [], "gate_before": "post-observation audit", "combines_merge_deploy_activate": false},
+    {"seq": 15, "id": "FW-15-POST-OBSERVATION-AUDIT", "purpose": "R2D2 post-observation audit. Stage H. Terminal; NO Phase-3.", "kind": "audit", "depends_on": ["FW-14"], "parallelisable_with": [], "gate_before": "none (terminal)", "combines_merge_deploy_activate": false},
+    {"seq": 16, "id": "FW-16-HELM-STATE-CORRECTION", "purpose": "Append-only correction of HELM/blueprint deployment-truth (canonical vs deployed SHA; f69df68->71ea3bd staleness; capability-deploy vs activation). No history rewrite.", "kind": "records", "depends_on": [], "parallelisable_with": ["FW-01", "FW-02", "FW-04"], "gate_before": "any deploy record claim", "combines_merge_deploy_activate": false},
+    {"seq": 17, "id": "FW-17-PR108-FABRIC-ANOMALY-REPAIR", "purpose": "Separate CA-authorised repair of the missing dated PR#108 R2D2 audit fabric key. Not a deployment blocker.", "kind": "records", "depends_on": [], "parallelisable_with": ["FW-16"], "gate_before": "none", "combines_merge_deploy_activate": false},
+    {"seq": 18, "id": "FW-18-PREDEPLOY-GATE-WIRE", "purpose": "Wire PR104 predeploy gate + PR107 transition validator + PR105 CI into the governed pre-build/pre-deploy checklist.", "kind": "tooling", "depends_on": [], "parallelisable_with": ["FW-01", "FW-02", "FW-16"], "gate_before": "image build", "combines_merge_deploy_activate": false},
+    {"seq": 19, "id": "FW-19-SOURCE-SHA-LABEL", "purpose": "Add a source-SHA + build-UTC OCI label to the image build (version-reporting) so capability-present is distinguishable from capability-active. Dockerfile change is impl-only, no deploy.", "kind": "impl", "depends_on": [], "parallelisable_with": ["FW-01", "FW-02", "FW-18"], "gate_before": "image build", "combines_merge_deploy_activate": false}
+  ],
+  "parallel_groups": [
+    ["FW-01", "FW-02", "FW-04", "FW-16", "FW-17", "FW-18", "FW-19"],
+    ["FW-03"],
+    ["FW-05", "FW-06", "FW-07", "FW-12"],
+    ["FW-08"],
+    ["FW-09"],
+    ["FW-10"],
+    ["FW-11"],
+    ["FW-13"],
+    ["FW-14"],
+    ["FW-15"]
+  ],
+  "sequential_gates": ["merge", "image-build", "readiness-audit", "deploy-dark", "post-deploy-dark-audit", "shadow-enable", "live-observation", "post-observation-audit"]
+}

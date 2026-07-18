@@ -1,0 +1,50 @@
+# Build-context analysis (Dockerfile line 52 COPY . + .dockerignore) — UTC 2026-07-18
+## Dockerfile copy line:
+52:COPY --chown=hermes:hermes . ${APP_HOME}
+
+## .dockerignore (verbatim):
+# Zero-leak build context — WO-HELM-HERMES-CONTAINER-ISOLATION-0002.
+# Keep secrets, VCS, caches, backups, and test/dev cruft OUT of the image.
+
+# Secrets / environment (NEVER baked into the image — provided at runtime via env_file)
+.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Python caches / build artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tests and dev-only material (runtime image does not need them)
+tests/
+mock/
+
+# Operational evidence / backups / local archives (not part of the runtime)
+ops/evidence/
+**/*.pre_*_backup_*
+*.bak
+*.log
+/data/
+signal_history/
+
+# Container/CI meta (not needed inside the image)
+.github/
+docker-compose*.yml
+Dockerfile
+.dockerignore
+README*.md
+
+## RULING:
+EXCLUDED from image: tests/, ops/evidence/, .github/, docker-compose*.yml, Dockerfile, .dockerignore, .env*, *.bak, *.log, __pycache__, README*.md, mock/, /data/, signal_history/, .git
+INCLUDED (by omission): utils/, design/, schemas/, docs/, config/, tools/, adapters/, ops/ci/, main.py, requirements.txt
+=> candidate image from adc21c4d CONTAINS Phase-1 core + 10 Phase-2 sss modules + design prototypes + operator tools + PR103 market-hours loader; EXCLUDES CI + tests + evidence.
+=> Only PR103 changes a runtime-IMPORTED module. PR105 (.github) never enters image.
