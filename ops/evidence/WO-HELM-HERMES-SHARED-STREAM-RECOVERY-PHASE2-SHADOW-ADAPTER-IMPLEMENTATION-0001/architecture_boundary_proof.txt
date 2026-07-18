@@ -1,0 +1,8 @@
+### Architecture-boundary proof (mechanical)
+- shadow_only ALWAYS True + consumer_live ALWAYS False (validated at ShadowDecisionRecord construction; False/True raises ShadowRecordError).
+- RefusingShadowExecutor.refuse() RAISES ShadowExecutionForbidden; class exposes NO connect/disconnect/reconnect/recovery_request/execute (asserted).
+- run_shadow_evaluation() signature carries NO executor/force/emergency/connect/disconnect parameter -> no DI path to substitute a real executor.
+- map_snapshot_to_recovery_input() signature = {snapshot} only -> no caller-controlled emergency/force.
+- Phase-1 core imported, never mutated (no 'core.decide =' / 'core.RecoveryDecisionInput =' assignment in any sss module).
+- Evidence collectors operate ONLY on injected immutable frozen VIEWS (AdapterStateView/StreamRuntimeView/WatchdogStateView) -> cannot mutate/reorder/consume live watchdog state; observer cannot consume the one-shot recovery request (frozen view).
+- Proven by tests: test_refusing_executor_raises_and_has_no_reconnect_capability, test_run_shadow_evaluation_has_no_executor_di_path, test_result_type_is_distinct_not_a_command, test_record_shadow_only_immutable_and_validated, test_observer_is_passive_and_read_only, test_no_reconnect_executor_import_anywhere_in_sss, test_phase1_core_unchanged_by_sss.

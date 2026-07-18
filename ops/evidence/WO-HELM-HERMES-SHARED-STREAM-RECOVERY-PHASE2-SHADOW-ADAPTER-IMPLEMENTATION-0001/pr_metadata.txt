@@ -1,0 +1,8 @@
+PR_NUMBER: 111
+PR_URL: https://github.com/maff0000/hermes/pull/111
+BRANCH: wo/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001
+BASE_SHA: b50162a21640a67080d87e4638b879df8a0cb784
+HEAD_SHA (impl commit): f2f4a0ed032a4b645fe8a667e0d9c163a97e4f9e
+REMOTE: git@github.com:maff0000/hermes.git
+STATE: OPEN / UNMERGED
+REQUIRED: R2D2 exact-head audit before merge. No deploy/enable/execute-against-live.

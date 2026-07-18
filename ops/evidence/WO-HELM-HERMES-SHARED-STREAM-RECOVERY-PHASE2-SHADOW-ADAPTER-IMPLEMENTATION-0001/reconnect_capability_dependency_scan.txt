@@ -1,0 +1,85 @@
+{
+  "utils/hermes_sss_comparator_v1.py": [
+    "__future__",
+    "enum",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1",
+    "utils.hermes_sss_shadow_record_v1"
+  ],
+  "utils/hermes_sss_config_v1.py": [
+    "__future__",
+    "dataclasses",
+    "typing",
+    "utils.hermes_sss_redaction_v1"
+  ],
+  "utils/hermes_sss_evidence_adapters_v1.py": [
+    "__future__",
+    "dataclasses",
+    "datetime",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1",
+    "utils.hermes_sss_evidence_snapshot_v1"
+  ],
+  "utils/hermes_sss_evidence_snapshot_v1.py": [
+    "__future__",
+    "dataclasses",
+    "datetime",
+    "enum",
+    "hashlib",
+    "json",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1"
+  ],
+  "utils/hermes_sss_jsonl_writer_v1.py": [
+    "__future__",
+    "dataclasses",
+    "hashlib",
+    "json",
+    "os",
+    "pathlib",
+    "tempfile",
+    "typing",
+    "utils.hermes_sss_redaction_v1"
+  ],
+  "utils/hermes_sss_mapper_v1.py": [
+    "__future__",
+    "dataclasses",
+    "datetime",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1",
+    "utils.hermes_sss_evidence_snapshot_v1"
+  ],
+  "utils/hermes_sss_observer_v1.py": [
+    "__future__",
+    "typing",
+    "utils.hermes_sss_evidence_adapters_v1",
+    "utils.hermes_sss_shadow_record_v1"
+  ],
+  "utils/hermes_sss_redaction_v1.py": [
+    "__future__",
+    "dataclasses",
+    "re",
+    "typing"
+  ],
+  "utils/hermes_sss_shadow_adapter_v1.py": [
+    "__future__",
+    "collections",
+    "dataclasses",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1",
+    "utils.hermes_sss_comparator_v1",
+    "utils.hermes_sss_config_v1",
+    "utils.hermes_sss_evidence_snapshot_v1",
+    "utils.hermes_sss_mapper_v1",
+    "utils.hermes_sss_shadow_record_v1"
+  ],
+  "utils/hermes_sss_shadow_record_v1.py": [
+    "__future__",
+    "dataclasses",
+    "hashlib",
+    "json",
+    "typing",
+    "utils.hermes_shared_stream_recovery_v1"
+  ]
+}
+AST import inventory (above). No sss module imports adapters.*, main, utils.watchdog, oanda, redis, pymysql, sqlalchemy, httpx, socket, subprocess, or any third-party. Imports are stdlib + utils.hermes_shared_stream_recovery_v1 (Phase-1 core, WO-authorised) + sibling utils.hermes_sss_* modules only. Therefore NO reconnect-capable module (connect()/disconnect() lives in adapters/oanda.py + main.oanda_stream_task) is reachable from the shadow path.

@@ -1,0 +1,2 @@
+### Cumulative regression diff (baseline vs head) — MUST be empty
+(empty diff — 51 FAILED + 4 ERRORS unchanged; 1699 -> 1761 PASSED, +62 new sss tests)
