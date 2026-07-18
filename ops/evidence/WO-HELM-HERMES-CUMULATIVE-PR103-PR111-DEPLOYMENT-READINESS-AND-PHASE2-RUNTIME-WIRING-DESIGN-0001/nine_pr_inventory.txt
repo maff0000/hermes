@@ -1,0 +1,174 @@
+# Nine-PR changed-file inventory (base^1..merge), verified from canonical git
+===== PR103 eb928a1c (7 files) =====
+A	docs/design/market_hours_health/config_v2_retirement_compatibility_ruling_v1.md
+A	ops/evidence/WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001/grep_v2_usage.txt
+A	ops/evidence/WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001/prior_image_check.txt
+A	ops/evidence/WO-HELM-HERMES-CONFIG-V2-RETIREMENT-AND-COMPATIBILITY-DESIGN-0001/test_run.txt
+M	tests/test_hermes_market_hours_readiness_v1.py
+M	utils/hermes_market_hours_health_v1.py
+
+===== PR104 ff497f36 (12 files) =====
+A	docs/tools/hermes_predeploy_gate_v1.md
+A	ops/ci/hermes_predeploy_gate_check.sh
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/EVIDENCE.md
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/help.txt
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/pytest_output.txt
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/sample_run_pass.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/sample_run_phantom_fail.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-HOURS-PREDEPLOY-GATE-HARNESS-0001/verdict.txt
+A	tests/test_predeploy_gate_v1.py
+A	tools/hermes_predeploy_gate.inventory.example
+A	tools/hermes_predeploy_gate_v1.py
+
+===== PR105 f08f7df8 (8 files) =====
+A	.github/workflows/hermes-ci.yml
+A	docs/ci/hermes_ci_baseline_and_failure_classification_v1.md
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/classified_inventory.tsv
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/focused_infra_free_gate_pass.txt
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/focused_market_hours_pass.txt
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/fullsuite_baseline_raw.txt
+A	ops/evidence/WO-HELM-HERMES-CI-BASELINE-AND-ASYNC-FAILURE-CLASSIFICATION-0001/fullsuite_failures_and_errors.txt
+
+===== PR106 8de293de (9 files) =====
+A	docs/design/market_hours_health/oanda_instrument_session_evidence_pack_v1.md
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/evidence_matrix.md
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/raw_01_hermes_market_hours_sql.txt
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/raw_02_redis_streamed_instruments.txt
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/raw_03_redis_xau_metals_break_gap_20260715.txt
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/raw_04_redis_xau_break_candle_samples.txt
+A	ops/evidence/WO-HELM-HERMES-OANDA-INSTRUMENT-SESSION-EVIDENCE-PACK-0001/raw_05_oanda_official_hours_of_operation.md
+A	tests/test_oanda_instrument_session_fixtures_v1.py
+
+===== PR107 458d430f (44 files) =====
+A	docs/design/hermes_transition_evidence_validator_v1.md
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/scenario_matrix.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/test_output.txt
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdict.txt
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/01_pass_correct_closure_reopening.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/02_missing_end_marker.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/03_sampling_gap.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/04_false_open_during_closure.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/05_tick_refreshed_during_closure.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/06_candle_fabricated_during_closure.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/07_incident_during_closure.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/08_reconnect_during_closure.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/09_rest_masks_stream.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/10_false_green_during_grace.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/11_resume_within_grace.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/12_pathb_escalation_after_grace.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/13_no_escalation_silent_stall.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/14_runtime_identity_change.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/15_wtico_guessed_closed.verdict.json
+A	ops/evidence/WO-HELM-HERMES-MARKET-TRANSITION-EVIDENCE-VALIDATOR-0001/verdicts/16_spx500_guessed_closed.verdict.json
+A	schemas/transition_evidence/transition_evidence_verdict.v1.schema.json
+A	tests/fixtures/transition_evidence_v1/.gitignore
+A	tests/fixtures/transition_evidence_v1/01_pass_correct_closure_reopening.log
+A	tests/fixtures/transition_evidence_v1/02_missing_end_marker.log
+A	tests/fixtures/transition_evidence_v1/03_sampling_gap.log
+A	tests/fixtures/transition_evidence_v1/04_false_open_during_closure.log
+A	tests/fixtures/transition_evidence_v1/05_tick_refreshed_during_closure.log
+A	tests/fixtures/transition_evidence_v1/06_candle_fabricated_during_closure.log
+A	tests/fixtures/transition_evidence_v1/07_incident_during_closure.log
+A	tests/fixtures/transition_evidence_v1/08_reconnect_during_closure.log
+A	tests/fixtures/transition_evidence_v1/09_rest_masks_stream.log
+A	tests/fixtures/transition_evidence_v1/10_false_green_during_grace.log
+A	tests/fixtures/transition_evidence_v1/11_resume_within_grace.log
+A	tests/fixtures/transition_evidence_v1/12_pathb_escalation_after_grace.log
+A	tests/fixtures/transition_evidence_v1/13_no_escalation_silent_stall.log
+A	tests/fixtures/transition_evidence_v1/14_runtime_identity_change.log
+A	tests/fixtures/transition_evidence_v1/15_wtico_guessed_closed.log
+A	tests/fixtures/transition_evidence_v1/16_spx500_guessed_closed.log
+A	tests/fixtures/transition_evidence_v1/_generate.py
+A	tests/fixtures/transition_evidence_v1/runtime_identity_changed.json
+A	tests/fixtures/transition_evidence_v1/runtime_identity_stable.json
+A	tests/test_transition_evidence_validator_v1.py
+A	tools/hermes_transition_evidence_validator_v1.py
+
+===== PR108 ae80d113 (11 files) =====
+A	design/shared_stream_recovery_contract_v1.py
+A	docs/design/shared_stream_recovery/architecture_v1.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/current_recovery_path_trace.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/design_index.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/inertness_proof.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/july16_reconnect_chronology.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/test_output.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-CONTRACT-DESIGN-0001/verdict.txt
+A	schemas/shared_stream_recovery/decision_envelope.v1.schema.json
+A	tests/test_shared_stream_recovery_contract_v1.py
+
+===== PR109 8355044b (13 files) =====
+M	.github/workflows/hermes-ci.yml
+A	docs/design/shared_stream_recovery/phase1_implementation_boundary.md
+A	docs/design/shared_stream_recovery/prototype_parity_matrix_v1.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/evidence_index.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/fixture_envelopes.json
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/inertness_proof.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/reason_code_matrix.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/test_output.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE1-PURE-DECISION-CORE-IMPLEMENTATION-0001/verdict.txt
+M	schemas/shared_stream_recovery/decision_envelope.v1.schema.json
+A	tests/test_hermes_shared_stream_recovery_v1.py
+A	utils/hermes_shared_stream_recovery_v1.py
+
+===== PR110 b50162a2 (23 files) =====
+A	design/sss_phase2_comparator_v1.py
+A	design/sss_phase2_evidence_snapshot_v1.py
+A	design/sss_phase2_interfaces_v1.py
+A	design/sss_phase2_replay_harness_v1.py
+A	design/sss_phase2_shadow_record_v1.py
+A	design/sss_phase2_test_doubles_v1.py
+A	docs/design/shared_stream_recovery/architecture_phase2_v1.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/acceptance_and_phase3_criteria.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/availability_matrix.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/evidence_source_trace.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/genuine_fault_scenarios.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/inertness_proof.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/july16_replay_design.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/risk_register.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/test_output.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-AND-EVIDENCE-CONTRACT-DESIGN-0001/verdict.txt
+A	schemas/shared_stream_recovery/evidence_snapshot.v1.schema.json
+A	schemas/shared_stream_recovery/shadow_adapter_config.v1.schema.json
+A	schemas/shared_stream_recovery/shadow_decision_record.v1.schema.json
+A	tests/fixtures/sss_phase2/july16_snapshot.json
+M	tests/test_hermes_shared_stream_recovery_v1.py
+A	tests/test_sss_phase2_shadow_design_v1.py
+
+===== PR111 adc21c4d (28 files) =====
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/PR_BODY.md
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/SHA256SUMS
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/architecture_boundary_proof.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/baseline_failure_error_nodes.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/config_contract_evidence.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/focused_test_output.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/full_suite_output.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/head_failure_error_nodes.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/node_diff_empty.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/perf_p99_methodology.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/pr_metadata.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/reconnect_capability_dependency_scan.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/redis_sql_absence_scan.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/runtime_import_scan.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/runtime_non_mutation_note.txt
+A	ops/evidence/WO-HELM-HERMES-SHARED-STREAM-RECOVERY-PHASE2-SHADOW-ADAPTER-IMPLEMENTATION-0001/security_field_scan.txt
+M	tests/test_hermes_shared_stream_recovery_v1.py
+A	tests/test_hermes_sss_shadow_adapter_v1.py
+A	utils/hermes_sss_comparator_v1.py
+A	utils/hermes_sss_config_v1.py
+A	utils/hermes_sss_evidence_adapters_v1.py
+A	utils/hermes_sss_evidence_snapshot_v1.py
+A	utils/hermes_sss_jsonl_writer_v1.py
+A	utils/hermes_sss_mapper_v1.py
+A	utils/hermes_sss_observer_v1.py
+A	utils/hermes_sss_redaction_v1.py
+A	utils/hermes_sss_shadow_adapter_v1.py
+A	utils/hermes_sss_shadow_record_v1.py
+

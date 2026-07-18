@@ -1,0 +1,53 @@
+{
+  "model_version": "1",
+  "wo": "WO-HELM-HERMES-CUMULATIVE-PR103-PR111-DEPLOYMENT-READINESS-AND-PHASE2-RUNTIME-WIRING-DESIGN-0001",
+  "generated_utc": "2026-07-18",
+  "design_only": true,
+  "requirements": {
+    "prior_image_digest": "c5fc2a62f424",
+    "prior_source_sha": "71ea3bd",
+    "prior_config_preservation": "Preserve the live governed v3 config and the prior (absent) Phase-2 config; never overwrite.",
+    "config_replace": "Atomic, governed, config-only replace; documented-not-executed container commands.",
+    "max_decision_window_minutes": 15,
+    "evidence_preservation": "Never delete failure evidence or shadow JSONL on rollback.",
+    "post_rollback_verify": "Health, market-data flow, restart count, config v3.",
+    "restart_count_recording": true,
+    "utc": true,
+    "r2d2_post_rollback_audit": true,
+    "no_redis": true,
+    "no_sql": true
+  },
+  "states": ["STEADY_DEPLOY_DARK", "STEADY_SHADOW_ENABLED", "ROLLBACK_IMAGE", "ROLLBACK_SHADOW_DISABLE", "VERIFY", "AUDITED"],
+  "failures": [
+    {"id": "F01", "failure": "Image build non-reproducible / digest mismatch", "stage": "B", "action": "abort_build", "kind": "no-deploy", "immediate_rollback": false},
+    {"id": "F02", "failure": "SBOM/vuln/secret/prohibited-host-path scan fails", "stage": "B", "action": "abort_build", "kind": "no-deploy", "immediate_rollback": false},
+    {"id": "F03", "failure": "Readiness audit finds a runtime importer of Phase-2", "stage": "C", "action": "abort_deploy", "kind": "no-deploy", "immediate_rollback": false},
+    {"id": "F04", "failure": "Container fails health after deploy-dark", "stage": "D", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F05", "failure": "Market-data flow degraded after deploy-dark", "stage": "D", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F06", "failure": "PR103 v2-retirement rejects the live config (unexpected non-v3)", "stage": "D", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F07", "failure": "Restart-count climbs (crash loop) post deploy-dark", "stage": "D", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F08", "failure": "JSONL evidence dir unexpectedly created while shadow disabled", "stage": "E", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F09", "failure": "Reconnect authority behaviour changed vs prior image", "stage": "E", "action": "rollback_image", "kind": "image-rollback", "immediate_rollback": true},
+    {"id": "F10", "failure": "N-1/N-2 hardening not actually merged at gate", "stage": "E", "action": "block_shadow_enable", "kind": "no-activate", "immediate_rollback": false},
+    {"id": "F11", "failure": "Shadow callback p99 exceeds 25ms budget after enable", "stage": "G", "action": "shadow_disable", "kind": "shadow-disable-only", "immediate_rollback": false},
+    {"id": "F12", "failure": "Shadow evaluation interferes with watchdog/market-data timing", "stage": "G", "action": "shadow_disable", "kind": "shadow-disable-only", "immediate_rollback": false},
+    {"id": "F13", "failure": "JSONL writer errors (disk full / permission) repeatedly", "stage": "G", "action": "shadow_disable", "kind": "shadow-disable-only", "immediate_rollback": false},
+    {"id": "F14", "failure": "Redaction violation detected in evidence (secret leak attempt)", "stage": "G", "action": "shadow_disable", "kind": "shadow-disable-only", "immediate_rollback": false},
+    {"id": "F15", "failure": "Same-source collapse guard bypassed (self-corroboration observed)", "stage": "G", "action": "shadow_disable", "kind": "shadow-disable-only", "immediate_rollback": false}
+  ],
+  "immediate_rollback_failures": ["F04", "F05", "F06", "F07", "F08", "F09"],
+  "shadow_disable_only_failures": ["F11", "F12", "F13", "F14", "F15"],
+  "no_deploy_or_no_activate_failures": ["F01", "F02", "F03", "F10"],
+  "transitions": [
+    {"from": "STEADY_DEPLOY_DARK", "on": "immediate_rollback_failure", "to": "ROLLBACK_IMAGE"},
+    {"from": "ROLLBACK_IMAGE", "on": "restore_prior_digest_c5fc2a62f424", "to": "VERIFY"},
+    {"from": "STEADY_SHADOW_ENABLED", "on": "shadow_disable_only_failure", "to": "ROLLBACK_SHADOW_DISABLE"},
+    {"from": "ROLLBACK_SHADOW_DISABLE", "on": "config_only_shadow_disabled", "to": "VERIFY"},
+    {"from": "VERIFY", "on": "health_market_data_ok", "to": "AUDITED"}
+  ],
+  "notes": [
+    "Shadow-disable-only failures require NO image rollback: reconnect authority never depended on shadow; disabling is config-only.",
+    "Immediate-image-rollback failures are those that touch health, market-data, reconnect authority, or prove Phase-2 leaked into runtime.",
+    "Rollback container commands are DOCUMENTED, not executed, in this design."
+  ]
+}

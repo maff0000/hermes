@@ -1,0 +1,12 @@
+# Full-suite regression node diff. UTC 2026-07-18
+## Command: ENVIRONMENT=DEV DEV_REDIS_HOST=127.0.0.1 DEV_REDIS_PORT=6399 REDIS_HOST=127.0.0.1 REDIS_PORT=6399 python3 -m pytest -q -p no:cacheprovider --continue-on-collection-errors
+baseline nodes (51F/4E): /tmp/dr_baseline_nodes.txt
+head F count: 51  head E count: 4
+## diff baseline vs head:
+EMPTY -> no new failures/errors; existing tests not weakened
+
+## full-suite totals:
+51 failed, 1781 passed, 13 warnings, 4 errors in 2.15s
+
+## design-validation tests:
+20 passed in 0.04s

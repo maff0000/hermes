@@ -1,0 +1,15 @@
+# Canonical + runtime verification (UTC 2026-07-18) — DESIGN-ONLY, no system mutated
+canonical base/head SHA: adc21c4dfef571debd0ef05bb22bc7af0b289ea3
+expected base: adc21c4dfef571debd0ef05bb22bc7af0b289ea3
+branch: wo/WO-HELM-HERMES-CUMULATIVE-PR103-PR111-DEPLOYMENT-READINESS-AND-PHASE2-RUNTIME-WIRING-DESIGN-0001
+
+## PR103 runtime-imported module change (the ONLY automatic runtime effect)
+34:SUPPORTED_CONFIG_VERSIONS = frozenset({"3"})
+main.py import of that module:
+1140:        from utils.hermes_market_hours_health_v1 import DstAwareMarketHours as _DstMH
+
+## Running-runtime facts (HELM-verified given; NOT re-mutated, NOT re-queried here):
+running image digest: c5fc2a62f424 (built from deploy source 71ea3bd during Mode-C deploy)
+container: d80018037b7f, restarts 0, runners 9, config v3, consumer_live=false
+candidate base adc21c4d does NOT match running source 71ea3bd -> canonical_deploy_divergence is TRUE until a new image is built+deployed
+blueprint deployed_runtime=f69df68 is STALE (f69df68 = pre-Mode-C rollback source, not running 71ea3bd)

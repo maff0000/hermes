@@ -1,0 +1,13 @@
+# Reconnect-capability dependency scan (mechanical passivity). UTC 2026-07-18
+19:    object standing where an executor would be is `RefusingShadowExecutor`, which RAISES `ShadowExecutionForbidden`.
+26:    authority is never affected and nothing is ever re-raised into a market-data or reconnect path.
+49:class ShadowExecutionForbidden(Exception):
+50:    """Raised by RefusingShadowExecutor if anything ever asks the shadow path to execute a reconnect. This is the
+54:class RefusingShadowExecutor:
+63:        """MUST raise ShadowExecutionForbidden. Exists so the impossibility is testable."""
+65:        raise ShadowExecutionForbidden(
+96:            raise ValueError("window_sec must be > 0")
+98:            raise ValueError("max_entries must be >= 1")
+159:            # reconnect, current authority untouched. Never re-raised into a live path.
+
+RULING: the only executor standing where a reconnect executor would be is RefusingShadowExecutor, which RAISES ShadowExecutionForbidden. No reconnect handle reachable from the shadow path. Shadow is proposal-only; never authorises reconnect.

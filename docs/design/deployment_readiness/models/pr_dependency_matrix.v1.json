@@ -1,0 +1,27 @@
+{
+  "model_version": "1",
+  "wo": "WO-HELM-HERMES-CUMULATIVE-PR103-PR111-DEPLOYMENT-READINESS-AND-PHASE2-RUNTIME-WIRING-DESIGN-0001",
+  "generated_utc": "2026-07-18",
+  "design_only": true,
+  "cumulative_deploy_safe": true,
+  "blocker": null,
+  "blocker_note": "No hidden dependency or incompatibility prevents cumulative deployment of PR103-111 at adc21c4d. Only PR103 auto-changes a runtime-imported module, and it is a provable no-op on the live v3 config. All Phase-1/Phase-2 modules are present-but-inactive with no runtime importer. Dependency-lock (requirements.txt) is unchanged across all nine PRs.",
+  "prs": [
+    {"number": 103, "prereq_of": [], "depends_on": [], "image_harmless": true, "needs_config": true, "needs_wiring": false, "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": true, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 104, "prereq_of": [], "depends_on": [103], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": true, "needs_external_files": true, "external_files_note": "reads an inventory file at operator runtime (example provided)", "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 105, "prereq_of": [109], "depends_on": [], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": true, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 106, "prereq_of": [], "depends_on": [], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 107, "prereq_of": [], "depends_on": [], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": true, "needs_external_files": true, "external_files_note": "operator supplies transition-evidence logs to validate", "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 108, "prereq_of": [109, 110], "depends_on": [], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 109, "prereq_of": [110, 111], "depends_on": [108, 105], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": true, "post_build_validation_note": "prove no runtime importer", "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 110, "prereq_of": [111], "depends_on": [108, 109], "image_harmless": true, "needs_config": false, "needs_wiring": false, "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": false, "needs_post_build_validation": false, "rollback_coupling": "none", "incompatibilities": "none"},
+    {"number": 111, "prereq_of": [], "depends_on": [109, 110, 108], "image_harmless": true, "needs_config": "future-only", "needs_config_note": "defines a future config expectation; no default activates; install is a SEPARATE WO", "needs_wiring": "future-only", "needs_wiring_note": "passive wiring is a SEPARATE future impl WO; not in this delta", "ci_only": false, "tooling_only": false, "needs_external_files": false, "affects_version_reporting": true, "affects_version_reporting_note": "image should carry a source-SHA label so capability-present is distinguishable from capability-active", "needs_post_build_validation": true, "post_build_validation_note": "prove present-but-inactive; disabled-default; no JSONL at start", "rollback_coupling": "none", "incompatibilities": "none"}
+  ],
+  "ordering": {
+    "hard_prereq_chain": ["108 -> 109 -> 110 -> 111"],
+    "orthogonal": [103, 104, 105, 106, 107],
+    "note": "103-107 are independent of the shared-stream-recovery chain and of each other for deploy purposes; the 108->111 chain is internally ordered but is inert in the image regardless of order once all four are present."
+  },
+  "hidden_dependencies": [],
+  "incompatibilities": []
+}

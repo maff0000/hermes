@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes/schemas/deployment_readiness/phase2_config.v1.schema.json",
+  "title": "HERMES Phase-2 shared-stream-recovery shadow-adapter configuration (deployment-readiness view)",
+  "description": "DESIGN-ONLY, INERT. Governed config MODEL for the Phase-2 shadow adapter. Mirrors utils/hermes_sss_config_v1.ShadowAdapterConfig (contract version '1'). Config CONTENT lives in governed hermes_config (DB) and is MOUNTED at runtime, never embedded in the image and never read from a file/env by the module. This schema exists to validate proposed example configs and to gate a FUTURE, separately-authorised config-install WO. Presence of a valid config does NOT deploy or activate anything; enablement is a later independent mutation. shadow_enabled MUST be Boolean; only literal true (with shadow_consumer_live false) can ever enable. Missing/malformed/unknown-version -> fail-closed (DISABLED). No secrets permitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "shadow_enabled",
+    "shadow_consumer_live",
+    "shadow_eval_cadence_sec",
+    "heartbeat_soft_horizon_s",
+    "heartbeat_hard_horizon_s",
+    "shared_progress_soft_horizon_s",
+    "shared_progress_hard_horizon_s",
+    "callback_dedup_window_sec",
+    "max_callback_shadow_events_per_min",
+    "snapshot_retention_days",
+    "max_jsonl_bytes",
+    "max_retained_files",
+    "write_timeout_s",
+    "log_sampling_ratio",
+    "evidence_output_path",
+    "alert_on_comparison_classes",
+    "horizons_provisional"
+  ],
+  "properties": {
+    "config_version": {
+      "description": "Contract version. Unknown version -> fail-closed DISABLED. Only '1' recognised.",
+      "type": "string",
+      "enum": ["1"]
+    },
+    "shadow_enabled": {
+      "description": "The ONLY enable gate. MUST be a JSON boolean. No string coercion ('true'/'1'/'yes' are invalid types -> DISABLED). Absent -> DISABLED. Only literal true, together with shadow_consumer_live=false, yields an enabled adapter.",
+      "type": "boolean"
+    },
+    "shadow_consumer_live": {
+      "description": "Must remain false. A true value is a validation error -> DISABLED. consumer_live=true can NEVER activate the shadow path.",
+      "type": "boolean",
+      "const": false
+    },
+    "shadow_eval_cadence_sec": {
+      "description": "Hybrid cadence: periodic evaluation interval seconds (bounded; ~watchdog interval). Event hooks are additional and dedup-bounded.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300
+    },
+    "heartbeat_soft_horizon_s": {
+      "description": "PROVISIONAL (uncalibrated). Soft staleness horizon for AdapterHealth.last_tick_at heartbeat interpretation.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "heartbeat_hard_horizon_s": {
+      "description": "PROVISIONAL. Hard staleness horizon; MUST be >= heartbeat_soft_horizon_s (enforced by loader; documented here).",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "shared_progress_soft_horizon_s": {
+      "description": "PROVISIONAL. Soft horizon for shared-progress interpretation of the same last_tick_at surface.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "shared_progress_hard_horizon_s": {
+      "description": "PROVISIONAL. Hard horizon; MUST be >= shared_progress_soft_horizon_s.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "callback_dedup_window_sec": {
+      "description": "Event-hook debounce window (seconds) so bursty event hooks cannot exceed the cadence budget.",
+      "type": "number",
+      "minimum": 0
+    },
+    "max_callback_shadow_events_per_min": {
+      "description": "Upper bound on shadow evaluations triggered by event hooks per minute (overload guard).",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6000
+    },
+    "snapshot_retention_days": {
+      "description": "Retention horizon (days) for evidence snapshots. Retention is enforced by count of rotated files + operator policy; days documents intent.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_jsonl_bytes": {
+      "description": "Bounded active JSONL size before rotation.",
+      "type": "integer",
+      "minimum": 1024
+    },
+    "max_retained_files": {
+      "description": "Maximum rotated JSONL files retained; oldest pruned.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "write_timeout_s": {
+      "description": "Bounded per-write budget; a write exceeding this is a bounded, isolated failure, never a block on the market-data/recovery path.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "log_sampling_ratio": {
+      "description": "Sampling ratio for observability logging (0..1).",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence_output_path": {
+      "description": "Container-internal evidence path for the JSONL sink. MOUNTED (project-owned volume), never embedded, never a host-global or /etc path. No secrets. Path is created lazily by the writer only when an enabled adapter first appends; at image start NOTHING is created.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\0]+$"
+    },
+    "alert_on_comparison_classes": {
+      "description": "Subset of the 10 ComparisonClass values that should raise an operator alert when observed.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "AGREE_NO_ACTION",
+          "AGREE_RECONNECT",
+          "SHADOW_DENIES_CURRENT_RECONNECT",
+          "SHADOW_AUTHORIZES_CURRENT_NO_RECONNECT",
+          "SHADOW_PROPOSAL_CURRENT_RECONNECT",
+          "CURRENT_AUTHORITY_NOT_EVALUATED",
+          "SHADOW_INDETERMINATE",
+          "EVIDENCE_INCOMPLETE",
+          "EVIDENCE_CONFLICT",
+          "ADAPTER_ERROR"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "horizons_provisional": {
+      "description": "MUST be true while horizons are uncalibrated. Records that thresholds are provisional, not calibrated truth.",
+      "type": "boolean",
+      "const": true
+    },
+    "disabled_reason": {
+      "description": "Optional. When the loader fails closed, the reason it disabled. Present only on a disabled config.",
+      "type": ["string", "null"]
+    }
+  }
+}

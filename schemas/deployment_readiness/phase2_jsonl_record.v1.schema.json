@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes/schemas/deployment_readiness/phase2_jsonl_record.v1.schema.json",
+  "title": "HERMES Phase-2 shadow decision JSONL record (storage-hardening design view)",
+  "description": "DESIGN-ONLY. The per-line record shape written append-only by utils/hermes_sss_jsonl_writer to the MOUNTED evidence path when (and only when) an explicitly enabled shadow adapter evaluates. This schema documents the FIXED, closed record shape that is the primary N-2 defence (redaction scan is defence-in-depth). No file/dir is created at image start; the writer creates the directory lazily on first successful append of an enabled adapter. Fields are illustrative of the design contract; the authoritative producer is the code at base adc21c4d.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_utc",
+    "runtime_identity",
+    "source_sha",
+    "config_version",
+    "connection_generation",
+    "comparison_class",
+    "shadow_decision",
+    "current_authority_observation",
+    "evidence_completeness",
+    "same_source_provenance"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1"] },
+    "record_utc": {
+      "description": "UTC ISO-8601 timestamp the record was constructed. Everything UTC.",
+      "type": "string"
+    },
+    "runtime_identity": {
+      "description": "Identity of the emitting runtime (container/runner generation). Binds evidence to a runtime.",
+      "type": "string"
+    },
+    "source_sha": {
+      "description": "Canonical source SHA the running image was built from (image label). Distinguishes capability-present from capability-active evidence.",
+      "type": "string"
+    },
+    "config_version": { "type": "string" },
+    "connection_generation": {
+      "description": "Stream connection generation associated with the observation, or null when unavailable (unavailable != false).",
+      "type": ["integer", "null"]
+    },
+    "comparison_class": {
+      "type": "string",
+      "enum": [
+        "AGREE_NO_ACTION",
+        "AGREE_RECONNECT",
+        "SHADOW_DENIES_CURRENT_RECONNECT",
+        "SHADOW_AUTHORIZES_CURRENT_NO_RECONNECT",
+        "SHADOW_PROPOSAL_CURRENT_RECONNECT",
+        "CURRENT_AUTHORITY_NOT_EVALUATED",
+        "SHADOW_INDETERMINATE",
+        "EVIDENCE_INCOMPLETE",
+        "EVIDENCE_CONFLICT",
+        "ADAPTER_ERROR"
+      ]
+    },
+    "shadow_decision": {
+      "description": "The shadow proposal (proposal-only; never an authority; never an executable command).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal", "reason_code", "divergence_reasons"],
+      "properties": {
+        "proposal": { "type": "string", "enum": ["PROPOSE_RECONNECT", "PROPOSE_NO_ACTION", "INDETERMINATE"] },
+        "reason_code": { "type": "string" },
+        "divergence_reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "current_authority_observation": {
+      "description": "READ-ONLY copy of what the current (Mode-C) authority did, observed WITHOUT consuming the one-shot recovery request or acknowledging it. May be UNAVAILABLE.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "outcome", "request_identity"],
+      "properties": {
+        "observed": { "type": "boolean" },
+        "outcome": { "type": ["string", "null"], "enum": ["RECONNECT_REQUESTED", "NO_ACTION", "UNAVAILABLE", null] },
+        "request_identity": { "type": ["string", "null"] }
+      }
+    },
+    "evidence_completeness": { "type": "string", "enum": ["COMPLETE", "INCOMPLETE", "CONFLICT"] },
+    "same_source_provenance": {
+      "description": "Single canonical provenance id for AdapterHealth.last_tick_at plus how many interpretations (heartbeat, shared-progress) derived from it. Preserves the same-surface collapse guard so a single surface cannot self-corroborate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provenance_id", "derived_interpretations", "collapsed"],
+      "properties": {
+        "provenance_id": { "type": "string" },
+        "derived_interpretations": { "type": "array", "items": { "type": "string" } },
+        "collapsed": { "type": "boolean" }
+      }
+    }
+  }
+}
