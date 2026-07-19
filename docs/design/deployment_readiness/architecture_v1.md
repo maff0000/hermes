@@ -142,6 +142,59 @@ The gate **FAILS if inference is relabelled observation**. Inference ≠ observa
 
 ---
 
+## §7B FW-08 — the SOLE governed Stage-B build path (this WO — implemented + tested)
+
+> **WO:** WO-HELM-HERMES-FW08-GOVERNED-STAGE-B-IMAGE-BUILD-ENFORCEMENT-IMPLEMENTATION-0001.
+> **Status:** IMPLEMENTED tooling + contracts + fixture/dry-run tests. **NO image built, published,
+> deployed, wired, installed, enabled, or executed.** PR open, unmerged, inert. Docker/SBOM/scan run
+> only through an **injectable fake runner**; the default runner refuses and the real runner is gated
+> behind a flag **and** an env var that tests never set — there is **no code path** that runs a real
+> `docker build` in tests. FW-08 is **NOT complete** until merged + lineage-audited by R2D2.
+
+FW-08 makes a FUTURE Stage-B HERMES candidate-image build **mechanically governed and fail-closed**. It is
+built **on top of** the already-merged PR#113 tools (`tools/hermes_clean_build_context_v1.py`,
+`tools/hermes_image_label_verify_v1.py`, `schemas/deployment_readiness/build_context_manifest.v1.schema.json`)
+and makes them **mandatory and unavoidable**.
+
+**Mandatory doctrine (all blocking).**
+
+| Rule | Statement |
+|------|-----------|
+| Sole build path | `tools/hermes_stage_b_build_v1.py` is the **only** authorised future Stage-B build entrypoint. A **direct `docker build` of HERMES is NOT authorised**. |
+| Source trusted + exact | The source SHA MUST be a full 40-hex commit **reachable from an allowed canonical ref** (`refs/remotes/origin/main`) OR an authorised PR head with a governed audit binding. Orphan / foreign / spoofed-remote / replaced-object / abbreviated / branch / HEAD / latest are **rejected** (F-113-01). |
+| Clean context mandatory | The exact-SHA clean context is **required**; a hand-created dir, cwd, arbitrary tarball, stale manifest, or file modified after manifest generation is **refused**. Prohibited members are rejected **pre-materialisation**; a failed export is **quarantined, stamped UNUSABLE, and destroyed** — it can never become a usable context (F-113-06). |
+| Docker-faithful context proof | The effective (post-`.dockerignore`) file set is established by a **parity-fixtured Docker/Moby-faithful matcher** (`**`, rooted, directory, negation), **not** the homemade PR#113 matcher (F-113-03). |
+| Expected-SHA binding mandatory | The label verifier is invoked with `expected_source_sha` — it is **never optional** (F-113-02). |
+| OCI post-build inspection mandatory | After the (fake) build, the image's `org.opencontainers.image.revision` + `.created` labels MUST be present, valid, whitespace-free, and **equal** the source SHA + build UTC. Empty/absent/mismatched labels (e.g. a direct build with no `--build-arg`) **fail** candidate readiness (F-113-02). |
+| SBOM mandatory | An SBOM (supported tool + format, image-id + source-SHA bound, checksum-verified) is **required**; unavailable/failed → readiness **FAILS**. |
+| Vuln-scan mandatory | A vulnerability scan (supported scanner, image-id bound, fresh DB or governed exception, 0 ungoverned CRITICAL/HIGH, checksum-verified) is **required**; scanner failure / stale DB w/o exception / ungoverned finding / id-mismatch / missing evidence → readiness **FAILS**. |
+| Readiness ≠ publication ≠ deployment ≠ activation | Candidate readiness is a **local evidence verdict only**. The state machine has **no PUBLISHED/DEPLOYED state**; the pure evaluator **rejects** any candidate with `consumer_live` / `shadow_enabled` / `publish_attempted` / `deploy_attempted` / `phase2_activated` set. |
+
+**Sequence (state machine).** `NOT_STARTED → SOURCE_VERIFIED → CONTEXT_EXPORTED → CONTEXT_VERIFIED →
+BUILD_READY → BUILD_COMPLETED → IMAGE_INSPECTED → SBOM_COMPLETED → VULNERABILITY_SCAN_COMPLETED →
+CANDIDATE_READY`, with `REJECTED` terminal from any state. No state may be skipped; any failure forces
+`REJECTED`; a `REJECTED` machine can never become `CANDIDATE_READY`, retry, publish, or deploy.
+
+**Artefacts.** Wrapper `tools/hermes_stage_b_build_v1.py`; pure models
+`design/hermes_fw08_dockerignore_matcher_v1.py` (+ parity fixtures),
+`design/hermes_fw08_candidate_state_v1.py`, `design/hermes_fw08_readiness_evaluator_v1.py`,
+`design/hermes_fw08_context_contract_v1.py`; schema
+`schemas/deployment_readiness/stage_b_candidate_readiness.v1.schema.json`; contract doc
+`docs/design/deployment_readiness/fw08_governed_stage_b_build_v1.md`; tests
+`tests/test_fw08_governed_build_v1.py`. NONE of these are imported by any runtime path.
+
+**Documented limitation (F-113-04, unchanged).** The secret scan is **defence-in-depth, not comprehensive**
+— the primary controls are the exact trusted git object, the clean tracked-only export, the docker-faithful
+inclusion boundary, and the closed build input with no arbitrary build secrets. The PR#113 heuristic
+currently self-matches its own `PuTTY-User-Key-File` literal at the canonical base, so the clean-context
+result is FAIL there and the wrapper **correctly fails closed**; a future real Stage-B build needs the
+heuristic tuned or a governed secret-exception (out of scope here — no PR#113 tool is modified).
+
+**Deployment-truth dependency (§26, not corrected here).** FW-08 does not correct HELM deployment truth
+and does not touch the live runtime; the deployment-truth correction remains a dependency on **FW-16**.
+
+---
+
 ## §8 Passive runtime-wiring design (FUTURE impl, not done here)
 
 **Runtime module(s) a future passive-wiring WO would touch:** `main.py` — specifically the assembly
