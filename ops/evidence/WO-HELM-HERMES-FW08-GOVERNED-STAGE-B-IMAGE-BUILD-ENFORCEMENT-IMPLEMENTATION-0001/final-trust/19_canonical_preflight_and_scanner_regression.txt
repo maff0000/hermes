@@ -1,0 +1,15 @@
+CANONICAL PREFLIGHT vs exact fe2037c5:
+  terminal_state     = USABLE
+  reason_codes       = ()
+  runner_constructed = False
+  docker_invoked     = False
+  image_id/tag/sbom/vuln = None None None None
+  published/deployed = False False
+  dispositioned count= 1
+
+SCANNER/VULN REGRESSION (no bypass): governed disposition clears self-match; NO dispositions -> FAIL closed
+  with governed dispositions: result= PASS  secret_findings= 0  dispositioned= 1
+  no dispositions:            result= FAIL  secret_findings= 1
+
+VULN DISPOSITION GOVERNANCE (exact, no wildcard/expiry/producer/chain bypass): validator present
+  required fields count = 18

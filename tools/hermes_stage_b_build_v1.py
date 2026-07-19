@@ -39,11 +39,13 @@ import tools.hermes_clean_build_context_v1 as cbc
 import tools.hermes_image_label_verify_v1 as lbl
 import design.hermes_fw08_dockerignore_matcher_v1 as di
 import design.hermes_fw08_candidate_state_v1 as sm
-import design.hermes_fw08_readiness_evaluator_v1 as ev
 import design.hermes_fw08_context_contract_v1 as cc
 import design.hermes_fw08_readiness_evidence_v1 as ee
 import design.hermes_fw08_vuln_disposition_v1 as vd
 import design.hermes_fw08_active_import_evidence_v1 as ai
+import design.hermes_fw08_producer_trust_v1 as pt          # R-1 §7 producer-trust + unforgeable seal
+import design.hermes_fw08_evidence_chain_v1 as ec          # R-1 §8 Merkle-bound evidence chain
+import design.hermes_fw08_immutable_context_v1 as imc       # R-2 §9/§10 immutable build-context lifecycle
 
 TOOL_VERSION = "1"
 CONTRACT_VERSION = "1"
@@ -1252,6 +1254,64 @@ def _build_gate_evidence(
     ]
 
 
+# R-1 §7 the sole governed evidence producer identity (the in-process wrapper). Trust is conferred by the
+# producer-trust contract + unforgeable in-process seal — NEVER by a checksum alone.
+GOVERNED_PRODUCER_ID = "tools/hermes_stage_b_build_v1.py"
+GOVERNED_TRUST_POLICY_VERSION = "1"
+
+
+def make_candidate_id(candidate_name: str, source_sha: str) -> str:
+    """Deterministic candidate identity binding the candidate name to its exact source SHA."""
+    return f"{candidate_name}@{source_sha}"
+
+
+def _build_trusted_chain(
+    evidence: Sequence["ee.GateEvidence"], *, candidate_id: str, source_sha: str, image_id: str,
+    now_utc: str,
+) -> Tuple["ec.ChainVerdict", Optional[Dict[str, object]]]:
+    """R-1 §7/§8. Seal each typed gate-evidence record with an EPHEMERAL in-process key held ONLY by this
+    wrapper, register the sole trusted producer, assemble the Merkle-bound evidence chain, and validate it.
+    A public caller cannot forge a seal (no key) nor register a trusted producer, so readiness is reachable
+    ONLY from evidence this wrapper itself produced. Returns (verdict, chain_manifest_dict)."""
+    sealer = pt.GovernedEvidenceSealer(producer_id=GOVERNED_PRODUCER_ID)
+    contract = pt.ProducerTrustContract(
+        contract_version=pt.CONTRACT_VERSION, producer_id=GOVERNED_PRODUCER_ID,
+        producer_type="IN_PROCESS_GOVERNED_WRAPPER", trust_contract_version=CONTRACT_VERSION,
+        allowed_gate_ids=ee.GATE_ORDER, application=APPLICATION, module_identity=GOVERNED_PRODUCER_ID,
+        content_digest=_self_content_digest(), source_version=source_sha,
+        trust_policy_version=GOVERNED_TRUST_POLICY_VERSION, sealing_method=pt.SEALING_METHOD_IN_PROCESS,
+        candidate_binding=candidate_id, source_binding=source_sha,
+        created_utc=now_utc, expiry_utc=_plus_hours(now_utc, 24), audit_reference="FW08-IN-PROCESS-GOVERNED",
+    )
+    registry = pt.ProducerTrustRegistry()
+    registry.register(contract)
+    sealed = [sealer.seal(rec) for rec in evidence]
+    manifest = ec.build_evidence_chain(
+        sealed, candidate_id=candidate_id, source_sha=source_sha, image_id=image_id,
+        producer_trust_ref=contract.reference(), created_utc=now_utc, lifecycle_state="ASSEMBLED",
+    )
+    verdict = ec.validate_evidence_chain(
+        manifest, sealed, verifier=sealer, registry=registry, expected_candidate_id=candidate_id,
+        expected_source_sha=source_sha, expected_image_id=image_id,
+        expected_producer_trust_ref=contract.reference(), now_utc=now_utc,
+    )
+    return verdict, manifest.to_dict()
+
+
+def _self_content_digest() -> str:
+    """Best-effort content digest of this wrapper module (producer executable/content digest, §7). Non-fatal
+    if unreadable."""
+    try:
+        return hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
+    except OSError:
+        return "0" * 64
+
+
+def _plus_hours(utc_iso: str, hours: int) -> str:
+    base = datetime.datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
+    return (base + datetime.timedelta(hours=hours)).isoformat()
+
+
 def run_stage_b_candidate_build(
     *,
     source_sha: str,
@@ -1278,6 +1338,7 @@ def run_stage_b_candidate_build(
     intentional: a real build requires an explicit gated runner that tests never supply."""
     runner = runner or RefusingDockerRunner()
     machine = sm.CandidateStateMachine(source_sha=source_sha if _FULL_SHA_RE.match(str(source_sha)) else "0" * 40)
+    candidate_id = make_candidate_id(str(candidate_name), machine.source_sha)
 
     prov_d: Optional[Dict[str, object]] = None
     eff_d: Optional[Dict[str, object]] = None
@@ -1363,7 +1424,36 @@ def run_stage_b_candidate_build(
     if toctou is not None:
         return _reject(f"TOCTOU-CONTEXT-MUTATED:{toctou}")
 
-    # --- INVOKE runner ONLY after all pre-build gates pass (§12) ---------------------------------
+    # --- R-2 §9/§10: IMMUTABLE build context (Option A). Do NOT hand the mutable working dir to the runner.
+    #     Build a private project-local snapshot -> verify -> finalise (revoke writes + verify owner/mode) ->
+    #     ATOMICALLY acquire exclusive ownership for the SINGLE runner. The runner receives ONLY the finalised
+    #     context identity; any post-finalisation mutation invalidates before success. ---
+    imm = imc.ImmutableBuildContext(source_sha=machine.source_sha, candidate_id=candidate_id)
+    immutable_dir = Path(str(quarantine_dir)) / "_immutable_context"
+    try:
+        imm.create(ctx.context_dir, immutable_dir)
+        imm.verify(effective_context_checksum=ctx.effective_checksum)
+        finalised_identity = imm.finalise()
+        finalised_identity = imm.acquire(
+            "hermes_stage_b_runner",
+            expected_candidate_id=candidate_id, expected_source_sha=machine.source_sha,
+        )
+    except imc.ImmutableContextError as exc:
+        return _reject(f"IMMUTABLE-CONTEXT-FAILED:{exc}")
+
+    # Re-point the docker command at the FINALISED immutable context — the runner sees nothing else.
+    try:
+        imm_inputs = build_inputs(
+            source_sha=source_sha, build_utc=build_utc, expected_repository=expected_remote,
+            candidate_name=candidate_name, context_dir=Path(finalised_identity.root_path),
+            context_source_sha=ctx.manifest.source_sha,
+        )
+        command = build_docker_command(imm_inputs)
+    except GovernedBuildError as exc:
+        imm.reject(f"IMMUTABLE-INPUTS-INVALID:{exc}")
+        return _reject(f"IMMUTABLE-BUILD-INPUTS-INVALID:{exc}")
+
+    # --- INVOKE runner ONLY after all pre-build gates pass + immutable context finalised (§12/§15) ---
     try:
         outcome = runner.build(command)
         image_id = outcome.image_id
@@ -1373,6 +1463,12 @@ def run_stage_b_candidate_build(
         return _reject(f"DOCKER-BUILD-FAILED:{exc}")
     if not image_id:
         return _reject("IMAGE-ID-NOT-CAPTURED")
+    # The immutable context must still be byte-identical after the (fake) build consumed it.
+    try:
+        imm.assert_intact()
+        imm.release()
+    except imc.ImmutableContextError as exc:
+        return _reject(f"IMMUTABLE-CONTEXT-MUTATED-DURING-BUILD:{exc}")
     machine.advance(sm.State.BUILD_COMPLETED, now_utc, "BUILD-COMPLETED", image_id=image_id)
 
     # --- gate: OCI post-build inspection (§13) ---------------------------------------------------
@@ -1420,44 +1516,61 @@ def run_stage_b_candidate_build(
         return _reject("VULN-SCAN-FAILED")
     machine.advance(sm.State.VULNERABILITY_SCAN_COMPLETED, now_utc, "VULN-SCAN-COMPLETED", image_id=image_id)
 
-    # --- §12 evidence-bound readiness: build immutable typed evidence records and require they prove
-    #     readiness (no fabricatable bare booleans; cross-gate source/image/order/freshness consistency). --
+    # --- R-3 §12/§13: image-bound active-import evidence (validated when the runner supplies it). The bare
+    #     evidence-declaration is NOT candidate proof; it must bind to the ACTUAL image id + source + fs
+    #     digest via a trusted producer. The default/fake runner supplies none — the coarse image-content
+    #     gate already proved Phase-2 inertness for the no-real-image flow. ---
+    ai_evidence = None
+    _ai_fn = getattr(runner, "active_import_evidence", None)
+    if callable(_ai_fn):
+        try:
+            ai_evidence = _ai_fn(image_id, source_sha=str(source_sha))
+        except (RealDockerInvocationForbidden, GovernedBuildError):
+            ai_evidence = None
+        if ai_evidence is not None:
+            fs_digest = str(ai_evidence.get("image_filesystem_digest")
+                            or ai_evidence.get("manifest_digest") or "")
+            producer_ref = str(ai_evidence.get("producer_trust_reference", ""))
+            ai_verdict = ai.validate_image_bound_active_import(
+                ai_evidence, expected_image_id=image_id, expected_source_sha=str(source_sha),
+                expected_fs_digest=fs_digest, expected_candidate_id=candidate_id,
+                trusted_producer_refs=(producer_ref,) if producer_ref else (), now_utc=now_utc,
+                phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
+                required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT,
+            )
+            if not ai_verdict.accepted or not ai_verdict.inert:
+                return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ai_verdict.reason_codes))
+
+    # --- §19 mechanical safety gate (bare-Boolean readiness REMOVED; these are enforced independently of the
+    #     evidence chain so a set safety flag ALWAYS forces rejection). ---
+    if consumer_live:
+        return _reject("R-CONSUMER-LIVE-TRUE")
+    if shadow_enabled:
+        return _reject("R-SHADOW-ENABLED-TRUE")
+    if phase2_activated:
+        return _reject("R-PHASE2-ACTIVATED")
+
+    # --- R-1 §6/§7/§8 SOLE readiness path: validated, producer-trusted, SEALED evidence chain. There is NO
+    #     bare-Boolean evaluator and NO caller-supplied pass path. ---
     evidence = _build_gate_evidence(
         source_sha=str(source_sha), image_id=image_id, now_utc=now_utc,
         oci_ok=oci.ok, content_ok=ic.ok, sbom_ok=sbom_v.ok, vuln_ok=vuln_v.ok,
         clean_ok=(ctx.manifest.result == "PASS"), effective_ok=eff.ok,
     )
-    if evidence is not None:
-        ev_verdict = ee.evaluate_evidence(
-            evidence, expected_source_sha=str(source_sha), expected_image_id=image_id, now_utc=now_utc,
-        )
-        if not ev_verdict.ready:
-            return _reject("READINESS-EVIDENCE-FAILED:" + ",".join(ev_verdict.reason_codes))
-
-    # --- final pure readiness evaluation (§19) ---------------------------------------------------
-    ready_inputs = ev.ReadinessInputs(
-        trusted_source_verified=True,
-        clean_context_manifest_valid=(ctx.manifest.result == "PASS"),
-        effective_docker_context_valid=eff.ok,
-        prohibited_findings_count=len(ctx.manifest.prohibited_findings),
-        secret_findings_count=len(ctx.manifest.secret_findings),
-        secret_findings_all_governed_nonsecret=False,
-        build_succeeded=True,
-        image_id_captured=bool(image_id),
-        oci_labels_exact_match=oci.ok,
-        image_content_passed=ic.ok,
-        sbom_passed=sbom_v.ok,
-        vuln_scan_passed=vuln_v.ok,
-        publish_attempted=False,
-        deploy_attempted=False,
-        consumer_live=consumer_live,
-        shadow_enabled=shadow_enabled,
-        phase2_activated=phase2_activated,
+    if evidence is None:
+        return _reject("READINESS-EVIDENCE-UNBINDABLE")
+    chain_verdict, _chain = _build_trusted_chain(
+        evidence, candidate_id=candidate_id, source_sha=str(source_sha), image_id=image_id, now_utc=now_utc,
     )
-    verdict = ev.evaluate(ready_inputs)
-    if not verdict.ready:
-        return _reject("READINESS-EVALUATOR-FAILED:" + ",".join(verdict.reason_codes))
+    if not chain_verdict.ready:
+        return _reject("READINESS-EVIDENCE-CHAIN-FAILED:" + ",".join(chain_verdict.reason_codes))
+
     machine.advance(sm.State.CANDIDATE_READY, now_utc, "CANDIDATE-READY", image_id=image_id)
+    # Evidence captured — destroy the immutable context (cleanup-failure fails closed).
+    try:
+        imm.destroy()
+    except imc.ImmutableContextError as exc:
+        return _reject(f"IMMUTABLE-CONTEXT-CLEANUP-FAILED:{exc}")
     return _finalise(ready=True, extra_reasons=tuple())
 
 

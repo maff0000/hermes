@@ -1,0 +1,15 @@
+# No real docker / image / SBOM / vuln proof (UTC 2026-07-19T19:50:09Z)
+
+## docker binary on host
+docker present
+
+## wrapper never invokes a real docker subprocess (default RefusingDockerRunner)
+build -> RealDockerInvocationForbidden (refused)
+inspect -> RealDockerInvocationForbidden (refused)
+image_content -> RealDockerInvocationForbidden (refused)
+default runner class: RefusingDockerRunner
+
+## no docker/subprocess/socket in the new trust/context modules
+design/hermes_fw08_producer_trust_v1.py:24:PURE: no I/O, no subprocess, no network, no PERSISTED secrets, stdlib only, deterministic given its key.
+design/hermes_fw08_evidence_chain_v1.py:14:PURE: no I/O, no subprocess, no network, no secrets, stdlib only, deterministic. NOT imported by runtime.
+design/hermes_fw08_immutable_context_v1.py:25:separately-authorised runner. PURE of network/subprocess/secrets; uses ONLY stdlib filesystem primitives.

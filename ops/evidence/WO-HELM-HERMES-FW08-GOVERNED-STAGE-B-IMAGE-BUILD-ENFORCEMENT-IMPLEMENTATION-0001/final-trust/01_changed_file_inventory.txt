@@ -1,0 +1,11 @@
+# Changed / added files (UTC 2026-07-19T19:51:09Z)
+ M design/hermes_fw08_active_import_evidence_v1.py
+ M design/hermes_fw08_readiness_evaluator_v1.py
+ M tests/test_fw08_governed_build_v1.py
+ M tools/hermes_stage_b_build_v1.py
+?? design/hermes_fw08_evidence_chain_v1.py
+?? design/hermes_fw08_immutable_context_v1.py
+?? design/hermes_fw08_producer_trust_v1.py
+?? ops/evidence/WO-HELM-HERMES-FW08-GOVERNED-STAGE-B-IMAGE-BUILD-ENFORCEMENT-IMPLEMENTATION-0001/final-trust/
+?? schemas/deployment_readiness/fw08_final_trust.v1.json
+?? tests/test_fw08_final_trust_v1.py

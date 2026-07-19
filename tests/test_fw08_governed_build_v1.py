@@ -743,48 +743,28 @@ def test_state_machine_records_immutable():
         m.advance(sm.State.CONTEXT_EXPORTED, "not-utc", "bad-ts")  # UTC required
 
 
-# =============================================================================== §19 evaluator
-def _all_green():
-    return ev.ReadinessInputs(
-        trusted_source_verified=True, clean_context_manifest_valid=True,
-        effective_docker_context_valid=True, prohibited_findings_count=0, secret_findings_count=0,
-        secret_findings_all_governed_nonsecret=False, build_succeeded=True, image_id_captured=True,
-        oci_labels_exact_match=True, image_content_passed=True, sbom_passed=True, vuln_scan_passed=True,
-        publish_attempted=False, deploy_attempted=False, consumer_live=False, shadow_enabled=False,
-        phase2_activated=False,
-    )
+# =============================================================================== R-1 §6-§8 bare-Boolean REMOVED
+def test_bare_boolean_readiness_inputs_removed():
+    # The bare-Boolean readiness model is no longer a reachable symbol (fail-closed tombstone).
+    with pytest.raises(ev.BareBooleanReadinessRemovedError):
+        _ = ev.ReadinessInputs
+    with pytest.raises(ev.BareBooleanReadinessRemovedError):
+        _ = ev.ReadinessVerdict
 
 
-def test_evaluator_all_green_required():
-    assert ev.evaluate(_all_green()).ready is True
+def test_bare_boolean_evaluate_fail_closed():
+    # Any compatibility constructor / evaluate() that recreates readiness from bools now fails closed.
+    with pytest.raises(ev.BareBooleanReadinessRemovedError):
+        ev.evaluate({"trusted_source_verified": True, "build_succeeded": True})
+    with pytest.raises(ev.BareBooleanReadinessRemovedError):
+        ev.evaluate(True, True, True)
 
 
-@pytest.mark.parametrize("field,val,code", [
-    ("trusted_source_verified", False, "R-TRUSTED-SOURCE-NOT-VERIFIED"),
-    ("clean_context_manifest_valid", False, "R-CLEAN-CONTEXT-MANIFEST-INVALID"),
-    ("effective_docker_context_valid", False, "R-EFFECTIVE-CONTEXT-INVALID"),
-    ("prohibited_findings_count", 1, "R-PROHIBITED-PATHS-PRESENT"),
-    ("secret_findings_count", 1, "R-SECRET-FINDINGS-PRESENT"),
-    ("build_succeeded", False, "R-BUILD-NOT-SUCCEEDED"),
-    ("image_id_captured", False, "R-IMAGE-ID-NOT-CAPTURED"),
-    ("oci_labels_exact_match", False, "R-OCI-LABELS-NOT-EXACT"),
-    ("image_content_passed", False, "R-IMAGE-CONTENT-FAILED"),
-    ("sbom_passed", False, "R-SBOM-FAILED"),
-    ("vuln_scan_passed", False, "R-VULN-SCAN-FAILED"),
-    ("publish_attempted", True, "R-PUBLISH-ATTEMPTED"),
-    ("deploy_attempted", True, "R-DEPLOY-ATTEMPTED"),
-    ("consumer_live", True, "R-CONSUMER-LIVE-TRUE"),
-    ("shadow_enabled", True, "R-SHADOW-ENABLED-TRUE"),
-    ("phase2_activated", True, "R-PHASE2-ACTIVATED"),
-])
-def test_evaluator_any_single_failure_rejects(field, val, code):
-    verdict = ev.evaluate(replace(_all_green(), **{field: val}))
-    assert verdict.ready is False and code in verdict.reason_codes
-
-
-def test_evaluator_secret_governed_nonsecret_permitted():
-    inp = replace(_all_green(), secret_findings_count=2, secret_findings_all_governed_nonsecret=True)
-    assert ev.evaluate(inp).ready is True
+def test_wrapper_has_no_bare_boolean_readiness_symbol():
+    # The wrapper must not re-export or depend on the removed bare-Boolean evaluator symbols.
+    assert not hasattr(w, "ReadinessInputs")
+    src = (REPO / "tools" / "hermes_stage_b_build_v1.py").read_text(encoding="utf-8")
+    assert "ev.ReadinessInputs" not in src and "ev.evaluate(" not in src
 
 
 # =============================================================================== §6/§20/§21 orchestration
