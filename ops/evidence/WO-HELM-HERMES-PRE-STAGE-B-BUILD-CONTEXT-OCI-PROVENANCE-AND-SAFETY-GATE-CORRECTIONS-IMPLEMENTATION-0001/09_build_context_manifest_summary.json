@@ -1,0 +1,43 @@
+{
+  "application": "hermes",
+  "contract_version": "1",
+  "created_utc": "2026-07-18T15:55:41+00:00",
+  "excluded_category_summary": {
+    "ci": 1,
+    "container-meta": 3,
+    "mock": 2,
+    "ops-evidence": 774,
+    "other": 1,
+    "tests": 129
+  },
+  "exported_file_count": 1178,
+  "files_sample_first10": [
+    ".dockerignore",
+    ".env.example",
+    ".github/workflows/hermes-ci.yml",
+    ".gitignore",
+    "Dockerfile",
+    "__init__.py",
+    "adapters/__init__.py",
+    "adapters/base.py",
+    "adapters/oanda.py",
+    "backfill_atr_metrics.py"
+  ],
+  "files_sample_last5": [
+    "utils/tick_shadow_publisher_v1.py",
+    "utils/tick_stream_publisher.py",
+    "utils/trading_hours.py",
+    "utils/volume_analyzer.py",
+    "utils/watchdog.py"
+  ],
+  "manifest_checksum": "7128b0554fd8258df17ee9bda0681961d01ff13116de3e254900a54290b638bb",
+  "note": "Full manifest has 1178 file entries with per-file sha256; summary trimmed for evidence. Deterministic: manifest_checksum stable given fixed source_sha + created_utc.",
+  "prohibited_findings": [],
+  "repo_name": "hermes",
+  "repo_remote": "git@github.com:maff0000/hermes.git",
+  "result": "PASS",
+  "scanned_path_count": 268,
+  "secret_findings": [],
+  "source_sha": "a780a16182c3035e1161ac396092e203aa0a5eac",
+  "tool_version": "1"
+}

@@ -1,0 +1,20 @@
+diff --git a/Dockerfile b/Dockerfile
+index 37677fe..e6493d5 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -34,6 +34,15 @@ ENV PYTHONUNBUFFERED=1 \
+     TZ=UTC \
+     APP_HOME=/app
+ 
++# OCI provenance inputs (WO-HELM-HERMES-PRE-STAGE-B-BUILD-CONTEXT-OCI-PROVENANCE-...). MANDATORY for every
++# FUTURE Stage-B candidate image: the build MUST pass --build-arg SOURCE_SHA=<full 40-hex commit> and
++# --build-arg BUILD_UTC=<tz-aware UTC ISO-8601>. Verified by tools/hermes_image_label_verify_v1.py.
++# This block ONLY establishes label inputs + emission; it changes no entrypoint/base/packages/user.
++ARG SOURCE_SHA
++ARG BUILD_UTC
++LABEL org.opencontainers.image.revision="${SOURCE_SHA}" \
++      org.opencontainers.image.created="${BUILD_UTC}"
++
+ # Non-root, no-login service account (zero-leak: app never runs as root).
+ RUN groupadd --system --gid 10001 hermes \
+  && useradd --system --uid 10001 --gid hermes --home-dir ${APP_HOME} --shell /usr/sbin/nologin hermes \

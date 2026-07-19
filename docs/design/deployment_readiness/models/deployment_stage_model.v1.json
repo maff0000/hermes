@@ -17,8 +17,11 @@
     "consumer_live stays false in every stage (never a Phase-2 activation vector).",
     "No stage introduces Redis or SQL.",
     "N-1 (JSONL append atomicity) and N-2 (redaction coverage) hardening land BEFORE any shadow_enabled stage.",
-    "Current Mode-C reconnect authority remains fully authoritative in every stage."
+    "Current Mode-C reconnect authority remains fully authoritative in every stage.",
+    "Stage B is BLOCKED unless the clean exact-SHA build context (F-DR-01) is produced AND source-SHA + build-UTC OCI provenance labels (F-DR-02) are present and correct. Stage B FAILS if either control is absent or incorrect. These controls are MANDATORY for every future candidate image and are NOT optional recommendations.",
+    "The legacy image c5fc2a62f424 (no provenance labels) is NOT retroactively invalid; the F-DR-02 label requirement is scoped to future candidate images only and the legacy image does not set the contract for new candidate images."
   ],
+  "control_identifier_mapping_ref": "control_identifier_mapping.v1.json",
   "stages": [
     {
       "id": "A",
@@ -41,9 +44,11 @@
       "id": "B",
       "name": "Image build only",
       "stage_kind": "build",
-      "purpose": "Build a single reproducible image from pinned canonical SHA adc21c4d with a source-SHA + build-UTC label. No container replaced.",
-      "preconditions": ["Stage A GREEN"],
-      "actions": ["docker build from clean context at adc21c4d", "Attach source-SHA + build-UTC labels", "Record image digest", "SBOM + vuln/secret/prohibited-host-path scan"],
+      "purpose": "Build a single reproducible image from pinned canonical SHA adc21c4d using a MANDATORY clean exact-SHA build context (F-DR-01) and MANDATORY source-SHA + build-UTC OCI labels (F-DR-02). No container replaced.",
+      "preconditions": ["Stage A GREEN", "F-DR-01 clean exact-SHA context produced (tools/hermes_clean_build_context_v1.py)", "F-DR-02 provenance labels wired (Dockerfile ARG+LABEL)"],
+      "mandatory_controls": ["F-DR-01", "F-DR-02"],
+      "blocking_controls_note": "Stage B FAILS if the clean exact-SHA context cannot be produced (F-DR-01) or if the source-SHA + build-UTC labels are absent/incorrect (F-DR-02). Verified by tools/hermes_image_label_verify_v1.py; the revision label MUST equal the clean-context source SHA.",
+      "actions": ["Produce clean exact-SHA build context (F-DR-01)", "docker build from that clean context at adc21c4d", "Attach + verify MANDATORY source-SHA + build-UTC labels (F-DR-02)", "Record image digest", "SBOM + vuln/secret/prohibited-host-path scan"],
       "shadow_enabled": false,
       "consumer_live": false,
       "is_deployment": false,
@@ -52,7 +57,7 @@
       "resolves_hardening": [],
       "rollback": {"applicable": true, "action": "Discard built image; nothing deployed. Prior image c5fc2a62f424 remains live.", "immediate_rollback": false},
       "exit_audit": "Image built, labelled, digest recorded, scans clean, Phase-2 present-but-inactive proven in image.",
-      "gate": "Build succeeds + scans clean."
+      "gate": "Build succeeds + scans clean + F-DR-01 clean-context reproducible + F-DR-02 provenance labels present and correct (Stage B FAILS otherwise)."
     },
     {
       "id": "C",

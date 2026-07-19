@@ -67,13 +67,31 @@ and docs. It **EXCLUDES:** CI workflow (`.github/`), all `tests/`, and `ops/evid
 
 **Requirements the design imposes on a FUTURE image-build WO (not done here):**
 
-- Pin the build to canonical SHA `adc21c4d` (immutable ref) from a clean context.
-- Add an OCI **source-SHA label** and **build-UTC label** so *capability-present* is distinguishable
-  from *capability-active* and from *which source built the image*. (See §20; the running image lacks a
-  source-SHA label, which is part of the deployment-truth ambiguity.)
+- Pin the build to canonical SHA `adc21c4d` (immutable ref) from a **clean exact-SHA build context**.
+  This is **MANDATORY before Stage B** (control **F-DR-01**), produced by
+  `tools/hermes_clean_build_context_v1.py`: only the tracked content of the exact commit is exported
+  (`git archive`), a deterministic manifest + security scan is produced, and the hardened `.dockerignore`
+  is an **independent defence** layered on top. A dirty working tree can never contaminate the context.
+- Add an OCI **source-SHA label** (`org.opencontainers.image.revision`) and **build-UTC label**
+  (`org.opencontainers.image.created`) so *capability-present* is distinguishable from *capability-active*
+  and from *which source built the image*. These labels are **MANDATORY for every future Stage-B
+  candidate image** (control **F-DR-02**); **Stage B FAILS if either label is absent or incorrect**. They
+  are **NOT optional recommendations**. (See §20; the running **legacy** image lacks a source-SHA label —
+  that is the legacy image's diagnostic limitation, part of the deployment-truth ambiguity, and does
+  **not** set the contract for new candidate images.)
 - Produce an **SBOM**, record the **image digest**, run **vuln**, **secret**, **prohibited-host-path**,
   and **package-inventory-vs-current-image** scans.
 - Verify dependency-lock reproducibility (wheels only, no index).
+
+**Control-identifier mapping (canonical, single source — `models/control_identifier_mapping.v1.json`):**
+
+| Control | Acceptance tests | Mechanism | Lifecycle gate | Blocking effect |
+|---------|------------------|-----------|----------------|-----------------|
+| **F-DR-01** | `T-DOCKERIGNORE` (+ `T-CLEAN-CONTEXT`, `T-BUILD-MANIFEST`, `T-SECRET-SCAN`, `T-PROHIBITED-PATH`) | clean exact-SHA context tool + `.dockerignore` hardening + manifest schema | Stage A/B | Stage B FAILS if the clean context can't be produced, the manifest diverges from tracked git content, or a secret/prohibited-path finding appears in the effective build context |
+| **F-DR-02** | `T-SBOM-SCAN` label check (+ `T-OCI-LABELS`), `FW-08`, `FW-19` | Dockerfile `ARG`+`LABEL` + `tools/hermes_image_label_verify_v1.py` | Stage B | Stage B FAILS if either provenance label is absent/empty/malformed or the revision label ≠ clean-context source SHA |
+
+There are **no contradictory duplicate identifiers**: F-DR-01 is the build-context control, F-DR-02 is
+the provenance-label control, each with exactly one lifecycle gate and blocking effect.
 
 **Proofs the readiness audit must produce (§14 Stage C):**
 1. **Phase-2 present-but-inactive** — the 10 `hermes_sss_*` modules exist in the image.
@@ -86,10 +104,41 @@ and docs. It **EXCLUDES:** CI workflow (`.github/`), all `tests/`, and `ops/evid
 4. **No JSONL path created at image start** — the writer's directory creation is lazy (`_ensure_dir`
    on first successful `append`); at import/start nothing touches the filesystem.
 
-**Adequacy ruling.** The existing `Dockerfile` and compose are **adequate** for a present-but-inactive
-deploy (the capability ships inert). The **only** recommended change is adding the source-SHA +
-build-UTC labels; that is an impl-only follow-on (`FW-19`). This design does **not** modify the
-Dockerfile/compose.
+**Adequacy ruling (corrected).** The existing `Dockerfile`/compose are structurally sound for a
+present-but-inactive deploy, but they are **NOT sufficient** for a Stage-B candidate image on their own:
+a clean exact-SHA build context (**F-DR-01**) and source-SHA + build-UTC OCI provenance labels
+(**F-DR-02**) are **MANDATORY** before Stage B, and **Stage B FAILS if they are absent or incorrect**.
+The pre-Stage-B corrections WO adds the `ARG SOURCE_SHA`/`ARG BUILD_UTC` + `LABEL` inputs to the
+Dockerfile (runtime stage; label inputs/emission only — no entrypoint/base/package change), hardens
+`.dockerignore`, and adds the clean-context + label-verify tooling. The label-emission Dockerfile change
+and the build-time wiring remain impl-only follow-ons (`FW-19`, `FW-08`); no image is built here.
+
+---
+
+## §7A Dedicated pre-Stage-B safety gates (this WO — implemented + tested)
+
+Two behavioural safety gates are added and **proven against the already-merged inert Phase-2 modules**
+(`utils/hermes_sss_*` + `utils/hermes_shared_stream_recovery_v1`). They are acceptance-matrix entries with
+blocking effect, exercised in `tests/test_pre_stage_b_build_corrections_v1.py`. They wire nothing.
+
+**Socket-ambiguity gate (`T-SOCKET-AMBIGUITY`).** Socket **CONNECTED ≠ transport health**. The gate
+proves, behaviourally: connected + unavailable-heartbeat = **incomplete** (fail-closed, not healthy);
+connected + stale/silent shared-progress ≠ healthy; connected + auth-failure = **fault-governed**;
+connected + contradictory evidence = **fail-closed**. A bare socket-connected signal can **neither
+authorise nor deny** a reconnect *as if health were proven*. Blocking: any path that treats socket
+connectivity as transport health.
+
+**Historical-inference gate (`T-HISTORICAL-INFERENCE`).** Two modes over the July-16 fixture
+(`tests/fixtures/sss_phase2/july16_snapshot.json`):
+- **STRICT** — if the July-16 heartbeat is unavailable, evidence is **INCOMPLETE**, reconnect is
+  **unauthorised**, and **no silent inferred heartbeat** is substituted.
+- **INFERENCE-permitted** — the heartbeat carries `JUSTIFIED_INFERENCE` provenance preserved through
+  snapshot → mapping → decision → comparison → record; an inferred value **NEVER serialises as
+  `DIRECTLY_OBSERVED`**; the shadow output is **proposal-only**; the comparison is
+  `SHADOW_DENIES_CURRENT_RECONNECT`.
+
+The gate **FAILS if inference is relabelled observation**. Inference ≠ observation (§17.6); proposal-only
+≠ authority (§17.7).
 
 ---
 
@@ -250,7 +299,9 @@ path that blocks. Gate `FW-05`.
 Machine-readable: `models/deployment_stage_model.v1.json`. Summary:
 
 - **A Cumulative readiness verify** — shadow off. Verify classification/import-graph/build-context.
-- **B Image build only** — shadow off. Reproducible build from `adc21c4d`, labels, SBOM, scans. No container replaced.
+- **B Image build only** — shadow off. Reproducible build from `adc21c4d` via a **clean exact-SHA context
+  (F-DR-01, MANDATORY/blocking)**, **mandatory source-SHA + build-UTC OCI labels (F-DR-02, blocking —
+  Stage B FAILS if absent/incorrect)**, SBOM, scans. No container replaced.
 - **C Deployment-readiness audit** — shadow off. Prove present-but-inactive, no import, disabled default, no JSONL at start.
 - **D Deploy-dark** — shadow off. **DEPLOYMENT**: container replace + disabled mounted config; validate health/market-data/authority; rollback window.
 - **E Post-deploy-dark audit** — shadow off. Confirm inert in-container, no JSONL, authority unchanged; **N-1/N-2 closed** (blocking gate).
@@ -331,7 +382,12 @@ implemented here.
 Machine-readable: `models/pr_dependency_matrix.v1.json`. Hard prereq chain `108 -> 109 -> 110 -> 111`;
 PRs 103-107 orthogonal. **No hidden dependency or incompatibility.** `requirements.txt` unchanged.
 **Cumulative deploy is SAFE** — no PR forces a blocker. Only PR103 needs post-build config-version
-validation (no-op on v3); PR111 wants a source-SHA label (version-reporting) but that is not blocking.
+validation (no-op on v3). **Scope correction (this WO):** the "source-SHA label is not blocking"
+observation applies **ONLY to the already-running legacy image** (`c5fc2a62f424`, no labels) and its
+*current diagnostic limitation* — it does **not** relax the contract for new candidate images. For every
+**FUTURE Stage-B candidate image** the source-SHA + build-UTC OCI labels are **SUBSTANTIVELY BLOCKING**
+(control **F-DR-02**): **Stage B FAILS if either label is absent or incorrect**. The legacy image is not
+retroactively invalid, but it does **not** set the contract for new candidate images.
 
 ---
 
