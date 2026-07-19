@@ -639,12 +639,69 @@ def test_vuln_failures():
                                                              now_utc=NOW).reason_codes
 
 
+_SRC40 = "a" * 40
+
+
+def _full_vuln_disposition(**over):
+    """§11: a FULLY-governed vuln disposition binding EVERY required field."""
+    d = {
+        "contract_version": "1", "disposition_id": "GOV-VULN-0001", "vuln_id": "CVE-7",
+        "package": "openssl", "installed_version": "3.0.1", "image_id": IMAGE_ID, "source_sha": _SRC40,
+        "severity": "HIGH", "reason": "no fixed version available; risk accepted", "risk_owner": "HELM",
+        "approval_authority": "HELM", "created_utc": "2026-07-18T00:00:00+00:00",
+        "expiry_utc": "2027-07-18T00:00:00+00:00", "scanner_id": "grype", "scanner_version": "0.74.0",
+        "vuln_db_id": "grype-db-2026-07-18", "vuln_db_timestamp_utc": "2026-07-18T00:00:00+00:00",
+        "evidence_checksum": "b" * 64,
+    }
+    d.update(over)
+    return d
+
+
 def test_vuln_governed_exceptions_pass():
-    # allow-listed HIGH with governance id + stale DB with governed exception -> pass.
-    scan = _scan(findings=[{"id": "CVE-7", "severity": "HIGH"}],
-                 allowlist=[{"id": "CVE-7", "governance_id": "GOV-VULN-001"}],
+    # §11: a HIGH governed ONLY by an EXACT, TYPED, UNEXPIRED disposition binding EVERY field + stale DB with
+    # governed exception -> pass. The finding must carry the exact package/version the disposition binds.
+    finding = {"id": "CVE-7", "severity": "HIGH", "package": "openssl", "installed_version": "3.0.1"}
+    scan = _scan(scanner_version="0.74.0", findings=[finding],
+                 allowlist=[_full_vuln_disposition()],
                  db_timestamp_utc="2020-01-01T00:00:00+00:00", db_freshness_exception="GOV-DB-EX-1")
-    assert w.verify_vuln_scan(scan, image_id=IMAGE_ID, now_utc=NOW).ok
+    assert w.verify_vuln_scan(scan, image_id=IMAGE_ID, now_utc=NOW, source_sha=_SRC40).ok
+
+
+def test_vuln_truthy_id_alone_does_not_govern():
+    # §11: a truthy governance id alone (the old weak form) does NOT govern a HIGH -> blocking.
+    finding = {"id": "CVE-7", "severity": "HIGH", "package": "openssl", "installed_version": "3.0.1"}
+    scan = _scan(scanner_version="0.74.0", findings=[finding],
+                 allowlist=[{"id": "CVE-7", "governance_id": "GOV-VULN-001"}])
+    v = w.verify_vuln_scan(scan, image_id=IMAGE_ID, now_utc=NOW, source_sha=_SRC40)
+    assert not v.ok and "VULN-UNGOVERNED-HIGH" in v.reason_codes
+
+
+@pytest.mark.parametrize("mut,label", [
+    ({"vuln_id": "CVE-999"}, "vuln-id-mismatch"),
+    ({"package": "zlib"}, "package-mismatch"),
+    ({"installed_version": "9.9"}, "version-mismatch"),
+    ({"image_id": "sha256:" + "z" * 64}, "image-mismatch"),
+    ({"source_sha": "c" * 40}, "source-mismatch"),
+    ({"scanner_version": "9.9.9"}, "scanner-version-mismatch"),
+    ({"expiry_utc": "2020-01-01T00:00:00+00:00"}, "expired"),
+    ({"severity": "MEDIUM"}, "severity-mismatch"),
+    ({"reason": ""}, "missing-reason"),
+    ({"risk_owner": ""}, "missing-owner"),
+    ({"vuln_id": "*"}, "wildcard-vuln"),
+    ({"package": "*"}, "wildcard-package"),
+])
+def test_vuln_disposition_reject_cases(mut, label):
+    finding = {"id": "CVE-7", "severity": "HIGH", "package": "openssl", "installed_version": "3.0.1"}
+    scan = _scan(scanner_version="0.74.0", findings=[finding], allowlist=[_full_vuln_disposition(**mut)])
+    v = w.verify_vuln_scan(scan, image_id=IMAGE_ID, now_utc=NOW, source_sha=_SRC40)
+    assert not v.ok and "VULN-UNGOVERNED-HIGH" in v.reason_codes, label
+
+
+def test_vuln_critical_high_blocking_no_blanket_exception():
+    crit = {"id": "CVE-C", "severity": "CRITICAL", "package": "libc", "installed_version": "2.0"}
+    scan = _scan(scanner_version="0.74.0", findings=[crit], allowlist=[_full_vuln_disposition()])  # no CVE-C disp
+    v = w.verify_vuln_scan(scan, image_id=IMAGE_ID, now_utc=NOW, source_sha=_SRC40)
+    assert not v.ok and "VULN-UNGOVERNED-CRITICAL" in v.reason_codes
 
 
 # =============================================================================== §18 state machine

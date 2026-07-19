@@ -33,7 +33,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import tools.hermes_clean_build_context_v1 as cbc
 import tools.hermes_image_label_verify_v1 as lbl
@@ -41,11 +41,23 @@ import design.hermes_fw08_dockerignore_matcher_v1 as di
 import design.hermes_fw08_candidate_state_v1 as sm
 import design.hermes_fw08_readiness_evaluator_v1 as ev
 import design.hermes_fw08_context_contract_v1 as cc
+import design.hermes_fw08_readiness_evidence_v1 as ee
+import design.hermes_fw08_vuln_disposition_v1 as vd
+import design.hermes_fw08_active_import_evidence_v1 as ai
 
 TOOL_VERSION = "1"
 CONTRACT_VERSION = "1"
 APPLICATION = "hermes"
 UTC = datetime.timezone.utc
+
+# §6 governed secret-scanner dispositions (narrow, fingerprint-bound). Loaded explicitly by the preflight;
+# the default fake-runner flow does NOT load them (fail-closed default unchanged).
+DEFAULT_DISPOSITIONS_PATH = Path(__file__).resolve().parent / "fw08_scanner_dispositions.v1.json"
+
+
+def load_governed_dispositions(path: Optional[Path] = None):
+    """Load the governed §6 secret-scanner dispositions (validated, fingerprint-bound)."""
+    return cbc.load_dispositions(path or DEFAULT_DISPOSITIONS_PATH)
 
 DEFAULT_EXPECTED_REMOTE = cbc.DEFAULT_EXPECTED_REMOTE
 # §7: the ONLY canonical refs from which a Stage-B source SHA may be reached.
@@ -202,6 +214,142 @@ def verify_trusted_provenance(
     )
 
 
+# =============================================================================== §8 trusted-ref freshness
+class SourceFreshnessError(GovernedBuildError):
+    """Fail-closed error for a stale / tampered / unauthorised / offline source-trust binding."""
+
+
+class RemoteRefFetcher:
+    """Injectable boundary for reading the canonical remote's main SHA. The wrapper NEVER performs a live
+    canonical fetch directly — only through a fetcher. The DEFAULT refuses (offline / unauthorised)."""
+
+    def fetch_canonical_main_sha(self, repo_dir: Path, remote: str) -> str:
+        raise NotImplementedError
+
+
+class RefusingRemoteRefFetcher(RemoteRefFetcher):
+    """DEFAULT. Refuses any live canonical fetch, so no unauthorised mutating fetch can occur in tests."""
+
+    def fetch_canonical_main_sha(self, repo_dir: Path, remote: str) -> str:
+        raise SourceFreshnessError("default fetcher refuses a live canonical fetch (offline/unauthorised)")
+
+
+class FixtureRemoteRefFetcher(RemoteRefFetcher):
+    """Test-only fetcher returning a preset SHA (or raising a preset error). Used against ISOLATED fixture
+    repos so no mutation-bearing fetch ever touches the live canonical remote."""
+
+    def __init__(self, sha: Optional[str] = None, *, raises: Optional[Exception] = None) -> None:
+        self._sha = sha
+        self._raises = raises
+
+    def fetch_canonical_main_sha(self, repo_dir: Path, remote: str) -> str:
+        if self._raises is not None:
+            raise self._raises
+        if not self._sha:
+            raise SourceFreshnessError("fixture fetcher has no SHA")
+        return self._sha
+
+
+@dataclass(frozen=True)
+class FreshnessResult:
+    fresh: bool
+    remote_sha: Optional[str]
+    mechanism: str            # FRESH_AUTHENTICATED_FETCH | GOVERNED_IMMUTABLE_BINDING
+    reason_codes: Tuple[str, ...]
+
+    def to_dict(self) -> Dict[str, object]:
+        return {"fresh": self.fresh, "remote_sha": self.remote_sha, "mechanism": self.mechanism,
+                "reason_codes": list(self.reason_codes)}
+
+
+def verify_trusted_ref_freshness(
+    source_sha: str,
+    repo_dir: Path,
+    *,
+    authorised_sha: str,
+    expected_remote: str = DEFAULT_EXPECTED_REMOTE,
+    fetcher: Optional[RemoteRefFetcher] = None,
+    canonical_state_record: Optional[Mapping[str, str]] = None,
+    immutable_source_binding: Optional[Mapping[str, str]] = None,
+    allowed_ref: str = "refs/remotes/origin/main",
+) -> FreshnessResult:
+    """§8. Bind source trust to a FRESH canonical-main SHA. Preferred path: an authenticated read-only fetch
+    (via the injectable fetcher) immediately before trust eval, then require remote==authorised==local-ref
+    and source reachable from remote (no local-ref substitution). If the fetch FAILS, fail closed UNLESS a
+    separately-governed immutable source binding is supplied (an out-of-band authorised SHA + canonical-state
+    binding). Never performs an unauthorised mutating fetch — reject cases use isolated fixture repos."""
+    fetcher = fetcher or RefusingRemoteRefFetcher()
+    reasons: List[str] = []
+
+    # Identity + object validity first (foreign remote / non-commit / abbreviated rejected).
+    try:
+        cbc.verify_source_sha(source_sha)
+        cbc.verify_source_sha(authorised_sha)
+        cbc.verify_repo_identity(repo_dir, expected_remote)   # foreign remote -> raises
+        cbc.verify_commit(source_sha, repo_dir)
+    except cbc.CleanBuildContextError as exc:
+        raise SourceFreshnessError(f"identity/object check failed: {exc}") from exc
+
+    local_ref_sha = _ref_exists(repo_dir, allowed_ref)        # local origin/main (may be stale/tampered)
+
+    # Try the preferred authenticated-fetch path.
+    remote_sha: Optional[str] = None
+    fetch_error: Optional[Exception] = None
+    try:
+        remote_sha = fetcher.fetch_canonical_main_sha(repo_dir, expected_remote)
+    except Exception as exc:  # noqa: BLE001 - any fetch failure is fail-closed unless immutable binding
+        fetch_error = exc
+
+    if remote_sha is not None:
+        if not cbc._FULL_SHA_RE.match(str(remote_sha)):
+            raise SourceFreshnessError("fetched canonical main SHA is not a full 40-hex commit")
+        if remote_sha != authorised_sha:
+            reasons.append("AUTHORISED-SHA-MISMATCH")
+        if local_ref_sha is None:
+            reasons.append("LOCAL-CANONICAL-REF-ABSENT")
+        elif local_ref_sha != remote_sha:
+            reasons.append("STALE-OR-TAMPERED-LOCAL-REF")        # local ref != fresh remote
+        if canonical_state_record is not None and str(canonical_state_record.get("source_sha")) != remote_sha:
+            reasons.append("CANONICAL-STATE-MISMATCH")
+        if not _sha_reachable_from(repo_dir, source_sha, remote_sha):
+            reasons.append("SOURCE-NOT-REACHABLE-FROM-REMOTE")
+        return FreshnessResult(
+            fresh=(len(reasons) == 0), remote_sha=remote_sha,
+            mechanism="FRESH_AUTHENTICATED_FETCH", reason_codes=tuple(sorted(set(reasons))),
+        )
+
+    # Fetch failed / refused (offline). Fail closed UNLESS a governed immutable binding is supplied.
+    if immutable_source_binding is None:
+        raise SourceFreshnessError(
+            f"canonical fetch failed and no governed immutable source binding supplied ({fetch_error})"
+        )
+    bind_sha = str(immutable_source_binding.get("authorised_sha", ""))
+    binding_id = str(immutable_source_binding.get("binding_id", ""))
+    state_sha = str(immutable_source_binding.get("canonical_state_sha", ""))
+    if not binding_id.strip():
+        reasons.append("IMMUTABLE-BINDING-ID-MISSING")
+    if not cbc._FULL_SHA_RE.match(bind_sha) or bind_sha != authorised_sha:
+        reasons.append("IMMUTABLE-BINDING-SHA-MISMATCH")
+    if state_sha != authorised_sha:
+        reasons.append("IMMUTABLE-CANONICAL-STATE-MISMATCH")
+    if local_ref_sha is None or local_ref_sha != authorised_sha:
+        reasons.append("LOCAL-REF-NOT-AUTHORISED-SHA")
+    if not _sha_reachable_from(repo_dir, source_sha, authorised_sha):
+        reasons.append("SOURCE-NOT-REACHABLE-FROM-AUTHORISED")
+    return FreshnessResult(
+        fresh=(len(reasons) == 0), remote_sha=None,
+        mechanism="GOVERNED_IMMUTABLE_BINDING", reason_codes=tuple(sorted(set(reasons))),
+    )
+
+
+def _sha_reachable_from(repo_dir: Path, sha: str, ref_or_sha: str) -> bool:
+    """True iff `sha` is an ancestor of (or equal to) `ref_or_sha`, judged with --no-replace-objects."""
+    try:
+        return _is_ancestor(repo_dir, sha, ref_or_sha)
+    except GovernedBuildError:
+        return False
+
+
 # =============================================================================== §8/§9 governed context
 @dataclass
 class GovernedContext:
@@ -248,6 +396,7 @@ def prepare_governed_context(
     expected_remote: str = DEFAULT_EXPECTED_REMOTE,
     now_utc: Optional[str] = None,
     dockerignore_text: Optional[str] = None,
+    dispositions: Optional[Sequence["cbc.SecretDisposition"]] = None,
 ) -> GovernedContext:
     """§8/§9 (F-113-06). MANDATORY clean-context integration with pre-materialisation quarantine.
 
@@ -289,16 +438,20 @@ def prepare_governed_context(
         names = _tracked_names(source_sha, repo_dir)
     except cbc.CleanBuildContextError as exc:
         return _fail(f"NAME-ENUM-FAILED:{exc}")
-    effective = di.effective_context(names, dockerignore_text)
+    try:
+        effective = di.effective_context(names, dockerignore_text)   # §10 fail-closed on unsupported syntax
+    except di.UnsupportedPatternError as exc:
+        return _fail(f"UNSUPPORTED-DOCKERIGNORE-SYNTAX:{exc}")
     pre_prohibited = [p for p in effective if cbc.scan_path(p)]
     if pre_prohibited:
         return _fail(f"PRE-MATERIALISATION-PROHIBITED:{len(pre_prohibited)}")
 
-    # 3. Export exact-SHA tracked content into the quarantine.
+    # 3. Export exact-SHA tracked content into the quarantine (§6 governed dispositions threaded through).
     try:
         manifest = cbc.build_clean_context(
             source_sha=source_sha, output_dir=context_dir, repo_dir=repo_dir,
             expected_remote=expected_remote, now_utc=now_utc, dockerignore_text=dockerignore_text,
+            dispositions=dispositions,
         )
     except cbc.CleanBuildContextError as exc:
         return _fail(f"CLEAN-CONTEXT-EXPORT-FAILED:{exc}")
@@ -354,6 +507,99 @@ def assert_context_is_governed(ctx: GovernedContext, source_sha: str) -> None:
         raise GovernedBuildError("context source SHA does not match the requested build SHA (stale)")
 
 
+# =============================================================================== §9 final TOCTOU boundary
+@dataclass(frozen=True)
+class ContextSnapshot:
+    """An immutable snapshot of the verified context taken at the finalisation boundary. It records, for
+    every context member, the (sha256, size, POSIX mode, is-symlink) plus the file count, the manifest
+    checksum and the effective-context checksum. Immediately before the (fake) runner receives the context,
+    the snapshot is REVALIDATED: any file changed / appeared / disappeared / changed-type / changed-mode
+    fails closed BEFORE the runner is ever invoked."""
+
+    source_sha: str
+    manifest_checksum: str
+    effective_checksum: str
+    file_count: int
+    members: Tuple[Tuple[str, str, int, int, bool], ...]   # (relpath, sha256|"", size, mode, is_symlink)
+
+
+def _iter_all_members(context_dir: Path) -> List[Tuple[str, Path]]:
+    """Every member under the context (files AND symlinks), excluding the governed markers, sorted."""
+    out: List[Tuple[str, Path]] = []
+    for abspath in sorted(context_dir.rglob("*")):
+        rel = abspath.relative_to(context_dir).as_posix()
+        if rel in (_STATUS_FILE, ".hermes_build_context", _QUARANTINE_MARKER):
+            continue
+        if abspath.is_dir() and not abspath.is_symlink():
+            continue
+        out.append((rel, abspath))
+    out.sort(key=lambda t: t[0])
+    return out
+
+
+def _member_metadata(abspath: Path) -> Tuple[str, int, int, bool]:
+    """(sha256|"" for symlink, size, POSIX mode bits, is_symlink)."""
+    is_link = abspath.is_symlink()
+    st = abspath.lstat()
+    mode = st.st_mode & 0o777
+    if is_link:
+        return ("", 0, mode, True)
+    digest, size = cbc._sha256_file(abspath)
+    return (digest, size, mode, False)
+
+
+def finalise_context_snapshot(ctx: GovernedContext) -> ContextSnapshot:
+    """Take the immutable finalisation snapshot of a USABLE governed context."""
+    if ctx is None or ctx.manifest is None or not ctx.usable:
+        raise GovernedBuildError("cannot snapshot a non-usable context")
+    members: List[Tuple[str, str, int, int, bool]] = []
+    for rel, abspath in _iter_all_members(ctx.context_dir):
+        digest, size, mode, is_link = _member_metadata(abspath)
+        members.append((rel, digest, size, mode, is_link))
+    return ContextSnapshot(
+        source_sha=ctx.manifest.source_sha,
+        manifest_checksum=ctx.manifest.manifest_checksum,
+        effective_checksum=ctx.effective_checksum,
+        file_count=len(members),
+        members=tuple(members),
+    )
+
+
+def revalidate_context_snapshot(ctx: GovernedContext, snapshot: ContextSnapshot) -> Optional[str]:
+    """Immediately-before-runner TOCTOU revalidation. Returns None if the context is byte-for-byte identical
+    to the snapshot (incl. count, per-file checksum, size, mode, symlink-ness, manifest + effective
+    checksums), else the first mismatch reason. The runner is invoked ONLY when this returns None."""
+    if ctx is None or ctx.manifest is None or not ctx.usable:
+        return "CONTEXT-NOT-USABLE-AT-REVALIDATION"
+    if ctx.manifest.manifest_checksum != snapshot.manifest_checksum:
+        return "MANIFEST-CHECKSUM-CHANGED"
+    if ctx.manifest.manifest_checksum != ctx.manifest.compute_checksum():
+        return "MANIFEST-CHECKSUM-SELF-INVALID"
+    if ctx.effective_checksum != snapshot.effective_checksum:
+        return "EFFECTIVE-CHECKSUM-CHANGED"
+    current = _iter_all_members(ctx.context_dir)
+    if len(current) != snapshot.file_count:
+        return f"FILE-COUNT-CHANGED:{snapshot.file_count}->{len(current)}"
+    snap_by_rel = {m[0]: m for m in snapshot.members}
+    cur_rels = set()
+    for rel, abspath in current:
+        cur_rels.add(rel)
+        if rel not in snap_by_rel:
+            return f"FILE-APPEARED:{rel}"
+        _r, sha, size, mode, is_link = snap_by_rel[rel]
+        c_sha, c_size, c_mode, c_link = _member_metadata(abspath)
+        if c_link != is_link:
+            return f"FILE-TYPE-CHANGED:{rel}"
+        if c_mode != mode:
+            return f"FILE-MODE-CHANGED:{rel}"
+        if not is_link and (c_sha != sha or c_size != size):
+            return f"FILE-CONTENT-CHANGED:{rel}"
+    missing = set(snap_by_rel) - cur_rels
+    if missing:
+        return f"FILE-DISAPPEARED:{sorted(missing)[0]}"
+    return None
+
+
 # =============================================================================== §10 effective context
 @dataclass(frozen=True)
 class EffectiveContextVerdict:
@@ -382,8 +628,15 @@ class EffectiveContextVerdict:
 def verify_effective_context(tracked_names: Sequence[str], dockerignore_text: str) -> EffectiveContextVerdict:
     """§10 / F-113-03. Establish the ACTUAL file set Docker would include (via the parity-fixtured
     matcher, NOT PR#113's homemade one) and verify required inclusions survive + required exclusions are
-    gone. Deterministic effective-context checksum."""
-    included = di.effective_context(tracked_names, dockerignore_text)
+    gone. Deterministic effective-context checksum. §10: unsupported .dockerignore syntax FAILS CLOSED."""
+    try:
+        included = di.effective_context(tracked_names, dockerignore_text)
+    except di.UnsupportedPatternError:
+        return EffectiveContextVerdict(
+            ok=False, included_count=0, effective_checksum="", missing_inclusions=tuple(),
+            prohibited_present=tuple(), missing_context_files=tuple(), phase2_module_count=0,
+            reason_codes=("UNSUPPORTED-DOCKERIGNORE-SYNTAX",),
+        )
     included_set = set(included)
     tracked_set = set(tracked_names)
     reasons: List[str] = []
@@ -736,10 +989,22 @@ def verify_image_content(
                   if cbc.scan_path(p) or any(rx.search(p) for _rid, rx in PROHIBITED_EFFECTIVE_PATTERNS)]
     if prohibited:
         reasons.append("PROHIBITED-FILE-PRESENT")
-    # NO active Phase-2 runtime import.
+    # NO active Phase-2 runtime import (coarse list form).
     importers = content.get("phase2_actively_imported_by")
     if isinstance(importers, (list, tuple)) and len(importers) > 0:
         reasons.append("ACTIVE-PHASE2-IMPORT-DETECTED")
+
+    # §13: if the (future real) image carries a static import-graph evidence record, it must PROVE the
+    # Phase-2 modules are present-but-inert (no entrypoint direct/transitive import, no runner/callback
+    # registration, no dynamic import, no activation env default, no plugin discovery, admissible method).
+    evidence = content.get("phase2_import_evidence")
+    if isinstance(evidence, Mapping):
+        verdict = ai.validate_phase2_inert(
+            evidence, phase2_prefix=PHASE2_MODULE_PREFIX, phase2_suffix=PHASE2_MODULE_SUFFIX,
+            required_phase2_count=REQUIRED_PHASE2_MODULE_COUNT,
+        )
+        if not verdict.inert:
+            reasons.append("ACTIVE-PHASE2-IMPORT-EVIDENCE-FAILED")
 
     return ImageContentVerdict(len(reasons) == 0, tuple(sorted(set(reasons))))
 
@@ -818,15 +1083,20 @@ def verify_vuln_scan(
     *,
     image_id: str,
     now_utc: str,
+    source_sha: str = "",
     max_db_age_hours: int = 168,
 ) -> VulnVerdict:
-    """§16 (fixture/fake-runner). Vuln-scan is MANDATORY. Verifies scanner, image-id binding, DB freshness
-    (governed exception required if stale), severity taxonomy, policy thresholds (0 ungoverned CRITICAL/
-    HIGH), allow-list governance, and checksum. Any failure -> candidate readiness FAILS."""
+    """§11/§16 (fixture/fake-runner). Vuln-scan is MANDATORY. Verifies scanner, image-id binding, DB
+    freshness (governed exception required if stale), severity taxonomy, and policy thresholds (0 ungoverned
+    CRITICAL/HIGH). A CRITICAL/HIGH is governed ONLY by an EXACT, TYPED, UNEXPIRED disposition (design/
+    hermes_fw08_vuln_disposition_v1) binding EVERY required field — a truthy id alone, a wildcard, an
+    expired/mismatched disposition, or a missing field does NOT govern. No blanket exception."""
     if scan is None:
         return VulnVerdict(False, 0, 0, 0, ("VULN-SCAN-UNAVAILABLE",))
     reasons: List[str] = []
-    if scan.get("scanner") not in SUPPORTED_SCANNERS:
+    scanner_id = str(scan.get("scanner", ""))
+    scanner_version = str(scan.get("scanner_version", ""))
+    if scanner_id not in SUPPORTED_SCANNERS:
         reasons.append("VULN-SCANNER-UNSUPPORTED")
     if str(scan.get("image_id")) != image_id:
         reasons.append("VULN-IMAGE-ID-MISMATCH")
@@ -845,8 +1115,26 @@ def verify_vuln_scan(
     if stale and not scan.get("db_freshness_exception"):
         reasons.append("VULN-DB-STALE-NO-EXCEPTION")
 
-    allow = {str(a.get("id")): a for a in scan.get("allowlist", [])
-             if isinstance(a, Mapping) and a.get("id") is not None}
+    # Build the typed dispositions from the allow-list; a malformed entry simply cannot govern anything.
+    dispositions: List[vd.VulnDisposition] = []
+    for entry in scan.get("allowlist", []):
+        if not isinstance(entry, Mapping):
+            continue
+        try:
+            dispositions.append(vd.from_dict(entry))
+        except vd.VulnDispositionError:
+            continue  # unusable governance -> does NOT govern (fail closed)
+
+    def _governed(f: Mapping[str, object]) -> bool:
+        for d in dispositions:
+            ok, _reason = vd.governs(
+                d, f, image_id=image_id, source_sha=source_sha,
+                scanner_id=scanner_id, scanner_version=scanner_version, now_utc=now_utc,
+            )
+            if ok:
+                return True
+        return False
+
     findings = scan.get("findings") or []
     ungoverned_c = 0
     ungoverned_h = 0
@@ -857,9 +1145,7 @@ def verify_vuln_scan(
         sev = str(f.get("severity", "")).upper()
         if sev not in SEVERITY_TAXONOMY:
             reasons.append("VULN-SEVERITY-OUT-OF-TAXONOMY")
-        fid = str(f.get("id", ""))
-        entry = allow.get(fid)
-        governed = bool(entry and entry.get("governance_id"))
+        governed = _governed(f) if sev in ("CRITICAL", "HIGH") else False
         if sev == "CRITICAL" and not governed:
             ungoverned_c += 1
         if sev == "HIGH" and not governed:
@@ -939,6 +1225,33 @@ class CandidateBuildReport:
         }
 
 
+def _build_gate_evidence(
+    *, source_sha: str, image_id: Optional[str], now_utc: str,
+    oci_ok: bool, content_ok: bool, sbom_ok: bool, vuln_ok: bool, clean_ok: bool, effective_ok: bool,
+) -> Optional[List["ee.GateEvidence"]]:
+    """Assemble the §12 immutable typed gate-evidence records for the readiness evaluation. Returns None if
+    the preconditions for evidence-binding are not met (non-40-hex source or missing image id) so the
+    boolean evaluator remains the guard."""
+    if not _FULL_SHA_RE.match(str(source_sha)) or not image_id:
+        return None
+    def _ev(gate_id: str, result: bool, reason: str, *, image: Optional[str]) -> "ee.GateEvidence":
+        return ee.make_gate_evidence(
+            gate_id=gate_id, result=result, reason_code=reason, source_sha=source_sha,
+            producer="tools/hermes_stage_b_build_v1.py", tool_version=TOOL_VERSION, at_utc=now_utc,
+            image_id=image,
+        )
+    return [
+        _ev("G-TRUSTED-SOURCE", True, "TRUSTED-SOURCE-VERIFIED", image=None),
+        _ev("G-CLEAN-CONTEXT", clean_ok, "CLEAN-CONTEXT-MANIFEST", image=None),
+        _ev("G-EFFECTIVE-CONTEXT", effective_ok, "EFFECTIVE-CONTEXT-VERIFIED", image=None),
+        _ev("G-BUILD", True, "BUILD-COMPLETED", image=image_id),
+        _ev("G-OCI-LABELS", oci_ok, "OCI-LABELS-VERIFIED", image=image_id),
+        _ev("G-IMAGE-CONTENT", content_ok, "IMAGE-CONTENT-VERIFIED", image=image_id),
+        _ev("G-SBOM", sbom_ok, "SBOM-VERIFIED", image=image_id),
+        _ev("G-VULN-SCAN", vuln_ok, "VULN-SCAN-VERIFIED", image=image_id),
+    ]
+
+
 def run_stage_b_candidate_build(
     *,
     source_sha: str,
@@ -951,9 +1264,11 @@ def run_stage_b_candidate_build(
     expected_remote: str = DEFAULT_EXPECTED_REMOTE,
     allowed_refs: Sequence[str] = ALLOWED_CANONICAL_REFS,
     authorised_pr_heads: Optional[Mapping[str, str]] = None,
+    dispositions: Optional[Sequence["cbc.SecretDisposition"]] = None,
     consumer_live: bool = False,
     shadow_enabled: bool = False,
     phase2_activated: bool = False,
+    on_context_finalised: Optional[Callable[["ContextSnapshot"], None]] = None,
 ) -> CandidateBuildReport:
     """§6 the sole canonical Stage-B build sequence. Drives the state machine through every gate, invokes
     the INJECTABLE runner ONLY after all pre-build gates pass, and returns a candidate-readiness verdict.
@@ -1008,6 +1323,7 @@ def run_stage_b_candidate_build(
     # --- gate: governed clean context (§8/§9) ----------------------------------------------------
     ctx = prepare_governed_context(
         source_sha, repo_dir, quarantine_dir, expected_remote=expected_remote, now_utc=now_utc,
+        dispositions=dispositions,
     )
     if not ctx.usable:
         return _reject(f"CONTEXT-UNUSABLE:{ctx.reason_code}")
@@ -1037,6 +1353,15 @@ def run_stage_b_candidate_build(
     except GovernedBuildError as exc:
         return _reject(f"BUILD-INPUTS-INVALID:{exc}")
     machine.advance(sm.State.BUILD_READY, now_utc, "BUILD-READY")
+
+    # --- §9 final TOCTOU boundary: snapshot then revalidate IMMEDIATELY before the runner receives the
+    #     context. The runner is invoked ONLY if nothing changed/appeared/disappeared/changed-type/mode. ---
+    snapshot = finalise_context_snapshot(ctx)
+    if on_context_finalised is not None:
+        on_context_finalised(snapshot)          # test hook: may mutate the context to prove TOCTOU rejects
+    toctou = revalidate_context_snapshot(ctx, snapshot)
+    if toctou is not None:
+        return _reject(f"TOCTOU-CONTEXT-MUTATED:{toctou}")
 
     # --- INVOKE runner ONLY after all pre-build gates pass (§12) ---------------------------------
     try:
@@ -1089,11 +1414,25 @@ def run_stage_b_candidate_build(
         scan_payload = runner.vuln_scan(image_id, sbom=sbom_payload)
     except (RealDockerInvocationForbidden, GovernedBuildError):
         scan_payload = None
-    vuln_v = verify_vuln_scan(scan_payload, image_id=image_id, now_utc=now_utc)
+    vuln_v = verify_vuln_scan(scan_payload, image_id=image_id, now_utc=now_utc, source_sha=str(source_sha))
     vuln_d = vuln_v.to_dict()
     if not vuln_v.ok:
         return _reject("VULN-SCAN-FAILED")
     machine.advance(sm.State.VULNERABILITY_SCAN_COMPLETED, now_utc, "VULN-SCAN-COMPLETED", image_id=image_id)
+
+    # --- §12 evidence-bound readiness: build immutable typed evidence records and require they prove
+    #     readiness (no fabricatable bare booleans; cross-gate source/image/order/freshness consistency). --
+    evidence = _build_gate_evidence(
+        source_sha=str(source_sha), image_id=image_id, now_utc=now_utc,
+        oci_ok=oci.ok, content_ok=ic.ok, sbom_ok=sbom_v.ok, vuln_ok=vuln_v.ok,
+        clean_ok=(ctx.manifest.result == "PASS"), effective_ok=eff.ok,
+    )
+    if evidence is not None:
+        ev_verdict = ee.evaluate_evidence(
+            evidence, expected_source_sha=str(source_sha), expected_image_id=image_id, now_utc=now_utc,
+        )
+        if not ev_verdict.ready:
+            return _reject("READINESS-EVIDENCE-FAILED:" + ",".join(ev_verdict.reason_codes))
 
     # --- final pure readiness evaluation (§19) ---------------------------------------------------
     ready_inputs = ev.ReadinessInputs(
@@ -1120,3 +1459,164 @@ def run_stage_b_candidate_build(
         return _reject("READINESS-EVALUATOR-FAILED:" + ",".join(verdict.reason_codes))
     machine.advance(sm.State.CANDIDATE_READY, now_utc, "CANDIDATE-READY", image_id=image_id)
     return _finalise(ready=True, extra_reasons=tuple())
+
+
+# =============================================================================== §7 canonical preflight
+@dataclass
+class PreflightReport:
+    """Result of the §7 NON-BUILDING canonical preflight. `terminal_state` is USABLE (the exact governed
+    pre-build state) or REJECTED. This mode STOPS before any Docker invocation: NO runner is constructed,
+    NO real docker build runs, NO image id, NO tag, NO SBOM, NO vuln scan, NO publish, NO deploy."""
+
+    source_sha: str
+    terminal_state: str                 # USABLE | REJECTED
+    reason_codes: Tuple[str, ...]
+    provenance: Optional[Dict[str, object]] = None
+    freshness: Optional[Dict[str, object]] = None
+    effective_context: Optional[Dict[str, object]] = None
+    dispositioned: Tuple[Dict[str, object], ...] = field(default_factory=tuple)
+    planned_local_target: Optional[str] = None
+    context_dir: Optional[str] = None
+    # mechanical no-build proof — all constant for this mode.
+    runner_constructed: bool = False
+    docker_invoked: bool = False
+    image_id: Optional[str] = None
+    tag: Optional[str] = None
+    sbom: Optional[object] = None
+    vuln_scan: Optional[object] = None
+    published: bool = False
+    deployed: bool = False
+
+    @property
+    def usable(self) -> bool:
+        return self.terminal_state == "USABLE"
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "contract_version": CONTRACT_VERSION,
+            "tool_version": TOOL_VERSION,
+            "application": APPLICATION,
+            "mode": "CANONICAL_PREFLIGHT_NON_BUILDING",
+            "source_sha": self.source_sha,
+            "terminal_state": self.terminal_state,
+            "reason_codes": list(self.reason_codes),
+            "provenance": self.provenance,
+            "freshness": self.freshness,
+            "effective_context": self.effective_context,
+            "dispositioned": list(self.dispositioned),
+            "planned_local_target": self.planned_local_target,
+            "context_dir": self.context_dir,
+            "runner_constructed": self.runner_constructed,
+            "docker_invoked": self.docker_invoked,
+            "image_id": self.image_id,
+            "tag": self.tag,
+            "sbom": self.sbom,
+            "vuln_scan": self.vuln_scan,
+            "published": self.published,
+            "deployed": self.deployed,
+        }
+
+
+def run_canonical_preflight(
+    *,
+    source_sha: str,
+    repo_dir: Path,
+    quarantine_dir: Path,
+    now_utc: str,
+    build_utc: str,
+    candidate_name: str,
+    dispositions: Optional[Sequence["cbc.SecretDisposition"]] = None,
+    expected_remote: str = DEFAULT_EXPECTED_REMOTE,
+    allowed_refs: Sequence[str] = ALLOWED_CANONICAL_REFS,
+    authorised_pr_heads: Optional[Mapping[str, str]] = None,
+    authorised_sha: Optional[str] = None,
+    fetcher: Optional[RemoteRefFetcher] = None,
+    canonical_state_record: Optional[Mapping[str, str]] = None,
+    immutable_source_binding: Optional[Mapping[str, str]] = None,
+) -> PreflightReport:
+    """§7. Run the governed pre-build sequence against an EXACT canonical SHA and STOP before Docker:
+    trusted-source verify -> trusted-ref freshness -> clean-context export -> manifest validate -> effective
+    context validate -> prohibited-path scan -> secret scan + governed dispositions -> required build-input
+    validation -> final TOCTOU revalidation. Reaching USABLE proves the exact canonical repo is a valid
+    governed pre-build state WITHOUT building, tagging, SBOM-ing, scanning, publishing or deploying anything.
+    NO DockerRunner is ever constructed here."""
+    def _reject(code: str, **extra) -> PreflightReport:
+        return PreflightReport(source_sha=str(source_sha), terminal_state="REJECTED",
+                               reason_codes=(code,), **extra)
+
+    # 1. trusted provenance (reachable-from-canonical / authorised PR head).
+    try:
+        prov = verify_trusted_provenance(
+            source_sha, repo_dir, expected_remote=expected_remote, allowed_refs=allowed_refs,
+            authorised_pr_heads=authorised_pr_heads,
+        )
+    except GovernedBuildError as exc:
+        return _reject(f"PROVENANCE-REJECTED:{exc}")
+
+    # 2. trusted-ref freshness (§8) — mandatory for a canonical-main build.
+    try:
+        fr = verify_trusted_ref_freshness(
+            source_sha, repo_dir, authorised_sha=authorised_sha or source_sha,
+            expected_remote=expected_remote, fetcher=fetcher,
+            canonical_state_record=canonical_state_record,
+            immutable_source_binding=immutable_source_binding,
+        )
+    except GovernedBuildError as exc:
+        return _reject(f"FRESHNESS-REJECTED:{exc}", provenance=prov.to_dict())
+    if not fr.fresh:
+        return PreflightReport(source_sha=str(source_sha), terminal_state="REJECTED",
+                               reason_codes=("FRESHNESS-NOT-FRESH",) + fr.reason_codes,
+                               provenance=prov.to_dict(), freshness=fr.to_dict())
+
+    # 3-6. governed clean context (export + manifest validate + prohibited + secret + governed dispositions).
+    ctx = prepare_governed_context(
+        source_sha, repo_dir, quarantine_dir, expected_remote=expected_remote, now_utc=now_utc,
+        dispositions=dispositions,
+    )
+    if not ctx.usable:
+        return _reject(f"CONTEXT-UNUSABLE:{ctx.reason_code}", provenance=prov.to_dict(),
+                       freshness=fr.to_dict())
+    try:
+        assert_context_is_governed(ctx, source_sha)
+    except GovernedBuildError as exc:
+        return _reject(f"CONTEXT-NOT-GOVERNED:{exc}", provenance=prov.to_dict(), freshness=fr.to_dict())
+
+    # 6. effective-context validation (Docker-faithful matcher; §10 unsupported-syntax fails closed).
+    tracked = _tracked_names(source_sha, repo_dir)
+    dockerignore_text = (repo_dir / ".dockerignore").read_text(encoding="utf-8")
+    eff = verify_effective_context(tracked, dockerignore_text)
+    if not eff.ok:
+        return _reject("EFFECTIVE-CONTEXT-INVALID:" + ",".join(eff.reason_codes),
+                       provenance=prov.to_dict(), freshness=fr.to_dict(),
+                       effective_context=eff.to_dict())
+
+    # 7. required build-input validation + command construction (NOT executed).
+    try:
+        inputs = build_inputs(
+            source_sha=source_sha, build_utc=build_utc, expected_repository=expected_remote,
+            candidate_name=candidate_name, context_dir=ctx.context_dir,
+            context_source_sha=ctx.manifest.source_sha,
+        )
+        command = build_docker_command(inputs)          # constructed only; the runner is NEVER invoked here
+        assert_no_prohibited_docker_args(command)
+    except GovernedBuildError as exc:
+        return _reject(f"BUILD-INPUTS-INVALID:{exc}", provenance=prov.to_dict(), freshness=fr.to_dict(),
+                       effective_context=eff.to_dict())
+
+    # 8. final TOCTOU revalidation at the exact governed pre-build boundary.
+    snapshot = finalise_context_snapshot(ctx)
+    toctou = revalidate_context_snapshot(ctx, snapshot)
+    if toctou is not None:
+        return _reject(f"TOCTOU-CONTEXT-MUTATED:{toctou}", provenance=prov.to_dict(),
+                       freshness=fr.to_dict(), effective_context=eff.to_dict())
+
+    # USABLE — the exact governed pre-build state. STOP: no runner constructed, no docker, no image, no tag,
+    # no SBOM, no vuln scan, no publish, no deploy.
+    return PreflightReport(
+        source_sha=str(source_sha), terminal_state="USABLE", reason_codes=tuple(),
+        provenance=prov.to_dict(), freshness=fr.to_dict(), effective_context=eff.to_dict(),
+        dispositioned=tuple(d.to_dict() for d in ctx.manifest.dispositioned),
+        planned_local_target=inputs.local_image_target, context_dir=str(ctx.context_dir),
+        runner_constructed=False, docker_invoked=False, image_id=None, tag=None, sbom=None, vuln_scan=None,
+        published=False, deployed=False,
+    )

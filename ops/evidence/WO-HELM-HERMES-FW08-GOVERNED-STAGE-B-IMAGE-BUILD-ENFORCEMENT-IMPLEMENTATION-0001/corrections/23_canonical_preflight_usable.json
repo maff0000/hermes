@@ -1,0 +1,53 @@
+{
+  "contract_version": "1",
+  "tool_version": "1",
+  "application": "hermes",
+  "mode": "CANONICAL_PREFLIGHT_NON_BUILDING",
+  "source_sha": "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02",
+  "terminal_state": "USABLE",
+  "reason_codes": [],
+  "provenance": {
+    "source_sha": "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02",
+    "remote": "git@github.com:maff0000/hermes.git",
+    "mechanism": "REACHABLE_FROM_CANONICAL_REF",
+    "canonical_ref": "refs/remotes/origin/main",
+    "audit_binding": null
+  },
+  "freshness": {
+    "fresh": true,
+    "remote_sha": null,
+    "mechanism": "GOVERNED_IMMUTABLE_BINDING",
+    "reason_codes": []
+  },
+  "effective_context": {
+    "ok": true,
+    "included_count": 272,
+    "effective_checksum": "fba12b0513832bfa0c29c4976ca4a347968de0dca968f665873ed36e637228dc",
+    "missing_inclusions": [],
+    "prohibited_present": [],
+    "missing_context_files": [],
+    "phase2_module_count": 10,
+    "reason_codes": []
+  },
+  "dispositioned": [
+    {
+      "path": "tools/hermes_clean_build_context_v1.py",
+      "rule_id": "SEC-PRIVATE-KEY-PPK",
+      "fingerprint": "7d787547a38db3584bdb6aa7955b9484262d93cffd738ca1dfee8c9f2049f716",
+      "disposition_id": "FW08-DISP-PPK-SELFMATCH-0001",
+      "reason_code": "SCANNER-RULE-LITERAL-SELF-MATCH",
+      "category": "RULE_DEFINITION_SELF_MATCH"
+    }
+  ],
+  "planned_local_target": "hermes-fw08-candidate-fw08canonical:local-fe2037c5b4b4",
+  "context_dir": "/tmp/tmpuk83y9bw/q/context",
+  "runner_constructed": false,
+  "docker_invoked": false,
+  "image_id": null,
+  "tag": null,
+  "sbom": null,
+  "vuln_scan": null,
+  "published": false,
+  "deployed": false,
+  "_docker_subprocess_calls_observed": 0
+}

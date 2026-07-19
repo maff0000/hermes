@@ -53,6 +53,8 @@ DEFAULT_EXPECTED_REMOTE = "git@github.com:maff0000/hermes.git"
 UTC = datetime.timezone.utc
 
 _FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+# tz-aware UTC ISO-8601 (offset +00:00 or Z) — used by the §6 governed-disposition mechanism.
+_UTC_ISO_RE_CBC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(\+00:00|Z)$")
 _GIT_TIMEOUT_SEC = 120
 _ARCHIVE_TIMEOUT_SEC = 300
 _CHUNK = 65536
@@ -136,6 +138,10 @@ class BuildContextManifest:
     scanned_path_count: int
     result: str
     manifest_checksum: str = ""
+    # §6 audit-only: findings classified as governed non-secrets (rule-definition self-matches). NEVER
+    # serialised into the manifest core / checksum, NEVER carries a matched value — it is an in-memory
+    # audit trail for the governed wrapper's evidence bundle only.
+    dispositioned: Tuple["DispositionedFinding", ...] = field(default_factory=tuple)
 
     def _core_dict(self) -> Dict[str, object]:
         return {
@@ -413,6 +419,257 @@ def scan_content(abspath: Path) -> List[str]:
     return hits
 
 
+# ======================================================================= §6 governed finding dispositions
+# WO-HELM-HERMES-PR114-FW08-EXACT-AUDIT-CORRECTIONS-AND-CANONICAL-PREFLIGHT-CLOSURE-0001.
+# A TYPED, versioned, fingerprint-bound disposition mechanism. It does NOT weaken detection: every match is
+# still located. It only allows an EXACT, governed, non-secret rule-definition-self-match (a scanner rule
+# literal matching its own source) to be classified as a governed non-secret WITHOUT storing or exposing the
+# matched value. Anything not bound to an exact, well-formed, unexpired disposition FAILS CLOSED.
+#
+# NEVER permitted (fail-closed guards below enforce these): skip-by-path-alone, skip-by-rule-alone, wildcard
+# path / wildcard fingerprint, CLI/env ignore lists, downgrading a failure to a warning, or storing/exposing
+# any matched value. The fingerprint is derived WITHOUT the secret bytes: sha256 over
+# {contract_version, rule_id, path, value_digest, structure_digest}, where value_digest = sha256(matched
+# bytes) (a one-way digest, never the bytes) and structure_digest = sha256(the enclosing line with the
+# matched span replaced by a rule-id + length placeholder — the surrounding STRUCTURE, not the value).
+DISPOSITION_CONTRACT_VERSION = "1"
+_KNOWN_RULE_IDS = frozenset(rid for rid, _ in _SECRET_RULES)
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+_REPO_REL_PATH_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._/\-]*[A-Za-z0-9._\-])?$")
+
+
+@dataclass(frozen=True)
+class SecretFindingDetail:
+    """One located secret match with its value-free fingerprint. `to_dict()` never carries the value."""
+
+    path: str
+    rule_id: str
+    fingerprint: str
+
+    def to_dict(self) -> Dict[str, object]:
+        return {"path": self.path, "rule_id": self.rule_id, "fingerprint": self.fingerprint}
+
+
+@dataclass(frozen=True)
+class DispositionedFinding:
+    """A finding classified as a governed non-secret. Audit-only; never serialised into the manifest and
+    never carries the matched value."""
+
+    path: str
+    rule_id: str
+    fingerprint: str
+    disposition_id: str
+    reason_code: str
+    category: str
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "path": self.path, "rule_id": self.rule_id, "fingerprint": self.fingerprint,
+            "disposition_id": self.disposition_id, "reason_code": self.reason_code,
+            "category": self.category,
+        }
+
+
+@dataclass(frozen=True)
+class SecretDisposition:
+    """A governed, typed, fingerprint-bound disposition for exactly ONE secret finding."""
+
+    contract_version: str
+    disposition_id: str
+    rule_id: str
+    path: str
+    fingerprint: str
+    category: str
+    reason_code: str
+    owner: str
+    created_utc: str
+    evidence_reference: str
+    source_binding: Mapping[str, str]
+    permanent: bool = False
+    expiry_utc: Optional[str] = None
+
+
+def finding_fingerprint(rule_id: str, path: str, matched: bytes, structure: bytes) -> str:
+    """Value-free fingerprint. `matched` is folded one-way (sha256) and NEVER stored; `structure` is the
+    enclosing line with the matched span already replaced by a placeholder (no secret bytes)."""
+    value_digest = hashlib.sha256(matched).hexdigest()
+    structure_digest = hashlib.sha256(structure).hexdigest()
+    core = json.dumps(
+        {
+            "contract_version": DISPOSITION_CONTRACT_VERSION,
+            "rule_id": rule_id,
+            "path": path,
+            "value_digest": value_digest,
+            "structure_digest": structure_digest,
+        },
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    )
+    return hashlib.sha256(core.encode("utf-8")).hexdigest()
+
+
+def scan_content_detailed(abspath: Path, rel_path: str) -> List[SecretFindingDetail]:
+    """Locate EVERY secret match (finditer, per-match — not deduped) in the first _SCAN_CONTENT_CAP bytes
+    and return value-free findings carrying a deterministic fingerprint. NEVER returns the matched value."""
+    try:
+        with open(abspath, "rb") as fh:
+            blob = fh.read(_SCAN_CONTENT_CAP)
+    except OSError as exc:
+        raise CleanBuildContextError(f"could not read file for scan: {abspath}") from exc
+    out: List[SecretFindingDetail] = []
+    for rule_id, pattern in _SECRET_RULES:
+        for m in pattern.finditer(blob):
+            s, e = m.start(), m.end()
+            matched = blob[s:e]
+            line_start = blob.rfind(b"\n", 0, s) + 1
+            line_end = blob.find(b"\n", e)
+            if line_end == -1:
+                line_end = len(blob)
+            line = blob[line_start:line_end]
+            rel_s, rel_e = s - line_start, e - line_start
+            placeholder = b"\x00" + rule_id.encode("ascii") + b":" + str(len(matched)).encode("ascii") + b"\x00"
+            structure = line[:rel_s] + placeholder + line[rel_e:]
+            out.append(SecretFindingDetail(
+                path=rel_path, rule_id=rule_id,
+                fingerprint=finding_fingerprint(rule_id, rel_path, matched, structure),
+            ))
+    return out
+
+
+def validate_disposition(d: "SecretDisposition") -> None:
+    """Fail closed on any malformed / under-specified / wildcarded disposition. This is where the PROHIBITED
+    forms (path-alone, rule-alone, wildcards) are rejected."""
+    if not isinstance(d, SecretDisposition):
+        raise CleanBuildContextError("disposition must be a SecretDisposition")
+    if d.contract_version != DISPOSITION_CONTRACT_VERSION:
+        raise CleanBuildContextError("disposition contract_version mismatch")
+    for name, val in (("disposition_id", d.disposition_id), ("category", d.category),
+                      ("reason_code", d.reason_code), ("owner", d.owner),
+                      ("evidence_reference", d.evidence_reference)):
+        if not isinstance(val, str) or not val.strip():
+            raise CleanBuildContextError(f"disposition missing required field: {name}")
+    if d.rule_id not in _KNOWN_RULE_IDS:
+        raise CleanBuildContextError(f"disposition rule_id is not a known scanner rule: {d.rule_id!r}")
+    if not isinstance(d.path, str) or "*" in d.path or not _REPO_REL_PATH_RE.match(d.path):
+        raise CleanBuildContextError("disposition path must be an exact repo-relative path (no wildcard)")
+    if not isinstance(d.fingerprint, str) or "*" in d.fingerprint or not _HEX64_RE.match(d.fingerprint):
+        raise CleanBuildContextError("disposition fingerprint must be an exact 64-hex value (no wildcard)")
+    if not isinstance(d.created_utc, str) or not _UTC_ISO_RE_CBC.match(d.created_utc):
+        raise CleanBuildContextError("disposition created_utc must be tz-aware UTC ISO-8601")
+    # Permanence xor expiry: a disposition is either explicitly PERMANENT or carries an expiry, never both,
+    # never neither.
+    if bool(d.permanent) == bool(d.expiry_utc):
+        raise CleanBuildContextError("disposition must be PERMANENT or carry an expiry_utc (exactly one)")
+    if d.expiry_utc is not None and not _UTC_ISO_RE_CBC.match(d.expiry_utc):
+        raise CleanBuildContextError("disposition expiry_utc must be tz-aware UTC ISO-8601")
+    sb = d.source_binding
+    if not isinstance(sb, Mapping) or sb.get("type") not in ("SOURCE_SHA", "POLICY_VERSION"):
+        raise CleanBuildContextError("disposition source_binding.type must be SOURCE_SHA or POLICY_VERSION")
+    if sb.get("type") == "SOURCE_SHA":
+        if not isinstance(sb.get("source_sha"), str) or not _FULL_SHA_RE.match(str(sb.get("source_sha"))):
+            raise CleanBuildContextError("SOURCE_SHA source_binding needs a full 40-hex source_sha")
+    else:
+        if not isinstance(sb.get("policy_version"), str) or not str(sb.get("policy_version")).strip():
+            raise CleanBuildContextError("POLICY_VERSION source_binding needs a policy_version")
+
+
+def _disposition_expired(d: "SecretDisposition", now_utc: str) -> bool:
+    if d.permanent or not d.expiry_utc:
+        return False
+    try:
+        exp = datetime.datetime.fromisoformat(d.expiry_utc.replace("Z", "+00:00"))
+        now = datetime.datetime.fromisoformat(now_utc.replace("Z", "+00:00"))
+    except ValueError:
+        return True  # unparseable -> treat as expired (fail closed)
+    if exp.tzinfo is None or now.tzinfo is None:
+        return True
+    return now >= exp
+
+
+def classify_secret_finding(
+    finding: "SecretFindingDetail",
+    dispositions: Sequence["SecretDisposition"],
+    *,
+    source_sha: str,
+    policy_version: Optional[str] = None,
+    now_utc: str,
+) -> Tuple[str, str, Optional[str]]:
+    """Classify one located finding. Returns (classification, reason_code, disposition_id).
+    classification ∈ {GOVERNED_NONSECRET, UNGOVERNED}. Only an EXACT well-formed, unexpired disposition whose
+    fingerprint == finding.fingerprint AND rule_id == finding.rule_id AND path == finding.path AND whose
+    source binding matches governs. Everything else FAILS CLOSED (UNGOVERNED)."""
+    matched_fp = None
+    for d in dispositions:
+        if d.fingerprint != finding.fingerprint:
+            continue
+        matched_fp = d
+        try:
+            validate_disposition(d)
+        except CleanBuildContextError:
+            return ("UNGOVERNED", "DISPOSITION-MALFORMED", None)
+        if d.rule_id != finding.rule_id:
+            return ("UNGOVERNED", "DISPOSITION-RULE-MISMATCH", d.disposition_id)
+        if d.path != finding.path:
+            return ("UNGOVERNED", "DISPOSITION-PATH-MISMATCH", d.disposition_id)
+        if _disposition_expired(d, now_utc):
+            return ("UNGOVERNED", "DISPOSITION-EXPIRED", d.disposition_id)
+        sb = d.source_binding
+        if sb.get("type") == "SOURCE_SHA" and sb.get("source_sha") != source_sha:
+            return ("UNGOVERNED", "DISPOSITION-SOURCE-SHA-MISMATCH", d.disposition_id)
+        if sb.get("type") == "POLICY_VERSION" and sb.get("policy_version") != policy_version:
+            return ("UNGOVERNED", "DISPOSITION-POLICY-VERSION-MISMATCH", d.disposition_id)
+        return ("GOVERNED_NONSECRET", d.reason_code, d.disposition_id)
+    return ("UNGOVERNED", "NO-DISPOSITION" if matched_fp is None else "DISPOSITION-UNMATCHED", None)
+
+
+def disposition_from_dict(raw: Mapping[str, object]) -> "SecretDisposition":
+    """Build a SecretDisposition from a JSON object. Structural (missing-key) validation only; semantic
+    validation is validate_disposition()."""
+    try:
+        return SecretDisposition(
+            contract_version=str(raw["contract_version"]),
+            disposition_id=str(raw["disposition_id"]),
+            rule_id=str(raw["rule_id"]),
+            path=str(raw["path"]),
+            fingerprint=str(raw["fingerprint"]),
+            category=str(raw["category"]),
+            reason_code=str(raw["reason_code"]),
+            owner=str(raw["owner"]),
+            created_utc=str(raw["created_utc"]),
+            evidence_reference=str(raw["evidence_reference"]),
+            source_binding=dict(raw["source_binding"]) if isinstance(raw.get("source_binding"), Mapping) else {},
+            permanent=bool(raw.get("permanent", False)),
+            expiry_utc=(str(raw["expiry_utc"]) if raw.get("expiry_utc") is not None else None),
+        )
+    except (KeyError, TypeError) as exc:
+        raise CleanBuildContextError(f"malformed disposition record: {exc}") from exc
+
+
+def load_dispositions(path: Path, *, validate: bool = True) -> Tuple["SecretDisposition", ...]:
+    """Load + (optionally) validate governed dispositions from a versioned JSON file. Fail closed on a
+    malformed file or record. The file is a bounded list of narrow, fingerprint-bound records."""
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CleanBuildContextError(f"could not load dispositions file: {exc}") from exc
+    if not isinstance(raw, Mapping) or raw.get("contract_version") != DISPOSITION_CONTRACT_VERSION:
+        raise CleanBuildContextError("dispositions file must carry contract_version '1'")
+    records = raw.get("dispositions")
+    if not isinstance(records, list):
+        raise CleanBuildContextError("dispositions file must carry a 'dispositions' array")
+    out: List[SecretDisposition] = []
+    for rec in records:
+        if not isinstance(rec, Mapping):
+            raise CleanBuildContextError("each disposition must be an object")
+        # A record inherits the file-level contract_version unless it carries its own.
+        merged = dict(rec)
+        merged.setdefault("contract_version", raw.get("contract_version"))
+        d = disposition_from_dict(merged)
+        if validate:
+            validate_disposition(d)
+        out.append(d)
+    return tuple(out)
+
+
 # --------------------------------------------------------------------------- .dockerignore evaluation
 def _pattern_to_regex(pattern: str) -> "re.Pattern[str]":
     """Translate a .dockerignore glob (with **, *, ?) to an anchored regex over a posix path."""
@@ -523,9 +780,17 @@ def build_clean_context(
     expected_remote: str = DEFAULT_EXPECTED_REMOTE,
     now_utc: Optional[str] = None,
     dockerignore_text: Optional[str] = None,
+    dispositions: Optional[Sequence["SecretDisposition"]] = None,
+    disposition_policy_version: Optional[str] = None,
 ) -> BuildContextManifest:
     """Full fail-closed flow: validate SHA -> verify commit -> verify identity -> export -> checksum ->
-    scan -> cross-check against tracked git content -> deterministic manifest."""
+    scan -> cross-check against tracked git content -> deterministic manifest.
+
+    §6: when `dispositions` are supplied, each located secret match is fingerprinted and classified. A match
+    bound to an EXACT, well-formed, unexpired governed disposition (rule-definition self-match) is recorded
+    as a governed non-secret (audit-only, on `manifest.dispositioned`) and does NOT appear in
+    `secret_findings`. Every other match FAILS CLOSED and remains a secret finding. With NO dispositions the
+    behaviour is IDENTICAL to before (any secret match -> FAIL)."""
     verify_source_sha(source_sha)
     verify_commit(source_sha, repo_dir)
     remote = verify_repo_identity(repo_dir, expected_remote)
@@ -556,9 +821,14 @@ def build_clean_context(
     cat_summary = excluded_category_summary(excl)
     included_set = set(included_rel)
 
+    disp_seq: Tuple[SecretDisposition, ...] = tuple(dispositions or ())
+    disp_by_id: Dict[str, SecretDisposition] = {d.disposition_id: d for d in disp_seq}
+    now_for_disp = now_utc or datetime.datetime.now(UTC).replace(microsecond=0).isoformat()
+
     entries: List[FileEntry] = []
     prohibited: List[ScanFinding] = []
-    secrets: List[ScanFinding] = []
+    secret_pairs: set = set()             # (path, rule_id) of UNGOVERNED secret matches (deduped, as before)
+    disp_records: List[DispositionedFinding] = []
     scanned = 0
     for rel, abspath in files_on_disk:
         digest, size = _sha256_file(abspath)
@@ -568,12 +838,25 @@ def build_clean_context(
         scanned += 1
         for rule_id in scan_path(rel):
             prohibited.append(ScanFinding(path=rel, rule_id=rule_id))
-        for rule_id in scan_content(abspath):
-            secrets.append(ScanFinding(path=rel, rule_id=rule_id))
+        for detail in scan_content_detailed(abspath, rel):
+            klass, rcode, disp_id = classify_secret_finding(
+                detail, disp_seq, source_sha=source_sha,
+                policy_version=disposition_policy_version, now_utc=now_for_disp,
+            )
+            if klass == "GOVERNED_NONSECRET":
+                disp_records.append(DispositionedFinding(
+                    path=rel, rule_id=detail.rule_id, fingerprint=detail.fingerprint,
+                    disposition_id=disp_id or "", reason_code=rcode,
+                    category=(disp_by_id[disp_id].category if disp_id in disp_by_id else ""),
+                ))
+            else:
+                secret_pairs.add((rel, detail.rule_id))
 
+    secrets: List[ScanFinding] = [ScanFinding(path=p, rule_id=r) for (p, r) in secret_pairs]
     entries.sort(key=lambda e: e.path)
     prohibited.sort(key=lambda f: (f.path, f.rule_id))
     secrets.sort(key=lambda f: (f.path, f.rule_id))
+    disp_records.sort(key=lambda f: (f.path, f.rule_id, f.fingerprint))
 
     result = "PASS" if (not prohibited and not secrets) else "FAIL"
 
@@ -594,7 +877,9 @@ def build_clean_context(
         scanned_path_count=scanned,
         result=result,
     )
-    return manifest.finalised()
+    final = manifest.finalised()
+    final.dispositioned = tuple(disp_records)   # audit-only; not part of the checksummed manifest core
+    return final
 
 
 # --------------------------------------------------------------------------- CLI

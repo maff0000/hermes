@@ -38,8 +38,18 @@ from typing import List, Sequence, Tuple
 
 CONTRACT_VERSION = "1"
 _SEP = "/"
-# Regexp metacharacters that carry no meaning in a glob and so must be escaped (mirrors Moby shouldEscape).
-_SHOULD_ESCAPE = set(".$+()|{}^")
+# Regexp metacharacters that carry no meaning in a glob and so must be escaped. This mirrors Moby
+# `patternmatcher` shouldEscape EXACTLY: `.+()|{}$`. NOTE (§10 correction): Moby does NOT escape `^`, and
+# does NOT escape `[`/`]` — it passes character-class syntax straight through to the regexp engine so that
+# `[^...]` negation, ranges, and literal-bracket escapes behave faithfully. The prior version incorrectly
+# included `^` (which broke inverted `[^...]` classes) and never handled classes at all.
+_SHOULD_ESCAPE = frozenset(".+()|{}$")
+
+
+class UnsupportedPatternError(Exception):
+    """Raised (FAIL-CLOSED) when a .dockerignore pattern uses syntax this matcher cannot faithfully model
+    (e.g. a malformed / unterminated character class). The matcher NEVER silently reinterprets such a
+    pattern — it rejects it so the caller can fail the effective-context gate closed."""
 
 
 @dataclass(frozen=True)
@@ -74,7 +84,12 @@ def _clean_pattern(pattern: str) -> str:
 
 
 def _pattern_to_regex(cleaned: str) -> "re.Pattern[str]":
-    """Compile a cleaned .dockerignore pattern to an anchored regex mirroring Moby `Pattern.compile`."""
+    """Compile a cleaned .dockerignore pattern to an anchored regex mirroring Moby `Pattern.compile`.
+
+    §10 correction: `[`/`]` and `^` are passed through to the regex engine EXACTLY as Moby does (so
+    `[^...]` negation, ranges and literal-bracket escapes are faithful). If the resulting expression is not
+    a valid character-class expression (Moby relies on the regexp engine to error, then fails closed), we
+    raise UnsupportedPatternError rather than silently reinterpret it."""
     out: List[str] = ["^"]
     i = 0
     n = len(cleaned)
@@ -108,18 +123,31 @@ def _pattern_to_regex(cleaned: str) -> "re.Pattern[str]":
             else:
                 out.append("\\\\")
         else:
+            # Passes `[`, `]`, `^` and ordinary chars through literally, exactly as Moby does — the regexp
+            # engine interprets `[...]` character classes (incl. `[^...]` negation).
             out.append(ch)
         i += 1
     out.append("$")
-    return re.compile("".join(out))
+    try:
+        return re.compile("".join(out))
+    except re.error as exc:
+        # A malformed / unterminated character class (or other syntax the engine rejects). Moby would let
+        # the regexp engine error and fail closed; so do we — never a silent reinterpretation.
+        raise UnsupportedPatternError(f"unsupported .dockerignore pattern {cleaned!r}: {exc}") from exc
 
 
 def parse_dockerignore(text: str) -> Tuple[DockerignorePattern, ...]:
     """Parse .dockerignore text into ordered compiled patterns (Docker-faithful)."""
     patterns: List[DockerignorePattern] = []
     for raw in text.splitlines():
+        # §10 correction: Moby checks the comment marker on the RAW line BEFORE trimming
+        # (`strings.HasPrefix(pattern, "#")`). A line with LEADING WHITESPACE before `#` is therefore NOT a
+        # comment — it is a literal pattern (after trimming). The prior version stripped first and so
+        # wrongly treated `   # x` as a comment.
+        if raw.startswith("#"):
+            continue
         line = raw.strip()
-        if not line or line.startswith("#"):
+        if not line:
             continue
         exclusion = line.startswith("!")
         body = line[1:].strip() if exclusion else line
@@ -213,6 +241,44 @@ PARITY_CASES: Tuple[ParityCase, ...] = (
     ParityCase("qmark-no-cross-sep", ("file?txt",), "file/txt", False),
     # --- ordering: a later inclusion can re-exclude a negated file ---
     ParityCase("reexclude-after-negation", ("*.log", "!keep.log", "keep.log"), "keep.log", True),
+    # =========================== §10 corrections: comments / escapes / char-classes / parity classes ====
+    # --- leading-whitespace-before-comment: NOT a comment (Moby checks '#' on the RAW line) ---
+    ParityCase("leading-ws-before-hash-is-pattern", ("   #cache",), "#cache", True),
+    ParityCase("true-comment-col0-ignored", ("#cache",), "#cache", False),
+    # --- escaped comment marker: `\#x` is a literal pattern matching '#x' ---
+    ParityCase("escaped-hash-literal", ("\\#keep.txt",), "#keep.txt", True),
+    # --- escaped negation: `\!x` is a literal pattern (NOT a re-include) matching '!x' ---
+    ParityCase("escaped-bang-literal", ("\\!weird.txt",), "!weird.txt", True),
+    ParityCase("escaped-bang-not-reinclude", ("*.txt", "\\!weird.txt"), "other.txt", True),
+    # --- inverted char class `[^...]` (the bug that was broken by escaping '^') ---
+    ParityCase("inverted-class-matches-non-member", ("file[^a].txt",), "fileb.txt", True),
+    ParityCase("inverted-class-excludes-member", ("file[^a].txt",), "filea.txt", False),
+    # --- ordinary char class + range ---
+    ParityCase("class-member", ("log[0-9].txt",), "log7.txt", True),
+    ParityCase("class-non-member", ("log[0-9].txt",), "logx.txt", False),
+    ParityCase("class-set", ("cache[abc]",), "cacheb", True),
+    # --- literal brackets via escape ---
+    ParityCase("literal-bracket-escaped", ("foo\\[bar\\].txt",), "foo[bar].txt", True),
+    # --- parent-exclusion + child-negation (dir excluded, one child re-included) ---
+    ParityCase("parent-excluded-child-negated-reinclude", ("logs", "!logs/keep.txt"), "logs/keep.txt", False),
+    ParityCase("parent-excluded-other-child-excluded", ("logs", "!logs/keep.txt"), "logs/drop.txt", True),
+    # --- repeated ** collapses (still recursive) ---
+    ParityCase("repeated-doublestar", ("a/**/**/z",), "a/b/c/z", True),
+    ParityCase("repeated-doublestar-zero", ("a/**/**/z",), "a/z", True),
+    # --- trailing spaces trimmed (Moby TrimSpace) ---
+    ParityCase("trailing-spaces-trimmed", ("*.log   ",), "server.log", True),
+    # --- rooted vs unrooted ---
+    ParityCase("rooted-leading-slash", ("/build",), "build/out.o", True),
+    ParityCase("unrooted-not-recursive-into-subdir", ("build",), "sub/build/out.o", False),
+)
+
+
+# §10: patterns whose syntax this matcher cannot faithfully model — they MUST raise
+# UnsupportedPatternError (fail-closed), NEVER be silently reinterpreted or silently dropped.
+UNSUPPORTED_PATTERNS: Tuple[str, ...] = (
+    "file[abc",          # unterminated character class
+    "log[0-9.txt",       # unterminated character class with range
+    "a]b[",              # inverted/broken bracket ordering that the engine rejects
 )
 
 
@@ -223,4 +289,17 @@ def run_parity_cases() -> List[Tuple[ParityCase, bool]]:
         text = "\n".join(case.patterns) + "\n"
         patterns = parse_dockerignore(text)
         results.append((case, path_excluded(case.path, patterns)))
+    return results
+
+
+def run_unsupported_cases() -> List[Tuple[str, bool]]:
+    """Evaluate every unsupported pattern; return (pattern, raised_unsupported). Pure — for tests/evidence.
+    A True means the matcher correctly FAILED CLOSED rather than silently reinterpreting."""
+    results: List[Tuple[str, bool]] = []
+    for pat in UNSUPPORTED_PATTERNS:
+        try:
+            parse_dockerignore(pat + "\n")
+            results.append((pat, False))
+        except UnsupportedPatternError:
+            results.append((pat, True))
     return results
