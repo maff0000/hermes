@@ -1,0 +1,6 @@
+current-fresh-USABLE                                 state=USABLE   docker_invoked=False runner_constructed=False image_id=None tag=None sbom=None vuln=None published=False deployed=False
+historical-ancestor-REJECTED                         state=REJECTED docker_invoked=False runner_constructed=False image_id=None tag=None sbom=None vuln=None published=False deployed=False
+historical-immutable-REJECTED                        state=REJECTED docker_invoked=False runner_constructed=False image_id=None tag=None sbom=None vuln=None published=False deployed=False
+fetch-failure-REJECTED                               state=REJECTED docker_invoked=False runner_constructed=False image_id=None tag=None sbom=None vuln=None published=False deployed=False
+
+EVERY preflight case above: docker_invoked=False, runner_constructed=False, image_id=None, tag=None (NO real build).

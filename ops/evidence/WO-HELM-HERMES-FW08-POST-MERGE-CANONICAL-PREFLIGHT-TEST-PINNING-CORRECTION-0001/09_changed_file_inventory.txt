@@ -1,0 +1,7 @@
+# changed-file inventory (TEST-ONLY)
+ M tests/test_fw08_corrections_v1.py
+ M tests/test_fw08_final_trust_v1.py
+?? ops/evidence/WO-HELM-HERMES-FW08-POST-MERGE-CANONICAL-PREFLIGHT-TEST-PINNING-CORRECTION-0001/
+
+# assertion: NO production file touched (tools/ design/ schemas/ Dockerfile/ .dockerignore/ requirements/ compose/ config/ SQL/ migrations/ Phase-1/2)
+OK: only tests/ (+ ops/evidence bundle) changed

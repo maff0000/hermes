@@ -1,0 +1,2 @@
+# node diff: 51F/4E baseline (/tmp/pin_target_51F_for_agent.txt) vs corrected HEAD
+DIFF-EMPTY-OK: node set restored to exactly 51F/4E (3 canonical-preflight failures removed)

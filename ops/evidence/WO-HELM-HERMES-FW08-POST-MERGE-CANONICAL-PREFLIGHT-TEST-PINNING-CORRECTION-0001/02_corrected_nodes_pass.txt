@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+collecting ... collected 4 items
+
+tests/test_fw08_corrections_v1.py::test_s7_canonical_preflight_usable_against_exact_fe2037c5 PASSED [ 25%]
+tests/test_fw08_corrections_v1.py::test_s7_preflight_invokes_no_real_docker PASSED [ 50%]
+tests/test_fw08_final_trust_v1.py::test_s17_canonical_preflight_usable_and_no_docker PASSED [ 75%]
+tests/test_fw08_corrections_v1.py::test_s7_origin_main_advance_determinism PASSED [100%]
+
+============================== 4 passed in 0.23s ===============================

@@ -592,18 +592,22 @@ def test_s15_full_flow_stages_in_order():
 
 
 # =========================================================================== §17 canonical preflight USABLE
-def _immutable():
-    base = "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02"
-    return {"authorised_sha": base, "binding_id": "WO-PR114-FINAL", "canonical_state_sha": base}
-
-
 def test_s17_canonical_preflight_usable_and_no_docker(tmp_path):
-    base = "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02"
+    """CORRECTED (WO-...-TEST-PINNING-CORRECTION-0001, TEST-ONLY): proven against an ISOLATED fixture whose
+    refs/remotes/origin/main == the EXACT requested SHA — NOT the mutable live host repo + a stale pinned SHA.
+    Post-PR#114 the historical fe2037c5 is a mere ancestor of the advanced live origin/main, and the FW-08
+    freshness control CORRECTLY rejects it; the production control is right, the old test design was wrong.
+    The isolated fixture reaches USABLE via an authenticated fresh fetch, clears the governed self-match
+    disposition end-to-end (dispositioned == 1), and constructs/invokes NO Docker."""
+    from tests.test_fw08_corrections_v1 import _make_canonical_fixture, _selfmatch_disposition
+    root = tmp_path / "canon"
+    root.mkdir()
+    sha = _make_canonical_fixture(root)
     rep = w.run_canonical_preflight(
-        source_sha=base, repo_dir=REPO, quarantine_dir=tmp_path / "q",
+        source_sha=sha, repo_dir=root, quarantine_dir=tmp_path / "q",
         now_utc="2026-07-19T00:00:00+00:00", build_utc="2026-07-19T12:00:00+00:00",
-        candidate_name="fw08final", dispositions=w.load_governed_dispositions(),
-        authorised_sha=base, immutable_source_binding=_immutable(),
+        candidate_name="fw08final", dispositions=_selfmatch_disposition(sha, tmp_path),
+        authorised_sha=sha, fetcher=w.FixtureRemoteRefFetcher(sha),
     )
     assert rep.terminal_state == "USABLE", rep.reason_codes
     assert rep.runner_constructed is False and rep.docker_invoked is False

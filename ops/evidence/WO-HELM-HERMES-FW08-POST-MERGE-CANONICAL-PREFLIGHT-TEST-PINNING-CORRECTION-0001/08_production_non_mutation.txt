@@ -1,0 +1,6 @@
+# git diff --name-only 11a43f6b HEAD (working tree) — MUST be test files only
+tests/test_fw08_corrections_v1.py
+tests/test_fw08_final_trust_v1.py
+---name-status---
+M	tests/test_fw08_corrections_v1.py
+M	tests/test_fw08_final_trust_v1.py
