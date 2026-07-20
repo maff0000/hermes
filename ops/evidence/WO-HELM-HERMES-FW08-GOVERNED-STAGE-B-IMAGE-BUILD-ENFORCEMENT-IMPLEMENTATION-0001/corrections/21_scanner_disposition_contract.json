@@ -1,0 +1,22 @@
+{
+  "contract_version": "1",
+  "schema": "hermes.fw08.scanner_dispositions.v1",
+  "description": "Governed, typed, fingerprint-bound secret-scanner finding dispositions for WO-HELM-HERMES-PR114-FW08-EXACT-AUDIT-CORRECTIONS-AND-CANONICAL-PREFLIGHT-CLOSURE-0001. Each disposition governs EXACTLY ONE finding via an exact rule_id + exact repo-relative path + value-free fingerprint (sha256 over rule_id+path+one-way-value-digest+structure-digest; the matched value is NEVER stored). No wildcards, no path-alone or rule-alone suppression, no CLI/env ignore lists. Anything not bound to an exact, well-formed, unexpired disposition FAILS CLOSED. This file must NEVER contain a matched secret value.",
+  "dispositions": [
+    {
+      "disposition_id": "FW08-DISP-PPK-SELFMATCH-0001",
+      "rule_id": "SEC-PRIVATE-KEY-PPK",
+      "path": "tools/hermes_clean_build_context_v1.py",
+      "fingerprint": "7d787547a38db3584bdb6aa7955b9484262d93cffd738ca1dfee8c9f2049f716",
+      "category": "RULE_DEFINITION_SELF_MATCH",
+      "reason_code": "SCANNER-RULE-LITERAL-SELF-MATCH",
+      "owner": "HELM",
+      "created_utc": "2026-07-19T00:00:00+00:00",
+      "permanent": false,
+      "expiry_utc": "2027-07-19T00:00:00+00:00",
+      "source_binding": {"type": "SOURCE_SHA", "source_sha": "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02"},
+      "evidence_reference": "ops/evidence/WO-HELM-HERMES-FW08-GOVERNED-STAGE-B-IMAGE-BUILD-ENFORCEMENT-IMPLEMENTATION-0001/corrections/20_original_selfmatch_reproduction.md",
+      "notes": "The SEC-PRIVATE-KEY-PPK detection rule's own pattern literal self-matches within the scanner source file at the canonical base fe2037c5. This is a governed non-secret (a rule definition matching itself), NOT a credential. Detection is unchanged; the value is not stored or exposed. Any change to the literal, the surrounding line structure, the path, the rule id, or the bound source SHA invalidates this disposition and FAILS CLOSED."
+    }
+  ]
+}

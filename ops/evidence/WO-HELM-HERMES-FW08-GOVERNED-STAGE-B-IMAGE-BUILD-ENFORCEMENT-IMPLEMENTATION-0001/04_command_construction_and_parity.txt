@@ -1,0 +1,44 @@
+=== EXACT DOCKER COMMAND ARRAY (wrapper-constructed, no shell) ===
+   'docker'
+   'build'
+   '--file'
+   '/tmp/tmpzq3hw84g/_q/context/Dockerfile'
+   '--tag'
+   'hermes-fw08-candidate-fw08cand:local-b635dcf85777'
+   '--build-arg'
+   'SOURCE_SHA=b635dcf8577725e7790b29295b5d6f9c89ca59df'
+   '--build-arg'
+   'BUILD_UTC=2026-07-19T12:00:00+00:00'
+   '--label'
+   'org.opencontainers.image.revision=b635dcf8577725e7790b29295b5d6f9c89ca59df'
+   '--label'
+   'org.opencontainers.image.created=2026-07-19T12:00:00+00:00'
+   '--no-cache'
+   '/tmp/tmpzq3hw84g/_q/context'
+
+local_image_target: hermes-fw08-candidate-fw08cand:local-b635dcf85777 (no '/' => non-registry local)
+
+=== DOCKER-FAITHFUL MATCHER PARITY (F-113-03) ===
+  [OK] star-suffix-toplevel               excluded=True
+  [OK] star-suffix-nested-NOT-matched     excluded=False
+  [OK] doublestar-prefix-nested           excluded=True
+  [OK] doublestar-prefix-toplevel         excluded=True
+  [OK] doublestar-alone-matches-all       excluded=True
+  [OK] doublestar-mid                     excluded=True
+  [OK] doublestar-mid-zero-dirs           excluded=True
+  [OK] rooted-dir-toplevel                excluded=True
+  [OK] rooted-dir-not-in-subdir           excluded=False
+  [OK] rooted-leading-slash-stripped      excluded=True
+  [OK] rooted-path-exact                  excluded=True
+  [OK] rooted-path-not-elsewhere          excluded=False
+  [OK] dir-trailing-slash-contents        excluded=True
+  [OK] dir-doublestar-nested-claude       excluded=True
+  [OK] dir-plain-claude-not-nested        excluded=False
+  [OK] negation-reinclude                 excluded=False
+  [OK] negation-other-still-excluded      excluded=True
+  [OK] env-family-reinclude-example       excluded=False
+  [OK] env-family-excludes-env            excluded=True
+  [OK] env-family-excludes-env-prod       excluded=True
+  [OK] qmark-single                       excluded=True
+  [OK] qmark-no-cross-sep                 excluded=False
+  [OK] reexclude-after-negation           excluded=True

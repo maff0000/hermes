@@ -1,0 +1,10 @@
+ M docs/design/deployment_readiness/architecture_v1.md
+?? design/hermes_fw08_candidate_state_v1.py
+?? design/hermes_fw08_context_contract_v1.py
+?? design/hermes_fw08_dockerignore_matcher_v1.py
+?? design/hermes_fw08_readiness_evaluator_v1.py
+?? docs/design/deployment_readiness/fw08_governed_stage_b_build_v1.md
+?? ops/evidence/WO-HELM-HERMES-FW08-GOVERNED-STAGE-B-IMAGE-BUILD-ENFORCEMENT-IMPLEMENTATION-0001/
+?? schemas/deployment_readiness/stage_b_candidate_readiness.v1.schema.json
+?? tests/test_fw08_governed_build_v1.py
+?? tools/hermes_stage_b_build_v1.py
