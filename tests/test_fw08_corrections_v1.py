@@ -234,19 +234,79 @@ def test_s6_governed_file_selfmatch_passes_and_default_fails(tmp_path):
     assert m_fail.result == "FAIL" and len(m_fail.secret_findings) == 1
 
 
-# =============================================================================== §7 canonical preflight
-def _immutable():
-    return {"authorised_sha": CANONICAL_BASE, "binding_id": "WO-PR114", "canonical_state_sha": CANONICAL_BASE}
+# =============================================================================== §7 isolated canonical fixture
+# CORRECTED (WO-HELM-HERMES-FW08-POST-MERGE-CANONICAL-PREFLIGHT-TEST-PINNING-CORRECTION-0001, TEST-ONLY).
+# The §7 canonical-preflight contract must NOT depend on whichever SHA is live on the host repo. Before this
+# correction these tests bound trust to a HARDCODED historical SHA (fe2037c5) and ran the preflight against
+# the LIVE repo (REPO). When PR#114 merged, origin/main advanced (fe2037c5 became a mere ANCESTOR) and the
+# FW-08 freshness control CORRECTLY rejected the stale SHA (reasons FRESHNESS-NOT-FRESH /
+# LOCAL-REF-NOT-AUTHORISED-SHA). The PRODUCTION CONTROL IS CORRECT; the TEST DESIGN was wrong. The fix builds
+# a DETERMINISTIC, ISOLATED git topology whose refs/remotes/origin/main == the EXACT requested SHA (governed
+# source A), can advance to source B to prove historical-ancestor rejection, and NEVER touches the live
+# canonical repo. A rule-definition self-match literal + fingerprint-bound disposition proves the governed
+# disposition mechanism reaches USABLE end-to-end through the FULL preflight (dispositioned == 1) WITHOUT
+# being a tautology, because the SAME fixture WITHOUT the disposition is REJECTED (the self-match fails
+# closed). These tests pass (a) before PR#114, (b) after PR#114, and (c) after any FUTURE canonical merge.
+_SELFMATCH_PATH = "utils/hermes_fw08_selfmatch_rule_v1.py"
+# built by concatenation so the marker literal is never stored verbatim in this test source (no secret bytes)
+_SELFMATCH_CONTENT = 'rule = compile(rb"' + PPK_MARKER.decode() + '")\n'
 
 
-def test_s7_canonical_preflight_usable_against_exact_fe2037c5(tmp_path):
-    rep = w.run_canonical_preflight(
-        source_sha=CANONICAL_BASE, repo_dir=REPO, quarantine_dir=tmp_path / "q", now_utc=NOW,
-        build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=w.load_governed_dispositions(),
-        authorised_sha=CANONICAL_BASE, immutable_source_binding=_immutable(),
+def _make_canonical_fixture(root, *, selfmatch=True, extra=None):
+    """Isolated governed repo whose refs/remotes/origin/main == HEAD (the returned 40-hex source SHA). When
+    `selfmatch` is set, a rule-definition self-match literal is committed so the governed disposition
+    mechanism can be exercised through the full preflight; otherwise the source is clean (no secret finding)."""
+    files = dict(extra or {})
+    if selfmatch:
+        files[_SELFMATCH_PATH] = _SELFMATCH_CONTENT
+    return _make_repo(root, extra=files)
+
+
+def _canonical_advance(root, *, name="hermes_fw08_advance_v1.py"):
+    """Commit a NEW source B on top of the current HEAD and advance refs/remotes/origin/main to it, retaining
+    the prior SHA as an ANCESTOR. Returns the new HEAD SHA. Simulates a future canonical merge advancing
+    origin/main so freshness determinism can be proven without pinning any host-live SHA."""
+    (root / name).write_text("# advanced source B\npass\n", encoding="utf-8")
+    _git(["add", name], root)
+    _git(["commit", "-q", "-m", "advance origin/main to B"], root)
+    sha = _git(["rev-parse", "HEAD"], root).stdout.strip()
+    _git(["update-ref", "refs/remotes/origin/main", sha], root)
+    return sha
+
+
+def _selfmatch_disposition(source_sha, tmp_path):
+    """Fingerprint-bound governed disposition for the fixture self-match at the fixture's source SHA. The
+    fingerprint is value-free and identical to the one build_clean_context computes for the exported file."""
+    f = _details(_SELFMATCH_CONTENT.encode("utf-8"), tmp_path, rel=_SELFMATCH_PATH)[0]
+    return [_disp(f.fingerprint, f.path, source_sha=source_sha)]
+
+
+def _preflight(source_sha, root, tmp_path, *, dispositions=None, authorised_sha=None, fetcher=None,
+               immutable_source_binding=None, expected_remote=EXPECTED_REMOTE, qname="q"):
+    """Run the NON-BUILDING canonical preflight against an ISOLATED fixture repo (never the live host repo)."""
+    return w.run_canonical_preflight(
+        source_sha=source_sha, repo_dir=root, quarantine_dir=tmp_path / qname, now_utc=NOW,
+        build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=dispositions,
+        authorised_sha=authorised_sha or source_sha, fetcher=fetcher, expected_remote=expected_remote,
+        immutable_source_binding=immutable_source_binding,
     )
+
+
+# =============================================================================== §7 canonical preflight
+def test_s7_canonical_preflight_usable_against_exact_fe2037c5(tmp_path):
+    """Controlled canonical-CURRENT success: an ISOLATED fixture whose origin/main == the requested source
+    SHA reaches USABLE through the full non-building preflight via an authenticated fresh fetch, and the
+    governed self-match disposition is cleared end-to-end (dispositioned == 1). NO Docker runner is
+    constructed or invoked. (The live fe2037c5 is now an ancestor of origin/main and is CORRECTLY rejected by
+    freshness — proven in test_s7_historical_ancestor_*; this node no longer depends on any host-live SHA.)"""
+    root = tmp_path / "canon"
+    root.mkdir()
+    sha = _make_canonical_fixture(root)
+    rep = _preflight(sha, root, tmp_path, dispositions=_selfmatch_disposition(sha, tmp_path),
+                     fetcher=w.FixtureRemoteRefFetcher(sha))
     assert rep.terminal_state == "USABLE", rep.reason_codes
     assert len(rep.dispositioned) == 1
+    assert rep.freshness["fresh"] is True and rep.freshness["mechanism"] == "FRESH_AUTHENTICATED_FETCH"
     # no-build proof
     assert rep.docker_invoked is False and rep.runner_constructed is False
     assert rep.image_id is None and rep.tag is None and rep.sbom is None and rep.vuln_scan is None
@@ -266,22 +326,168 @@ def test_s7_preflight_invokes_no_real_docker(monkeypatch, tmp_path):
 
     monkeypatch.setattr(subprocess, "run", gr)
     monkeypatch.setattr(subprocess, "Popen", gp)
-    rep = w.run_canonical_preflight(
-        source_sha=CANONICAL_BASE, repo_dir=REPO, quarantine_dir=tmp_path / "q", now_utc=NOW,
-        build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=w.load_governed_dispositions(),
-        authorised_sha=CANONICAL_BASE, immutable_source_binding=_immutable(),
-    )
+    root = tmp_path / "canon"
+    root.mkdir()
+    sha = _make_canonical_fixture(root)
+    rep = _preflight(sha, root, tmp_path, dispositions=_selfmatch_disposition(sha, tmp_path),
+                     fetcher=w.FixtureRemoteRefFetcher(sha))
     assert rep.usable
+    assert rep.docker_invoked is False and rep.runner_constructed is False
 
 
 def test_s7_preflight_without_dispositions_rejects(tmp_path):
-    # without the governed disposition the PPK self-match makes the canonical context UNUSABLE (fail-closed).
-    rep = w.run_canonical_preflight(
-        source_sha=CANONICAL_BASE, repo_dir=REPO, quarantine_dir=tmp_path / "q", now_utc=NOW,
-        build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=None,
-        authorised_sha=CANONICAL_BASE, immutable_source_binding=_immutable(),
-    )
+    # An isolated fixture carrying the self-match literal but NO governed disposition is REJECTED (the PPK
+    # self-match fails closed) — proving the USABLE result above is NOT a tautology (detection unchanged).
+    root = tmp_path / "canon"
+    root.mkdir()
+    sha = _make_canonical_fixture(root)
+    rep = _preflight(sha, root, tmp_path, dispositions=None, fetcher=w.FixtureRemoteRefFetcher(sha))
     assert rep.terminal_state == "REJECTED"
+    assert any("CONTEXT-UNUSABLE" in r for r in rep.reason_codes)
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+# =========================================================================== §7b freshness matrix (fixture)
+def test_s7_canonical_current_clean_fresh_usable(tmp_path):
+    # A clean canonical-current source (no self-match) reaches USABLE with zero dispositions and no docker.
+    root = tmp_path / "clean"
+    root.mkdir()
+    sha = _make_canonical_fixture(root, selfmatch=False)
+    rep = _preflight(sha, root, tmp_path, fetcher=w.FixtureRemoteRefFetcher(sha))
+    assert rep.terminal_state == "USABLE", rep.reason_codes
+    assert len(rep.dispositioned) == 0
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_historical_ancestor_rejected_fresh_mode(tmp_path):
+    # origin/main advances to B; requesting the historical ancestor A through fresh-current mode is rejected.
+    root = tmp_path / "hist"
+    root.mkdir()
+    a = _make_canonical_fixture(root, selfmatch=False)
+    b = _canonical_advance(root)
+    assert a != b and w._sha_reachable_from(root, a, b)   # A is a genuine (historical) ancestor of B
+    rep = _preflight(a, root, tmp_path, authorised_sha=a, fetcher=w.FixtureRemoteRefFetcher(b))
+    assert rep.terminal_state == "REJECTED"
+    assert "FRESHNESS-NOT-FRESH" in rep.reason_codes and "AUTHORISED-SHA-MISMATCH" in rep.reason_codes
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_historical_ancestor_rejected_immutable_binding(tmp_path):
+    # Exact reproduction of the ORIGINAL defect class: local origin/main advanced to B, request historical A
+    # through the governed immutable-binding path -> LOCAL-REF-NOT-AUTHORISED-SHA. Regression assertion: a
+    # historical ancestor is NOT current canonical source, even under an out-of-band immutable binding.
+    root = tmp_path / "histimm"
+    root.mkdir()
+    a = _make_canonical_fixture(root, selfmatch=False)
+    b = _canonical_advance(root)
+    assert w._sha_reachable_from(root, a, b)              # A reachable-from B => A is an ancestor, not current
+    rep = _preflight(a, root, tmp_path, authorised_sha=a,
+                     immutable_source_binding={"authorised_sha": a, "binding_id": "B",
+                                               "canonical_state_sha": a})
+    assert rep.terminal_state == "REJECTED"
+    assert "FRESHNESS-NOT-FRESH" in rep.reason_codes and "LOCAL-REF-NOT-AUTHORISED-SHA" in rep.reason_codes
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_descendant_not_on_governed_main_rejected(tmp_path):
+    # A commit on a side branch (a descendant of A but NOT on origin/main) is rejected at provenance.
+    root = tmp_path / "desc"
+    root.mkdir()
+    a = _make_canonical_fixture(root, selfmatch=False)
+    _git(["checkout", "-q", "-b", "side", a], root)
+    (root / "side.py").write_text("s=1\n", encoding="utf-8")
+    _git(["add", "side.py"], root)
+    _git(["commit", "-q", "-m", "side"], root)
+    c = _git(["rev-parse", "HEAD"], root).stdout.strip()   # origin/main stays at A
+    rep = _preflight(c, root, tmp_path, authorised_sha=c, fetcher=w.FixtureRemoteRefFetcher(a))
+    assert rep.terminal_state == "REJECTED"
+    assert any("PROVENANCE-REJECTED" in r for r in rep.reason_codes)
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_stale_local_ref_rejected(tmp_path):
+    # local origin/main is stale (still at A) while HEAD advanced to B; requesting B is rejected fail-closed
+    # (B is not reachable from the stale local canonical ref).
+    root = tmp_path / "stale"
+    root.mkdir()
+    a = _make_canonical_fixture(root, selfmatch=False)
+    (root / "b.py").write_text("b=1\n", encoding="utf-8")
+    _git(["add", "b.py"], root)
+    _git(["commit", "-q", "-m", "B"], root)               # advance HEAD but DO NOT move origin/main
+    b = _git(["rev-parse", "HEAD"], root).stdout.strip()
+    assert a != b
+    rep = _preflight(b, root, tmp_path, authorised_sha=b, fetcher=w.FixtureRemoteRefFetcher(b))
+    assert rep.terminal_state == "REJECTED"
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_fetch_failure_no_binding_rejected(tmp_path):
+    # Canonical fetch refused (offline default fetcher) and NO governed immutable binding -> fail closed.
+    root = tmp_path / "fetchfail"
+    root.mkdir()
+    sha = _make_canonical_fixture(root, selfmatch=False)
+    rep = _preflight(sha, root, tmp_path, authorised_sha=sha)   # default RefusingRemoteRefFetcher, no binding
+    assert rep.terminal_state == "REJECTED"
+    assert any("FRESHNESS-REJECTED" in r for r in rep.reason_codes)
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_remote_mismatch_rejected(tmp_path):
+    # A fresh fetch returning a canonical main SHA that differs from the authorised/requested SHA is rejected.
+    root = tmp_path / "rmm"
+    root.mkdir()
+    sha = _make_canonical_fixture(root, selfmatch=False)
+    rep = _preflight(sha, root, tmp_path, authorised_sha=sha, fetcher=w.FixtureRemoteRefFetcher("c" * 40))
+    assert rep.terminal_state == "REJECTED"
+    assert "FRESHNESS-NOT-FRESH" in rep.reason_codes and "AUTHORISED-SHA-MISMATCH" in rep.reason_codes
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_abbreviated_sha_rejected(tmp_path):
+    # An abbreviated (non-40-hex) SHA is rejected up front (branch/tag/latest/abbrev never accepted).
+    root = tmp_path / "abbr"
+    root.mkdir()
+    sha = _make_canonical_fixture(root, selfmatch=False)
+    rep = _preflight(sha[:12], root, tmp_path, authorised_sha=sha[:12], fetcher=w.FixtureRemoteRefFetcher(sha))
+    assert rep.terminal_state == "REJECTED"
+    assert any("PROVENANCE-REJECTED" in r for r in rep.reason_codes)
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_foreign_remote_rejected(tmp_path):
+    # The repo identity does not match the expected canonical remote -> provenance rejects (foreign/spoof).
+    root = tmp_path / "foreign"
+    root.mkdir()
+    sha = _make_canonical_fixture(root, selfmatch=False)
+    rep = _preflight(sha, root, tmp_path, authorised_sha=sha, fetcher=w.FixtureRemoteRefFetcher(sha),
+                     expected_remote="git@github.com:someone/else.git")
+    assert rep.terminal_state == "REJECTED"
+    assert any("PROVENANCE-REJECTED" in r for r in rep.reason_codes)
+    assert rep.docker_invoked is False and rep.runner_constructed is False
+
+
+def test_s7_origin_main_advance_determinism(tmp_path):
+    """Future-merge determinism (the WO's §5/§11 anchor): in ONE fixture, request A while origin/main == A ->
+    USABLE; advance origin/main to B (simulating a canonical merge); request the now-historical A -> REJECTED;
+    request the current B -> USABLE. Proves the corrected tests do not depend on WHICH SHA is live, and that a
+    canonical advance flips freshness deterministically. NO Docker runner in any case."""
+    root = tmp_path / "adv"
+    root.mkdir()
+    a = _make_canonical_fixture(root, selfmatch=False)
+    r_a = _preflight(a, root, tmp_path, authorised_sha=a, fetcher=w.FixtureRemoteRefFetcher(a), qname="qa")
+    assert r_a.terminal_state == "USABLE", r_a.reason_codes
+
+    b = _canonical_advance(root)
+    assert a != b
+    r_hist = _preflight(a, root, tmp_path, authorised_sha=a, fetcher=w.FixtureRemoteRefFetcher(b), qname="qh")
+    assert r_hist.terminal_state == "REJECTED"
+    assert "FRESHNESS-NOT-FRESH" in r_hist.reason_codes and "AUTHORISED-SHA-MISMATCH" in r_hist.reason_codes
+
+    r_b = _preflight(b, root, tmp_path, authorised_sha=b, fetcher=w.FixtureRemoteRefFetcher(b), qname="qb")
+    assert r_b.terminal_state == "USABLE", r_b.reason_codes
+
+    for r in (r_a, r_hist, r_b):
+        assert r.docker_invoked is False and r.runner_constructed is False
 
 
 # =============================================================================== §8 trusted-ref freshness

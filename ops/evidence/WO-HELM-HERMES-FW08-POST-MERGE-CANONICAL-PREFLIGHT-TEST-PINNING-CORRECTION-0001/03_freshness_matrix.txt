@@ -1,0 +1,18 @@
+============================= test session starts ==============================
+collecting ... collected 76 items / 63 deselected / 13 selected
+
+tests/test_fw08_corrections_v1.py::test_s7_canonical_preflight_usable_against_exact_fe2037c5 PASSED [  7%]
+tests/test_fw08_corrections_v1.py::test_s7_preflight_invokes_no_real_docker PASSED [ 15%]
+tests/test_fw08_corrections_v1.py::test_s7_preflight_without_dispositions_rejects PASSED [ 23%]
+tests/test_fw08_corrections_v1.py::test_s7_canonical_current_clean_fresh_usable PASSED [ 30%]
+tests/test_fw08_corrections_v1.py::test_s7_historical_ancestor_rejected_fresh_mode PASSED [ 38%]
+tests/test_fw08_corrections_v1.py::test_s7_historical_ancestor_rejected_immutable_binding PASSED [ 46%]
+tests/test_fw08_corrections_v1.py::test_s7_descendant_not_on_governed_main_rejected PASSED [ 53%]
+tests/test_fw08_corrections_v1.py::test_s7_stale_local_ref_rejected PASSED [ 61%]
+tests/test_fw08_corrections_v1.py::test_s7_fetch_failure_no_binding_rejected PASSED [ 69%]
+tests/test_fw08_corrections_v1.py::test_s7_remote_mismatch_rejected PASSED [ 76%]
+tests/test_fw08_corrections_v1.py::test_s7_abbreviated_sha_rejected PASSED [ 84%]
+tests/test_fw08_corrections_v1.py::test_s7_foreign_remote_rejected PASSED [ 92%]
+tests/test_fw08_corrections_v1.py::test_s7_origin_main_advance_determinism PASSED [100%]
+
+====================== 13 passed, 63 deselected in 0.25s =======================

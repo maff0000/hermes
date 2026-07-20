@@ -1,0 +1,73 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__________ test_s7_canonical_preflight_usable_against_exact_fe2037c5 ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-207/test_s7_canonical_preflight_us0')
+
+    def test_s7_canonical_preflight_usable_against_exact_fe2037c5(tmp_path):
+        rep = w.run_canonical_preflight(
+            source_sha=CANONICAL_BASE, repo_dir=REPO, quarantine_dir=tmp_path / "q", now_utc=NOW,
+            build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=w.load_governed_dispositions(),
+            authorised_sha=CANONICAL_BASE, immutable_source_binding=_immutable(),
+        )
+>       assert rep.terminal_state == "USABLE", rep.reason_codes
+E       AssertionError: ('FRESHNESS-NOT-FRESH', 'LOCAL-REF-NOT-AUTHORISED-SHA')
+E       assert 'REJECTED' == 'USABLE'
+E         
+E         - USABLE
+E         + REJECTED
+
+tests/test_fw08_corrections_v1.py:248: AssertionError
+___________________ test_s7_preflight_invokes_no_real_docker ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7756486e6090>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-207/test_s7_preflight_invokes_no_r0')
+
+    def test_s7_preflight_invokes_no_real_docker(monkeypatch, tmp_path):
+        real_run, real_popen = subprocess.run, subprocess.Popen
+    
+        def gr(cmd, *a, **k):
+            assert not (cmd and "docker" in str(cmd[0])), "no real docker run"
+            return real_run(cmd, *a, **k)
+    
+        def gp(cmd, *a, **k):
+            assert not (cmd and "docker" in str(cmd[0])), "no real docker popen"
+            return real_popen(cmd, *a, **k)
+    
+        monkeypatch.setattr(subprocess, "run", gr)
+        monkeypatch.setattr(subprocess, "Popen", gp)
+        rep = w.run_canonical_preflight(
+            source_sha=CANONICAL_BASE, repo_dir=REPO, quarantine_dir=tmp_path / "q", now_utc=NOW,
+            build_utc=BUILD_UTC, candidate_name="fw08canonical", dispositions=w.load_governed_dispositions(),
+            authorised_sha=CANONICAL_BASE, immutable_source_binding=_immutable(),
+        )
+>       assert rep.usable
+E       AssertionError: assert False
+E        +  where False = PreflightReport(source_sha='fe2037c5b4b4836d1038b4c0f734426ac9b3fa02', terminal_state='REJECTED', reason_codes=('FRESH...ucted=False, docker_invoked=False, image_id=None, tag=None, sbom=None, vuln_scan=None, published=False, deployed=False).usable
+
+tests/test_fw08_corrections_v1.py:274: AssertionError
+______________ test_s17_canonical_preflight_usable_and_no_docker _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-207/test_s17_canonical_preflight_u0')
+
+    def test_s17_canonical_preflight_usable_and_no_docker(tmp_path):
+        base = "fe2037c5b4b4836d1038b4c0f734426ac9b3fa02"
+        rep = w.run_canonical_preflight(
+            source_sha=base, repo_dir=REPO, quarantine_dir=tmp_path / "q",
+            now_utc="2026-07-19T00:00:00+00:00", build_utc="2026-07-19T12:00:00+00:00",
+            candidate_name="fw08final", dispositions=w.load_governed_dispositions(),
+            authorised_sha=base, immutable_source_binding=_immutable(),
+        )
+>       assert rep.terminal_state == "USABLE", rep.reason_codes
+E       AssertionError: ('FRESHNESS-NOT-FRESH', 'LOCAL-REF-NOT-AUTHORISED-SHA')
+E       assert 'REJECTED' == 'USABLE'
+E         
+E         - USABLE
+E         + REJECTED
+
+tests/test_fw08_final_trust_v1.py:608: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_fw08_corrections_v1.py::test_s7_canonical_preflight_usable_against_exact_fe2037c5
+FAILED tests/test_fw08_corrections_v1.py::test_s7_preflight_invokes_no_real_docker
+FAILED tests/test_fw08_final_trust_v1.py::test_s17_canonical_preflight_usable_and_no_docker
+3 failed in 0.14s
