@@ -1,0 +1,28 @@
+{
+  "contract_version": "1",
+  "generated_utc": "2026-07-21T00:00:00+00:00",
+  "issue": "F2-R1 external producer-registry root of trust",
+  "integrity_vs_authenticity": "A registry checksum proves internal INTEGRITY (bytes unaltered). It does NOT prove external AUTHENTICITY (that this registry is the one a governed authority approved). Authenticity is conferred ONLY by resolution through a governed EXTERNAL authority boundary, never by a caller-set string or a recomputed digest.",
+  "note": "No source below is SELECTED, CONFIGURED, or ACTIVATED in this WO. ProductionAuthorityResolver is structurally non-functional (raises ResolverNotConfigured). Real external authority integration is outstanding (F2-R2/R3).",
+  "allowed_future_sources": [
+    "EXTERNAL_SECRETS_MANAGER",
+    "KMS_SIGNED_MANIFEST",
+    "OCI_SIGNED_GOVERNANCE_ARTEFACT",
+    "READ_ONLY_MOUNTED_AUTHORITY_BUNDLE",
+    "GOVERNED_DB_AUTHENTICATED_TRANSPORT"
+  ],
+  "requirements": {
+    "config_outside_code": true,
+    "no_secret_values_in_git": true,
+    "no_etc_dependency": true,
+    "container_absorbable_path_or_service": true,
+    "externally_accessible_deployment_interface": true,
+    "explicit_trust_domain_binding": true,
+    "rotation": true,
+    "revocation": true,
+    "versioning": true,
+    "auditability": true,
+    "fail_closed_unavailability": true,
+    "no_hidden_default_authority": true
+  }
+}

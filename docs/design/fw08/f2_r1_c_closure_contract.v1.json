@@ -1,0 +1,37 @@
+{
+  "issue_id": "WO-HELM-HERMES-FW08-F2-R1-EXTERNAL-PRODUCER-REGISTRY-ROOT-OF-TRUST-IMPLEMENTATION-0001-C",
+  "amber_findings": {
+    "C1": "The resolver was caller-supplied; a caller-created GOVERNED_EXTERNAL_RESOLVER was accepted in real mode.",
+    "C2": "The caller supplied the SAME activation_authority used to both SEAL and VERIFY the handle, owning both sides.",
+    "C3": "Approvers were checked only against root.authorised_approver_identities (the root names its own approvers), not externally rooted.",
+    "C4": "Revocation was captured at handle creation but NOT rechecked at candidate-readiness USE.",
+    "C5": "The wrapper's raw-registry else-branch was not mechanically excluded from REAL_CANDIDATE mode."
+  },
+  "c1_resolver_external_binding": "verify_resolver_identity requires the resolver's exact identity AND its content-digest (sha256 over inspect.getsource(type)+module+qualname) to appear in a module-owned TrustContext's authorised map. A caller subclass/proxy/copied-with-changed-metadata resolver fails RESOLVER-DIGEST-MISMATCH / RESOLVER-NOT-ANCHORED. isinstance/classification/caller-id/checksum alone are insufficient.",
+  "c2_verifier_separation": "A module-owned _ModuleVerifier (ephemeral name-mangled HMAC key, mirroring ActivationAuthority) both SEALS (activate_registry_externally_rooted) and VERIFIES (validate_active_import_externally_rooted) the handle. The caller never supplies the verifier for the real path; validate_active_import_externally_rooted has NO activation_authority parameter. A caller-sealed handle fails AI4-HANDLE-SEAL-INVALID.",
+  "c3_approver_external_binding": "verify_approver_anchored requires each manifest APPROVE approver to be in the TrustContext's anchored approver ids (the external anchor set), not merely named by the root. An approver named by the root but absent from the anchor set fails RA-C-APPROVER-NOT-ANCHORED.",
+  "c4_revocation_at_use": "obtain_current_revocation re-obtains the revocation set from the trusted boundary AT USE; validate_active_import_externally_rooted rechecks the handle's resolver/root/manifest/registry/producers/approvers/issuer/handle-id against it (AI4-REVOKED-AT-USE) and fails closed if the source is unavailable (AI4-REVOCATION-UNAVAILABLE).",
+  "c5_real_candidate_invariant": "A typed candidate mode (CANDIDATE_MODES, never a bare bool, never defaulting to real) drives the wrapper: REAL_CANDIDATE routes ONLY through activate_registry_externally_rooted + validate_active_import_externally_rooted (which fail closed as the production provider is unavailable); the raw validate_active_import_against_bundle else-branch is mechanically UNREACHABLE under REAL_CANDIDATE; any missing authority artifact under REAL_CANDIDATE => reject F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE; no downgrade to test mode.",
+  "trust_anchor_provider": "design/hermes_fw08_trust_anchor_provider_v1.py — module-owned TrustAnchorSet + _ModuleVerifier + TrustContext + resolve_trust_context. Production provider UNAVAILABLE (fails closed); synthetic provider is module-token-gated and NOT caller-substitutable.",
+  "module_owned_verifier": "design/hermes_fw08_trust_anchor_provider_v1.py::_ModuleVerifier + module singleton _MODULE_VERIFIER; ephemeral secrets.token_bytes(32) name-mangled key, no getter, never serialised.",
+  "production_provider_available": false,
+  "registry_hardening_retained": true,
+  "test_only_status": true,
+  "real_external_authority_configured": false,
+  "acceptance_tests": [
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_caller_owns_both_real_mode_rejected",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_arbitrary_resolver_not_anchored_rejected",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_caller_verifier_capability_rejected",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_approver_not_anchored_rejected",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_revocation_at_use_rejects",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_real_candidate_invariant",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_trust_anchor_provider_attacks",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_positive_synthetic_flow_then_real_rejected",
+    "tests/test_fw08_f2_r1_c_externally_rooted_v1.py::test_production_unavailability_no_fs_env_access"
+  ],
+  "remaining_f2_r2": "Real external authority-root/manifest resolver integration (a working GOVERNED_EXTERNAL_RESOLVER + a configured production trust-anchor provider) so REAL_CANDIDATE can activate.",
+  "remaining_f2_r3": "Real KMS/HSM-backed activation verifier + externally-signed approver identities replacing the in-process ephemeral module verifier and the reference strings.",
+  "classification": "F2_R1_INERT_EXTERNAL_AUTHORITY_VERIFICATION_CONTRACT_IMPLEMENTED_REAL_AUTHORITY_INTEGRATION_OUTSTANDING",
+  "contract_version": "1",
+  "generated_utc": "2026-07-21T00:00:00+00:00"
+}

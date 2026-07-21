@@ -30,6 +30,7 @@ import datetime
 import hashlib
 import json
 import re
+import types
 from dataclasses import dataclass
 from typing import Dict, List, Mapping, Optional, Tuple
 
@@ -154,6 +155,10 @@ class ProducerRegistry:
         self._by_id: Dict[str, ProducerRegistration] = {}
         self._approvals: Dict[str, str] = {}
         self._frozen = False
+        # §13 immutable snapshot + bound digest, populated on freeze(). Before freeze these are None and the
+        # active map is the mutable `_by_id`; after freeze the active map is the read-only snapshot.
+        self._frozen_by_id: Optional[Mapping[str, ProducerRegistration]] = None
+        self._frozen_digest: Optional[str] = None
 
     @property
     def registry_reference(self) -> str:
@@ -164,8 +169,55 @@ class ProducerRegistry:
     def frozen(self) -> bool:
         return self._frozen
 
+    # ---------------------------------------------------------------------- §13 root-of-trust hardening
+    # AUTHENTICITY vs INTEGRITY. A checksum/digest proves internal INTEGRITY (bytes unaltered), NOT external
+    # AUTHENTICITY (that THIS registry is the one a governed authority approved). A caller can still build a
+    # fresh registry, invent an approver, register `real_evidence_authority=True` producers, freeze it and
+    # recompute every digest — the digests will be internally consistent. External authenticity is conferred
+    # ONLY by resolution through a governed authority boundary (see hermes_fw08_registry_activation_v1). The
+    # hardening here makes the frozen set a stable, tamper-DETECTABLE snapshot so an activated handle can bind
+    # to it and later detect divergence.
+
+    def _active_map(self) -> Mapping[str, ProducerRegistration]:
+        """The map the registry actually uses: the frozen read-only snapshot when frozen, else `_by_id`. A
+        retained pre-freeze alias mutating the OLD `_by_id` dict does NOT change the frozen snapshot."""
+        if self._frozen and self._frozen_by_id is not None:
+            return self._frozen_by_id
+        return self._by_id
+
     def freeze(self) -> None:
+        # Build an IMMUTABLE snapshot of the registered set. `MappingProxyType(dict(...))` copies the current
+        # contents and exposes them read-only: ordinary post-freeze item assignment on the snapshot raises
+        # TypeError. `_by_id` retains its pre-freeze content but is NO LONGER the source of truth (see
+        # `_active_map`), so a retained pre-freeze alias mutating `_by_id` cannot affect the frozen set.
+        self._frozen_by_id = types.MappingProxyType(dict(self._by_id))
         self._frozen = True
+        self._frozen_digest = self.producer_set_digest()
+
+    def producer_set_digest(self) -> str:
+        """sha256 over the canonical, sorted-by-producer_id list of each registration's `to_dict()` (which
+        includes `registry_record_checksum`), plus the registry policy version. Reads the ACTIVE map (the
+        frozen snapshot when frozen, else `_by_id`)."""
+        active = self._active_map()
+        records = [active[k].to_dict() for k in sorted(active.keys())]
+        payload = {"registry_policy_version": self.registry_policy_version, "records": records}
+        return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+    def canonical_digest(self) -> str:
+        """THE registry digest the authorised-registry manifest binds: sha256 over the registry policy version
+        + the producer-set digest. Alias/wrapper over `producer_set_digest`."""
+        payload = {
+            "registry_policy_version": self.registry_policy_version,
+            "producer_set_digest": self.producer_set_digest(),
+        }
+        return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+    def integrity_ok(self) -> bool:
+        """When frozen, True iff the CURRENT producer-set digest equals the digest bound at freeze time (a
+        forced divergence of the frozen snapshot is detected BEFORE use). When not frozen, True."""
+        if not self._frozen:
+            return True
+        return self.producer_set_digest() == self._frozen_digest
 
     def register(self, reg: ProducerRegistration, *, approver_authority: str) -> Tuple[str, ...]:
         """Append `reg` to the registry (only while not frozen). Returns () on success, else a sorted tuple of
@@ -216,8 +268,9 @@ class ProducerRegistry:
         iff the producer is registered, well-formed, unexpired, approved, scoped, and (when the caller pins
         expected tool identity / version / digest / source) matches them. Otherwise (None, reasons).
 
-        CONSULTS ONLY the registry — never an evidence record."""
-        reg = self._by_id.get(str(producer_id))
+        CONSULTS ONLY the registry — never an evidence record. Reads the ACTIVE map (the frozen snapshot when
+        frozen, else `_by_id`), so a retained pre-freeze `_by_id` alias mutation cannot alter resolution."""
+        reg = self._active_map().get(str(producer_id))
         if reg is None:
             return (None, ("PR-UNKNOWN-PRODUCER",))
         reasons: List[str] = []

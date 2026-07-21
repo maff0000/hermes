@@ -452,3 +452,225 @@ def validate_active_import_against_bundle(
         present_phase2=verdict.present_phase2,
         reachable_phase2=verdict.reachable_phase2,
     )
+
+
+# =========================================================== F2-R1 §16 ACTIVATED-HANDLE candidate readiness
+# WO-HELM-HERMES-FW08-F2-R1-EXTERNAL-PRODUCER-REGISTRY-ROOT-OF-TRUST-IMPLEMENTATION-0001.
+# F2-R1 defect: `validate_active_import_against_bundle` (above) accepts a RAW ProducerRegistry — but a
+# registry's checksum proves internal INTEGRITY, not external AUTHENTICITY. A caller can mint a fresh
+# registry, invent an approver, register real-authority producers, freeze it, recompute every digest, and hand
+# it in. This entry point accepts a registry ONLY via an ACTIVATED HANDLE minted (elsewhere) by resolution
+# through a governed external authority boundary and sealed by an ActivationAuthority key the caller does not
+# hold. A caller-built lookalike handle fails the seal check (AH-SEAL-INVALID). The handle-module is imported
+# LAZILY to avoid any import cycle; this function does NOT alter `validate_active_import_against_bundle`.
+
+
+def validate_active_import_with_activated_handle(
+    evidence: Mapping[str, object],
+    *,
+    anchor_bundle: object,
+    activated_handle: object,
+    activation_authority: object,
+    now_utc: str,
+    phase2_prefix: str,
+    phase2_suffix: str,
+    required_phase2_count: int,
+    real_candidate_mode: bool = False,
+    max_age_hours: int = 24,
+    application: str = "hermes",
+) -> ImageBoundImportVerdict:
+    """F2-R1 §16. Accept a producer registry ONLY via a trusted `ActivatedRegistryHandle`, then DELEGATE to
+    the unchanged `validate_active_import_against_bundle`. Rejects (fail-closed):
+      * a raw ProducerRegistry passed as the handle → AI3-RAW-REGISTRY-NOT-SUFFICIENT;
+      * an untrusted handle → AI3-HANDLE-<reason> (e.g. AI3-HANDLE-AH-SEAL-INVALID);
+      * a TEST_ONLY handle used in real_candidate_mode → AI3-SYNTHETIC-HANDLE-IN-REAL-MODE;
+      * an application mismatch → AI3-HANDLE-APPLICATION-MISMATCH;
+      * a handle whose bound registry's digest diverges → AI3-HANDLE-REGISTRY-DIGEST-MISMATCH."""
+    import design.hermes_fw08_activated_registry_handle_v1 as _arh
+    import design.hermes_fw08_producer_registry_v1 as _pr
+
+    if isinstance(activated_handle, _pr.ProducerRegistry):
+        return ImageBoundImportVerdict(False, False, ("AI3-RAW-REGISTRY-NOT-SUFFICIENT",), (), ())
+
+    trusted, reasons = _arh.is_trusted(
+        activated_handle, activation_authority=activation_authority, now_utc=now_utc)
+    if not trusted:
+        return ImageBoundImportVerdict(
+            False, False, tuple(sorted("AI3-HANDLE-" + r for r in reasons)), (), ())
+
+    if real_candidate_mode and activated_handle.candidate_use_policy == "TEST_ONLY":
+        return ImageBoundImportVerdict(False, False, ("AI3-SYNTHETIC-HANDLE-IN-REAL-MODE",), (), ())
+
+    if activated_handle.application != application:
+        return ImageBoundImportVerdict(False, False, ("AI3-HANDLE-APPLICATION-MISMATCH",), (), ())
+
+    bound_registry, br_reasons = _arh.get_bound_registry(
+        activated_handle, activation_authority=activation_authority, now_utc=now_utc)
+    if bound_registry is None:
+        return ImageBoundImportVerdict(
+            False, False, tuple(sorted("AI3-HANDLE-" + r for r in br_reasons)), (), ())
+
+    if bound_registry.canonical_digest() != activated_handle.registry_digest:
+        return ImageBoundImportVerdict(False, False, ("AI3-HANDLE-REGISTRY-DIGEST-MISMATCH",), (), ())
+
+    # DELEGATE to the unchanged pure comparator with the AUTHENTICATED bound registry.
+    return validate_active_import_against_bundle(
+        evidence,
+        anchor_bundle=anchor_bundle,
+        producer_registry=bound_registry,
+        now_utc=now_utc,
+        phase2_prefix=phase2_prefix,
+        phase2_suffix=phase2_suffix,
+        required_phase2_count=required_phase2_count,
+        max_age_hours=max_age_hours,
+        application=application,
+    )
+
+
+# =========================================================== F2-R1-C §9/§12/§14 EXTERNALLY-ROOTED candidate use
+# WO-HELM-HERMES-FW08-F2-R1-EXTERNAL-PRODUCER-REGISTRY-ROOT-OF-TRUST-IMPLEMENTATION-0001 (F2-R1-C, §C2/§C4/§C5).
+# AUDIT AMBER: `validate_active_import_with_activated_handle` (above) took a CALLER activation_authority to
+# verify the handle (C2 — caller owns both sides) and did NOT re-check revocation at USE (C4). This variant
+# removes the activation_authority parameter entirely and instead verifies the handle with the MODULE verifier
+# obtained from a module-owned TrustContext, re-obtains + re-checks revocation from the trusted boundary AT USE,
+# and mechanically forbids the raw-registry path for REAL_CANDIDATE (C5). The trust-anchor + handle modules are
+# imported LAZILY to avoid any cycle; this function is add-only and does NOT alter the functions above.
+
+
+def _revoked_at_use(revocation_set: object, *, handle: object, now_utc: str) -> bool:
+    """§12 revocation RECHECK AT USE. True iff any effective revocation at `now_utc` names the handle's
+    resolver / authority root / manifest / registry / any producer / any approver / issuer / the handle id."""
+    if revocation_set is None or not hasattr(revocation_set, "is_revoked"):
+        return True  # fail closed — an unusable source blocks
+    checks = [
+        ("AUTHORITY_ROOT", getattr(handle, "authority_root_id", "")),
+        ("REGISTRY_MANIFEST", getattr(handle, "registry_id", "")),
+        ("REGISTRY_MANIFEST", getattr(handle, "manifest_id", "")),
+        ("RESOLVER", getattr(handle, "resolver_identity", "")),
+        ("ACTIVATION_HANDLE", getattr(handle, "manifest_id", "")),
+        ("ACTIVATION_HANDLE", getattr(handle, "handle_checksum", "")),
+        ("ACTIVATION_ISSUER", getattr(handle, "resolver_identity", "")),
+        ("APPROVER", getattr(handle, "resolver_evidence_reference", "")),
+    ]
+    for rtype, tid in checks:
+        if tid and revocation_set.is_revoked(revocation_type=rtype, target_id=str(tid), at_utc=now_utc):
+            return True
+    # Producers bound to the registry.
+    bound = getattr(handle, "_bound_registry", None)
+    active = getattr(bound, "_active_map", None)
+    if callable(active):
+        for pid in active().keys():
+            if revocation_set.is_revoked(revocation_type="PRODUCER_REGISTRATION", target_id=str(pid),
+                                         at_utc=now_utc):
+                return True
+    return False
+
+
+def validate_active_import_externally_rooted(
+    evidence: Mapping[str, object],
+    *,
+    anchor_bundle: object,
+    activated_handle: object,
+    candidate_mode: str,
+    now_utc: str,
+    trust_context: object = None,
+    phase2_prefix: str,
+    phase2_suffix: str,
+    required_phase2_count: int,
+    max_age_hours: int = 24,
+    application: str = "hermes",
+) -> ImageBoundImportVerdict:
+    """F2-R1-C §9/§12/§14. Accept a producer registry ONLY via a handle verified by the MODULE verifier from a
+    module-owned TrustContext (NO caller activation_authority parameter — fixes C2), re-check revocation AT USE
+    (fixes C4), mechanically forbid the raw path for REAL_CANDIDATE (fixes C5), then DELEGATE to the unchanged
+    `validate_active_import_against_bundle`. Fail-closed reasons:
+      * invalid typed mode → AI4-INVALID-CANDIDATE-MODE;
+      * no module trust context (REAL_CANDIDATE → production provider unavailable) → AI4-TRUST-CONTEXT-UNAVAILABLE
+        (+ F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE for real mode);
+      * a raw ProducerRegistry passed as the handle → AI4-RAW-REGISTRY-NOT-SUFFICIENT;
+      * a handle the module verifier does not verify → AI4-HANDLE-<reason> (incl. AI4-HANDLE-SEAL-INVALID for a
+        caller-sealed handle);
+      * revocation source unavailable at use → AI4-REVOCATION-UNAVAILABLE;
+      * the handle is revoked now → AI4-REVOKED-AT-USE;
+      * candidate_use_policy != candidate_mode → AI4-SYNTHETIC-HANDLE-IN-REAL-MODE / AI4-MODE-MISMATCH;
+      * a bound-registry digest divergence → AI4-HANDLE-REGISTRY-DIGEST-MISMATCH."""
+    import design.hermes_fw08_candidate_mode_v1 as _cm
+    import design.hermes_fw08_trust_anchor_provider_v1 as _tap
+    import design.hermes_fw08_activated_registry_handle_v1 as _arh
+    import design.hermes_fw08_producer_registry_v1 as _pr
+
+    # typed mode.
+    if _cm.require_mode(candidate_mode):
+        return ImageBoundImportVerdict(False, False, ("AI4-INVALID-CANDIDATE-MODE",), (), ())
+
+    real = _cm.is_real(candidate_mode)
+
+    # obtain module trust context (REAL_CANDIDATE fails closed — production provider unavailable).
+    if trust_context is None:
+        trust_context, tc_reasons = _tap.resolve_trust_context(
+            candidate_mode=candidate_mode, revocation_source=None)
+    if not _tap.is_module_trust_context(trust_context):
+        rc = ["AI4-TRUST-CONTEXT-UNAVAILABLE"]
+        if real:
+            rc.append("F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE")
+        return ImageBoundImportVerdict(False, False, tuple(sorted(set(rc))), (), ())
+    if real:
+        # Defence in depth: a module context cannot exist for real mode; never proceed under real.
+        return ImageBoundImportVerdict(
+            False, False,
+            ("AI4-TRUST-CONTEXT-UNAVAILABLE", "F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE"),
+            (), ())
+
+    # C5 raw-registry path is never sufficient (mechanical: a real candidate can never use the raw path).
+    if isinstance(activated_handle, _pr.ProducerRegistry):
+        return ImageBoundImportVerdict(False, False, ("AI4-RAW-REGISTRY-NOT-SUFFICIENT",), (), ())
+    if not isinstance(activated_handle, _arh.ActivatedRegistryHandle):
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-AH-WRONG-TYPE",), (), ())
+
+    # C2 verify the handle with the MODULE verifier (NOT a caller object). A caller-sealed handle fails here.
+    verifier = trust_context.verifier()
+    if not verifier.verify(_arh._seal_message(activated_handle), activated_handle.seal):
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-SEAL-INVALID",), (), ())
+    if activated_handle.handle_checksum != activated_handle.recompute_checksum():
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-CHECKSUM-TAMPER",), (), ())
+    if activated_handle.lifecycle_state != "ACTIVATED":
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-NOT-ACTIVATED",), (), ())
+    _end = _parse_utc(activated_handle.validity_end_utc)
+    _now = _parse_utc(now_utc)
+    if _end is None or _now is None or _now >= _end:
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-EXPIRED",), (), ())
+
+    # mode congruence: the handle's policy must equal the requested mode.
+    if activated_handle.candidate_use_policy != candidate_mode:
+        code = "AI4-SYNTHETIC-HANDLE-IN-REAL-MODE" if real else "AI4-MODE-MISMATCH"
+        return ImageBoundImportVerdict(False, False, (code,), (), ())
+
+    if activated_handle.application != application:
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-APPLICATION-MISMATCH",), (), ())
+
+    # C4 §12 revocation RECHECK AT USE — re-obtain from the trusted boundary, fail closed if unavailable.
+    current_revocation, rr = _tap.obtain_current_revocation(trust_context, now_utc=now_utc)
+    if current_revocation is None:
+        return ImageBoundImportVerdict(False, False, ("AI4-REVOCATION-UNAVAILABLE",), (), ())
+    if _revoked_at_use(current_revocation, handle=activated_handle, now_utc=now_utc):
+        return ImageBoundImportVerdict(False, False, ("AI4-REVOKED-AT-USE",), (), ())
+
+    # bound registry is exposed only via the module verifier; verify its digest matches the handle.
+    bound_registry = getattr(activated_handle, "_bound_registry", None)
+    if bound_registry is None or not isinstance(bound_registry, _pr.ProducerRegistry):
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-BOUND-REGISTRY-MISSING",), (), ())
+    if bound_registry.canonical_digest() != activated_handle.registry_digest:
+        return ImageBoundImportVerdict(False, False, ("AI4-HANDLE-REGISTRY-DIGEST-MISMATCH",), (), ())
+
+    # DELEGATE to the unchanged pure comparator with the module-verified bound registry.
+    return validate_active_import_against_bundle(
+        evidence,
+        anchor_bundle=anchor_bundle,
+        producer_registry=bound_registry,
+        now_utc=now_utc,
+        phase2_prefix=phase2_prefix,
+        phase2_suffix=phase2_suffix,
+        required_phase2_count=required_phase2_count,
+        max_age_hours=max_age_hours,
+        application=application,
+    )
