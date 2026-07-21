@@ -452,3 +452,76 @@ def validate_active_import_against_bundle(
         present_phase2=verdict.present_phase2,
         reachable_phase2=verdict.reachable_phase2,
     )
+
+
+# =========================================================== F2-R1 §16 ACTIVATED-HANDLE candidate readiness
+# WO-HELM-HERMES-FW08-F2-R1-EXTERNAL-PRODUCER-REGISTRY-ROOT-OF-TRUST-IMPLEMENTATION-0001.
+# F2-R1 defect: `validate_active_import_against_bundle` (above) accepts a RAW ProducerRegistry — but a
+# registry's checksum proves internal INTEGRITY, not external AUTHENTICITY. A caller can mint a fresh
+# registry, invent an approver, register real-authority producers, freeze it, recompute every digest, and hand
+# it in. This entry point accepts a registry ONLY via an ACTIVATED HANDLE minted (elsewhere) by resolution
+# through a governed external authority boundary and sealed by an ActivationAuthority key the caller does not
+# hold. A caller-built lookalike handle fails the seal check (AH-SEAL-INVALID). The handle-module is imported
+# LAZILY to avoid any import cycle; this function does NOT alter `validate_active_import_against_bundle`.
+
+
+def validate_active_import_with_activated_handle(
+    evidence: Mapping[str, object],
+    *,
+    anchor_bundle: object,
+    activated_handle: object,
+    activation_authority: object,
+    now_utc: str,
+    phase2_prefix: str,
+    phase2_suffix: str,
+    required_phase2_count: int,
+    real_candidate_mode: bool = False,
+    max_age_hours: int = 24,
+    application: str = "hermes",
+) -> ImageBoundImportVerdict:
+    """F2-R1 §16. Accept a producer registry ONLY via a trusted `ActivatedRegistryHandle`, then DELEGATE to
+    the unchanged `validate_active_import_against_bundle`. Rejects (fail-closed):
+      * a raw ProducerRegistry passed as the handle → AI3-RAW-REGISTRY-NOT-SUFFICIENT;
+      * an untrusted handle → AI3-HANDLE-<reason> (e.g. AI3-HANDLE-AH-SEAL-INVALID);
+      * a TEST_ONLY handle used in real_candidate_mode → AI3-SYNTHETIC-HANDLE-IN-REAL-MODE;
+      * an application mismatch → AI3-HANDLE-APPLICATION-MISMATCH;
+      * a handle whose bound registry's digest diverges → AI3-HANDLE-REGISTRY-DIGEST-MISMATCH."""
+    import design.hermes_fw08_activated_registry_handle_v1 as _arh
+    import design.hermes_fw08_producer_registry_v1 as _pr
+
+    if isinstance(activated_handle, _pr.ProducerRegistry):
+        return ImageBoundImportVerdict(False, False, ("AI3-RAW-REGISTRY-NOT-SUFFICIENT",), (), ())
+
+    trusted, reasons = _arh.is_trusted(
+        activated_handle, activation_authority=activation_authority, now_utc=now_utc)
+    if not trusted:
+        return ImageBoundImportVerdict(
+            False, False, tuple(sorted("AI3-HANDLE-" + r for r in reasons)), (), ())
+
+    if real_candidate_mode and activated_handle.candidate_use_policy == "TEST_ONLY":
+        return ImageBoundImportVerdict(False, False, ("AI3-SYNTHETIC-HANDLE-IN-REAL-MODE",), (), ())
+
+    if activated_handle.application != application:
+        return ImageBoundImportVerdict(False, False, ("AI3-HANDLE-APPLICATION-MISMATCH",), (), ())
+
+    bound_registry, br_reasons = _arh.get_bound_registry(
+        activated_handle, activation_authority=activation_authority, now_utc=now_utc)
+    if bound_registry is None:
+        return ImageBoundImportVerdict(
+            False, False, tuple(sorted("AI3-HANDLE-" + r for r in br_reasons)), (), ())
+
+    if bound_registry.canonical_digest() != activated_handle.registry_digest:
+        return ImageBoundImportVerdict(False, False, ("AI3-HANDLE-REGISTRY-DIGEST-MISMATCH",), (), ())
+
+    # DELEGATE to the unchanged pure comparator with the AUTHENTICATED bound registry.
+    return validate_active_import_against_bundle(
+        evidence,
+        anchor_bundle=anchor_bundle,
+        producer_registry=bound_registry,
+        now_utc=now_utc,
+        phase2_prefix=phase2_prefix,
+        phase2_suffix=phase2_suffix,
+        required_phase2_count=required_phase2_count,
+        max_age_hours=max_age_hours,
+        application=application,
+    )

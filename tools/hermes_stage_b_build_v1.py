@@ -47,6 +47,8 @@ import design.hermes_fw08_producer_registry_v1 as prr       # F-2 §9 independen
 import design.hermes_fw08_image_identity_anchor_v1 as iia    # F-2 §7 independent image-identity anchor
 import design.hermes_fw08_image_filesystem_anchor_v1 as ifa  # F-2 §8 independent image-filesystem anchor
 import design.hermes_fw08_anchor_bundle_v1 as anb            # F-2 §10 independent anchor bundle
+import design.hermes_fw08_registry_activation_v1 as ract     # F2-R1 §11 governed registry activation
+import design.hermes_fw08_activated_registry_handle_v1 as arh  # F2-R1 §10 sealed activated registry handle
 import design.hermes_fw08_producer_trust_v1 as pt          # R-1 §7 producer-trust + unforgeable seal
 import design.hermes_fw08_evidence_chain_v1 as ec          # R-1 §8 Merkle-bound evidence chain
 import design.hermes_fw08_immutable_context_v1 as imc       # R-2 §9/§10 immutable build-context lifecycle
@@ -1570,11 +1572,45 @@ def run_stage_b_candidate_build(
             )
             if bundle is None:
                 return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ab_reasons))
-            ai_verdict = ai.validate_active_import_against_bundle(
-                ai_evidence, anchor_bundle=bundle, producer_registry=registry, now_utc=now_utc,
-                phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
-                required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
-            )
+            # --- F2-R1 §17: registry AUTHENTICITY via a governed EXTERNAL authority boundary. A registry
+            #     checksum proves INTEGRITY, not external AUTHENTICITY (a caller can mint a fresh registry,
+            #     invent an approver, register real-authority producers, freeze it and recompute digests). If
+            #     the runner exposes a governed authority resolver + activation authority AND the authority
+            #     artifacts, we activate the registry through the resolver, mint a sealed ACTIVATED HANDLE,
+            #     and validate active-import via the handle (the caller cannot forge the seal, and a REAL
+            #     candidate cannot activate at all here since ProductionAuthorityResolver raises). If those
+            #     artifacts are ABSENT (default/fake runner), the EXISTING raw-registry path is used
+            #     UNCHANGED — byte-behaviour-identical to before, and no authority is self-created. ---
+            _resolver = getattr(runner, "authority_resolver", None)
+            _activation_authority = getattr(runner, "activation_authority", None)
+            _authority_root_id = getattr(runner, "authority_root_id", None)
+            _trust_domain_id = getattr(runner, "trust_domain_id", None)
+            _registry_id = getattr(runner, "registry_id", None)
+            _revocation_set = getattr(runner, "revocation_set", None)
+            _candidate_use_mode = getattr(runner, "candidate_use_mode", None)
+            if (_resolver is not None and _activation_authority is not None and _authority_root_id
+                    and _trust_domain_id and _registry_id and _candidate_use_mode):
+                handle, ra_reasons = ract.activate_registry(
+                    registry=registry, resolver=_resolver, activation_authority=_activation_authority,
+                    authority_root_id=_authority_root_id, trust_domain_id=_trust_domain_id,
+                    registry_id=_registry_id, revocation_set=_revocation_set, now_utc=now_utc,
+                    candidate_use_mode=_candidate_use_mode, application=APPLICATION,
+                )
+                if handle is None:
+                    return _reject("REGISTRY-ACTIVATION-FAILED:" + ",".join(ra_reasons))
+                ai_verdict = ai.validate_active_import_with_activated_handle(
+                    ai_evidence, anchor_bundle=bundle, activated_handle=handle,
+                    activation_authority=_activation_authority, now_utc=now_utc,
+                    real_candidate_mode=(_candidate_use_mode == "REAL_CANDIDATE"),
+                    phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
+                    required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
+                )
+            else:
+                ai_verdict = ai.validate_active_import_against_bundle(
+                    ai_evidence, anchor_bundle=bundle, producer_registry=registry, now_utc=now_utc,
+                    phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
+                    required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
+                )
             if not ai_verdict.accepted or not ai_verdict.inert:
                 return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ai_verdict.reason_codes))
 
