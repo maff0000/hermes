@@ -1588,7 +1588,33 @@ def run_stage_b_candidate_build(
             _registry_id = getattr(runner, "registry_id", None)
             _revocation_set = getattr(runner, "revocation_set", None)
             _candidate_use_mode = getattr(runner, "candidate_use_mode", None)
-            if (_resolver is not None and _activation_authority is not None and _authority_root_id
+            # --- F2-R1-C §15/§C5: the candidate mode is a TYPED string, never a bare bool, and NEVER defaults
+            #     to real. REAL_CANDIDATE routes ONLY through the EXTERNALLY-ROOTED path (module-owned trust
+            #     boundary): a caller activation_authority is NEVER trusted, the raw-registry else-branch is
+            #     MECHANICALLY UNREACHABLE in REAL_CANDIDATE mode, and there is no downgrade to test mode. The
+            #     externally-rooted path fails closed here (the production trust-anchor provider is
+            #     unavailable). For TEST_ONLY / INERT_SIMULATION / an ABSENT mode we keep the EXISTING inert
+            #     behaviour byte-for-byte (raw path when authority artifacts absent; the existing
+            #     activated-handle path when present). ---
+            if _candidate_use_mode == "REAL_CANDIDATE":
+                # Any missing authority artifact under REAL_CANDIDATE is fatal — no raw fallback, no downgrade.
+                if not (_resolver is not None and _authority_root_id and _trust_domain_id and _registry_id):
+                    return _reject("F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE")
+                handle, ra_reasons = ract.activate_registry_externally_rooted(
+                    registry=registry, candidate_mode=_candidate_use_mode, resolver=_resolver,
+                    authority_root_id=_authority_root_id, trust_domain_id=_trust_domain_id,
+                    registry_id=_registry_id, revocation_set=_revocation_set, now_utc=now_utc,
+                    application=APPLICATION,
+                )
+                if handle is None:
+                    return _reject("REGISTRY-ACTIVATION-FAILED:" + ",".join(ra_reasons))
+                ai_verdict = ai.validate_active_import_externally_rooted(
+                    ai_evidence, anchor_bundle=bundle, activated_handle=handle,
+                    candidate_mode=_candidate_use_mode, now_utc=now_utc,
+                    phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
+                    required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
+                )
+            elif (_resolver is not None and _activation_authority is not None and _authority_root_id
                     and _trust_domain_id and _registry_id and _candidate_use_mode):
                 handle, ra_reasons = ract.activate_registry(
                     registry=registry, resolver=_resolver, activation_authority=_activation_authority,
@@ -1601,11 +1627,13 @@ def run_stage_b_candidate_build(
                 ai_verdict = ai.validate_active_import_with_activated_handle(
                     ai_evidence, anchor_bundle=bundle, activated_handle=handle,
                     activation_authority=_activation_authority, now_utc=now_utc,
-                    real_candidate_mode=(_candidate_use_mode == "REAL_CANDIDATE"),
+                    real_candidate_mode=False,
                     phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
                     required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
                 )
             else:
+                # NOTE: reachable ONLY for non-REAL_CANDIDATE modes (the raw path is mechanically excluded
+                # from REAL_CANDIDATE by the branch above).
                 ai_verdict = ai.validate_active_import_against_bundle(
                     ai_evidence, anchor_bundle=bundle, producer_registry=registry, now_utc=now_utc,
                     phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
