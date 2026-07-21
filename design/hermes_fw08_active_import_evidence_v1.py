@@ -337,3 +337,118 @@ def validate_image_bound_active_import(
         present_phase2=inert_verdict.present_phase2,
         reachable_phase2=inert_verdict.reachable_phase2,
     )
+
+
+# =========================================================== F-2 §11 INDEPENDENT ANCHOR-BOUND active import
+# WO-HELM-HERMES-FW08-F2-INDEPENDENT-ACTIVE-IMPORT-ANCHORS-IMPLEMENTATION-0001.
+# F-2 defect: the Stage-B wrapper sourced the EXPECTED filesystem digest + trusted producer FROM THE
+# ACTIVE-IMPORT EVIDENCE RECORD ITSELF and fed them straight back into `validate_image_bound_active_import`
+# — a tautology (a record proves its own truth by repeating a value). The correction here derives the
+# expected anchors from an INDEPENDENT `IndependentAnchorBundle` (governed build-result + OCI inspection +
+# producer registry), never from the evidence. `validate_image_bound_active_import` (above) is unchanged and
+# remains a PURE comparator; this wrapper structurally guarantees its `expected_*` arguments come from an
+# independent governed source.
+#
+# STRUCTURAL GUARDS (each rejects; none can be bypassed by mutating the evidence):
+#   * the bundle must be a real IndependentAnchorBundle (passing the evidence Mapping is rejected);
+#   * the registry must be a real ProducerRegistry (an inline dict is rejected);
+#   * the bundle must NOT be derived from active-import evidence;
+#   * the evidence must NOT carry any expected-authority field;
+#   * the evidence must not be the same object as the bundle or either anchor;
+#   * the active-import producer must resolve through the registry AND differ from the build/oci producers.
+# The new anchor/bundle/registry modules do NOT import this module (import them lazily to avoid any cycle).
+
+_EXPECTED_AUTHORITY_KEYS = frozenset({
+    "expected_image_id", "expected_fs_digest", "expected_manifest_digest", "expected_producer",
+    "expected_candidate_id", "trusted_producer_refs",
+})
+
+
+def validate_active_import_against_bundle(
+    evidence: Mapping[str, object],
+    *,
+    anchor_bundle: object,
+    producer_registry: object,
+    now_utc: str,
+    phase2_prefix: str,
+    phase2_suffix: str,
+    required_phase2_count: int,
+    max_age_hours: int = 24,
+    application: str = "hermes",
+) -> ImageBoundImportVerdict:
+    """F-2 §11. Validate active-import evidence against an INDEPENDENT anchor bundle. `accepted` is True ONLY
+    if every structural guard passes AND the delegated pure comparator
+    (`validate_image_bound_active_import`, with EXPECTED values derived from the bundle's anchors) accepts.
+    The expected image id / source / filesystem digest / candidate / trusted producer are derived FROM THE
+    BUNDLE, never from `evidence`."""
+    import design.hermes_fw08_anchor_bundle_v1 as _ab
+    import design.hermes_fw08_producer_registry_v1 as _pr
+
+    # STRUCTURAL guard 1: the bundle must be the governed independent bundle type.
+    if not isinstance(anchor_bundle, _ab.IndependentAnchorBundle):
+        return ImageBoundImportVerdict(False, False, ("AI2-BUNDLE-NOT-INDEPENDENT",), (), ())
+    # STRUCTURAL guard 2: the registry must be the governed registry type (an inline dict is rejected).
+    if not isinstance(producer_registry, _pr.ProducerRegistry):
+        return ImageBoundImportVerdict(False, False, ("AI2-REGISTRY-NOT-GOVERNED",), (), ())
+
+    reasons: List[str] = []
+
+    # STRUCTURAL guard 3: the bundle must not be self-derived from active-import evidence.
+    if anchor_bundle.provenance.derived_from_active_import is not False:
+        reasons.append("AI2-BUNDLE-SELF-DERIVED")
+
+    # STRUCTURAL guard 4: the evidence must not carry expected-authority fields (no tautological injection).
+    if isinstance(evidence, Mapping):
+        if _EXPECTED_AUTHORITY_KEYS & set(evidence.keys()):
+            reasons.append("AI2-EVIDENCE-SUPPLIES-EXPECTED")
+    else:
+        reasons.append("AI2-EVIDENCE-NOT-MAPPING")
+
+    # STRUCTURAL guard 5: the evidence must not BE the bundle or an anchor (identity aliasing).
+    if evidence is anchor_bundle or evidence is anchor_bundle.image_identity_anchor \
+            or evidence is anchor_bundle.image_filesystem_anchor:
+        reasons.append("AI2-EVIDENCE-IS-ANCHOR")
+
+    # Producer authority: resolve the active-import producer through the registry (never via the evidence's
+    # repeated value), and require independence from the build + oci producers.
+    producer_id = str(evidence.get("producer_trust_reference", "")) if isinstance(evidence, Mapping) else ""
+    resolved, _rr = producer_registry.resolve(
+        producer_id=producer_id, evidence_type="ACTIVE_IMPORT", gate_id="STAGE_B_ACTIVE_IMPORT",
+        application=application, now_utc=now_utc,
+    )
+    resolved_pid: Optional[str] = None
+    if resolved is None:
+        reasons.append("AI2-PRODUCER-UNAUTHORISED")
+    else:
+        resolved_pid = resolved.producer_id
+        prov = anchor_bundle.provenance
+        if resolved_pid in (prov.build_producer_id, prov.oci_producer_id):
+            reasons.append("AI2-PRODUCER-NOT-INDEPENDENT")
+
+    if reasons:
+        return ImageBoundImportVerdict(False, False, tuple(sorted(set(reasons))), (), ())
+
+    # Expected anchors derived FROM THE BUNDLE ONLY, then delegated to the unchanged pure comparator.
+    a_ii = anchor_bundle.image_identity_anchor
+    a_fs = anchor_bundle.image_filesystem_anchor
+    verdict = validate_image_bound_active_import(
+        evidence,
+        expected_image_id=a_ii.image_id,
+        expected_source_sha=a_ii.source_sha,
+        expected_fs_digest=a_fs.filesystem_digest,
+        expected_candidate_id=a_ii.candidate_id,
+        trusted_producer_refs=(resolved_pid,) if resolved_pid else (),
+        now_utc=now_utc,
+        phase2_prefix=phase2_prefix,
+        phase2_suffix=phase2_suffix,
+        required_phase2_count=required_phase2_count,
+        max_age_hours=max_age_hours,
+        application=application,
+    )
+    return ImageBoundImportVerdict(
+        accepted=verdict.accepted,
+        inert=verdict.inert,
+        reason_codes=verdict.reason_codes,
+        present_phase2=verdict.present_phase2,
+        reachable_phase2=verdict.reachable_phase2,
+    )
