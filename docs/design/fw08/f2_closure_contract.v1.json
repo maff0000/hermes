@@ -1,0 +1,90 @@
+{
+  "contract_version": "1",
+  "generated_utc": "2026-07-21T00:00:00+00:00",
+  "f2_issue_identity": {
+    "id": "F-2",
+    "title": "Tautological active-import evidence anchors",
+    "wo": "WO-HELM-HERMES-FW08-F2-INDEPENDENT-ACTIVE-IMPORT-ANCHORS-IMPLEMENTATION-0001",
+    "summary": "The Stage-B wrapper sourced the expected filesystem digest and the trusted producer reference from the active-import evidence record itself and fed them back into validate_image_bound_active_import. A record proving its own truth by repeating a value is a tautology; the expected anchors must come from independent governed sources.",
+    "defect_location": "tools/hermes_stage_b_build_v1.py lines ~1519-1542 (pre-correction)"
+  },
+  "original_tautological_bindings": [
+    "expected_fs_digest_from_evidence: fs_digest = ai_evidence.get('image_filesystem_digest') or ai_evidence.get('manifest_digest')",
+    "producer_reference_from_evidence: producer_ref = ai_evidence.get('producer_trust_reference'); trusted_producer_refs=(producer_ref,)"
+  ],
+  "corrected_independent_image_anchor": {
+    "module": "design/hermes_fw08_image_identity_anchor_v1.py",
+    "entrypoint": "build_image_identity_anchor",
+    "dataclass": "ImageIdentityAnchor",
+    "independence": "image id taken from the governed build_result AND independently confirmed via oci_inspection; the two must match (II-BUILD-INSPECT-IMAGE-ID-MISMATCH); no expected_image_id parameter exists; a tag/candidate-name/label is rejected (II-IMAGE-ID-IS-TAG-OR-LABEL / II-IMAGE-ID-NOT-DIGEST)."
+  },
+  "corrected_independent_filesystem_anchor": {
+    "module": "design/hermes_fw08_image_filesystem_anchor_v1.py",
+    "entrypoint": "build_image_filesystem_anchor",
+    "dataclass": "ImageFilesystemAnchor",
+    "independence": "manifest/config/filesystem/layer digests taken only from the dedicated OCI inspection producer; the signature has no active-import parameter and no caller expected_fs_digest parameter."
+  },
+  "corrected_independent_producer_registry": {
+    "module": "design/hermes_fw08_producer_registry_v1.py",
+    "classes": ["ProducerRegistration", "ProducerRegistry"],
+    "independence": "resolve() consults only the registry object, never an evidence record; a frozen registry cannot be mutated; self-registration, inline-from-evidence origin, wildcard scope, and checksum tamper are rejected; real_evidence_authority is registry-governed."
+  },
+  "corrected_anchor_bundle": {
+    "module": "design/hermes_fw08_anchor_bundle_v1.py",
+    "entrypoint": "assemble_anchor_bundle",
+    "dataclasses": ["AnchorProvenance", "IndependentAnchorBundle"],
+    "independence": "parameters are typed anchor objects + registry + producer ids; passing the evidence Mapping as an anchor is rejected as AB-ANCHOR-WRONG-TYPE; provenance.derived_from_active_import must be False."
+  },
+  "wrapper_integration": {
+    "module": "tools/hermes_stage_b_build_v1.py",
+    "function": "run_stage_b_candidate_build",
+    "flow": "build identity anchor + filesystem anchor from independent runner-supplied build_result + oci_inspection through a governed ProducerRegistry, assemble the independent bundle, then call ai.validate_active_import_against_bundle; on any reject return _reject('IMAGE-BOUND-IMPORT-FAILED:'+codes). The wrapper no longer copies fs_digest/producer_ref out of ai_evidence. When the runner supplies no independent artifacts the path is skipped and stays inert (behaviour identical to before).",
+    "validator": "design/hermes_fw08_active_import_evidence_v1.py::validate_active_import_against_bundle"
+  },
+  "fixture_only_implementation_status": true,
+  "no_real_image_built": true,
+  "future_stage_b_dependencies": [
+    "A real, authorised Stage-B image must be built by a governed build producer that emits a real build_result (real image_id digest).",
+    "A dedicated OCI/image-inspection producer must emit real manifest/config/filesystem digests over the exported image filesystem.",
+    "A separate active-import-analysis producer must emit a real non-running import-graph + module inventory.",
+    "The three producers must be registered in the governed ProducerRegistry by an external approver with real_evidence_authority=True.",
+    "R2D2 must audit the exact real-image evidence before candidate readiness is asserted."
+  ],
+  "exact_acceptance_tests": [
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_identity_build_inspect_agree_accepted",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_identity_build_inspect_mismatch_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_identity_tag_or_label_image_id_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_identity_missing_image_id_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_identity_has_no_expected_image_id_param",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_filesystem_anchor_accepted",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_filesystem_wrong_digest_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_filesystem_missing_oci_producer_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_filesystem_stale_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_filesystem_signature_has_no_active_import_param",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_class_limited_to_exact_evidence_type",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_unknown_expired_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_self_registration_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_inline_from_evidence_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_checksum_tamper_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_wildcard_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_registry_frozen_mutation_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_bundle_valid_accepted",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_bundle_mismatches_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_bundle_cycle_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_bundle_derived_from_active_import_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_bundle_evidence_mapping_as_anchor_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_valid_accepted_and_inert",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_evidence_mapping_as_bundle_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_inline_dict_registry_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_evidence_supplies_expected_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_producer_not_independent_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_tautology_copy_digest_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_validator_same_object_rejected",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_fixture_synthetic_producer_not_real",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_fixture_flipping_classification_insufficient",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_wrapper_single_flow_candidate_ready",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_wrapper_self_copied_digest_not_accepted",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_wrapper_no_active_import_artifacts_inert_unchanged",
+    "tests/test_fw08_f2_independent_anchors_v1.py::test_regression_validate_image_bound_active_import_smoke"
+  ]
+}

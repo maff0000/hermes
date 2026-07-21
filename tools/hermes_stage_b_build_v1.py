@@ -43,6 +43,10 @@ import design.hermes_fw08_context_contract_v1 as cc
 import design.hermes_fw08_readiness_evidence_v1 as ee
 import design.hermes_fw08_vuln_disposition_v1 as vd
 import design.hermes_fw08_active_import_evidence_v1 as ai
+import design.hermes_fw08_producer_registry_v1 as prr       # F-2 §9 independent governed producer registry
+import design.hermes_fw08_image_identity_anchor_v1 as iia    # F-2 §7 independent image-identity anchor
+import design.hermes_fw08_image_filesystem_anchor_v1 as ifa  # F-2 §8 independent image-filesystem anchor
+import design.hermes_fw08_anchor_bundle_v1 as anb            # F-2 §10 independent anchor bundle
 import design.hermes_fw08_producer_trust_v1 as pt          # R-1 §7 producer-trust + unforgeable seal
 import design.hermes_fw08_evidence_chain_v1 as ec          # R-1 §8 Merkle-bound evidence chain
 import design.hermes_fw08_immutable_context_v1 as imc       # R-2 §9/§10 immutable build-context lifecycle
@@ -1516,10 +1520,15 @@ def run_stage_b_candidate_build(
         return _reject("VULN-SCAN-FAILED")
     machine.advance(sm.State.VULNERABILITY_SCAN_COMPLETED, now_utc, "VULN-SCAN-COMPLETED", image_id=image_id)
 
-    # --- R-3 §12/§13: image-bound active-import evidence (validated when the runner supplies it). The bare
-    #     evidence-declaration is NOT candidate proof; it must bind to the ACTUAL image id + source + fs
-    #     digest via a trusted producer. The default/fake runner supplies none — the coarse image-content
-    #     gate already proved Phase-2 inertness for the no-real-image flow. ---
+    # --- F-2 §12: image-bound active-import evidence validated against INDEPENDENT governed anchors. The
+    #     F-2 defect was that this block previously sourced the EXPECTED filesystem digest + trusted producer
+    #     FROM ai_evidence ITSELF and fed them back into the comparator — a tautology (a record proving its
+    #     own truth by repeating a value). It now derives the expected anchors from an
+    #     IndependentAnchorBundle assembled from the GOVERNED BUILD RESULT + a dedicated OCI INSPECTION,
+    #     resolved through a governed ProducerRegistry — structurally impossible to supply from ai_evidence.
+    #     The wrapper NO LONGER copies fs_digest / producer_ref out of ai_evidence, and it does NOT accept an
+    #     externally-assembled all-green active-import result. The default/fake runner supplies no
+    #     active-import artifacts — the path is skipped and stays inert (behaviour identical to before). ---
     ai_evidence = None
     _ai_fn = getattr(runner, "active_import_evidence", None)
     if callable(_ai_fn):
@@ -1527,16 +1536,44 @@ def run_stage_b_candidate_build(
             ai_evidence = _ai_fn(image_id, source_sha=str(source_sha))
         except (RealDockerInvocationForbidden, GovernedBuildError):
             ai_evidence = None
-        if ai_evidence is not None:
-            fs_digest = str(ai_evidence.get("image_filesystem_digest")
-                            or ai_evidence.get("manifest_digest") or "")
-            producer_ref = str(ai_evidence.get("producer_trust_reference", ""))
-            ai_verdict = ai.validate_image_bound_active_import(
-                ai_evidence, expected_image_id=image_id, expected_source_sha=str(source_sha),
-                expected_fs_digest=fs_digest, expected_candidate_id=candidate_id,
-                trusted_producer_refs=(producer_ref,) if producer_ref else (), now_utc=now_utc,
+        # Independent producer artifacts + governed registry come from the runner; if ANY is missing, skip
+        # (inert) — never fabricate an anchor from ai_evidence.
+        build_result = getattr(runner, "build_result_evidence", None)
+        oci_inspection = getattr(runner, "oci_inspection_evidence", None)
+        registry = getattr(runner, "producer_registry", None)
+        build_producer_id = getattr(runner, "build_producer_id", None)
+        oci_producer_id = getattr(runner, "oci_producer_id", None)
+        active_import_producer_id = getattr(runner, "active_import_producer_id", None)
+        if (ai_evidence is not None and build_result is not None and oci_inspection is not None
+                and registry is not None and build_producer_id and oci_producer_id
+                and active_import_producer_id):
+            identity_anchor, ii_reasons = iia.build_image_identity_anchor(
+                build_result=build_result, oci_inspection=oci_inspection, candidate_id=candidate_id,
+                source_sha=str(source_sha), producer_registry=registry,
+                build_producer_id=build_producer_id, oci_producer_id=oci_producer_id, now_utc=now_utc,
+                application=APPLICATION,
+            )
+            if identity_anchor is None:
+                return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ii_reasons))
+            fs_anchor, fs_reasons = ifa.build_image_filesystem_anchor(
+                oci_inspection=oci_inspection, image_identity_anchor=identity_anchor,
+                producer_registry=registry, oci_producer_id=oci_producer_id, now_utc=now_utc,
+                application=APPLICATION,
+            )
+            if fs_anchor is None:
+                return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(fs_reasons))
+            bundle, ab_reasons = anb.assemble_anchor_bundle(
+                image_identity_anchor=identity_anchor, image_filesystem_anchor=fs_anchor,
+                producer_registry=registry, build_producer_id=build_producer_id,
+                oci_producer_id=oci_producer_id, active_import_producer_id=active_import_producer_id,
+                now_utc=now_utc, application=APPLICATION,
+            )
+            if bundle is None:
+                return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ab_reasons))
+            ai_verdict = ai.validate_active_import_against_bundle(
+                ai_evidence, anchor_bundle=bundle, producer_registry=registry, now_utc=now_utc,
                 phase2_prefix=cc.PHASE2_MODULE_PREFIX, phase2_suffix=cc.PHASE2_MODULE_SUFFIX,
-                required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT,
+                required_phase2_count=cc.REQUIRED_PHASE2_MODULE_COUNT, application=APPLICATION,
             )
             if not ai_verdict.accepted or not ai_verdict.inert:
                 return _reject("IMAGE-BOUND-IMPORT-FAILED:" + ",".join(ai_verdict.reason_codes))
