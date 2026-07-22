@@ -157,6 +157,15 @@ def assemble_anchor_bundle(
     if build_reg is None or oci_reg is None or ai_reg is None:
         reasons.append("AB-PRODUCER-UNREGISTERED")
 
+    # --- F2-R2 §6: build and OCI producers must be INDEPENDENT of each other, and the active-import producer
+    #     must differ from both. Same producer id / same registration record / an ai producer reused as build
+    #     or oci means one identity both creates and confirms the image. ---
+    if (build_producer_id == oci_producer_id
+            or (build_reg is not None and oci_reg is not None
+                and build_reg.registry_record_checksum == oci_reg.registry_record_checksum)
+            or active_import_producer_id in (build_producer_id, oci_producer_id)):
+        reasons.append("AB-BUILD-OCI-NOT-INDEPENDENT")
+
     reg_ver = getattr(producer_registry, "registry_reference", "")
     if a_ii.producer_registry_ref != reg_ver or a_fs.producer_registry_ref != reg_ver:
         reasons.append("AB-REGISTRY-VERSION-MISMATCH")

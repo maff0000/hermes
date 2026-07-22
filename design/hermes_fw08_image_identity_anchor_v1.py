@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Mapping, Optional, Tuple
 
 import design.hermes_fw08_producer_registry_v1 as pr
+import design.hermes_fw08_producer_independence_v1 as pi  # F2-R2 §6 build/OCI producer independence
 
 CONTRACT_VERSION = "1"
 
@@ -139,6 +140,20 @@ def build_image_identity_anchor(
     )
     if oci_reg is None:
         reasons.append("II-OCI-PRODUCER-UNAUTHORISED")
+
+    # --- F2-R2 §6: the build-result producer and the OCI-inspection producer MUST be GENUINELY INDEPENDENT.
+    #     The pre-F2-R2 `producer_identity = f"{build}+{oci}"` composition happily accepted "X+X"; here we
+    #     first reject the same-id degenerate case explicitly, then run the full evidence-derived independence
+    #     evaluation (same registration / evidence object / evidence ref / copied payload / same tool+authority
+    #     / dual-role / provenance sharing). Independence is DERIVED — never a caller boolean. ---
+    if build_producer_id == oci_producer_id:
+        reasons.append("II-BUILD-OCI-SAME-PRODUCER")
+    if build_reg is not None and oci_reg is not None:
+        for _pi_reason in pi.evaluate_producer_independence(
+            build_result=build_result, oci_inspection=oci_inspection,
+            build_registration=build_reg, oci_registration=oci_reg,
+        ):
+            reasons.append(_pi_reason)
 
     build_img = _get(build_result, "image_id")
     insp_img = _get(oci_inspection, "image_id")
