@@ -47,6 +47,7 @@ import design.hermes_fw08_producer_registry_v1 as prr       # F-2 §9 independen
 import design.hermes_fw08_image_identity_anchor_v1 as iia    # F-2 §7 independent image-identity anchor
 import design.hermes_fw08_image_filesystem_anchor_v1 as ifa  # F-2 §8 independent image-filesystem anchor
 import design.hermes_fw08_anchor_bundle_v1 as anb            # F-2 §10 independent anchor bundle
+import design.hermes_fw08_producer_independence_v1 as pi     # F2-R2 §7 build/OCI producer independence
 import design.hermes_fw08_registry_activation_v1 as ract     # F2-R1 §11 governed registry activation
 import design.hermes_fw08_activated_registry_handle_v1 as arh  # F2-R1 §10 sealed activated registry handle
 import design.hermes_fw08_producer_trust_v1 as pt          # R-1 §7 producer-trust + unforgeable seal
@@ -1549,6 +1550,29 @@ def run_stage_b_candidate_build(
         if (ai_evidence is not None and build_result is not None and oci_inspection is not None
                 and registry is not None and build_producer_id and oci_producer_id
                 and active_import_producer_id):
+            # --- F2-R2 §7: explicit build/OCI producer-independence gate BEFORE any anchor construction. We
+            #     resolve each producer's registration for its OWN role and evaluate independence from the
+            #     bound registrations + evidence (same producer / registration / evidence object / evidence
+            #     ref / copied payload / same tool+authority / dual-role / provenance). A failure rejects
+            #     outright — no anchors are built, no downgrade. For REAL_CANDIDATE this sits inside the
+            #     externally-rooted path (which itself fails closed at the trust provider); for TEST_ONLY /
+            #     inert it runs here. When artifacts are absent (default runner) this whole block is skipped —
+            #     behaviour byte-identical to before. ---
+            _bld_reg, _ = registry.resolve(
+                producer_id=build_producer_id, evidence_type="BUILD_RESULT", gate_id="STAGE_B_BUILD_RESULT",
+                application=APPLICATION, now_utc=now_utc,
+            )
+            _oci_reg, _ = registry.resolve(
+                producer_id=oci_producer_id, evidence_type="OCI_INSPECTION", gate_id="STAGE_B_OCI_INSPECTION",
+                application=APPLICATION, now_utc=now_utc,
+            )
+            if _bld_reg is not None and _oci_reg is not None:
+                _pi_reasons = pi.evaluate_producer_independence(
+                    build_result=build_result, oci_inspection=oci_inspection,
+                    build_registration=_bld_reg, oci_registration=_oci_reg,
+                )
+                if _pi_reasons:
+                    return _reject("PRODUCER-INDEPENDENCE-FAILED:" + ",".join(_pi_reasons))
             identity_anchor, ii_reasons = iia.build_image_identity_anchor(
                 build_result=build_result, oci_inspection=oci_inspection, candidate_id=candidate_id,
                 source_sha=str(source_sha), producer_registry=registry,

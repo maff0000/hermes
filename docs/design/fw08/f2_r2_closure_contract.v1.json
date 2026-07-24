@@ -1,0 +1,33 @@
+{
+  "issue_id": "FW08-F2-R2",
+  "invariant": "BUILD_RESULT_PRODUCER != OCI_INSPECTION_PRODUCER",
+  "independence_checks": [
+    "F2R2-REGISTRATION-WRONG-TYPE",
+    "F2R2-SAME-PRODUCER-ID",
+    "F2R2-SAME-REGISTRATION",
+    "F2R2-SAME-EVIDENCE-OBJECT",
+    "F2R2-MISSING-EVIDENCE-REF",
+    "F2R2-SAME-EVIDENCE-REF",
+    "F2R2-COPIED-PAYLOAD",
+    "F2R2-SAME-TOOL-AND-AUTHORITY",
+    "F2R2-DUAL-ROLE-WITHOUT-EXCEPTION",
+    "F2R2-DUAL-ROLE-EXCEPTION-NOT-ACTIVATED",
+    "F2R2-OCI-DERIVED-FROM-BUILD",
+    "F2R2-OCI-DERIVED-FROM-ACTIVE-IMPORT",
+    "F2R2-SHARED-PROVENANCE-REF"
+  ],
+  "dual_role_policy_default": "DUAL_ROLE_FORBIDDEN",
+  "dual_role_activated": false,
+  "anchor_integration": "design/hermes_fw08_image_identity_anchor_v1.py build_image_identity_anchor: after resolving build_reg+oci_reg, rejects with II-BUILD-OCI-SAME-PRODUCER (same id) plus every F2R2-* reason returned by evaluate_producer_independence before minting.",
+  "wrapper_integration": "tools/hermes_stage_b_build_v1.py authority block: an explicit producer-independence gate resolves build_reg/oci_reg and calls evaluate_producer_independence BEFORE anchor construction; any reason -> _reject('PRODUCER-INDEPENDENCE-FAILED:...'), no anchors, no downgrade. Skipped (inert) when build_result/oci_inspection artifacts absent.",
+  "no_independence_boolean": true,
+  "test_only_status": true,
+  "real_image_proof": false,
+  "acceptance_tests": [
+    "tests/test_fw08_f2_r2_producer_independence_v1.py"
+  ],
+  "remaining_f2_r3": "Real-image proof: exercise the independence gate against genuine build-result + OCI-inspection producers over a real (governed) image, and a governed activation of the dual-role exception (currently MODELLED/INERT).",
+  "classification": "F2_R2_INERT_BUILD_AND_OCI_PRODUCER_INDEPENDENCE_CONTRACT_IMPLEMENTED_REAL_IMAGE_PROOF_OUTSTANDING",
+  "contract_version": "1",
+  "generated_utc": "2026-07-22T00:00:00+00:00"
+}
