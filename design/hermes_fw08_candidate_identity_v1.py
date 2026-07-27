@@ -30,6 +30,7 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Mapping, Optional, Tuple
 
@@ -60,6 +61,60 @@ FORBIDDEN_TAGS = frozenset({"latest", "stable", "prod", "production", "current",
 RUNTIME_SERVICE_NAMES = frozenset({
     "hermes", "hermes-consumer", "hermes-runtime", "hermes-live", "hermes-prod",
 })
+
+# C-PR121-NS-TRAVERSAL. A namespace/repository component in the canonical (already-normalised) form: a
+# lowercase ASCII token, starting and ending alphanumeric, with only [-._] internal. A `.`/`..` component,
+# any encoding, backslash, control char, non-ASCII, uppercase, whitespace, scheme/host/query/fragment, or a
+# `//`/leading-`/` is NON-CANONICAL and rejected — never silently repaired into a valid path.
+_SAFE_COMPONENT_RE = re.compile(r"^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$")
+# Foreign application roots a candidate namespace/repository may never name.
+_FOREIGN_APP_HINTS = ("argus", "ares", "proteus", "helios", "falcon", "solo", "neo", "gunnar", "bagman", "r2d2")
+
+
+def _canonical_path_components(value: str) -> Optional[Tuple[str, ...]]:
+    """Return the path components of `value` IFF it is ALREADY fully canonical and traversal-safe, else None.
+
+    C-PR121-NS-TRAVERSAL: a textual prefix is insufficient. This proves canonical containment by rejecting
+    (never repairing) any non-canonical form: empty, leading/trailing whitespace, NUL/control chars, non-ASCII
+    (Unicode confusables), uppercase (case-sensitive ASCII), backslashes, ANY percent-encoding (single or
+    nested — encoded traversal never round-trips to canonical), scheme/host/query/fragment injection, absolute
+    paths, `.`/`..`/empty components, and any component that is not a safe token. Canonical round-trip identity
+    is required: re-joining the split components must equal the input exactly (rejects `//`, trailing `/`)."""
+    if not value or value != value.strip() or value != value.lower():
+        return None
+    if any(ord(c) < 0x20 or ord(c) == 0x7f or ord(c) > 0x7f for c in value):
+        return None
+    if "\\" in value or "%" in value:                       # backslash / any encoding -> non-canonical
+        return None
+    if "://" in value or "?" in value or "#" in value:      # scheme / host / query / fragment injection
+        return None
+    if value.startswith("/"):                                # absolute path
+        return None
+    components = tuple(value.split("/"))
+    for comp in components:
+        if comp in ("", ".", "..") or not _SAFE_COMPONENT_RE.match(comp):
+            return None
+    if "/".join(components) != value:                        # canonical round-trip identity
+        return None
+    return components
+
+
+def _validate_isolated_path(value: str, *, require_child: bool) -> Tuple[str, ...]:
+    """Return reason SUFFIXES (NOT-ISOLATED / TRAVERSAL / CROSS-APPLICATION) the caller maps to its exact
+    reason codes. () iff `value` is canonical AND strictly under the exact root, with a child when required.
+    C-PR121-NS-TRAVERSAL closure."""
+    comps = _canonical_path_components(value)
+    if comps is None:
+        return ("TRAVERSAL", "NOT-ISOLATED")                # non-canonical/traversal form -> definitively unsafe
+    reasons: List[str] = []
+    if comps[0] != NAMESPACE_ROOT:
+        reasons.append("NOT-ISOLATED")
+        if any(h in comps[0] for h in _FOREIGN_APP_HINTS) or comps[0].endswith("-candidate") \
+                or NAMESPACE_ROOT in comps[1:]:
+            reasons.append("CROSS-APPLICATION")
+    elif require_child and len(comps) < 2:
+        reasons.append("NOT-ISOLATED")                       # exact root with no child where a child is required
+    return tuple(reasons)
 
 
 def _canonical(obj: object) -> str:
@@ -259,16 +314,26 @@ def validate_candidate_identity(
     tag_lc = tag.lower()
     repo_lc = repo.lower()
 
-    # §7 namespace isolation: MUST be exactly the root or a child of the root.
-    if not (ns == NAMESPACE_ROOT or ns.startswith(NAMESPACE_ROOT + "/") or ns.startswith(NAMESPACE_ROOT + "-")):
-        reasons.append("CI-NAMESPACE-NOT-ISOLATED")
+    # §7/C-PR121-NS-TRAVERSAL namespace isolation: canonicalise the RAW field (NOT the pre-stripped copy — so
+    #     leading/trailing whitespace is caught) and prove STRICT containment under the exact root with a child.
+    #     A textual prefix is insufficient — traversal/encoding/backslash/sibling-lookalike forms are rejected
+    #     before the candidate is accepted. Suffixes map to the EXACT existing reason codes.
+    _NS_CODES = {"NOT-ISOLATED": "CI-NAMESPACE-NOT-ISOLATED", "TRAVERSAL": "CI-NAMESPACE-TRAVERSAL",
+                 "CROSS-APPLICATION": "CI-CROSS-APPLICATION-NAMESPACE"}
+    for suffix in _validate_isolated_path(str(ci.candidate_namespace or ""), require_child=True):
+        reasons.append(_NS_CODES[suffix])
 
-    # cross-application prefix: a namespace naming another application before the candidate root.
-    ns_head = ns.split("/", 1)[0]
-    if ns_head and ns_head != NAMESPACE_ROOT and not ns.startswith(NAMESPACE_ROOT):
-        # e.g. "argus-fw08-candidate/..." or "otherapp/hermes-fw08-candidate"
-        if application not in ns_head or ns_head.startswith("argus") or "/" + NAMESPACE_ROOT in ns:
-            reasons.append("CI-CROSS-APPLICATION-NAMESPACE")
+    # §8/C-PR121-NS-TRAVERSAL expected image repository: SAME canonicalisation + containment under the root.
+    _REPO_CODES = {"NOT-ISOLATED": "CI-REPO-NOT-ISOLATED", "TRAVERSAL": "CI-REPO-TRAVERSAL",
+                   "CROSS-APPLICATION": "CI-REPO-CROSS-APPLICATION"}
+    for suffix in _validate_isolated_path(str(ci.expected_image_repository or ""), require_child=True):
+        reasons.append(_REPO_CODES[suffix])
+
+    # §7/C-PR121-NS-TRAVERSAL proposed immutable tag: exactly ONE canonical safe token — no path separator,
+    #     encoding, backslash or traversal may let a tag alter namespace/repository interpretation.
+    _raw_tag = str(ci.proposed_immutable_tag or "")
+    if _canonical_path_components(_raw_tag) != (_raw_tag,):
+        reasons.append("CI-TAG-TRAVERSAL")
 
     # "latest" is a hard-forbidden mutable tag.
     if tag_lc == "latest":
