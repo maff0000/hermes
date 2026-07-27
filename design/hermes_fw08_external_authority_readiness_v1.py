@@ -216,10 +216,28 @@ def _seal_message(readiness: ExternalAuthorityReadiness) -> bytes:
     return (readiness.readiness_digest + "\x00" + readiness.synthetic_or_real_classification).encode("utf-8")
 
 
+class EARPromotionForbidden(Exception):
+    """C-PR122-EAR-PROMOTION control B — raised when a caller asks the public constructor to confer a non-
+    synthetic (real/governed) classification. Public construction is SYNTHETIC-ONLY in this inert stage; a real
+    classification is not caller-conferrable and is not silently repaired — it is rejected explicitly."""
+
+
 def new_external_authority_readiness(**kwargs: object) -> ExternalAuthorityReadiness:
-    """Blessed constructor: builds an ExternalAuthorityReadiness with its readiness_digest computed over the
-    identity fields and its seal applied by the MODULE issuer. Blesses INTEGRITY only — validity is decided by
-    `validate_authority_readiness`. Defaults fill inert/empty fault fields for a READY record."""
+    """Blessed SYNTHETIC-ONLY constructor: builds an ExternalAuthorityReadiness with its readiness_digest
+    computed over the identity fields and its seal applied by the MODULE issuer. Blesses INTEGRITY only —
+    validity is decided by `validate_authority_readiness`. Defaults fill inert/empty fault fields for a READY
+    record.
+
+    C-PR122-EAR-PROMOTION control B: the caller may NOT confer a real/governed classification through this
+    public path. Any `synthetic_or_real_classification` other than 'SYNTHETIC' is REJECTED (not repaired) with
+    `EARPromotionForbidden`. A real classification can only ever arise from a genuinely available governed
+    production authority (unavailable in this WO), never from caller-supplied construction."""
+    _cls = kwargs.get("synthetic_or_real_classification", "SYNTHETIC")
+    if str(_cls) != "SYNTHETIC":
+        raise EARPromotionForbidden(
+            "public construction is synthetic-only; caller-selected classification "
+            f"{_cls!r} is not permitted (C-PR122-EAR-PROMOTION)")
+    kwargs.setdefault("synthetic_or_real_classification", "SYNTHETIC")
     kwargs.setdefault("contract_version", CONTRACT_VERSION)
     kwargs.setdefault("lifecycle_stage", LIFECYCLE_STAGE)
     kwargs.setdefault("fault_code", "")
@@ -340,6 +358,17 @@ def validate_authority_readiness(
     """
     if not isinstance(readiness, ExternalAuthorityReadiness):
         return ("EAR-WRONG-TYPE",)
+
+    # C-PR122-EAR-PROMOTION control A — UNCONDITIONAL real-mode fail-closed gate. Real-mode readiness cannot be
+    #   accepted while a governed production external authority is not genuinely available. This gate runs
+    #   FIRST and is INDEPENDENT of the seal, the classification value, the constructor used, the issuer
+    #   identity, caller assertions, object provenance, reflective access, or monkey-patching of unrelated
+    #   objects: a valid-looking seal (even one freshly minted through the public constructor or the reflective
+    #   module issuer) NEVER substitutes for actual external-authority availability. A module seal is integrity
+    #   metadata for synthetic contract objects — it is NOT external authority, a trust anchor, a production
+    #   issuer, HSM/KMS evidence, or permission to enter real mode. Real mode is NOT downgraded to synthetic.
+    if real_mode and not production_external_authority_available():
+        return ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
 
     reasons: List[str] = []
 

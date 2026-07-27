@@ -27,7 +27,8 @@
     "states": ["AUTHORITY_READY", "AUTHORITY_UNAVAILABLE", "AUTHORITY_REVOKED", "AUTHORITY_INVALID"],
     "authority_classes": ["SYNTHETIC_TEST_AUTHORITY_READINESS", "GOVERNED_EXTERNAL_AUTHORITY_READINESS", "REVOKED_AUTHORITY_READINESS", "UNTRUSTED_AUTHORITY_READINESS"],
     "candidate_modes": ["TEST_ONLY", "INERT_SIMULATION", "REAL_CANDIDATE"],
-    "classification_setter": "MODULE issuer (never the caller); seal binds classification so a relabel to REAL breaks it",
+    "classification_setter": "C-PR122-EAR-PROMOTION: public construction (new_external_authority_readiness) is SYNTHETIC-ONLY and REJECTS any caller-selected non-synthetic classification with EARPromotionForbidden (not silently repaired). The module seal is INTEGRITY metadata for synthetic contract objects only — NOT external authority, a trust anchor, a production issuer, HSM/KMS evidence, or permission to enter real mode. It does NOT by itself prevent synthetic-to-real promotion.",
+    "real_mode_unconditional_fail_closed": "validate_authority_readiness(real_mode=True) returns ('EAR-PRODUCTION-AUTHORITY-UNAVAILABLE',) whenever production_external_authority_available() is False — FIRST, before any seal/classification/reference is considered, and independent of the constructor/issuer/reflection. A freshly-minted, correctly-sealed REAL record (via a reflective/object.__new__ path) still fails on unavailability, NOT on an invalid seal.",
     "references_only": true,
     "no_signing_or_private_material_fields": true,
     "evidence_record": "EV-03 authority-readiness record: authority_root reference, resolver identity, verifier interface, revocation source, expiry/rotation policy references"

@@ -155,8 +155,10 @@ def test_wrong_type_rejected():
 def test_same_synthetic_record_rejected_in_real_mode():
     r = _make_synthetic()
     assert ear.validate_authority_readiness(r, now_utc=NOW, real_mode=False) == ()
+    # C-PR122-EAR-PROMOTION: real mode fails closed FIRST on production-authority unavailability (independent
+    # of classification/seal) — the decisive gate, not merely a synthetic-classification check.
     reasons = ear.validate_authority_readiness(r, now_utc=NOW, real_mode=True)
-    assert "EAR-SYNTHETIC-IN-REAL-MODE" in reasons
+    assert reasons == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
 
 
 def test_caller_supplied_verifier_in_real_mode_is_trust_loop():
@@ -208,11 +210,13 @@ def test_non_verifier_interface_rejected():
 def test_module_synthetic_cannot_become_real_relabel_breaks_seal():
     r = _make_synthetic()
     relabelled = dataclasses.replace(r, synthetic_or_real_classification="REAL")
-    reasons = ear.validate_authority_readiness(relabelled, now_utc=NOW, real_mode=True)
-    # the seal binds the classification -> relabel breaks the seal.
-    assert "EAR-SEAL-INVALID" in reasons
-    # and it therefore does NOT pass real mode either.
-    assert reasons != ()
+    # the seal binds the classification -> relabel breaks the seal (proved in test mode, where the seal check
+    # is the operative integrity gate and control A does not short-circuit).
+    assert "EAR-SEAL-INVALID" in ear.validate_authority_readiness(relabelled, now_utc=NOW, real_mode=False)
+    # C-PR122-EAR-PROMOTION: in real mode the unconditional production-authority gate fires FIRST — the
+    # record never passes real mode regardless of seal state.
+    assert ear.validate_authority_readiness(relabelled, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
 
 
 def test_subclass_proxy_cannot_relabel_synthetic_to_real():
@@ -226,8 +230,11 @@ def test_subclass_proxy_cannot_relabel_synthetic_to_real():
     fields["synthetic_or_real_classification"] = "REAL"
     proxy = ProxyReadiness(**fields)
     assert ear._MODULE_ISSUER.verify(proxy) is False
-    reasons = ear.validate_authority_readiness(proxy, now_utc=NOW, real_mode=True)
-    assert "EAR-SEAL-INVALID" in reasons
+    # seal-invalid is the operative failure in test mode.
+    assert "EAR-SEAL-INVALID" in ear.validate_authority_readiness(proxy, now_utc=NOW, real_mode=False)
+    # C-PR122-EAR-PROMOTION: real mode fails closed FIRST on production-authority unavailability.
+    assert ear.validate_authority_readiness(proxy, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
 
 
 def test_monkeypatched_authority_cannot_bypass_classification(monkeypatch):
@@ -433,3 +440,88 @@ def test_readiness_carries_no_signing_material():
     # and its own validator confirms no caller signing material is present.
     assert "EAR-CALLER-SIGNING-MATERIAL" not in ear.validate_authority_readiness(
         r, now_utc=NOW, real_mode=False)
+
+
+# ============================================================================ C-PR122-EAR-PROMOTION fresh-mint attack tests
+def _real_kwargs(**over):
+    kw = dict(_synthetic_kwargs())
+    kw.pop("mode", None)
+    return kw
+
+
+def test_public_constructor_rejects_real_classification():
+    # §3B: the public constructor is SYNTHETIC-ONLY — a caller cannot confer a real classification (not repaired).
+    with pytest.raises(ear.EARPromotionForbidden):
+        ear.new_external_authority_readiness(
+            synthetic_or_real_classification="REAL", readiness_state="AUTHORITY_READY",
+            authority_class="GOVERNED_EXTERNAL_AUTHORITY_READINESS", provenance="p",
+            external_authority_reference="ref://authority", trust_anchor_reference="ref://anchor",
+            resolver_reference="ref://resolver", issuer_identity_reference="ref://issuer",
+            attestation_policy_reference="ref://policy", evidence_references=("ref://ev",),
+            issued_or_observed_utc=NOW, validity_end_utc=VALIDITY_END)
+
+
+@pytest.mark.parametrize("cls", ["REAL", "real", "Real", " REAL ", "GOVERNED_EXTERNAL_AUTHORITY_READINESS", "PRODUCTION"])
+def test_public_constructor_rejects_all_non_synthetic_classifications(cls):
+    with pytest.raises(ear.EARPromotionForbidden):
+        ear.new_external_authority_readiness(
+            synthetic_or_real_classification=cls, readiness_state="AUTHORITY_READY",
+            authority_class="GOVERNED_EXTERNAL_AUTHORITY_READINESS", provenance="p",
+            external_authority_reference="ref://a", trust_anchor_reference="ref://t", resolver_reference="ref://r",
+            issuer_identity_reference="ref://i", attestation_policy_reference="ref://p",
+            evidence_references=("ref://e",), issued_or_observed_utc=NOW, validity_end_utc=VALIDITY_END)
+
+
+def test_fresh_mint_real_via_reflective_issuer_fails_on_unavailability_not_seal():
+    # §3C.2/§3C.3: a caller reaches the reflective module issuer and mints a STRUCTURALLY VALID, CORRECTLY
+    # SEALED 'REAL' record. It must STILL fail real-mode validation — because production authority is
+    # unavailable, NOT because the seal is invalid.
+    base = _make_synthetic()
+    real = dataclasses.replace(base, synthetic_or_real_classification="REAL")
+    real = dataclasses.replace(real, readiness_digest=real.recompute_digest())
+    real = dataclasses.replace(real, seal=ear._MODULE_ISSUER.seal_readiness(real))
+    assert ear._MODULE_ISSUER.verify(real) is True          # the seal IS valid (correctly minted)
+    reasons = ear.validate_authority_readiness(real, now_utc=NOW, real_mode=True)
+    assert reasons == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)  # fails on availability, not seal
+    assert "EAR-SEAL-INVALID" not in reasons
+
+
+def test_object_new_direct_construction_then_real_mode_fails_closed():
+    # §3C.5: bypass the constructor entirely via object.__new__ + a valid module seal.
+    base = _make_synthetic()
+    obj = object.__new__(ear.ExternalAuthorityReadiness)
+    for f in dataclasses.fields(base):
+        object.__setattr__(obj, f.name, getattr(base, f.name))
+    object.__setattr__(obj, "synthetic_or_real_classification", "REAL")
+    object.__setattr__(obj, "readiness_digest", obj.recompute_digest())
+    object.__setattr__(obj, "seal", ear._MODULE_ISSUER.seal_readiness(obj))
+    assert ear.validate_authority_readiness(obj, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
+
+
+@pytest.mark.parametrize("copier", [lambda o: __import__("copy").copy(o), lambda o: __import__("copy").deepcopy(o)])
+def test_copied_sealed_real_record_fails_closed(copier):
+    # §3C.6: copy/deepcopy a valid-sealed REAL record -> still fails on production unavailability.
+    base = _make_synthetic()
+    real = dataclasses.replace(base, synthetic_or_real_classification="REAL")
+    real = dataclasses.replace(real, readiness_digest=real.recompute_digest())
+    real = dataclasses.replace(real, seal=ear._MODULE_ISSUER.seal_readiness(real))
+    assert ear.validate_authority_readiness(copier(real), now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
+
+
+def test_monkeypatched_availability_true_without_resolver_still_blocked_by_resolve(monkeypatch):
+    # §3C.4/§7: forcing production_external_authority_available()->True does NOT let a caller synthesise a real
+    # record: resolve_authority_readiness(REAL) is unconditionally fail-closed BEFORE any availability check.
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    r, reasons = ear.resolve_authority_readiness(mode="REAL_CANDIDATE", **_synthetic_kwargs())
+    assert r is None and "EAR-REAL-AUTHORITY-UNAVAILABLE" in reasons
+
+
+def test_real_mode_gate_is_first_and_independent_of_seal(monkeypatch):
+    # §4 ordering: the production-availability gate precedes seal/classification/reference checks. Prove it by
+    # feeding a record with a BROKEN seal AND bad refs in real mode -> the FIRST (and only) reason is the gate.
+    base = _make_synthetic()
+    broken = dataclasses.replace(base, seal="0" * 64, external_authority_reference="")
+    assert ear.validate_authority_readiness(broken, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)

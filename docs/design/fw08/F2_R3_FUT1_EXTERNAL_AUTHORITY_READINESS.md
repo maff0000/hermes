@@ -35,7 +35,18 @@ readiness_state, authority_class, external_authority_reference, trust_anchor_ref
 issuer_identity_reference, attestation_policy_reference, evidence_references, issued_or_observed_utc,
 validity_end_utc (expiry/rotation), provenance, fault_code, fail_closed_reason,
 synthetic_or_real_classification, readiness_digest, seal. **References only — no signing/private material
-fields.** `synthetic_or_real_classification` is set by the MODULE issuer, never the caller.
+fields.**
+
+**C-PR122-EAR-PROMOTION.** Public construction (`new_external_authority_readiness`) is **synthetic-only**: a
+caller-selected non-synthetic classification is **rejected** with `EARPromotionForbidden` (not silently
+repaired). The module seal is **integrity metadata for synthetic contract objects only** — it is *not*
+external authority, a trust anchor, a production issuer, HSM/KMS evidence, or permission to enter real mode,
+and it does **not** by itself prevent synthetic-to-real promotion. Promotion is prevented by the
+**unconditional real-mode fail-closed gate**: `validate_authority_readiness(real_mode=True)` returns
+`('EAR-PRODUCTION-AUTHORITY-UNAVAILABLE',)` whenever `production_external_authority_available()` is False —
+first, before any seal/classification/reference is considered, and independent of the constructor, issuer, or
+reflective access. A freshly-minted, *correctly-sealed* `REAL` record (built through a reflective or
+`object.__new__` path) still fails on unavailability, **not** on an invalid seal.
 
 Readiness states: `AUTHORITY_READY`, `AUTHORITY_UNAVAILABLE`, `AUTHORITY_REVOKED`, `AUTHORITY_INVALID`.
 Authority classes: `SYNTHETIC_TEST_AUTHORITY_READINESS`, `GOVERNED_EXTERNAL_AUTHORITY_READINESS`,
