@@ -1,0 +1,135 @@
+{
+  "issue_id": "WO-HELM-HERMES-FW08-F2-R3-EXECUTION-CONTENT-INDEPENDENCE-AND-REAL-IMAGE-PROOF-IMPLEMENTATION-0001",
+  "invariant": "REAL_IMAGE_PROOF => DISTINCT_EXECUTIONS + CONTENT_RESOLVED_EVIDENCE + GOVERNED_PRODUCER_AUTHORITY + EXTERNALLY_VERIFIED_ACTIVE_IMPORT",
+  "execution_independence": {
+    "module": "design/hermes_fw08_execution_identity_v1.py",
+    "type": "ExecutionIdentity",
+    "evaluator": "evaluate_execution_independence",
+    "no_independence_boolean": true,
+    "reason_codes": [
+      "EI-WRONG-TYPE",
+      "EI-SAME-OBJECT",
+      "EI-SAME-EXECUTION-ID",
+      "EI-SAME-PROCESS",
+      "EI-COPIED-EXECUTION-EVIDENCE",
+      "EI-ONE-EXECUTION-BOTH-ROLES",
+      "EI-COMMON-EXECUTABLE-AND-AUTHORITY",
+      "EI-MISSING-EXECUTION-IDENTITY",
+      "EI-UNVERIFIABLE-EXECUTION",
+      "EI-SYNTHETIC-EXECUTION-IN-REAL-MODE",
+      "EI-DUAL-ROLE-EXCEPTION-NOT-ACTIVATED"
+    ],
+    "keyed_on": "executable_digest + authority_reference + runner_identity (NOT tool/producer names)"
+  },
+  "content_resolution": {
+    "module": "design/hermes_fw08_content_resolution_v1.py",
+    "type": "ContentResolvedEvidence",
+    "production_resolver_available": false,
+    "resolver_gate": "require_content_resolver",
+    "verify": "resolve_and_verify",
+    "reason_codes": [
+      "CR-RESOLVER-MISSING",
+      "CR-RESOLVER-UNTRUSTED",
+      "CR-SYNTHETIC-IN-REAL-MODE",
+      "CR-UNRESOLVED-REFERENCE",
+      "CR-MUTABLE-REFERENCE",
+      "CR-REFERENCE-CONTENT-MISMATCH",
+      "CR-CHANGED-CONTENT"
+    ]
+  },
+  "near_copy_detection": {
+    "detector": "detect_alias_or_nearcopy",
+    "may_agree_fields": ["image_id", "candidate_id", "source_sha"],
+    "must_be_independently_resolved_fields": ["manifest_digest", "config_digest", "filesystem_digest", "layer_digests", "extraction_method", "tool_identity", "inspection_utc"],
+    "reason_codes": [
+      "CR-ALIAS-SAME-CONTENT",
+      "CR-NEAR-COPY-FROM-BUILD",
+      "CR-FABRICATED-OCI-DIGEST",
+      "CR-OCI-FROM-ACTIVE-IMPORT",
+      "CR-EMBEDDED-EVIDENCE"
+    ]
+  },
+  "governed_dual_role_exception": {
+    "module": "design/hermes_fw08_producer_independence_v1.py",
+    "type": "GovernedDualRoleException",
+    "validator": "validate_governed_dual_role_exception",
+    "modelled_not_activated": true,
+    "active_helper": "governed_dual_role_active",
+    "active": false,
+    "reason_codes": [
+      "GDRE-NOT-AN-EXCEPTION",
+      "GDRE-SAME-EXECUTION",
+      "GDRE-SAME-EVIDENCE-REF",
+      "GDRE-SAME-CONTENT-DIGEST",
+      "GDRE-SAME-APPROVAL",
+      "GDRE-AUTHORITY-BINDING-MISSING",
+      "GDRE-EXPIRED",
+      "GDRE-REVOCATION-REFERENCE-MISSING",
+      "GDRE-AUDIT-REASON-MISSING",
+      "GDRE-NO-COMPENSATING-CONTROLS",
+      "GDRE-SELF-APPROVED",
+      "GDRE-WILDCARD-SCOPE",
+      "GDRE-DIGEST-TAMPER"
+    ]
+  },
+  "legacy_comparator_containment": {
+    "module": "design/hermes_fw08_legacy_comparator_containment_v1.py",
+    "legacy_comparator_name": "validate_image_bound_active_import",
+    "legacy_comparator_status": "CONTAINED_FIXTURE_COMPARISON_ONLY_NOT_READINESS_AUTHORITY",
+    "comparator_is_readiness_authority": false,
+    "comparator_unchanged_byte_identical": true,
+    "verification": ["assert_no_readiness_bypass", "guard_not_proof"],
+    "reason_codes": [
+      "LC-WRAPPER-DIRECT-COMPARATOR",
+      "LC-CLI-BYPASS",
+      "LC-DYNAMIC-ROUTE",
+      "LC-COMPARATOR-NOT-PROOF-AUTHORITY"
+    ]
+  },
+  "real_image_proof_model": {
+    "module": "design/hermes_fw08_real_image_proof_v1.py",
+    "type": "RealImageProof",
+    "issuer": "_ProofIssuer (module-owned ephemeral HMAC seal)",
+    "proof_classifications": ["SYNTHETIC_TEST_PROOF", "REAL_IMAGE_PROOF", "REVOKED_PROOF", "INVALID_PROOF"],
+    "assemble": "assemble_proof",
+    "verify": "verify_proof",
+    "synthetic_mint_helper": "new_synthetic_test_proof",
+    "classification_set_by_issuer_not_caller": true,
+    "reason_codes": [
+      "RIP-REAL-SOURCE-UNAVAILABLE",
+      "RIP-EXECUTIONS-NOT-INDEPENDENT",
+      "RIP-CONTENT-NOT-RESOLVED",
+      "RIP-NEAR-COPY",
+      "RIP-SYNTHETIC-REQUIRES-MODULE-TOKEN",
+      "RIP-WRONG-TYPE",
+      "RIP-SEAL-INVALID",
+      "RIP-DIGEST-TAMPER",
+      "RIP-EXPIRED",
+      "RIP-SYNTHETIC-IN-REAL-MODE",
+      "RIP-SOURCE-MISMATCH",
+      "RIP-IMAGE-MISMATCH",
+      "RIP-CANDIDATE-TAG-REUSE",
+      "RIP-SUBSTITUTED-EXECUTION",
+      "RIP-SUBSTITUTED-PRODUCER",
+      "RIP-SUBSTITUTED-SBOM",
+      "RIP-SUBSTITUTED-VULN",
+      "RIP-REVOKED-AT-USE"
+    ]
+  },
+  "replay_resistance": {
+    "seal_binds_classification": true,
+    "caller_forged_proof_rejected": true,
+    "relabelled_synthetic_rejected_in_real_mode": true,
+    "substitution_and_reuse_detected": true
+  },
+  "real_proof_executed": false,
+  "production_real_image_source_available": false,
+  "no_independence_boolean": true,
+  "test_only_status": true,
+  "acceptance_tests": [
+    "tests/test_fw08_f2_r3_execution_content_proof_v1.py"
+  ],
+  "classification": "F2_R3_INERT_EXECUTION_CONTENT_INDEPENDENCE_AND_REAL_IMAGE_PROOF_CONTRACT_IMPLEMENTED_REAL_PROOF_EXECUTION_OUTSTANDING",
+  "contract_version": "1",
+  "generated_utc": "2026-07-27T00:00:00+00:00"
+}

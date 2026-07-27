@@ -48,6 +48,9 @@ import design.hermes_fw08_image_identity_anchor_v1 as iia    # F-2 §7 independe
 import design.hermes_fw08_image_filesystem_anchor_v1 as ifa  # F-2 §8 independent image-filesystem anchor
 import design.hermes_fw08_anchor_bundle_v1 as anb            # F-2 §10 independent anchor bundle
 import design.hermes_fw08_producer_independence_v1 as pi     # F2-R2 §7 build/OCI producer independence
+import design.hermes_fw08_execution_identity_v1 as exid       # F2-R3 §4/§5 execution independence
+import design.hermes_fw08_content_resolution_v1 as cres        # F2-R3 §6/§7 content resolution + near-copy
+import design.hermes_fw08_real_image_proof_v1 as rip           # F2-R3 §10-§12 real-image proof (fails closed)
 import design.hermes_fw08_registry_activation_v1 as ract     # F2-R1 §11 governed registry activation
 import design.hermes_fw08_activated_registry_handle_v1 as arh  # F2-R1 §10 sealed activated registry handle
 import design.hermes_fw08_producer_trust_v1 as pt          # R-1 §7 producer-trust + unforgeable seal
@@ -1621,6 +1624,28 @@ def run_stage_b_candidate_build(
             #     behaviour byte-for-byte (raw path when authority artifacts absent; the existing
             #     activated-handle path when present). ---
             if _candidate_use_mode == "REAL_CANDIDATE":
+                # --- F2-R3 §13: for a REAL candidate, extend the ordering to EXECUTION-INDEPENDENCE +
+                #     CONTENT-RESOLUTION + NEAR-COPY + REAL-IMAGE-PROOF assembly. ALL of these FAIL CLOSED in
+                #     real mode (the production real-image source is unavailable in this WO): there is no real
+                #     candidate image, no real build/OCI execution evidence, no external authority, no real
+                #     SBOM/vuln. `assemble_proof(REAL_CANDIDATE)` therefore ALWAYS returns
+                #     RIP-REAL-SOURCE-UNAVAILABLE — no downgrade, no raw path, no synthetic proof. When the
+                #     runner supplies NO F2-R3 artifacts (default runner) this block is skipped exactly as
+                #     before (inert, byte-identical). ---
+                _bld_exec = getattr(runner, "build_execution_identity", None)
+                _oci_exec = getattr(runner, "oci_execution_identity", None)
+                _content_resolver = getattr(runner, "content_resolver", None)
+                if (_bld_exec is not None or _oci_exec is not None or _content_resolver is not None):
+                    _rip, _rip_reasons = rip.assemble_proof(
+                        candidate_mode=_candidate_use_mode, source_sha=str(source_sha),
+                        candidate_image_id=candidate_id, build_execution=_bld_exec, oci_execution=_oci_exec,
+                        build_content=None, oci_content=None, image_identity_anchor=identity_anchor,
+                        filesystem_anchor=fs_anchor, activated_handle=None, active_import_verdict=None,
+                        sbom_reference="", vulnerability_result_reference="", trust_context=None,
+                        now_utc=now_utc, expiry_utc=now_utc,
+                    )
+                    if _rip is None:
+                        return _reject("F2R3-REAL-PROOF-REQUIRES-REAL-IMAGE-AND-AUTHORITY")
                 # Any missing authority artifact under REAL_CANDIDATE is fatal — no raw fallback, no downgrade.
                 if not (_resolver is not None and _authority_root_id and _trust_domain_id and _registry_id):
                     return _reject("F2R1-REAL-CANDIDATE-REQUIRES-EXTERNALLY-VERIFIED-HANDLE")
