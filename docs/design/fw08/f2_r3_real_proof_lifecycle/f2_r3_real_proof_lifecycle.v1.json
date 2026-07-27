@@ -1,0 +1,541 @@
+{
+  "contract_version": "1",
+  "generated_utc": "2026-07-27T00:00:00+00:00",
+  "canonical_base": "7c45d7a3ef73a1f60fe66d035d2ba7188be5ca66",
+  "classification": "F2_R3_REAL_PROOF_EXECUTION_CONTROLLED_LIFECYCLE_DESIGN",
+  "design_note": "DESIGN-ONLY. This artifact designs (does NOT execute) the future controlled, separately-gated lifecycle that could earn ONE genuine REAL_IMAGE_PROOF against ONE real candidate image, and designs the closure of L-F2R3-NEARCOPY / L-F2R3-BYPASS-STATIC / L-F2R3-REFLECTIVE. Real-image proof cannot be produced yet: design.hermes_fw08_real_image_proof_v1.production_real_image_source_available() is False, so assemble_proof(candidate_mode='REAL_CANDIDATE') always fails closed with ('F2R3-REAL-PROOF-REQUIRES-REAL-IMAGE-AND-AUTHORITY','RIP-REAL-SOURCE-UNAVAILABLE'). Nothing here builds, inspects, signs, publishes, deploys, or activates anything.",
+  "flags": {
+    "real_execution_authorised": false,
+    "image_build_authorised": false,
+    "authority_configured": false,
+    "runtime_mutation": false,
+    "redis": false,
+    "sql": false,
+    "secrets_present": false,
+    "design_only": true
+  },
+  "protected_runtime": {
+    "source": "71ea3bd4598d8af5628f78de10f8022088ad3f05",
+    "image": "c5fc2a62f424",
+    "container": "d80018037b7f",
+    "restarts": 0,
+    "runners": 9,
+    "config_version": "v3",
+    "consumer_live": false
+  },
+  "lifecycle_stages": [
+    {
+      "stage_number": 1,
+      "name": "canonical-source freeze",
+      "owner": "Chief Architect",
+      "mutation_authority": "Chief Architect authorises the freeze; no code/image mutation",
+      "required_input": "Chief Architect authorisation naming the exact canonical source SHA to be proven",
+      "produced_evidence": "EV-01 source-freeze record: canonical_source_sha, freeze_utc, operator identity, authorisation reference",
+      "required_approval": "Chief Architect explicit authorisation for the lifecycle run",
+      "success_verdict": "SOURCE_FROZEN — canonical_source_sha pinned and immutable for this run",
+      "fail_closed_verdict": "NO_AUTHORISATION -> HALT; no downstream stage may proceed",
+      "prohibited_side_effects": ["no build", "no image inspection", "no runtime mutation", "no registry publication", "no protected-runtime touch"],
+      "rollback_or_containment": "Abandon run; no artefacts created; nothing to roll back",
+      "next_gate": "Gate-1 -> candidate identity allocation"
+    },
+    {
+      "stage_number": 2,
+      "name": "candidate identity allocation",
+      "owner": "Chief Architect",
+      "mutation_authority": "Chief Architect allocates an isolated candidate identity; no runtime mutation",
+      "required_input": "EV-01 source-freeze record; isolation namespace reservation (§16)",
+      "produced_evidence": "EV-02 candidate-identity record: candidate_id, isolated namespace, source_sha binding, allocation_utc",
+      "required_approval": "Chief Architect (allocation is sequencing authority)",
+      "success_verdict": "CANDIDATE_ALLOCATED — unique candidate_id in an isolated namespace, never a latest tag",
+      "fail_closed_verdict": "NAMESPACE_NOT_ISOLATED or TAG_REUSE -> HALT",
+      "prohibited_side_effects": ["no latest tag", "no deployed-image replacement", "no runtime wiring", "no restart", "no protected-runtime touch"],
+      "rollback_or_containment": "Release the reserved candidate_id; deterministic namespace cleanup",
+      "next_gate": "Gate-2 -> external-authority readiness"
+    },
+    {
+      "stage_number": 3,
+      "name": "external-authority readiness",
+      "owner": "HELM",
+      "mutation_authority": "HELM configures the governed external authority resolver under §6; no self-issued authority",
+      "required_input": "EV-02; real_authority_contract (§6); references only (no secret values)",
+      "produced_evidence": "EV-03 authority-readiness record: authority_root reference, resolver identity, verifier interface, revocation source, expiry/rotation policy references",
+      "required_approval": "Chief Architect authorises use of the external authority; HELM performs configuration",
+      "success_verdict": "AUTHORITY_READY — ProductionAuthorityResolver resolves; verifier-only interface bound; authority root externally rooted",
+      "fail_closed_verdict": "AUTHORITY_UNAVAILABLE -> FAIL_CLOSED (mirrors F2-R1 ResolverNotConfigured / require_resolver); real-mode resolution cannot proceed",
+      "prohibited_side_effects": ["no secret material in code/git/evidence/memory-fabric/design-doc", "no /etc or host-global writes", "no runtime mutation"],
+      "rollback_or_containment": "Tear down resolver configuration in the isolated namespace; authority returns to unconfigured (fail-closed)",
+      "next_gate": "Gate-3 -> build-producer registration"
+    },
+    {
+      "stage_number": 4,
+      "name": "build-producer registration",
+      "owner": "HELM",
+      "mutation_authority": "HELM registers the build producer under governed authority; build producer performs build evidence only",
+      "required_input": "EV-03 authority-readiness; governed ProducerRegistry + ActivatedRegistryHandle (F2-R1 §10/§11)",
+      "produced_evidence": "EV-04 build-producer registration record: build_producer_id, execution identity binding, registration approval, activated-handle reference",
+      "required_approval": "Chief Architect authorises registration; approval authority is external (no self-approval)",
+      "success_verdict": "BUILD_PRODUCER_REGISTERED — build producer bound with real_evidence_authority under a trusted ActivatedRegistryHandle",
+      "fail_closed_verdict": "REGISTRATION_NOT_AUTHORISED or SELF_APPROVED -> FAIL_CLOSED",
+      "prohibited_side_effects": ["build producer must not perform OCI inspection", "build producer must not verify proof", "no runtime mutation"],
+      "rollback_or_containment": "Revoke the registration via §6 revocation source; handle no longer trusted",
+      "next_gate": "Gate-4 -> OCI-inspection-producer registration"
+    },
+    {
+      "stage_number": 5,
+      "name": "OCI-inspection-producer registration",
+      "owner": "HELM",
+      "mutation_authority": "HELM registers the OCI-inspection producer as an execution-distinct producer; OCI producer performs inspection evidence only",
+      "required_input": "EV-04 build-producer registration; distinctness matrix (build!=OCI across 6 dimensions)",
+      "produced_evidence": "EV-05 OCI-producer registration record: oci_producer_id, distinct execution identity, distinct executable_digest + authority_reference + runner_identity, registration approval",
+      "required_approval": "Chief Architect authorises registration; external approval authority (no self-approval)",
+      "success_verdict": "OCI_PRODUCER_REGISTERED — oci_producer_id execution-distinct from build_producer_id (EI-COMMON-EXECUTABLE-AND-AUTHORITY would otherwise reject)",
+      "fail_closed_verdict": "PRODUCERS_NOT_DISTINCT -> FAIL_CLOSED (evaluate_execution_independence -> EI-COMMON-EXECUTABLE-AND-AUTHORITY / EI-ONE-EXECUTION-BOTH-ROLES)",
+      "prohibited_side_effects": ["OCI producer must not consume build payload as truth", "OCI producer must inspect image independently by digest", "no runtime mutation"],
+      "rollback_or_containment": "Revoke the OCI-producer registration via §6 revocation source",
+      "next_gate": "Gate-5 -> evidence-store readiness"
+    },
+    {
+      "stage_number": 6,
+      "name": "evidence-store readiness",
+      "owner": "HELM",
+      "mutation_authority": "HELM readies the immutable evidence-store resolver (§9); NO store mutation in this WO or in the design",
+      "required_input": "EV-05; evidence_store_resolver_contract (§9); ContentResolver interface (content_resolution module)",
+      "produced_evidence": "EV-06 evidence-store readiness record: immutable_storage_id, resolver identity, immutability attestation, alias/mutable-reference rejection policy",
+      "required_approval": "Chief Architect authorises store use; HELM readies resolver",
+      "success_verdict": "EVIDENCE_STORE_READY — immutable, content-addressed; resolve_and_verify enforces digest match at expected version",
+      "fail_closed_verdict": "STORE_MUTABLE or ALIASED -> FAIL_CLOSED (CR-MUTABLE-REFERENCE / CR-UNRESOLVED-REFERENCE / CR-REFERENCE-CONTENT-MISMATCH / CR-CHANGED-CONTENT)",
+      "prohibited_side_effects": ["no store mutation", "no alias creation", "no mutable references", "no runtime mutation"],
+      "rollback_or_containment": "Store remains read-only; no writes to roll back; quarantine any candidate evidence namespace",
+      "next_gate": "Gate-6 -> candidate-image build"
+    },
+    {
+      "stage_number": 7,
+      "name": "candidate-image build",
+      "owner": "build producer",
+      "mutation_authority": "build producer executes the controlled build under HELM-supervised execution; produces build evidence only",
+      "required_input": "EV-01 frozen source; EV-04 build-producer registration; isolated namespace",
+      "produced_evidence": "EV-07 build result: build execution identity, executable+invocation digests, return code, build_result record, artefact digests, build_utc",
+      "required_approval": "Chief Architect authorises the single controlled build; HELM supervises execution",
+      "success_verdict": "IMAGE_BUILT — candidate image produced from the frozen source under the registered build execution",
+      "fail_closed_verdict": "BUILD_FAILED or WRONG_SOURCE -> FAIL_CLOSED; no downstream proof",
+      "prohibited_side_effects": ["build producer must not perform OCI inspection", "build producer must not verify proof", "no latest tag", "no deployed-image replacement", "no runtime mutation", "no protected-runtime touch"],
+      "rollback_or_containment": "Delete candidate image from isolated namespace; deterministic cleanup",
+      "next_gate": "Gate-7 -> immutable image digest capture"
+    },
+    {
+      "stage_number": 8,
+      "name": "immutable image digest capture",
+      "owner": "build producer",
+      "mutation_authority": "build producer captures the immutable digest; no mutation of the image after capture",
+      "required_input": "EV-07 build result; the built candidate image reference",
+      "produced_evidence": "EV-08 immutable-digest record: immutable_image_digest, candidate_image_id, source_sha binding, capture_utc",
+      "required_approval": "recorded under Chief Architect run authorisation (no new approval)",
+      "success_verdict": "DIGEST_CAPTURED — immutable_image_digest pinned; image frozen for inspection",
+      "fail_closed_verdict": "DIGEST_UNSTABLE or MUTABLE_TAG -> FAIL_CLOSED",
+      "prohibited_side_effects": ["no image mutation after capture", "no latest tag", "no runtime mutation"],
+      "rollback_or_containment": "Discard candidate image and its digest record from the isolated namespace",
+      "next_gate": "Gate-8 -> independent OCI inspection"
+    },
+    {
+      "stage_number": 9,
+      "name": "independent OCI inspection",
+      "owner": "OCI producer",
+      "mutation_authority": "OCI producer independently inspects the image by digest; produces inspection evidence only",
+      "required_input": "EV-08 immutable-digest record ONLY (never the build payload as truth)",
+      "produced_evidence": "EV-09 OCI inspection: manifest_digest, config_digest, ordered layer_digests, filesystem_digest, image metadata, extraction_method, tool_identity, inspection_utc, inspection_tool_output_digest",
+      "required_approval": "recorded under Chief Architect run authorisation; OCI producer is execution-distinct",
+      "success_verdict": "OCI_INSPECTED — all mandatory OCI-only values independently derived by digest",
+      "fail_closed_verdict": "NEAR_COPY or FROM_BUILD -> FAIL_CLOSED (detect_alias_or_nearcopy -> CR-NEAR-COPY-FROM-BUILD / CR-FABRICATED-OCI-DIGEST / CR-OCI-FROM-ACTIVE-IMPORT / CR-EMBEDDED-EVIDENCE)",
+      "prohibited_side_effects": ["OCI producer must not consume build payload as truth", "must inspect independently by digest", "no runtime mutation"],
+      "rollback_or_containment": "Discard inspection evidence; quarantine candidate evidence namespace",
+      "next_gate": "Gate-9 -> execution-independence validation"
+    },
+    {
+      "stage_number": 10,
+      "name": "execution-independence validation",
+      "owner": "HELM",
+      "mutation_authority": "HELM runs the module-owned validator; verdict is derived, not asserted (no independence boolean)",
+      "required_input": "EV-07 build execution identity + EV-09 OCI execution identity",
+      "produced_evidence": "EV-10 execution-independence verdict: evaluate_execution_independence result, keyed on executable_digest + authority_reference + runner_identity",
+      "required_approval": "verdict recorded under run authorisation; audited later by R2D2",
+      "success_verdict": "EXECUTIONS_INDEPENDENT — no reason codes returned",
+      "fail_closed_verdict": "NOT_INDEPENDENT -> FAIL_CLOSED (EI-SAME-EXECUTION-ID / EI-SAME-PROCESS / EI-COPIED-EXECUTION-EVIDENCE / EI-ONE-EXECUTION-BOTH-ROLES / EI-COMMON-EXECUTABLE-AND-AUTHORITY)",
+      "prohibited_side_effects": ["no independence boolean parameter", "no name-based bypass (renamed tool/relabelled producer does not pass)", "no runtime mutation"],
+      "rollback_or_containment": "Halt run; retain verdict evidence; quarantine candidate namespace",
+      "next_gate": "Gate-10 -> content-resolution validation"
+    },
+    {
+      "stage_number": 11,
+      "name": "content-resolution validation",
+      "owner": "HELM",
+      "mutation_authority": "HELM resolves build+OCI evidence references through the immutable store; no store mutation",
+      "required_input": "EV-06 store readiness; EV-07 build evidence references; EV-09 OCI evidence references",
+      "produced_evidence": "EV-11 content-resolution verdict: resolve_and_verify results, resolved content_digests at expected versions",
+      "required_approval": "verdict recorded under run authorisation; audited later by R2D2",
+      "success_verdict": "CONTENT_RESOLVED — references resolve to content whose digest matches the independently-expected digest",
+      "fail_closed_verdict": "UNRESOLVED or MISMATCH -> FAIL_CLOSED (CR-RESOLVER-MISSING / CR-SYNTHETIC-IN-REAL-MODE / CR-UNRESOLVED-REFERENCE / CR-MUTABLE-REFERENCE / CR-REFERENCE-CONTENT-MISMATCH / CR-CHANGED-CONTENT)",
+      "prohibited_side_effects": ["no store mutation", "no synthetic resolver in real mode", "no runtime mutation"],
+      "rollback_or_containment": "Halt run; store untouched; quarantine candidate namespace",
+      "next_gate": "Gate-11 -> semantic near-copy and derivation validation"
+    },
+    {
+      "stage_number": 12,
+      "name": "semantic near-copy and derivation validation",
+      "owner": "HELM",
+      "mutation_authority": "HELM runs detect_alias_or_nearcopy over resolved build+OCI content and raw records",
+      "required_input": "EV-11 resolved content; EV-07 build_result; EV-09 oci_inspection record",
+      "produced_evidence": "EV-12 near-copy verdict: detect_alias_or_nearcopy result over the L-F2R3-NEARCOPY mandatory set",
+      "required_approval": "verdict recorded under run authorisation; audited later by R2D2",
+      "success_verdict": "NOT_A_NEAR_COPY — all mandatory independently-inspected OCI values present and OCI-derived",
+      "fail_closed_verdict": "NEAR_COPY -> FAIL_CLOSED (CR-ALIAS-SAME-CONTENT / CR-NEAR-COPY-FROM-BUILD / CR-FABRICATED-OCI-DIGEST / CR-OCI-FROM-ACTIVE-IMPORT / CR-EMBEDDED-EVIDENCE)",
+      "prohibited_side_effects": ["one differing field is NOT sufficient", "no acceptance on build-restated metadata", "no runtime mutation"],
+      "rollback_or_containment": "Halt run; quarantine candidate evidence; retain verdict for audit",
+      "next_gate": "Gate-12 -> SBOM generation"
+    },
+    {
+      "stage_number": 13,
+      "name": "SBOM generation",
+      "owner": "OCI producer",
+      "mutation_authority": "OCI producer generates the SBOM from the inspected image by digest; inspection evidence only",
+      "required_input": "EV-08 immutable image digest; EV-09 OCI inspection",
+      "produced_evidence": "EV-13 SBOM record: sbom_reference, sbom content digest, generation tool identity, sbom_utc",
+      "required_approval": "recorded under run authorisation; produced_in_this_wo=false (design-only)",
+      "success_verdict": "SBOM_GENERATED — SBOM bound to immutable_image_digest",
+      "fail_closed_verdict": "SBOM_MISSING or SUBSTITUTED -> FAIL_CLOSED (verify_proof -> RIP-SUBSTITUTED-SBOM at use)",
+      "prohibited_side_effects": ["no runtime mutation", "no SBOM produced in this WO"],
+      "rollback_or_containment": "Discard SBOM artefact from isolated namespace",
+      "next_gate": "Gate-13 -> vulnerability scanning"
+    },
+    {
+      "stage_number": 14,
+      "name": "vulnerability scanning",
+      "owner": "OCI producer",
+      "mutation_authority": "OCI producer scans the inspected image by digest; inspection evidence only",
+      "required_input": "EV-08 immutable image digest; EV-13 SBOM record",
+      "produced_evidence": "EV-14 vulnerability result: vulnerability_result_reference, result content digest, scanner identity, scan_utc",
+      "required_approval": "recorded under run authorisation; produced_in_this_wo=false (design-only)",
+      "success_verdict": "VULN_SCANNED — result bound to immutable_image_digest",
+      "fail_closed_verdict": "VULN_MISSING or SUBSTITUTED -> FAIL_CLOSED (verify_proof -> RIP-SUBSTITUTED-VULN at use)",
+      "prohibited_side_effects": ["no runtime mutation", "no scan produced in this WO"],
+      "rollback_or_containment": "Discard vulnerability result from isolated namespace",
+      "next_gate": "Gate-14 -> trust-anchor resolution"
+    },
+    {
+      "stage_number": 15,
+      "name": "trust-anchor resolution",
+      "owner": "HELM",
+      "mutation_authority": "HELM resolves the trust-anchor lineage through the governed external resolver (§6); no self-issued anchor",
+      "required_input": "EV-03 authority readiness; resolver lineage references",
+      "produced_evidence": "EV-15 trust-anchor record: trust_anchor_lineage_ref, resolver_lineage_ref, external root binding",
+      "required_approval": "Chief Architect authorises trust-anchor use; HELM resolves",
+      "success_verdict": "TRUST_ANCHOR_RESOLVED — lineage rooted in the external authority root",
+      "fail_closed_verdict": "ANCHOR_UNAVAILABLE -> FAIL_CLOSED (authority_unavailable_behaviour = FAIL_CLOSED)",
+      "prohibited_side_effects": ["no secret values", "no /etc or host-global writes", "no runtime mutation"],
+      "rollback_or_containment": "Trust-anchor configuration torn down; returns to fail-closed",
+      "next_gate": "Gate-15 -> activated-registry validation"
+    },
+    {
+      "stage_number": 16,
+      "name": "activated-registry validation",
+      "owner": "HELM",
+      "mutation_authority": "HELM validates the ActivatedRegistryHandle via F2-R1 activate_registry; sole minting path, fail-closed",
+      "required_input": "EV-04/EV-05 producer registrations; EV-15 trust anchor; governed resolver + activation authority",
+      "produced_evidence": "EV-16 activated-registry record: activated_registry_handle_ref, handle_checksum, is_trusted verdict",
+      "required_approval": "recorded under run authorisation; audited later by R2D2",
+      "success_verdict": "REGISTRY_ACTIVATED — handle is_trusted under the module-owned ActivationAuthority seal",
+      "fail_closed_verdict": "HANDLE_FORGED -> FAIL_CLOSED (F2-R1 AH-SEAL-INVALID)",
+      "prohibited_side_effects": ["no caller-minted authority", "no runtime mutation"],
+      "rollback_or_containment": "Revoke the activated handle via §6 revocation source",
+      "next_gate": "Gate-16 -> active-import validation"
+    },
+    {
+      "stage_number": 17,
+      "name": "active-import validation",
+      "owner": "HELM",
+      "mutation_authority": "HELM validates active import ONLY via the trusted ActivatedRegistryHandle (F2-R1 §16)",
+      "required_input": "EV-16 activated-registry handle; EV-09 OCI inspection bound to the image",
+      "produced_evidence": "EV-17 active-import verdict: validate_active_import_with_activated_handle result, verdict_source (governed validator, NOT the raw comparator)",
+      "required_approval": "recorded under run authorisation; audited later by R2D2",
+      "success_verdict": "ACTIVE_IMPORT_VALIDATED — externally-verified active import bound to the image digest",
+      "fail_closed_verdict": "COMPARATOR_PROVENANCE -> FAIL_CLOSED (guard_not_proof -> LC-COMPARATOR-NOT-PROOF-AUTHORITY; assert_no_readiness_bypass -> LC-WRAPPER-DIRECT-COMPARATOR / LC-CLI-BYPASS / LC-DYNAMIC-ROUTE)",
+      "prohibited_side_effects": ["legacy comparator never confers readiness/proof authority", "no runtime mutation"],
+      "rollback_or_containment": "Halt run; retain verdict; quarantine candidate namespace",
+      "next_gate": "Gate-17 -> real-proof assembly"
+    },
+    {
+      "stage_number": 18,
+      "name": "real-proof assembly",
+      "owner": "HELM",
+      "mutation_authority": "HELM invokes the module-owned assemble_proof; classification set by the issuer, never the caller",
+      "required_input": "EV-10..EV-17 (execution independence, content resolution, near-copy, SBOM, vuln, trust anchor, activated registry, active import)",
+      "produced_evidence": "EV-18 candidate proof: RealImageProof (issuer-sealed) OR fail-closed reason codes",
+      "required_approval": "recorded under run authorisation; the proof itself is NOT publication/deployment authority",
+      "success_verdict": "REAL_IMAGE_PROOF_ASSEMBLED — issuer-classified REAL_IMAGE_PROOF (achievable ONLY when production_real_image_source_available() is True)",
+      "fail_closed_verdict": "SOURCE_UNAVAILABLE -> FAIL_CLOSED (assemble_proof(REAL_CANDIDATE) -> F2R3-REAL-PROOF-REQUIRES-REAL-IMAGE-AND-AUTHORITY, RIP-REAL-SOURCE-UNAVAILABLE); no downgrade to synthetic",
+      "prohibited_side_effects": ["no caller-set classification", "no synthetic downgrade in real mode", "no runtime mutation"],
+      "rollback_or_containment": "No proof minted on failure; candidate namespace quarantined",
+      "next_gate": "Gate-18 -> independent R2D2 proof audit"
+    },
+    {
+      "stage_number": 19,
+      "name": "independent R2D2 proof audit",
+      "owner": "R2D2",
+      "mutation_authority": "R2D2 performs an independent, READ-ONLY audit; R2D2 mutates NOTHING and approves NOTHING it built",
+      "required_input": "EV-01..EV-18 full evidence chain; the assembled proof; verify_proof under expected context",
+      "produced_evidence": "EV-19 R2D2 audit verdict + blueprint: independent verify_proof result, distinctness re-derivation, near-copy re-check, GREEN/AMBER/RED disposition",
+      "required_approval": "R2D2 independent audit is a mandatory gate; no self-audit (R2D2 built none of the evidence)",
+      "success_verdict": "AUDIT_GREEN — proof verified independently; verify_proof returns (True, ()) under the expected context",
+      "fail_closed_verdict": "AUDIT_RED -> FAIL_CLOSED (RIP-SEAL-INVALID / RIP-DIGEST-TAMPER / RIP-SYNTHETIC-IN-REAL-MODE / RIP-SUBSTITUTED-* / RIP-REVOKED-AT-USE); AMBER halts pending resolution",
+      "prohibited_side_effects": ["R2D2 never executes", "R2D2 never mutates evidence", "R2D2 never approves its own work", "no runtime mutation"],
+      "rollback_or_containment": "On RED/AMBER, run halts; evidence retained read-only for review",
+      "next_gate": "Gate-19 -> publication decision"
+    },
+    {
+      "stage_number": 20,
+      "name": "publication decision",
+      "owner": "Chief Architect",
+      "mutation_authority": "Chief Architect decides publication; a decision, not an image/runtime mutation",
+      "required_input": "EV-19 R2D2 AUDIT_GREEN verdict; full evidence chain",
+      "produced_evidence": "EV-20 publication decision record: decision, authorising operator, rationale, decision_utc",
+      "required_approval": "Chief Architect explicit publication authorisation (separate from the run authorisation)",
+      "success_verdict": "PUBLICATION_AUTHORISED — proof + image may be published to the operational registry ONLY if separately authorised",
+      "fail_closed_verdict": "NOT_AUTHORISED -> HALT; no publication",
+      "prohibited_side_effects": ["no operational-registry publication unless separately authorised", "no latest tag", "no runtime mutation"],
+      "rollback_or_containment": "Un-publish from operational registry if published in error; candidate remains isolated otherwise",
+      "next_gate": "Gate-20 -> deployment decision"
+    },
+    {
+      "stage_number": 21,
+      "name": "deployment decision",
+      "owner": "Chief Architect",
+      "mutation_authority": "Chief Architect decides deployment; deployment execution (if any) is a separate later authorised action",
+      "required_input": "EV-20 publication decision; EV-19 R2D2 GREEN verdict",
+      "produced_evidence": "EV-21 deployment decision record: decision, authorising operator, rationale, decision_utc",
+      "required_approval": "Chief Architect explicit deployment authorisation (separate from publication)",
+      "success_verdict": "DEPLOYMENT_AUTHORISED — deployment may proceed ONLY under a separate later authorised action; protected runtime remains untouched by this lifecycle",
+      "fail_closed_verdict": "NOT_AUTHORISED -> HALT; no deployment; protected runtime untouched",
+      "prohibited_side_effects": ["no deployed-image replacement", "no restart", "no config install", "no protected-runtime mutation", "no runtime wiring"],
+      "rollback_or_containment": "Deployment (if ever performed) is out of this lifecycle; protected runtime source 71ea3bd4 / image c5fc2a62f424 / container d80018037b7f remains untouched",
+      "next_gate": "Gate-21 -> rollback or evidence quarantine"
+    },
+    {
+      "stage_number": 22,
+      "name": "rollback or evidence quarantine",
+      "owner": "HELM",
+      "mutation_authority": "HELM performs deterministic cleanup/quarantine of the isolated candidate namespace; protected runtime untouched",
+      "required_input": "run verdicts EV-01..EV-21; isolation namespace inventory",
+      "produced_evidence": "EV-22 closure record: cleanup/quarantine actions, final mutation status, evidence retention manifest, closure_utc",
+      "required_approval": "recorded under run authorisation; R2D2 may re-audit the closure",
+      "success_verdict": "RUN_CLOSED — candidate namespace cleaned or quarantined deterministically; evidence retained; protected runtime unchanged (restarts 0)",
+      "fail_closed_verdict": "CLEANUP_INCOMPLETE -> quarantine and escalate; nothing left wired to live",
+      "prohibited_side_effects": ["no protected-runtime touch", "no evidence mount into live container", "no runtime mutation"],
+      "rollback_or_containment": "Namespace quarantined; deterministic cleanup completed; current runtime untouched",
+      "next_gate": "terminal -> independent R2D2 exact-head design audit; no real Stage-B execution authorised"
+    }
+  ],
+  "operator_authority_matrix": [
+    {
+      "lane": "Chief Architect",
+      "may": "sequence the lifecycle, authorise each gate, authorise publication and deployment decisions, name the canonical source and candidate",
+      "may_not": "perform controlled execution, inspect images, sign, deploy, or audit; may not self-approve a mutation it also performs"
+    },
+    {
+      "lane": "HELM",
+      "may": "perform controlled execution ONLY under Chief Architect authorisation (configuration, validation invocation, cleanup/quarantine)",
+      "may_not": "authorise itself, approve its own mutations, perform the independent audit, or set proof classification"
+    },
+    {
+      "lane": "R2D2",
+      "may": "perform independent, READ-ONLY audit and issue the audit blueprint/verdict",
+      "may_not": "execute, mutate any evidence, build any evidence it then audits, or approve its own work (no self-audit)"
+    },
+    {
+      "lane": "build producer",
+      "may": "produce build evidence only (candidate-image build, immutable digest capture)",
+      "may_not": "perform OCI inspection, verify proof, or approve/audit its own build evidence"
+    },
+    {
+      "lane": "OCI producer",
+      "may": "produce inspection evidence only (independent OCI inspection, SBOM, vulnerability scan) by digest",
+      "may_not": "consume the build payload as truth, build the image, verify proof, or approve/audit its own inspection evidence"
+    }
+  ],
+  "build_oci_distinctness_assertion": {
+    "assertion": "build producer and OCI producer MUST be distinct across all six dimensions; identity is keyed on executable_digest + authority_reference + runner_identity, NOT on tool/producer names",
+    "dimensions": [
+      "execution identity",
+      "registration",
+      "runner",
+      "executable boundary",
+      "evidence reference",
+      "provenance"
+    ],
+    "no_self_approval": true,
+    "no_self_audit": true,
+    "enforced_by": "design.hermes_fw08_execution_identity_v1.evaluate_execution_independence -> EI-COMMON-EXECUTABLE-AND-AUTHORITY / EI-ONE-EXECUTION-BOTH-ROLES / EI-SAME-EXECUTION-ID"
+  },
+  "real_authority_contract": {
+    "authority_root": "GOVERNED_EXTERNAL_AUTHORITY_ROOT (reference only) — design.hermes_fw08_authority_root_v1.AuthorityRoot / validate_authority_root",
+    "resolver": "ProductionAuthorityResolver via require_resolver (F2-R1 §9); no /etc or filesystem fallback",
+    "verifier": "verifier-only application interface (module verifier), no signing capability exposed to callers",
+    "signing_or_attestation": "external signing/attestation boundary; non-exportable key or equivalent; application holds a verifier-only interface (reference only)",
+    "approval_authority": "external approval authority; distinct/authorised/non-self/unexpired quorum >= threshold (F2-R1 §14 evaluate_approvals)",
+    "revocation_source": "external RevocationSet (F2-R1 §15); authority root / manifest / producer / approver revocable, effective-time gated",
+    "expiry": "authority artefacts carry future expiry; expired -> fail-closed",
+    "rotation": "key/authority rotation policy referenced externally; rotation does not re-mint historic proofs",
+    "compromise_response": "on compromise, revoke via the external revocation source; verify_proof -> RIP-REVOKED-AT-USE; run halts",
+    "authority_unavailable_behaviour": "FAIL_CLOSED",
+    "no_secret_values_in": ["code", "git", "evidence", "memory_fabric", "design_doc"],
+    "config_source": "PROJECT_OWNED_OR_CONTAINER_ABSORBABLE_GOVERNED",
+    "no_etc_or_host_global": true
+  },
+  "build_producer_contract": {
+    "produces": ["candidate-image build evidence", "immutable image digest", "build execution identity", "build_result record", "artefact digests", "return codes"],
+    "execution_identity_keyed_on": "executable_digest + authority_reference + runner_identity",
+    "registration": "governed ProducerRegistry under a trusted ActivatedRegistryHandle (F2-R1)",
+    "build_producer_must_not": ["perform_oci_inspection", "verify_proof"]
+  },
+  "oci_producer_contract": {
+    "produces": ["independent OCI inspection by digest", "manifest_digest", "config_digest", "ordered layer_digests", "filesystem_digest", "image metadata", "inspection tool output digest", "SBOM", "vulnerability result"],
+    "execution_identity_keyed_on": "executable_digest + authority_reference + runner_identity (distinct from build producer)",
+    "oci_producer_must_not_consume_build_payload_as_truth": true,
+    "must_inspect_image_independently_by_digest": true
+  },
+  "evidence_store_resolver_contract": {
+    "properties": ["immutable", "content-addressed", "versioned", "resolve_and_verify enforces digest match at expected version"],
+    "rejects": ["alias references (CR-ALIAS-SAME-CONTENT)", "mutable references (CR-MUTABLE-REFERENCE)", "changed content (CR-CHANGED-CONTENT)", "unresolved references (CR-UNRESOLVED-REFERENCE)", "reference/content mismatch (CR-REFERENCE-CONTENT-MISMATCH)"],
+    "resolver_gate": "require_content_resolver (real_mode) -> CR-RESOLVER-MISSING / CR-RESOLVER-UNTRUSTED / CR-SYNTHETIC-IN-REAL-MODE",
+    "no_store_mutation_in_this_wo": true
+  },
+  "closures": {
+    "L_F2R3_NEARCOPY": {
+      "limitation": "L-F2R3-NEARCOPY — an OCI record can be a dressed-up copy of build metadata (CR-NEAR-COPY-FROM-BUILD).",
+      "mandatory_independently_inspected_values": ["manifest_digest", "config_digest", "ordered_layer_digests", "filesystem_digest", "image_metadata_from_oci", "inspection_tool_output_digest"],
+      "may_match_build": ["image_id", "candidate_id", "source_sha"],
+      "must_be_independently_derived": ["manifest_digest", "config_digest", "ordered_layer_digests", "filesystem_digest", "image_metadata_from_oci", "inspection_tool_output_digest"],
+      "rule": "OCI evidence is REJECTED unless ALL mandatory independently-inspected values are present AND derived from independent OCI inspection — one differing field is NOT sufficient. Enforced by design.hermes_fw08_content_resolution_v1.detect_alias_or_nearcopy (CR-NEAR-COPY-FROM-BUILD / CR-FABRICATED-OCI-DIGEST / CR-OCI-FROM-ACTIVE-IMPORT / CR-EMBEDDED-EVIDENCE / CR-ALIAS-SAME-CONTENT)."
+    },
+    "L_F2R3_BYPASS_STATIC": {
+      "limitation": "L-F2R3-BYPASS-STATIC — static assurance that readiness/proof authority cannot be reached via the raw legacy comparator or a side route.",
+      "approach": [
+        "remove_public_authority_exports",
+        "capability_restricted_validator_interface",
+        "runtime_call_path_enforcement",
+        "explicit_non_authority_result_types",
+        "package_export_tests",
+        "call_site_inventory",
+        "dynamic_invocation_tests",
+        "cli_and_compat_route_exclusion"
+      ],
+      "legacy_comparator_note": "The legacy comparator validate_image_bound_active_import may REMAIN for fixture comparison (byte-identical) but NEVER confers readiness or proof authority. Enforced by design.hermes_fw08_legacy_comparator_containment_v1: comparator_is_readiness_authority()=False, assert_no_readiness_bypass (LC-WRAPPER-DIRECT-COMPARATOR / LC-CLI-BYPASS / LC-DYNAMIC-ROUTE), guard_not_proof (LC-COMPARATOR-NOT-PROOF-AUTHORITY)."
+    },
+    "L_F2R3_REFLECTIVE": {
+      "limitation": "L-F2R3-REFLECTIVE — the proof seal is a module-owned ephemeral in-process HMAC; a real proof needs an external signing/attestation boundary the application cannot forge.",
+      "external_signing_or_attestation_boundary": "signing/attestation performed outside the application trust boundary",
+      "non_exportable_key_or_equivalent": "signing key non-exportable (HSM / KMS / equivalent), never held by the application",
+      "verifier_only_application_interface": "the application holds a verifier-only interface; it can verify but never sign",
+      "issuer_identity": "external issuer identity bound to the authority root",
+      "signing_policy_scope": "scoped signing policy (candidate proofs only; no wildcard)",
+      "revocation": "external revocation of issuer/key propagates to verify_proof -> RIP-REVOKED-AT-USE",
+      "key_rotation": "issuer key rotation policy; historic proofs not re-minted",
+      "compromise_response": "on issuer/key compromise, revoke externally and halt; verify_proof fails closed",
+      "test_live_separation": "test (synthetic, module-token gated) and live (external attestation) are strictly separated; synthetic never validates in real mode (RIP-SYNTHETIC-IN-REAL-MODE)",
+      "not_configured_or_created_in_this_wo": true
+    }
+  },
+  "governed_dual_role_policy": {
+    "default": "DUAL_ROLE_FORBIDDEN",
+    "model_reference": "design.hermes_fw08_producer_independence_v1.GovernedDualRoleException (modelled, not activated; governed_dual_role_active()=False)",
+    "recommended_disposition": "PERMANENT_TOMBSTONE_UNLESS_A_CONCRETE_NEED_ARISES",
+    "retained_exception_requirements": [
+      "distinct executions / evidence refs / content digests / approvals",
+      "external authority-root binding",
+      "future expiry",
+      "revocation reference",
+      "audit reason",
+      "non-empty compensating controls",
+      "no self-approval",
+      "no wildcard scope",
+      "self-verifying digest"
+    ],
+    "reason_codes_if_ever_activated": ["GDRE-NOT-AN-EXCEPTION", "GDRE-SAME-EXECUTION", "GDRE-SAME-EVIDENCE-REF", "GDRE-SAME-CONTENT-DIGEST", "GDRE-SAME-APPROVAL", "GDRE-AUTHORITY-BINDING-MISSING", "GDRE-EXPIRED", "GDRE-REVOCATION-REFERENCE-MISSING", "GDRE-AUDIT-REASON-MISSING", "GDRE-NO-COMPENSATING-CONTROLS", "GDRE-SELF-APPROVED", "GDRE-WILDCARD-SCOPE", "GDRE-DIGEST-TAMPER"],
+    "activated_in_this_wo": false
+  },
+  "sbom_vulnerability_contract": {
+    "sbom": ["sbom_reference", "sbom content digest", "generation tool identity", "generation_utc", "bound to immutable_image_digest"],
+    "vulnerability": ["vulnerability_result_reference", "result content digest", "scanner identity", "scan_utc", "bound to immutable_image_digest"],
+    "substitution_resistance": "verify_proof rejects RIP-SUBSTITUTED-SBOM / RIP-SUBSTITUTED-VULN at use",
+    "produced_in_this_wo": false
+  },
+  "real_proof_acceptance_matrix": {
+    "required_inputs": [
+      "canonical_source_sha (frozen)",
+      "immutable_image_digest",
+      "distinct build + OCI execution identities",
+      "content-resolved build + OCI evidence",
+      "independently-inspected OCI values (near-copy passed)",
+      "SBOM reference",
+      "vulnerability result reference",
+      "trust-anchor lineage (external root)",
+      "activated-registry handle (trusted)",
+      "externally-verified active import",
+      "external issuer attestation (L-F2R3-REFLECTIVE)"
+    ],
+    "outcomes": {
+      "GREEN": "ALL required inputs present, resolved, independent, and externally attested; assemble_proof mints a REAL_IMAGE_PROOF and verify_proof returns (True, ()) under the expected context; R2D2 independent audit GREEN.",
+      "AMBER": "a non-fatal gap or a disclosure-suffices condition; run HALTS pending resolution; NEVER downgraded to a synthetic proof.",
+      "RED": "any prerequisite missing/failed (RIP-REAL-SOURCE-UNAVAILABLE / RIP-EXECUTIONS-NOT-INDEPENDENT / RIP-CONTENT-NOT-RESOLVED / RIP-NEAR-COPY / RIP-SEAL-INVALID / RIP-SYNTHETIC-IN-REAL-MODE / RIP-SUBSTITUTED-* / RIP-REVOKED-AT-USE) -> FAIL_CLOSED, no proof."
+    },
+    "no_missing_prerequisite_may_downgrade_to_synthetic": true
+  },
+  "candidate_isolation": {
+    "requirements": [
+      "separate namespace for the candidate",
+      "no deployed-image replacement",
+      "no latest tag",
+      "no runtime wiring",
+      "no restart",
+      "no config install",
+      "no evidence mount into the live container",
+      "no operational-registry publication unless separately authorised",
+      "deterministic cleanup/quarantine",
+      "current runtime untouched (source 71ea3bd4 / image c5fc2a62f424 / container d80018037b7f, restarts 0)"
+    ]
+  },
+  "evidence_audit_sequence": [
+    {"package": "EV-01 source-freeze", "required_contents": ["UTC", "canonical_source_sha", "operator identity", "authorisation reference", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-02 candidate-identity", "required_contents": ["UTC", "candidate_id", "source_sha binding", "isolated namespace", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-03 authority-readiness", "required_contents": ["UTC", "authority_root reference", "resolver identity", "verifier interface reference", "revocation source reference", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-04/EV-05 producer-registrations", "required_contents": ["UTC", "build_producer_id", "oci_producer_id", "execution identity bindings", "registration approvals", "activated-handle reference", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-06 evidence-store-readiness", "required_contents": ["UTC", "immutable_storage_id", "resolver identity", "immutability attestation", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-07/EV-08 build-and-digest", "required_contents": ["UTC", "source/image ids", "build execution ids", "executable+invocation digests", "return codes", "artefact digests", "SHA256SUMS", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-09 OCI-inspection", "required_contents": ["UTC", "image ids", "OCI execution ids", "manifest/config/layer/filesystem digests", "inspection tool output digest", "invocation digests", "return codes", "SHA256SUMS", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-10..EV-12 independence/content/near-copy verdicts", "required_contents": ["UTC", "execution ids", "resolved content digests", "verdict reason codes", "commands/invocation digests", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-13/EV-14 SBOM+vuln", "required_contents": ["UTC", "image ids", "sbom_reference", "vulnerability_result_reference", "tool/scanner identities", "artefact digests", "SHA256SUMS", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-15..EV-17 trust-anchor/activated-registry/active-import", "required_contents": ["UTC", "trust_anchor_lineage_ref", "activated_registry_handle_ref", "active_import_result_ref", "producer registrations", "verdict reason codes", "operator identity", "mutation status", "next gate"], "no_secrets": true},
+    {"package": "EV-18/EV-19 proof-assembly+R2D2-audit", "required_contents": ["UTC", "source/image ids", "execution ids", "producer registrations", "proof digest (no seal key)", "verify_proof result", "commands/invocation digests", "return codes", "artefact digests", "SHA256SUMS", "operator identity", "mutation status", "next gate"], "no_secrets": true}
+  ],
+  "future_wo_sequence": [
+    {"seq": 1, "wo_title": "FW08-F2-R3-FUT-1 external authority + issuer attestation configuration", "scope": "configure the governed external authority root, resolver, and external signing/attestation boundary (L-F2R3-REFLECTIVE); references only, no secrets", "gate": "Gate-2/Gate-3 (external-authority + trust-anchor readiness)", "authorises_execution": false},
+    {"seq": 2, "wo_title": "FW08-F2-R3-FUT-2 distinct build+OCI producer registration", "scope": "register the execution-distinct build producer and OCI-inspection producer under governed authority", "gate": "Gate-4/Gate-5 (producer registrations, distinctness)", "authorises_execution": false},
+    {"seq": 3, "wo_title": "FW08-F2-R3-FUT-3 immutable evidence-store readiness", "scope": "ready the immutable content-addressed evidence store + resolver (§9); no store mutation", "gate": "Gate-6 (evidence-store readiness)", "authorises_execution": false},
+    {"seq": 4, "wo_title": "FW08-F2-R3-FUT-4 controlled candidate build + digest capture", "scope": "the single controlled build + immutable digest capture in the isolated namespace", "gate": "Gate-7/Gate-8 (build + digest)", "authorises_execution": false},
+    {"seq": 5, "wo_title": "FW08-F2-R3-FUT-5 independent OCI inspection + SBOM + vuln", "scope": "independent OCI inspection by digest, SBOM generation, vulnerability scan (near-copy closure L-F2R3-NEARCOPY)", "gate": "Gate-8/Gate-9/Gate-13/Gate-14 (inspection, near-copy, SBOM, vuln)", "authorises_execution": false},
+    {"seq": 6, "wo_title": "FW08-F2-R3-FUT-6 bypass-static hardening", "scope": "remove public authority exports, capability-restricted validator interface, call-site inventory, dynamic-route/CLI exclusion tests (L-F2R3-BYPASS-STATIC)", "gate": "Gate-16 (active-import validation guards)", "authorises_execution": false},
+    {"seq": 7, "wo_title": "FW08-F2-R3-FUT-7 real-proof assembly + independent R2D2 audit", "scope": "assemble ONE REAL_IMAGE_PROOF and submit for independent R2D2 audit; assembly still fail-closed until every prerequisite is externally met", "gate": "Gate-17/Gate-18 (assembly + audit)", "authorises_execution": false},
+    {"seq": 8, "wo_title": "FW08-F2-R3-FUT-8 publication + deployment decisions", "scope": "Chief Architect publication and deployment decisions; protected runtime remains untouched", "gate": "Gate-19/Gate-20/Gate-21 (publication, deployment, closure)", "authorises_execution": false}
+  ],
+  "future_wo_sequence_note": "The sequence itself does NOT authorise execution. Each future WO requires separate Chief Architect authorisation + independent R2D2 audit; no WO in this sequence authorises real Stage-B execution.",
+  "carry_forward": [
+    {"item": "F-1", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "F-3", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "broader F-4", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "FW-16", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "N-1", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "N-2", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "PR#108/FW-17", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "R2D2 state-key durability note", "status": "OUTSTANDING, not implemented, not widened"},
+    {"item": "production performance proof", "status": "OUTSTANDING, not implemented, not widened"}
+  ],
+  "next_gate": "independent R2D2 exact-head design audit; no real Stage-B execution authorised"
+}
