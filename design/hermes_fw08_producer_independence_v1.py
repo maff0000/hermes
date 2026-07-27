@@ -250,6 +250,146 @@ def evaluate_producer_independence(
     return tuple(sorted(set(reasons)))
 
 
+# ==================================================================== F2-R3 §8 GOVERNED dual-role exception
+# WO-HELM-HERMES-FW08-F2-R3-EXECUTION-CONTENT-INDEPENDENCE-AND-REAL-IMAGE-PROOF-IMPLEMENTATION-0001 (§8).
+# F2-R3 models the FULL governed dual-role exception contract (distinct executions/refs/content-digests/
+# approvals, external authority-root binding, expiry, revocation reference, audit reason, compensating
+# controls, no self-approval, no wildcard scope, self-verifying digest). It is ADD-ONLY: the F2-R2
+# DualRoleException above is untouched. Even a FULLY-VALID GovernedDualRoleException is NOT activated in this
+# WO — `governed_dual_role_active()` is False and callers fail closed.
+import datetime as _dt
+
+
+@dataclass(frozen=True)
+class GovernedDualRoleException:
+    """The FULL §8 governed dual-role exception. Distinct executions, evidence refs, content digests and
+    approvals for build vs OCI; an EXTERNAL authority-root binding; a future expiry; a revocation reference; an
+    audit reason; non-empty compensating controls; an approval authority that is NOT self (not the creator and
+    not either execution/approval); a non-wildcard candidate scope. `exception_digest` binds all fields except
+    itself. MODELLED, NOT ACTIVATED in this WO (see `governed_dual_role_active`)."""
+
+    exception_id: str
+    application: str
+    candidate_scope: str
+    build_execution_identity: str
+    oci_execution_identity: str
+    build_evidence_ref: str
+    oci_evidence_ref: str
+    build_content_digest: str
+    oci_content_digest: str
+    build_approval: str
+    oci_approval: str
+    authority_root_binding: str
+    expiry_utc: str
+    revocation_reference: str
+    audit_reason: str
+    compensating_controls: Tuple[str, ...]
+    approval_authority: str
+    created_by: str
+    exception_digest: str
+
+    def _identity_fields(self) -> dict:
+        return {
+            "exception_id": self.exception_id,
+            "application": self.application,
+            "candidate_scope": self.candidate_scope,
+            "build_execution_identity": self.build_execution_identity,
+            "oci_execution_identity": self.oci_execution_identity,
+            "build_evidence_ref": self.build_evidence_ref,
+            "oci_evidence_ref": self.oci_evidence_ref,
+            "build_content_digest": self.build_content_digest,
+            "oci_content_digest": self.oci_content_digest,
+            "build_approval": self.build_approval,
+            "oci_approval": self.oci_approval,
+            "authority_root_binding": self.authority_root_binding,
+            "expiry_utc": self.expiry_utc,
+            "revocation_reference": self.revocation_reference,
+            "audit_reason": self.audit_reason,
+            "compensating_controls": list(self.compensating_controls),
+            "approval_authority": self.approval_authority,
+            "created_by": self.created_by,
+        }
+
+    def to_dict(self) -> dict:
+        d = self._identity_fields()
+        d["exception_digest"] = self.exception_digest
+        return d
+
+    @staticmethod
+    def compute_digest(identity_fields: Mapping[str, object]) -> str:
+        return hashlib.sha256(_canonical(dict(identity_fields)).encode("utf-8")).hexdigest()
+
+    def recompute_digest(self) -> str:
+        return GovernedDualRoleException.compute_digest(self._identity_fields())
+
+
+def new_governed_dual_role_exception(**kwargs: object) -> GovernedDualRoleException:
+    """Construct a GovernedDualRoleException with `exception_digest` computed. The ONLY blessed constructor.
+    `compensating_controls` defaults to (); a valid exception must supply a non-empty tuple."""
+    kwargs.setdefault("application", "hermes")
+    cc = kwargs.get("compensating_controls", ())
+    kwargs["compensating_controls"] = tuple(cc) if isinstance(cc, (list, tuple)) else ()
+    kwargs["exception_digest"] = ""
+    exc0 = GovernedDualRoleException(**kwargs)  # type: ignore[arg-type]
+    return dataclasses.replace(exc0, exception_digest=exc0.recompute_digest())
+
+
+def _future(utc_value: str, *, now_utc: str) -> bool:
+    try:
+        exp = _dt.datetime.fromisoformat(str(utc_value).replace("Z", "+00:00"))
+        now = _dt.datetime.fromisoformat(str(now_utc).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return exp > now
+
+
+def validate_governed_dual_role_exception(exc: object, *, now_utc: str) -> Tuple[str, ...]:
+    """Validate a GovernedDualRoleException's SHAPE. Returns () iff structurally valid (fail-closed), else a
+    sorted tuple of GDRE-* codes. NB: a valid exception is STILL NOT activated in this WO."""
+    if not isinstance(exc, GovernedDualRoleException):
+        return ("GDRE-NOT-AN-EXCEPTION",)
+    reasons: List[str] = []
+    b_exec = str(exc.build_execution_identity).strip()
+    o_exec = str(exc.oci_execution_identity).strip()
+    if not b_exec or not o_exec or b_exec == o_exec:
+        reasons.append("GDRE-SAME-EXECUTION")
+    if not str(exc.build_evidence_ref).strip() or not str(exc.oci_evidence_ref).strip() \
+            or exc.build_evidence_ref == exc.oci_evidence_ref:
+        reasons.append("GDRE-SAME-EVIDENCE-REF")
+    if not str(exc.build_content_digest).strip() or not str(exc.oci_content_digest).strip() \
+            or exc.build_content_digest == exc.oci_content_digest:
+        reasons.append("GDRE-SAME-CONTENT-DIGEST")
+    b_appr = str(exc.build_approval).strip()
+    o_appr = str(exc.oci_approval).strip()
+    if not b_appr or not o_appr or b_appr == o_appr:
+        reasons.append("GDRE-SAME-APPROVAL")
+    if not str(exc.authority_root_binding).strip():
+        reasons.append("GDRE-AUTHORITY-BINDING-MISSING")
+    if not _future(exc.expiry_utc, now_utc=now_utc):
+        reasons.append("GDRE-EXPIRED")
+    if not str(exc.revocation_reference).strip():
+        reasons.append("GDRE-REVOCATION-REFERENCE-MISSING")
+    if not str(exc.audit_reason).strip():
+        reasons.append("GDRE-AUDIT-REASON-MISSING")
+    if not tuple(exc.compensating_controls):
+        reasons.append("GDRE-NO-COMPENSATING-CONTROLS")
+    appr = str(exc.approval_authority).strip()
+    if not appr or appr == str(exc.created_by).strip() or appr in (b_exec, o_exec, b_appr, o_appr):
+        reasons.append("GDRE-SELF-APPROVED")
+    if "*" in str(exc.candidate_scope) or not str(exc.candidate_scope).strip() \
+            or str(exc.candidate_scope).strip() in ("*", "ALL", "ANY"):
+        reasons.append("GDRE-WILDCARD-SCOPE")
+    if exc.exception_digest != exc.recompute_digest():
+        reasons.append("GDRE-DIGEST-TAMPER")
+    return tuple(sorted(set(reasons)))
+
+
+def governed_dual_role_active() -> bool:
+    """The governed dual-role exception is MODELLED but NOT ACTIVATED in this WO. Always False — even a fully
+    valid GovernedDualRoleException never activates a dual-role path here."""
+    return False
+
+
 def build_oci_producers_independent(
     build_registration: "pr.ProducerRegistration",
     oci_registration: "pr.ProducerRegistration",
