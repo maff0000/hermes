@@ -1,0 +1,132 @@
+{
+  "contract_version": "1",
+  "generated_utc": "2026-07-27T00:00:00+00:00",
+  "issue_id": "WO-HELM-HERMES-FW08-REAL-PROOF-LIFECYCLE-CANONICAL-SOURCE-FREEZE-AND-CANDIDATE-IDENTITY-CONTRACT-IMPLEMENTATION-0001",
+  "classification": "REAL_PROOF_LIFECYCLE_SOURCE_FREEZE_AND_CANDIDATE_IDENTITY_CONTRACT_IMPLEMENTED_INERT_REAL_FREEZE_AND_ALLOCATION_OUTSTANDING",
+  "canonical_base": "4d6b346d39b6d4a401d57281cee9bd619894f090",
+  "lifecycle_design_reference": "docs/design/fw08/f2_r3_real_proof_lifecycle/f2_r3_real_proof_lifecycle.v1.json",
+  "lifecycle_stages_covered": [1, 2],
+  "design_note": "CONTRACT-ONLY, INERT. Implements the INERT contracts for lifecycle stage 1 (canonical-source freeze) and stage 2 (candidate identity allocation). NOTHING here freezes canonical source operationally, allocates a real candidate, creates a tag, builds/inspects an image, configures authority, or creates keys/secrets. Real source-freeze fails closed (SF-REAL-FREEZE-UNAVAILABLE) because design.hermes_fw08_source_freeze_v1.production_real_freeze_available() is False; real candidate allocation fails closed (CI-REAL-ALLOCATION-UNAVAILABLE). Synthetic evidence validates ONLY in test mode, module-token gated, classification set by the issuer not the caller. First of an 8-WO serial sequence; no WO authorises real execution.",
+  "flags": {
+    "real_source_frozen": false,
+    "real_candidate_allocated": false,
+    "candidate_tag_created": false,
+    "image_built": false,
+    "authority_configured": false,
+    "execution_authorised": false,
+    "runtime_mutation": false,
+    "keys_or_secrets_created": false,
+    "redis": false,
+    "sql": false,
+    "secrets_present": false,
+    "design_only": true
+  },
+  "protected_runtime": {
+    "source": "71ea3bd4598d8af5628f78de10f8022088ad3f05",
+    "image": "c5fc2a62f424",
+    "container": "d80018037b7f",
+    "consumer_live": false,
+    "untouched": true
+  },
+  "source_freeze_request_model": {
+    "module": "design/hermes_fw08_source_freeze_v1.py",
+    "dataclass": "SourceFreezeRequest",
+    "constructor": "new_source_freeze_request",
+    "validator": "validate_source_freeze_request",
+    "fields": ["contract_version", "application", "repository", "canonical_branch", "canonical_source_sha", "source_tree_digest", "request_id", "requesting_authority", "requested_utc", "intended_lifecycle_id", "intended_candidate_purpose", "expiry_utc", "prerequisite_audit_reference", "prior_canonical_reference", "configuration_classification", "execution_authorised", "request_digest"],
+    "invariant": "execution_authorised MUST be False (SFR-EXECUTION-AUTHORISED-FORBIDDEN)",
+    "reason_codes": ["SFR-WRONG-TYPE", "SFR-DIGEST-TAMPER", "SFR-EXECUTION-AUTHORISED-FORBIDDEN", "SFR-SHA-MISSING", "SFR-SHA-ABBREVIATED", "SFR-NON-CANONICAL-BRANCH", "SFR-TREE-DIGEST-MISSING", "SFR-MUTABLE-BRANCH-IDENTITY", "SFR-AUDIT-REF-MISSING", "SFR-APPLICATION-MISMATCH", "SFR-REPOSITORY-MISMATCH", "SFR-STALE", "SFR-EXPIRED", "SFR-UTC-MISSING", "SFR-CALLER-STATUS-FORBIDDEN"]
+  },
+  "freeze_evidence_model": {
+    "module": "design/hermes_fw08_source_freeze_v1.py",
+    "dataclass": "SourceFreezeEvidence",
+    "issuer": "_FreezeIssuer (module-owned ephemeral HMAC seal; classification bound not by caller string)",
+    "real_availability": "production_real_freeze_available() == False",
+    "minter": "observe_source_freeze (real mode ALWAYS fails closed) / new_synthetic_freeze_evidence (module-token gated synthetic mint)",
+    "validator": "validate_freeze_evidence",
+    "classifications": ["SYNTHETIC_FREEZE_EVIDENCE", "REAL_FREEZE_EVIDENCE_UNAVAILABLE", "INVALID_FREEZE_EVIDENCE", "REVOKED_FREEZE_EVIDENCE"],
+    "real_freeze_fail_closed": ["SF-REAL-FREEZE-UNAVAILABLE", "REAL_PROOF_LIFECYCLE_REAL_FREEZE_NOT_AUTHORISED"],
+    "reason_codes": ["SF-WRONG-TYPE", "SF-SYNTHETIC-NOT-MODULE-MINTED", "SF-CONTENT-DIGEST-TAMPER", "SF-INVALID-CLASSIFICATION", "SF-SYNTHETIC-IN-REAL-MODE", "SF-REVOKED-EVIDENCE", "SF-INVALID-EVIDENCE", "SF-SHA-MISMATCH", "SF-TREE-DIGEST-MISMATCH", "SF-LOCAL-MAIN-ORIGIN-MISMATCH", "SF-DIRTY-TREE", "SF-UTC-MISSING", "SF-EVIDENCE-REF-MISSING", "SF-STALE", "SF-EXPIRED", "SF-COPIED-EVIDENCE", "SF-SYNTHETIC-REQUIRES-MODULE-TOKEN"]
+  },
+  "candidate_identity_model": {
+    "module": "design/hermes_fw08_candidate_identity_v1.py",
+    "dataclass": "CandidateIdentity",
+    "constructor": "new_candidate_identity (status defaults SYNTHETIC_UNALLOCATED, execution_authorised=False)",
+    "allocator": "allocate_candidate_identity (real mode ALWAYS fails closed) / new_synthetic_candidate_identity (module-token gated)",
+    "validator": "validate_candidate_identity + validate_candidate_uniqueness",
+    "states": ["SYNTHETIC_UNALLOCATED", "REAL_ALLOCATION_UNAVAILABLE", "REVOKED_CANDIDATE", "INVALID_CANDIDATE"],
+    "real_allocation_fail_closed": ["CI-REAL-ALLOCATION-UNAVAILABLE", "REAL_PROOF_LIFECYCLE_REAL_ALLOCATION_NOT_AUTHORISED"],
+    "reason_codes": ["CI-WRONG-TYPE", "CI-DIGEST-TAMPER", "CI-EXECUTION-AUTHORISED-FORBIDDEN", "CI-NAMESPACE-NOT-ISOLATED", "CI-CROSS-APPLICATION-NAMESPACE", "CI-LATEST-FORBIDDEN", "CI-MUTABLE-TAG", "CI-DEPLOYED-TAG-REUSE", "CI-RUNTIME-SERVICE-TAG", "CI-UNBOUND-SOURCE-SHA", "CI-LIFECYCLE-ID-MISSING", "CI-NO-EXPIRY", "CI-ACTIVE-DEPLOYMENT-TARGET", "CI-REAL-STATUS-FORBIDDEN", "CI-UTC-MISSING", "CI-FREEZE-EV-REF-MISSING", "CI-APPLICATION-MISMATCH", "CI-EXPIRED", "CI-CANDIDATE-ID-REUSE", "CI-SYNTHETIC-REQUIRES-MODULE-TOKEN"]
+  },
+  "namespace_rules": {
+    "namespace_root": "hermes-fw08-candidate",
+    "application": "hermes",
+    "deployed_image_never_reused": "c5fc2a62f424",
+    "forbidden_tags": ["latest", "stable", "prod", "production", "current", "main", "release"],
+    "must_bind_source_sha": true,
+    "must_carry_expiry": true,
+    "must_not_name_runtime_service": true,
+    "must_be_isolated_under_root": true
+  },
+  "lifecycle_state_model": {
+    "module": "design/hermes_fw08_lifecycle_state_v1.py",
+    "function": "advance_lifecycle_state",
+    "no_force_or_advance_parameter": true,
+    "reason_codes": ["LS-EXECUTION-AUTHORISED-FORBIDDEN", "LS-REAL-STATE-NOT-AUTHORISED", "LS-INVALID-TRANSITION", "LS-FREEZE-REQUEST-INVALID", "LS-CANDIDATE-CONTRACT-INVALID"]
+  },
+  "transition": "LIFECYCLE_DESIGNED->SOURCE_FREEZE_CONTRACT_READY (contract-readiness only; real states SOURCE_FROZEN/CANDIDATE_ALLOCATED fail closed with EXECUTION_NOT_AUTHORISED / LS-REAL-STATE-NOT-AUTHORISED)",
+  "design_note_integration": {
+    "D_PR120_EV_TAIL": {
+      "function": "design.hermes_fw08_source_freeze_v1.eventual_evidence_record_ids",
+      "eventual_evidence_record_ids": {
+        "source_freeze": "EV-01-SOURCE-FREEZE",
+        "candidate_allocation": "EV-02-CANDIDATE-ALLOCATION"
+      },
+      "purpose": "define the downstream source-freeze / candidate-allocation evidence record ids so later EV-20/EV-21/EV-22 decision/closure evidence can reference them unambiguously"
+    },
+    "D_PR120_STAGE_FIELDS": {
+      "requirement": "explicit UTC + evidence-reference fields required on the new models",
+      "source_freeze_request_utc_fields": ["requested_utc", "expiry_utc"],
+      "freeze_evidence_utc_fields": ["observation_utc", "freeze_expiry_utc"],
+      "freeze_evidence_reference_field": "evidence_reference",
+      "candidate_utc_fields": ["allocation_request_utc", "expiry_utc"],
+      "candidate_freeze_reference_field": "prerequisite_freeze_evidence_digest",
+      "enforced_by": ["SFR-UTC-MISSING", "SF-UTC-MISSING", "SF-EVIDENCE-REF-MISSING", "CI-UTC-MISSING", "CI-FREEZE-EV-REF-MISSING"]
+    }
+  },
+  "real_source_frozen": false,
+  "real_candidate_allocated": false,
+  "candidate_tag_created": false,
+  "image_built": false,
+  "authority_configured": false,
+  "execution_authorised": false,
+  "acceptance_tests": [
+    "branch named without an exact 40-hex SHA -> SFR-MUTABLE-BRANCH-IDENTITY",
+    "wrong repository -> SFR-REPOSITORY-MISMATCH",
+    "wrong application -> SFR-APPLICATION-MISMATCH",
+    "execution_authorised=True on freeze request -> SFR-EXECUTION-AUTHORISED-FORBIDDEN",
+    "missing requested_utc/expiry_utc -> SFR-UTC-MISSING",
+    "real freeze -> SF-REAL-FREEZE-UNAVAILABLE + REAL_PROOF_LIFECYCLE_REAL_FREEZE_NOT_AUTHORISED",
+    "dirty tree evidence -> SF-DIRTY-TREE",
+    "local/main/origin disagreement -> SF-LOCAL-MAIN-ORIGIN-MISMATCH",
+    "altered observed tree digest -> SF-TREE-DIGEST-MISMATCH",
+    "stale/expired evidence -> SF-STALE / SF-EXPIRED",
+    "caller-forged freeze classification (relabel synthetic->real) -> SF-SYNTHETIC-IN-REAL-MODE / SF-SYNTHETIC-NOT-MODULE-MINTED",
+    "copied freeze evidence -> SF-COPIED-EVIDENCE",
+    "revoked evidence -> SF-REVOKED-EVIDENCE",
+    "missing evidence reference -> SF-EVIDENCE-REF-MISSING",
+    "real candidate allocation while execution unauthorised -> CI-REAL-ALLOCATION-UNAVAILABLE",
+    "candidate ID collision -> CI-CANDIDATE-ID-REUSE",
+    "mutable candidate tag -> CI-MUTABLE-TAG",
+    "'latest' tag -> CI-LATEST-FORBIDDEN",
+    "deployed-image tag reuse -> CI-DEPLOYED-TAG-REUSE",
+    "cross-application namespace -> CI-CROSS-APPLICATION-NAMESPACE",
+    "unbound source SHA -> CI-UNBOUND-SOURCE-SHA",
+    "no expiry -> CI-NO-EXPIRY",
+    "advance_lifecycle_state has no force/boolean-advance parameter (inspect.signature)",
+    "SOURCE_FROZEN/CANDIDATE_ALLOCATED transition -> LS-REAL-STATE-NOT-AUTHORISED",
+    "positive: valid synthetic freeze request + module-minted evidence validates; valid synthetic candidate identity validates; LIFECYCLE_DESIGNED->SOURCE_FREEZE_CONTRACT_READY succeeds"
+  ],
+  "future_wo_sequence_position": "1 of 8 (serial); no WO in this sequence authorises real Stage-B execution",
+  "next_gate": "independent R2D2 exact-head design audit; no real freeze / allocation authorised"
+}
