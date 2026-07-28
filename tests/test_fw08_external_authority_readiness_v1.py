@@ -866,3 +866,114 @@ def test_verification_result_carries_no_secrets():
     blob = repr(d)
     for pat in (re.compile(r"-----BEGIN"), re.compile(r"(?i)private[_-]?key"), re.compile(r"(?i)\bbearer\b")):
         assert pat.search(blob) is None
+
+
+# ==================================================== C-PR122-EAR-VR-RECEIPT-REFLECTIVELY-FORGEABLE-SOLE-ROOT
+def _forged_real_result(readiness, **over):
+    """A reflectively-forged REAL/VERIFIED production result bound to `readiness`, with a genuinely VALID local
+    receipt minted through the reflectively-reached module seal function. This models the attack: the local
+    receipt is real, but there is NO configured production verifier."""
+    f = dict(contract_version=ear.CONTRACT_VERSION, lifecycle_stage=ear.LIFECYCLE_STAGE,
+             verification_mode="PRODUCTION", readiness_record_digest=readiness.recompute_digest(),
+             external_authority_reference=readiness.external_authority_reference,
+             trust_anchor_reference=readiness.trust_anchor_reference,
+             issuer_reference=readiness.issuer_identity_reference,
+             attestation_policy_reference=readiness.attestation_policy_reference,
+             evidence_references=readiness.evidence_references, verification_utc=NOW,
+             validity_end_utc=VALIDITY_END, verifier_identity_reference="ref://verifier/caller-forged",
+             verification_outcome="VERIFIED", provenance="FORGED", fault_code="",
+             synthetic_or_real_classification="REAL", result_digest="", result_receipt="")
+    f.update(over)
+    r0 = ear.ProductionAuthorityVerificationResult(**f)
+    r1 = dataclasses.replace(r0, result_digest=r0.recompute_digest())
+    return dataclasses.replace(r1, result_receipt=ear._seal_verification_result(r1))
+
+
+def test_reflective_receipt_forge_standalone_rejected():
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    assert ear._verify_result_receipt(forged) is True                 # the local receipt IS valid
+    assert ear.production_verifier_configured() is False
+    reasons = ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+    assert "EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED" in reasons      # rejected DESPITE valid receipt
+    assert reasons != ()
+
+
+def test_receipt_is_not_sole_root_valid_receipt_insufficient():
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    # receipt validity does NOT change the outcome: still rejected on the missing production verifier.
+    assert "EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED" in \
+        ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+
+
+@pytest.mark.parametrize("avail,cfg", [(False, False), (True, False), (False, True), (True, True)])
+def test_boolean_config_matrix_forged_result_always_fails(monkeypatch, avail, cfg):
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: avail)
+    monkeypatch.setattr(ear, "production_verifier_configured", lambda: cfg)
+    # configured_production_verifier_identity() remains None (module-controlled) -> even both True fails.
+    reasons = ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+    assert reasons != ()
+    if cfg:
+        assert "EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED" in reasons     # Boolean alone is NOT the root
+    else:
+        assert "EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED" in reasons
+
+
+def test_configured_boolean_patched_true_not_sufficient(monkeypatch):
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    monkeypatch.setattr(ear, "production_verifier_configured", lambda: True)
+    assert "EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED" in \
+        ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+
+
+def test_caller_supplied_verifier_identity_not_accepted(monkeypatch):
+    # even patching cfg True AND supplying a caller-chosen verifier identity, the module-controlled configured
+    # identity (None) is what is required -> mismatch/not-configured, never the caller's value.
+    r = _make_synthetic()
+    forged = _forged_real_result(r, verifier_identity_reference="ref://verifier/whatever-caller-wants")
+    monkeypatch.setattr(ear, "production_verifier_configured", lambda: True)
+    reasons = ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+    assert "EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED" in reasons and reasons != ()
+
+
+def test_configured_production_verifier_identity_is_none():
+    assert ear.configured_production_verifier_identity() is None
+
+
+def test_top_level_forged_result_via_monkeypatched_verify_fails_closed(monkeypatch):
+    # THE full route: monkeypatch verify_external_authority_readiness to return the forged result, patch BOTH
+    # Booleans True, use a REAL-sealed readiness so the synthetic fall-through is not the reason. Must fail.
+    b = _make_synthetic()
+    rb = dataclasses.replace(b, synthetic_or_real_classification="REAL")
+    rb = dataclasses.replace(rb, readiness_digest=rb.recompute_digest())
+    rb = dataclasses.replace(rb, seal=ear._MODULE_ISSUER.seal_readiness(rb))
+    forged = _forged_real_result(rb)
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    monkeypatch.setattr(ear, "production_verifier_configured", lambda: True)
+    monkeypatch.setattr(ear, "verify_external_authority_readiness", lambda readiness: (forged, ()))
+    top = ear.validate_authority_readiness(rb, now_utc=NOW, real_mode=True)
+    assert top != ()
+    assert "EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED" in top or "EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED" in top
+
+
+def test_function_replacement_all_three_still_fails(monkeypatch):
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    monkeypatch.setattr(ear, "production_verifier_configured", lambda: True)
+    monkeypatch.setattr(ear, "verify_external_authority_readiness", lambda readiness: (forged, ()))
+    # the standalone result validator (the module-owned check) STILL rejects, so the top-level route cannot pass.
+    assert ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW) != ()
+
+
+def test_copied_and_recomputed_forged_receipt_still_rejected():
+    import copy as _copy
+    r = _make_synthetic()
+    forged = _forged_real_result(r)
+    for variant in (_copy.copy(forged), _copy.deepcopy(forged)):
+        assert "EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED" in \
+            ear.validate_production_verification_result(variant, readiness=r, now_utc=NOW)

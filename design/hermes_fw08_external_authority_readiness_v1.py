@@ -457,6 +457,19 @@ def production_verifier_configured() -> bool:
     return False
 
 
+def configured_production_verifier_identity() -> Optional[str]:
+    """C-PR122-EAR-VR-RECEIPT: the module-controlled identity of the GOVERNED production verifier that a real
+    verification result must have been produced by. This is a NON-Boolean second anchor so that
+    `production_verifier_configured()` (a Boolean) can never become the new sole trust root: even if that
+    Boolean is monkeypatched True, a real result must ALSO carry a `verifier_identity_reference` that matches
+    THIS module-controlled identity — which is unconfigured (None) in this inert Stage-3 WO, so no real result
+    can match. A caller cannot supply this identity; it is not derived from the result or the receipt.
+
+    Stage 4 must replace this inert None with a governed, externally-rooted verifier-identity + configuration
+    contract. This WO does NOT supply it (no host value, no secret, no endpoint)."""
+    return None
+
+
 def verify_external_authority_readiness(
     readiness: object,
 ) -> Tuple[Optional[ProductionAuthorityVerificationResult], Tuple[str, ...]]:
@@ -508,7 +521,31 @@ def validate_production_verification_result(
 
     reasons: List[str] = []
 
+    # C-PR122-EAR-VR-RECEIPT — INDEPENDENT production-verifier gate. A REAL/production result requires a
+    #   governed, module-controlled production verifier to be configured AND its exact configured identity to
+    #   match the result's verifier_identity_reference. This gate is INDEPENDENT of receipt validity / result
+    #   digest / classification field / outcome / caller / constructor / object provenance / reflective issuer
+    #   access / monkey-patching of the top-level verification operation. It appends a reason (guaranteeing
+    #   rejection — a valid local receipt can NEVER overcome the missing production verifier) while the binding
+    #   checks below still run as defence-in-depth. The local HMAC receipt is object-integrity metadata ONLY —
+    #   NOT externally rooted, NOT production attestation, NEVER the external trust root. The identity anchor is
+    #   a NON-Boolean so `production_verifier_configured()` cannot become the new sole root: even with that
+    #   Boolean monkeypatched True, the module-controlled configured identity (None in this inert WO) blocks
+    #   every real result. Both are unconfigured here, so no real result validates.
+    _is_real = (str(result.synthetic_or_real_classification).strip().upper() == "REAL"
+                or str(getattr(result, "verification_mode", "")).strip().upper() in ("PRODUCTION", "REAL_CANDIDATE"))
+    if _is_real:
+        if not production_verifier_configured():
+            reasons.append("EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED")
+        else:
+            _cfg_identity = configured_production_verifier_identity()
+            if not _cfg_identity:
+                reasons.append("EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED")
+            elif str(result.verifier_identity_reference) != str(_cfg_identity):
+                reasons.append("EAR-VR-VERIFIER-IDENTITY-MISMATCH")
+
     # receipt — a caller-forged / caller-minted / relabelled result fails (the ephemeral key is module-owned).
+    #   NB: integrity metadata ONLY (see the production-verifier gate above); never a real trust root.
     if not _verify_result_receipt(result):
         reasons.append("EAR-VR-RECEIPT-INVALID")
 

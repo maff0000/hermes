@@ -79,18 +79,40 @@ module-boundary verification result) — see C-PR122-EAR-AVAILABILITY-SOLE-ROOT 
 
 ### (B2) Production verification result — `ProductionAuthorityVerificationResult` / `validate_production_verification_result`
 
-The DECISIVE, externally-rooted, module-boundary trust root for real mode. A
+A record-bound production verification result obtained **only** through the module-controlled boundary — the
+FUTURE (Stage-4) externally-rooted evidence, **unavailable** in this inert WO. A
 `ProductionAuthorityVerificationResult` (frozen dataclass) binds contract_version, lifecycle_stage,
 verification_mode, `readiness_record_digest`, external_authority/trust_anchor/issuer/attestation_policy
 references, evidence_references, verification/validity UTC, verifier_identity_reference, verification_outcome,
 provenance, fault_code, synthetic/real classification, `result_digest`, and a MODULE-issued `result_receipt`
-HMAC (the integrity binding). **References + status only — no private keys, signed payloads, credentials,
-endpoints, or real public-key material.** `verify_external_authority_readiness(readiness)` is the
-module-controlled operation (**no caller verifier / no caller result**); with `production_verifier_configured()
-== False` it returns `(None, ('EAR-PRODUCTION-VERIFICATION-UNAVAILABLE',))`. `new_synthetic_test_verification_result`
-is module-token-gated and **SYNTHETIC-only** (a caller cannot mint a `REAL` result).
+HMAC. **References + status only — no private keys, signed payloads, credentials, endpoints, or real
+public-key material.**
+
+**C-PR122-EAR-VR-RECEIPT-REFLECTIVELY-FORGEABLE.** The `result_receipt` HMAC is **local object-integrity
+metadata only** (synthetic contract support). It is **not** externally rooted, **not** external proof, **not**
+production attestation, **not** sufficient verification, and **never** the external trust root — a
+reflectively-reachable in-process key can mint a valid receipt, so a valid local receipt must **never by
+itself** cause acceptance. Accordingly, `validate_production_verification_result` **independently** requires,
+for any REAL/production result and **before** the receipt could cause acceptance: (1)
+`production_verifier_configured() == True` (else `EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED`), and (2) the
+result's `verifier_identity_reference` matches the module-controlled `configured_production_verifier_identity()`
+(a **non-Boolean** anchor, so the config Boolean cannot become the new sole root — `None` here yields
+`EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED`; any other value yields `EAR-VR-VERIFIER-IDENTITY-MISMATCH`). Both
+are unconfigured (`False` / `None`), so a reflectively-forged, correctly-receipted `REAL` result is rejected in
+the standalone validator **and** on the top-level route even when both Booleans and
+`verify_external_authority_readiness` are monkeypatched. A caller cannot supply the configured verifier
+identity. **Stage 4** must replace the inert `production_verifier_configured()` /
+`configured_production_verifier_identity()` with a governed, externally-rooted verifier identity +
+configuration contract (no host values or secrets here); **this WO does not.**
+
+`verify_external_authority_readiness(readiness)` is the module-controlled operation (**no caller verifier / no
+caller result**); with `production_verifier_configured() == False` it returns `(None,
+('EAR-PRODUCTION-VERIFICATION-UNAVAILABLE',))`. `new_synthetic_test_verification_result` is module-token-gated
+and **SYNTHETIC-only** (a caller cannot mint a `REAL` result).
 `validate_production_verification_result(result, readiness, now_utc)` returns `()` iff the result is a genuine,
-current, non-synthetic, successful, record-bound production verification, else sorted `EAR-VR-*` codes:
+current, non-synthetic, successful, record-bound production verification produced by the configured verifier,
+else sorted `EAR-VR-*` codes: `EAR-VR-PRODUCTION-VERIFIER-NOT-CONFIGURED`,
+`EAR-VR-VERIFIER-IDENTITY-NOT-CONFIGURED`, `EAR-VR-VERIFIER-IDENTITY-MISMATCH`,
 `EAR-VR-WRONG-TYPE`, `EAR-VR-RECEIPT-INVALID`, `EAR-VR-DIGEST-TAMPER`, `EAR-VR-SYNTHETIC`,
 `EAR-VR-NOT-VERIFIED`, `EAR-VR-RECORD-MISMATCH`, `EAR-VR-AUTHORITY-MISMATCH`, `EAR-VR-TRUST-ANCHOR-MISMATCH`,
 `EAR-VR-ISSUER-MISMATCH`, `EAR-VR-POLICY-MISMATCH`, `EAR-VR-EVIDENCE-MISMATCH`, `EAR-VR-CONTRACT-VERSION`,
