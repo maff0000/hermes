@@ -322,6 +322,244 @@ def new_synthetic_test_readiness(**kwargs: object) -> Tuple[Optional[ExternalAut
     return resolve_authority_readiness(**kwargs)  # type: ignore[arg-type]
 
 
+# ==================================================== C-PR122-EAR-AVAILABILITY-SOLE-ROOT §4 verification result
+# The DECISIVE trust root for real mode. A `ProductionAuthorityVerificationResult` is a MODULE-BOUNDARY
+# production verification result bound to the EXACT readiness record. It is NOT a caller-supplied object, NOT
+# the availability Boolean, NOT the local readiness seal. Its integrity binding is a MODULE-issued HMAC
+# `result_receipt` over the bound fields — a caller cannot forge it (the key is module-owned, name-mangled,
+# never serialised), and the module helper only ever mints a SYNTHETIC-classified result. A REAL result can
+# therefore only ever originate from a genuine (stage-4) production verifier boundary — which is UNAVAILABLE
+# in this WO — so real-mode acceptance fails closed even when availability is monkeypatched True.
+VERIFICATION_OUTCOMES = frozenset({"VERIFIED", "FAILED", "UNVERIFIED"})
+
+
+@dataclass(frozen=True)
+class ProductionAuthorityVerificationResult:
+    """§4 a MODULE-BOUNDARY production verification result bound to an exact readiness record. Carries ONLY
+    references + status strings + a MODULE-issued `result_receipt` HMAC — NO private keys, signed payloads,
+    credentials, endpoints, or real public-key material. `result_digest` binds every field except itself and
+    the receipt; `result_receipt` is the module issuer's HMAC over the digest + classification (so a relabel
+    or a caller-mint breaks it). A REAL, VERIFIED result is UNMINTABLE by any caller here — the module helper
+    mints SYNTHETIC-only, and direct/public construction cannot produce a valid receipt."""
+
+    contract_version: str
+    lifecycle_stage: int
+    verification_mode: str
+    readiness_record_digest: str
+    external_authority_reference: str
+    trust_anchor_reference: str
+    issuer_reference: str
+    attestation_policy_reference: str
+    evidence_references: Tuple[str, ...]
+    verification_utc: str
+    validity_end_utc: str
+    verifier_identity_reference: str
+    verification_outcome: str
+    provenance: str
+    fault_code: str
+    synthetic_or_real_classification: str
+    result_digest: str
+    result_receipt: str
+
+    def identity_fields(self) -> Dict[str, object]:
+        """Canonical fields the result_digest covers (EXCLUDES result_digest AND result_receipt)."""
+        return {
+            "contract_version": self.contract_version,
+            "lifecycle_stage": self.lifecycle_stage,
+            "verification_mode": self.verification_mode,
+            "readiness_record_digest": self.readiness_record_digest,
+            "external_authority_reference": self.external_authority_reference,
+            "trust_anchor_reference": self.trust_anchor_reference,
+            "issuer_reference": self.issuer_reference,
+            "attestation_policy_reference": self.attestation_policy_reference,
+            "evidence_references": list(self.evidence_references),
+            "verification_utc": self.verification_utc,
+            "validity_end_utc": self.validity_end_utc,
+            "verifier_identity_reference": self.verifier_identity_reference,
+            "verification_outcome": self.verification_outcome,
+            "provenance": self.provenance,
+            "fault_code": self.fault_code,
+            "synthetic_or_real_classification": self.synthetic_or_real_classification,
+        }
+
+    def to_dict(self) -> Dict[str, object]:
+        d = self.identity_fields()
+        d["result_digest"] = self.result_digest
+        d["result_receipt"] = self.result_receipt
+        return d
+
+    @staticmethod
+    def compute_digest(identity_fields: Mapping[str, object]) -> str:
+        return hashlib.sha256(_canonical(dict(identity_fields)).encode("utf-8")).hexdigest()
+
+    def recompute_digest(self) -> str:
+        return ProductionAuthorityVerificationResult.compute_digest(self.identity_fields())
+
+
+def _result_receipt_message(result: ProductionAuthorityVerificationResult) -> bytes:
+    """Bytes the module issuer HMACs for the result receipt: the result digest + the classification (so a
+    relabelled classification or a caller-recomputed digest breaks the receipt)."""
+    return (result.result_digest + "\x00" + result.synthetic_or_real_classification).encode("utf-8")
+
+
+def _seal_verification_result(result: ProductionAuthorityVerificationResult) -> str:
+    return _MODULE_ISSUER._seal(_result_receipt_message(result))
+
+
+def _verify_result_receipt(result: ProductionAuthorityVerificationResult) -> bool:
+    if not isinstance(result.result_receipt, str):
+        return False
+    expected = _seal_verification_result(result)
+    return hmac.compare_digest(expected, result.result_receipt)
+
+
+def new_synthetic_test_verification_result(**kwargs: object) -> ProductionAuthorityVerificationResult:
+    """MODULE-ONLY, token-gated mint helper: builds a SYNTHETIC verification result sealed by `_MODULE_ISSUER`.
+    A caller cannot mint a REAL result — public/direct construction leaves the receipt unforgeable, and any
+    non-SYNTHETIC classification through this helper is REFUSED (mirroring the constructor's
+    `EARPromotionForbidden` posture). This exists ONLY to drive tests and to prove the binding rejects; it
+    never produces a real, VERIFIED, real-mode-satisfying result.
+
+    Requires `test_token is _READINESS_TOKEN` (only the module supplies it). The classification is forced to
+    'SYNTHETIC'; any caller-selected non-synthetic classification raises `EARPromotionForbidden`."""
+    if kwargs.get("test_token", None) is not _READINESS_TOKEN:
+        raise EARPromotionForbidden(
+            "verification-result mint is module-token gated; a caller cannot mint a production verification "
+            "result (C-PR122-EAR-AVAILABILITY-SOLE-ROOT)")
+    kwargs.pop("test_token", None)
+    _cls = kwargs.get("synthetic_or_real_classification", "SYNTHETIC")
+    if str(_cls) != "SYNTHETIC":
+        raise EARPromotionForbidden(
+            "verification-result mint is synthetic-only; caller-selected classification "
+            f"{_cls!r} is not permitted (C-PR122-EAR-AVAILABILITY-SOLE-ROOT)")
+    kwargs["synthetic_or_real_classification"] = "SYNTHETIC"
+    kwargs.setdefault("contract_version", CONTRACT_VERSION)
+    kwargs.setdefault("lifecycle_stage", LIFECYCLE_STAGE)
+    kwargs.setdefault("verification_mode", "SYNTHETIC_TEST")
+    kwargs.setdefault("verification_outcome", "VERIFIED")
+    kwargs.setdefault("provenance", "SYNTHETIC_TEST")
+    kwargs.setdefault("fault_code", "")
+    kwargs.setdefault("verifier_identity_reference", "ref://verifier/synthetic-test")
+    evrefs = kwargs.get("evidence_references", ())
+    kwargs["evidence_references"] = tuple(evrefs) if evrefs else tuple()
+    kwargs["result_digest"] = ""
+    kwargs["result_receipt"] = ""
+    r0 = ProductionAuthorityVerificationResult(**kwargs)  # type: ignore[arg-type]
+    r1 = dataclasses.replace(r0, result_digest=r0.recompute_digest())
+    return dataclasses.replace(r1, result_receipt=_seal_verification_result(r1))
+
+
+def production_verifier_configured() -> bool:
+    """SEPARATE from `production_external_authority_available()`: the production VERIFIER BOUNDARY is NOT
+    installed in this WO. Monkeypatching `production_external_authority_available` alone must NOT make a
+    verification result appear — obtaining a result additionally requires this boundary, which is
+    unconditionally False here (no fs/env/network lookup)."""
+    return False
+
+
+def verify_external_authority_readiness(
+    readiness: object,
+) -> Tuple[Optional[ProductionAuthorityVerificationResult], Tuple[str, ...]]:
+    """§5 the MODULE-CONTROLLED verification operation — the DECISIVE root of real-mode acceptance. It does NOT
+    accept a caller verifier or a caller result. It obtains a production verification result THROUGH the
+    module-controlled verifier boundary, binding it to THIS readiness record. Because
+    `production_verifier_configured()` is False (no production verifier installed in this WO), it fails closed:
+    (None, ('EAR-PRODUCTION-VERIFICATION-UNAVAILABLE',)) — no real external call, INDEPENDENT of the
+    availability Boolean and of the local readiness seal.
+
+    (When a real verifier exists in a future stage-4 WO, this is where it would run and produce a bound,
+    module-receipted result over `readiness.recompute_digest()`.)"""
+    if not production_verifier_configured():
+        return (None, ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",))
+    # Unreachable in this WO; defence in depth. A real verifier would run here and return a module-receipted
+    # result bound to readiness.recompute_digest(). No such verifier exists -> still fail closed.
+    return (None, ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",))
+
+
+def validate_production_verification_result(
+    result: object,
+    *,
+    readiness: ExternalAuthorityReadiness,
+    now_utc: str,
+) -> Tuple[str, ...]:
+    """§6.4-9 return () iff `result` is a genuine, current, non-synthetic, successful, record-bound production
+    verification result. Reject — never repair. Fail-closed.
+
+    Rejects:
+      * not a ProductionAuthorityVerificationResult                 -> EAR-VR-WRONG-TYPE
+      * result_receipt invalid under _MODULE_ISSUER (forged/minted) -> EAR-VR-RECEIPT-INVALID
+      * result_digest tamper                                        -> EAR-VR-DIGEST-TAMPER
+      * synthetic_or_real_classification != 'REAL'                  -> EAR-VR-SYNTHETIC
+      * verification_outcome != 'VERIFIED'                          -> EAR-VR-NOT-VERIFIED
+      * readiness_record_digest != readiness.recompute_digest()     -> EAR-VR-RECORD-MISMATCH
+      * external_authority_reference mismatch                       -> EAR-VR-AUTHORITY-MISMATCH
+      * trust_anchor_reference mismatch                             -> EAR-VR-TRUST-ANCHOR-MISMATCH
+      * issuer_reference mismatch                                   -> EAR-VR-ISSUER-MISMATCH
+      * attestation_policy_reference mismatch                       -> EAR-VR-POLICY-MISMATCH
+      * evidence_references mismatch (order-sensitive)              -> EAR-VR-EVIDENCE-MISMATCH
+      * contract_version mismatch                                   -> EAR-VR-CONTRACT-VERSION
+      * lifecycle_stage mismatch                                    -> EAR-VR-STAGE-MISMATCH
+      * non-UTC verification/validity                               -> EAR-VR-UTC-INVALID
+      * expired vs now                                              -> EAR-VR-EXPIRED
+      * verification_outcome revoked / fault revoked                -> EAR-VR-REVOKED
+    """
+    if not isinstance(result, ProductionAuthorityVerificationResult):
+        return ("EAR-VR-WRONG-TYPE",)
+
+    reasons: List[str] = []
+
+    # receipt — a caller-forged / caller-minted / relabelled result fails (the ephemeral key is module-owned).
+    if not _verify_result_receipt(result):
+        reasons.append("EAR-VR-RECEIPT-INVALID")
+
+    # digest tamper (a body-field tamper breaks the digest recompute).
+    if result.result_digest != result.recompute_digest():
+        reasons.append("EAR-VR-DIGEST-TAMPER")
+
+    # a synthetic (or any non-'REAL') classification never satisfies real mode.
+    if result.synthetic_or_real_classification != "REAL":
+        reasons.append("EAR-VR-SYNTHETIC")
+
+    # revocation takes precedence over generic not-verified.
+    _outcome = str(result.verification_outcome or "").strip().upper()
+    if _outcome == "REVOKED" or str(result.fault_code or "").strip().upper() == "REVOKED":
+        reasons.append("EAR-VR-REVOKED")
+    elif result.verification_outcome != "VERIFIED":
+        reasons.append("EAR-VR-NOT-VERIFIED")
+
+    # record binding: the result must be bound to THIS exact readiness record.
+    if result.readiness_record_digest != readiness.recompute_digest():
+        reasons.append("EAR-VR-RECORD-MISMATCH")
+
+    field_checks = (
+        (result.external_authority_reference, readiness.external_authority_reference, "EAR-VR-AUTHORITY-MISMATCH"),
+        (result.trust_anchor_reference, readiness.trust_anchor_reference, "EAR-VR-TRUST-ANCHOR-MISMATCH"),
+        (result.issuer_reference, readiness.issuer_identity_reference, "EAR-VR-ISSUER-MISMATCH"),
+        (result.attestation_policy_reference, readiness.attestation_policy_reference, "EAR-VR-POLICY-MISMATCH"),
+    )
+    for got, want, code in field_checks:
+        if got != want:
+            reasons.append(code)
+
+    if tuple(result.evidence_references) != tuple(readiness.evidence_references):
+        reasons.append("EAR-VR-EVIDENCE-MISMATCH")
+
+    if str(result.contract_version) != CONTRACT_VERSION:
+        reasons.append("EAR-VR-CONTRACT-VERSION")
+    if result.lifecycle_stage != LIFECYCLE_STAGE:
+        reasons.append("EAR-VR-STAGE-MISMATCH")
+
+    verified_at = _parse_utc(result.verification_utc)
+    validity = _parse_utc(result.validity_end_utc)
+    now = _parse_utc(now_utc)
+    if verified_at is None or validity is None:
+        reasons.append("EAR-VR-UTC-INVALID")
+    elif now is not None and now >= validity:
+        reasons.append("EAR-VR-EXPIRED")
+
+    return tuple(sorted(set(reasons)))
+
+
 # ============================================================================ §4B validator
 def validate_authority_readiness(
     readiness: object,
@@ -359,16 +597,30 @@ def validate_authority_readiness(
     if not isinstance(readiness, ExternalAuthorityReadiness):
         return ("EAR-WRONG-TYPE",)
 
-    # C-PR122-EAR-PROMOTION control A — UNCONDITIONAL real-mode fail-closed gate. Real-mode readiness cannot be
-    #   accepted while a governed production external authority is not genuinely available. This gate runs
-    #   FIRST and is INDEPENDENT of the seal, the classification value, the constructor used, the issuer
-    #   identity, caller assertions, object provenance, reflective access, or monkey-patching of unrelated
-    #   objects: a valid-looking seal (even one freshly minted through the public constructor or the reflective
-    #   module issuer) NEVER substitutes for actual external-authority availability. A module seal is integrity
-    #   metadata for synthetic contract objects — it is NOT external authority, a trust anchor, a production
-    #   issuer, HSM/KMS evidence, or permission to enter real mode. Real mode is NOT downgraded to synthetic.
-    if real_mode and not production_external_authority_available():
-        return ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
+    # C-PR122-EAR-AVAILABILITY-SOLE-ROOT — the real-mode gate is LAYERED. Availability is NECESSARY BUT NOT
+    #   SUFFICIENT; the DECISIVE trust root is a MODULE-BOUNDARY production verification result bound to THIS
+    #   record, obtained through the module-controlled verifier boundary — never the caller, never the Boolean,
+    #   never the local seal. A valid-looking seal (even one freshly minted through the public constructor or
+    #   the reflective module issuer) NEVER substitutes for external-authority availability OR for a verified,
+    #   record-bound production verification result. Real mode is NOT downgraded to synthetic.
+    if real_mode:
+        # (1) availability is NECESSARY but NOT SUFFICIENT.
+        if not production_external_authority_available():
+            return ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
+        # (2-3) the DECISIVE root: a module-boundary production verification result bound to THIS record,
+        #   obtained through the module-controlled verifier boundary — never the caller, never the Boolean,
+        #   never the local seal. The production verifier is not configured -> fail closed regardless of
+        #   availability/seal.
+        _vr, _vreasons = verify_external_authority_readiness(readiness)
+        if _vr is None:
+            return tuple(sorted(set(_vreasons)))          # EAR-PRODUCTION-VERIFICATION-UNAVAILABLE
+        # (4-9) the module-obtained result must be bound, current, non-synthetic and successful.
+        _br = validate_production_verification_result(_vr, readiness=readiness, now_utc=now_utc)
+        if _br:
+            return tuple(sorted(set(_br)))
+        # (10) a local module seal is NOT the external trust root — the verification result above IS. Fall
+        #   through to the remaining structural field checks only after real acceptance is independently
+        #   established.
 
     reasons: List[str] = []
 

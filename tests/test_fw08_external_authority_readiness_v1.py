@@ -525,3 +525,344 @@ def test_real_mode_gate_is_first_and_independent_of_seal(monkeypatch):
     broken = dataclasses.replace(base, seal="0" * 64, external_authority_reference="")
     assert ear.validate_authority_readiness(broken, now_utc=NOW, real_mode=True) \
         == ("EAR-PRODUCTION-AUTHORITY-UNAVAILABLE",)
+
+
+# ==================================================== C-PR122-EAR-AVAILABILITY-SOLE-ROOT verification-result gate
+# Helper: mint a SYNTHETIC verification result BOUND to a readiness record (module token supplied internally),
+# then let tests mutate/relabel it to prove the binding rejects. It is SYNTHETIC — never real-mode-satisfying.
+def _bound_synthetic_result(readiness, **overrides):
+    kw = dict(
+        readiness_record_digest=readiness.recompute_digest(),
+        external_authority_reference=readiness.external_authority_reference,
+        trust_anchor_reference=readiness.trust_anchor_reference,
+        issuer_reference=readiness.issuer_identity_reference,
+        attestation_policy_reference=readiness.attestation_policy_reference,
+        evidence_references=tuple(readiness.evidence_references),
+        verification_utc=NOW,
+        validity_end_utc=VALIDITY_END,
+        verification_outcome="VERIFIED",
+        provenance="SYNTHETIC_TEST",
+    )
+    kw.update(overrides)
+    kw["test_token"] = ear._READINESS_TOKEN
+    return ear.new_synthetic_test_verification_result(**kw)
+
+
+def _reseal_result(result):
+    """Re-apply a VALID module receipt over a mutated result (module-owned key, reflective access) so binding
+    checks — not the receipt — are the operative rejection."""
+    r = dataclasses.replace(result, result_digest=result.recompute_digest())
+    return dataclasses.replace(r, result_receipt=ear._seal_verification_result(r))
+
+
+# ----- THE decisive test: original bypass is now closed -----
+def test_original_bypass_now_fails_verification_unavailable(monkeypatch):
+    # ORIGINAL C-PR122-EAR-AVAILABILITY-SOLE-ROOT bypass: availability monkeypatched True + a reflectively
+    # sealed REAL record + NO verification result -> must NOT be accepted; the decisive gate is the missing
+    # module-boundary production verification result.
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    base = _make_synthetic()
+    real = dataclasses.replace(base, synthetic_or_real_classification="REAL")
+    real = dataclasses.replace(real, readiness_digest=real.recompute_digest())
+    real = dataclasses.replace(real, seal=ear._MODULE_ISSUER.seal_readiness(real))
+    assert ear._MODULE_ISSUER.verify(real) is True   # the seal IS valid
+    assert ear.validate_authority_readiness(real, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+def test_boolean_alone_is_insufficient(monkeypatch):
+    # availability True ALONE -> fail; availability True + valid local seal -> fail; availability True + caller
+    # assertion of classification -> fail. Each returns EAR-PRODUCTION-VERIFICATION-UNAVAILABLE.
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    base = _make_synthetic()
+    # (a) availability True alone, plain synthetic record.
+    assert ear.validate_authority_readiness(base, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+    # (b) availability True + a valid module seal over a REAL-relabelled record.
+    real = dataclasses.replace(base, synthetic_or_real_classification="REAL")
+    real = dataclasses.replace(real, readiness_digest=real.recompute_digest())
+    real = dataclasses.replace(real, seal=ear._MODULE_ISSUER.seal_readiness(real))
+    assert ear.validate_authority_readiness(real, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+def test_production_verifier_configured_false():
+    assert ear.production_verifier_configured() is False
+
+
+def test_verify_external_authority_readiness_fails_closed():
+    r = _make_synthetic()
+    vr, reasons = ear.verify_external_authority_readiness(r)
+    assert vr is None
+    assert reasons == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+def test_verify_external_authority_readiness_fails_closed_even_if_available(monkeypatch):
+    # Monkeypatching availability True must NOT make a verification result appear — the verifier boundary is a
+    # SEPARATE flag and is not configured.
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    vr, reasons = ear.verify_external_authority_readiness(_make_synthetic())
+    assert vr is None
+    assert reasons == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+def test_verify_external_authority_readiness_takes_no_caller_verifier():
+    # A caller cannot inject a verifier: the module-controlled operation accepts only the readiness record.
+    import inspect
+    sig = inspect.signature(ear.verify_external_authority_readiness)
+    assert list(sig.parameters) == ["readiness"]
+
+
+# ----- verification-result CREATION attacks -----
+def test_public_direct_result_construction_has_invalid_receipt():
+    # A caller directly constructs a REAL, VERIFIED result (all fields set) — but cannot forge the module
+    # receipt, so it never passes validate_production_verification_result.
+    r = _make_synthetic()
+    forged = ear.ProductionAuthorityVerificationResult(
+        contract_version=ear.CONTRACT_VERSION, lifecycle_stage=ear.LIFECYCLE_STAGE,
+        verification_mode="REAL", readiness_record_digest=r.recompute_digest(),
+        external_authority_reference=r.external_authority_reference,
+        trust_anchor_reference=r.trust_anchor_reference, issuer_reference=r.issuer_identity_reference,
+        attestation_policy_reference=r.attestation_policy_reference,
+        evidence_references=tuple(r.evidence_references), verification_utc=NOW, validity_end_utc=VALIDITY_END,
+        verifier_identity_reference="ref://verifier/forged", verification_outcome="VERIFIED",
+        provenance="FORGED", fault_code="", synthetic_or_real_classification="REAL",
+        result_digest="", result_receipt="")
+    forged = dataclasses.replace(forged, result_digest=forged.recompute_digest())
+    forged = dataclasses.replace(forged, result_receipt="0" * 64)   # caller cannot mint a valid receipt
+    reasons = ear.validate_production_verification_result(forged, readiness=r, now_utc=NOW)
+    assert "EAR-VR-RECEIPT-INVALID" in reasons
+
+
+def test_mint_helper_refuses_real_classification():
+    # §4: the token-gated mint helper is SYNTHETIC-ONLY — a caller-selected real classification is refused,
+    # mirroring EARPromotionForbidden. A caller cannot mint a REAL result.
+    r = _make_synthetic()
+    with pytest.raises(ear.EARPromotionForbidden):
+        _bound_synthetic_result(r, synthetic_or_real_classification="REAL")
+
+
+def test_mint_helper_requires_module_token():
+    # Without the module token the caller cannot mint any verification result.
+    r = _make_synthetic()
+    with pytest.raises(ear.EARPromotionForbidden):
+        ear.new_synthetic_test_verification_result(
+            readiness_record_digest=r.recompute_digest(),
+            external_authority_reference=r.external_authority_reference,
+            trust_anchor_reference=r.trust_anchor_reference, issuer_reference=r.issuer_identity_reference,
+            attestation_policy_reference=r.attestation_policy_reference,
+            evidence_references=tuple(r.evidence_references), verification_utc=NOW, validity_end_utc=VALIDITY_END)
+
+
+def test_reflective_mint_of_real_result_still_rejected_synthetic():
+    # A caller reaches the reflective module issuer and RESEALS a result relabelled to REAL. The receipt binds
+    # the classification, so the reseal is genuinely valid — yet validate still rejects it: the module helper
+    # only ever mints SYNTHETIC, and here the reseal keeps a valid receipt over classification REAL. Prove that
+    # even with a valid receipt the classification path and binding hold: a REAL reseal passes the receipt but
+    # nothing here makes it a genuine external verification — the record digest still binds.
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)
+    # reseal as REAL via reflective module issuer.
+    real = dataclasses.replace(synth, synthetic_or_real_classification="REAL")
+    real = _reseal_result(real)
+    assert ear._verify_result_receipt(real) is True         # reflective reseal IS valid
+    # but it is a fabricated result, not one obtained through verify_external_authority_readiness (which is
+    # UNAVAILABLE). validate accepts it ONLY as far as its own checks go — prove binding still bites when refs
+    # differ (record mismatch) even under a valid REAL receipt.
+    other_r, _ = ear.new_synthetic_test_readiness(**_synthetic_kwargs(
+        external_authority_reference="ref://authority-root/OTHER"))
+    assert "EAR-VR-RECORD-MISMATCH" in ear.validate_production_verification_result(
+        real, readiness=other_r, now_utc=NOW)
+    # and a SYNTHETIC classification is rejected outright.
+    assert "EAR-VR-SYNTHETIC" in ear.validate_production_verification_result(synth, readiness=r, now_utc=NOW)
+
+
+def test_reflective_real_result_never_reaches_real_acceptance_via_validate(monkeypatch):
+    # DECISIVE: even a reflectively-resealed, correctly-bound REAL result cannot enter real-mode acceptance,
+    # because validate_authority_readiness obtains the result ONLY through the module-controlled boundary
+    # (verify_external_authority_readiness), which fails closed. A caller CANNOT supply the result to validate.
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)
+    real = _reseal_result(dataclasses.replace(synth, synthetic_or_real_classification="REAL"))
+    assert ear._verify_result_receipt(real) is True
+    # validate takes NO verification_result / verifier parameter -> the fabricated result is simply never
+    # consulted; real mode fails closed on the module boundary.
+    import inspect
+    params = list(inspect.signature(ear.validate_authority_readiness).parameters)
+    assert "verification_result" not in params and "verifier" not in params
+    assert ear.validate_authority_readiness(r, now_utc=NOW, real_mode=True) \
+        == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+def test_copied_result_for_different_record_rejected():
+    r = _make_synthetic()
+    real = _reseal_result(dataclasses.replace(_bound_synthetic_result(r),
+                                              synthetic_or_real_classification="REAL"))
+    other_r, _ = ear.new_synthetic_test_readiness(**_synthetic_kwargs(
+        evidence_references=("EV-03-AUTHORITY-READINESS", "EV-EXTRA")))
+    reasons = ear.validate_production_verification_result(real, readiness=other_r, now_utc=NOW)
+    assert "EAR-VR-RECORD-MISMATCH" in reasons
+
+
+def test_duck_typed_and_object_new_result_rejected():
+    r = _make_synthetic()
+
+    class DuckResult:
+        def recompute_digest(self):
+            return "x"
+    assert ear.validate_production_verification_result(DuckResult(), readiness=r, now_utc=NOW) \
+        == ("EAR-VR-WRONG-TYPE",)
+    assert ear.validate_production_verification_result(object(), readiness=r, now_utc=NOW) \
+        == ("EAR-VR-WRONG-TYPE",)
+    # object.__new__ of the real type but no valid receipt -> receipt invalid.
+    obj = object.__new__(ear.ProductionAuthorityVerificationResult)
+    synth = _bound_synthetic_result(r)
+    for f in dataclasses.fields(synth):
+        object.__setattr__(obj, f.name, getattr(synth, f.name))
+    object.__setattr__(obj, "synthetic_or_real_classification", "REAL")
+    object.__setattr__(obj, "result_digest", obj.recompute_digest())
+    object.__setattr__(obj, "result_receipt", "0" * 64)
+    assert "EAR-VR-RECEIPT-INVALID" in ear.validate_production_verification_result(obj, readiness=r, now_utc=NOW)
+
+
+def test_caller_fake_verifier_never_consulted():
+    # A caller-provided "verifier" is never consulted: verify_external_authority_readiness takes no caller
+    # verifier, so a fake that would "attest True" has no path in.
+    class FakeVerifier:
+        def verify_authority_evidence(self, *, readiness, evidence_reference, now_utc):
+            return (True, ())
+    r = _make_synthetic()
+    # there is no parameter to pass it through.
+    vr, reasons = ear.verify_external_authority_readiness(r)
+    assert vr is None and reasons == ("EAR-PRODUCTION-VERIFICATION-UNAVAILABLE",)
+
+
+# ----- binding attacks: mutate a bound synthetic result, then RESEAL as REAL, prove each mismatch bites -----
+def _real_bound(readiness, **overrides):
+    """Bound REAL result with a VALID reflective receipt (so the receipt is NOT the operative rejection)."""
+    synth = _bound_synthetic_result(readiness, **overrides)
+    return _reseal_result(dataclasses.replace(synth, synthetic_or_real_classification="REAL"))
+
+
+def test_binding_record_digest_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), readiness_record_digest="deadbeef"))
+    assert "EAR-VR-RECORD-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_authority_ref_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), external_authority_reference="ref://attacker"))
+    assert "EAR-VR-AUTHORITY-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_trust_anchor_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), trust_anchor_reference="ref://attacker"))
+    assert "EAR-VR-TRUST-ANCHOR-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_issuer_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), issuer_reference="ref://attacker"))
+    assert "EAR-VR-ISSUER-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_policy_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), attestation_policy_reference="ref://attacker"))
+    assert "EAR-VR-POLICY-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_evidence_ref_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), evidence_references=("EV-DIFFERENT",)))
+    assert "EAR-VR-EVIDENCE-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_classification_synthetic_rejected():
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)   # classification SYNTHETIC, valid receipt
+    assert "EAR-VR-SYNTHETIC" in ear.validate_production_verification_result(synth, readiness=r, now_utc=NOW)
+
+
+def test_binding_stage_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), lifecycle_stage=4))
+    assert "EAR-VR-STAGE-MISMATCH" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_contract_version_mismatch():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), contract_version="99"))
+    assert "EAR-VR-CONTRACT-VERSION" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_not_verified_rejected():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), verification_outcome="FAILED"))
+    assert "EAR-VR-NOT-VERIFIED" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_revoked_rejected():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), verification_outcome="REVOKED"))
+    assert "EAR-VR-REVOKED" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_expired_rejected():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), validity_end_utc=PAST))
+    assert "EAR-VR-EXPIRED" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_non_utc_rejected():
+    r = _make_synthetic()
+    bad = _reseal_result(dataclasses.replace(_real_bound(r), verification_utc="2026-07-27T00:00:00"))
+    assert "EAR-VR-UTC-INVALID" in ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+
+
+def test_binding_digest_tamper_rejected():
+    r = _make_synthetic()
+    real = _real_bound(r)
+    # tamper the digest without reselaing -> digest recompute mismatch AND receipt invalid.
+    bad = dataclasses.replace(real, result_digest="0" * 64)
+    reasons = ear.validate_production_verification_result(bad, readiness=r, now_utc=NOW)
+    assert "EAR-VR-DIGEST-TAMPER" in reasons
+
+
+# ----- verifier boundary / select_production_verifier fail closed -----
+def test_select_production_verifier_still_fails_closed_under_availability(monkeypatch):
+    monkeypatch.setattr(ear, "production_external_authority_available", lambda: True)
+    verifier, reasons = ear.select_production_verifier()
+    assert verifier is None
+    assert reasons == ("EAR-PRODUCTION-VERIFIER-UNAVAILABLE",)
+
+
+def test_no_verifier_exposing_signing_accepted():
+    # A verification result carries NO forbidden capability; the verifier-only boundary still rejects signing.
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)
+    for cap in ear.FORBIDDEN_CAPABILITY_NAMES:
+        assert not hasattr(synth, cap), f"verification result must not expose {cap}"
+
+
+# ----- positive synthetic: explicitly non-real -----
+def test_positive_synthetic_result_is_clearly_synthetic():
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)
+    assert synth.synthetic_or_real_classification == "SYNTHETIC"
+    # a synthetic result is NEVER treated as real: it is rejected by validate_production_verification_result.
+    assert "EAR-VR-SYNTHETIC" in ear.validate_production_verification_result(synth, readiness=r, now_utc=NOW)
+    # and synthetic readiness still validates cleanly in synthetic mode.
+    assert ear.validate_authority_readiness(r, now_utc=NOW, real_mode=False) == ()
+
+
+def test_verification_result_carries_no_secrets():
+    r = _make_synthetic()
+    synth = _bound_synthetic_result(r)
+    d = synth.to_dict()
+    blob = repr(d)
+    for pat in (re.compile(r"-----BEGIN"), re.compile(r"(?i)private[_-]?key"), re.compile(r"(?i)\bbearer\b")):
+        assert pat.search(blob) is None

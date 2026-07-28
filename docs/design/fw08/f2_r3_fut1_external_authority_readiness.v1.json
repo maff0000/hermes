@@ -9,6 +9,8 @@
     "ExternalAuthorityReadiness frozen dataclass (EV-03 authority-readiness record): binds authority_root/external-authority reference, resolver identity reference, trust-anchor reference, issuer-identity reference, attestation-policy reference, evidence references, expiry/rotation validity_end reference, provenance, fault/fail-closed fields, a readiness_digest and a module-issuer seal. References ONLY; no signing/private material fields.",
     "validate_authority_readiness: reject-not-repair validator covering type, digest tamper, seal forgery/relabel, synthetic-in-real-mode, bad state/class, revoked/invalid, missing references, non-UTC, expiry, contract version, wrong stage, missing provenance, inline-payload reference confusion, and caller-supplied signing material.",
     "ExternalAuthorityVerifier ABC exposing ONLY verify_authority_evidence (no sign/issue/mint/key methods); ProductionExternalAuthorityVerifier raises ExternalAuthorityUnavailable; SyntheticExternalAuthorityVerifier is module-token gated and deterministic.",
+    "C-PR122-EAR-AVAILABILITY-SOLE-ROOT: ProductionAuthorityVerificationResult frozen dataclass — a MODULE-BOUNDARY production verification result bound to the exact readiness record (readiness_record_digest + authority/trust-anchor/issuer/policy/evidence references + verification/validity UTC + outcome + a MODULE-issued result_receipt HMAC integrity binding). References + status only; NO private keys / signed payloads / credentials / endpoints / real public-key material. Token-gated module mint helper new_synthetic_test_verification_result builds SYNTHETIC-only results; a caller cannot mint or supply a REAL result.",
+    "C-PR122-EAR-AVAILABILITY-SOLE-ROOT: production_verifier_configured() (SEPARATE flag from production_external_authority_available, both False); verify_external_authority_readiness (module-controlled, takes no caller verifier/result, fails closed EAR-PRODUCTION-VERIFICATION-UNAVAILABLE); validate_production_verification_result (rejects wrong-type/forged-receipt/digest-tamper/synthetic/not-verified/record-and-reference-mismatch/contract-version/stage/non-UTC/expired/revoked). validate_authority_readiness real mode now requires a successful module-obtained verification result — availability is necessary but NOT sufficient.",
     "require_verifier_only / select_production_verifier / verify_readiness_no_caller_trust_loop: the verifier-only boundary, the module-owned production-verifier selection (unavailable here), and the no-caller-owned-trust-loop guard.",
     "IssuerAttestationReference frozen dataclass + validate_issuer_attestation_reference: a reference to the issuer-attestation boundary with no signed payload / private material / mock credential embedded; rejects inline payload, missing issuer/authority-root/attestation refs, digest tamper, and any self-issuance (EAR-IA-SELF-ISSUED).",
     "_ReadinessIssuer (ephemeral in-process HMAC, name-mangled key, no getter), _MODULE_ISSUER singleton, _READINESS_TOKEN module-private sentinel — mirroring F2-R1 _ModuleVerifier / _ProofIssuer.",
@@ -27,8 +29,8 @@
     "states": ["AUTHORITY_READY", "AUTHORITY_UNAVAILABLE", "AUTHORITY_REVOKED", "AUTHORITY_INVALID"],
     "authority_classes": ["SYNTHETIC_TEST_AUTHORITY_READINESS", "GOVERNED_EXTERNAL_AUTHORITY_READINESS", "REVOKED_AUTHORITY_READINESS", "UNTRUSTED_AUTHORITY_READINESS"],
     "candidate_modes": ["TEST_ONLY", "INERT_SIMULATION", "REAL_CANDIDATE"],
-    "classification_setter": "C-PR122-EAR-PROMOTION: public construction (new_external_authority_readiness) is SYNTHETIC-ONLY and REJECTS any caller-selected non-synthetic classification with EARPromotionForbidden (not silently repaired). The module seal is INTEGRITY metadata for synthetic contract objects only — NOT external authority, a trust anchor, a production issuer, HSM/KMS evidence, or permission to enter real mode. It does NOT by itself prevent synthetic-to-real promotion.",
-    "real_mode_unconditional_fail_closed": "validate_authority_readiness(real_mode=True) returns ('EAR-PRODUCTION-AUTHORITY-UNAVAILABLE',) whenever production_external_authority_available() is False — FIRST, before any seal/classification/reference is considered, and independent of the constructor/issuer/reflection. A freshly-minted, correctly-sealed REAL record (via a reflective/object.__new__ path) still fails on unavailability, NOT on an invalid seal.",
+    "classification_setter": "C-PR122-EAR-PROMOTION: public construction (new_external_authority_readiness) is SYNTHETIC-ONLY and REJECTS any caller-selected non-synthetic classification with EARPromotionForbidden (not silently repaired). The module seal is INTEGRITY metadata for synthetic contract objects only — NOT a production trust root: NOT external authority, a trust anchor, a production issuer, HSM/KMS evidence, or permission to enter real mode. A valid module seal does NOT prove external authority and does NOT by itself prevent synthetic-to-real promotion.",
+    "real_mode_layered_fail_closed": "C-PR122-EAR-AVAILABILITY-SOLE-ROOT: availability is NECESSARY BUT NOT SUFFICIENT. validate_authority_readiness(real_mode=True) requires, IN ADDITION to production_external_authority_available()==True, a successful MODULE-CONTROLLED production verification result (ProductionAuthorityVerificationResult) that is externally rooted, obtained through the module-controlled verifier boundary (verify_external_authority_readiness — takes NO caller verifier and NO caller result), and bound to the EXACT readiness record. A caller can NEITHER mint NOR supply that result. No production verifier is currently configured (production_verifier_configured()==False), so verify_external_authority_readiness fails closed with EAR-PRODUCTION-VERIFICATION-UNAVAILABLE — hence real-mode validation remains fail-closed EVEN WHEN production_external_authority_available is monkeypatched True. Availability False -> EAR-PRODUCTION-AUTHORITY-UNAVAILABLE first; availability True + no verification result -> EAR-PRODUCTION-VERIFICATION-UNAVAILABLE. Readiness can NOT be established without externally-rooted verification; the local seal is NOT that root.",
     "references_only": true,
     "no_signing_or_private_material_fields": true,
     "evidence_record": "EV-03 authority-readiness record: authority_root reference, resolver identity, verifier interface, revocation source, expiry/rotation policy references"
@@ -42,8 +44,20 @@
       "EAR-AUTHORITY-REF-MISSING", "EAR-TRUST-ANCHOR-REF-MISSING", "EAR-ISSUER-REF-MISSING",
       "EAR-ATTESTATION-POLICY-REF-MISSING", "EAR-EVIDENCE-REF-MISSING", "EAR-UTC-INVALID",
       "EAR-EXPIRED", "EAR-CONTRACT-VERSION", "EAR-WRONG-STAGE", "EAR-PROVENANCE-MISSING",
-      "EAR-REFERENCE-IS-INLINE-PAYLOAD", "EAR-CALLER-SIGNING-MATERIAL"
+      "EAR-REFERENCE-IS-INLINE-PAYLOAD", "EAR-CALLER-SIGNING-MATERIAL",
+      "EAR-PRODUCTION-AUTHORITY-UNAVAILABLE", "EAR-PRODUCTION-VERIFICATION-UNAVAILABLE"
     ]
+  },
+  "production_verification_result": {
+    "type": "ProductionAuthorityVerificationResult (frozen dataclass)",
+    "role": "C-PR122-EAR-AVAILABILITY-SOLE-ROOT: the DECISIVE, externally-rooted, module-boundary trust root for real-mode acceptance — bound to the exact readiness record, obtained ONLY through verify_external_authority_readiness (no caller verifier/result), integrity-bound by a MODULE-issued result_receipt HMAC.",
+    "references_only": true,
+    "no_private_material": true,
+    "production_verifier_configured": false,
+    "verify_operation": "verify_external_authority_readiness(readiness) -> (None, ('EAR-PRODUCTION-VERIFICATION-UNAVAILABLE',)) — fail closed, independent of production_external_authority_available.",
+    "mint_helper": "new_synthetic_test_verification_result: module-token-gated, SYNTHETIC-only; a caller cannot mint a REAL result (EARPromotionForbidden on non-synthetic or missing token).",
+    "validator": "validate_production_verification_result",
+    "reason_codes": ["EAR-VR-WRONG-TYPE", "EAR-VR-RECEIPT-INVALID", "EAR-VR-DIGEST-TAMPER", "EAR-VR-SYNTHETIC", "EAR-VR-NOT-VERIFIED", "EAR-VR-RECORD-MISMATCH", "EAR-VR-AUTHORITY-MISMATCH", "EAR-VR-TRUST-ANCHOR-MISMATCH", "EAR-VR-ISSUER-MISMATCH", "EAR-VR-POLICY-MISMATCH", "EAR-VR-EVIDENCE-MISMATCH", "EAR-VR-CONTRACT-VERSION", "EAR-VR-STAGE-MISMATCH", "EAR-VR-UTC-INVALID", "EAR-VR-EXPIRED", "EAR-VR-REVOKED"]
   },
   "verifier_only_boundary": {
     "interface": "ExternalAuthorityVerifier ABC with ONLY verify_authority_evidence(readiness, evidence_reference, now_utc) -> (bool, reasons)",
@@ -90,7 +104,8 @@
   "execution_authorised": false,
   "acceptance_tests": [
     "REAL_CANDIDATE resolution ALWAYS fails closed (EAR-REAL-AUTHORITY-UNAVAILABLE).",
-    "Synthetic AUTHORITY_READY accepted only in synthetic mode; the SAME record rejected under real_mode (EAR-SYNTHETIC-IN-REAL-MODE).",
+    "Synthetic AUTHORITY_READY accepted only in synthetic mode; the SAME record rejected under real_mode.",
+    "C-PR122-EAR-AVAILABILITY-SOLE-ROOT: availability is necessary but NOT sufficient — even with production_external_authority_available monkeypatched True and a reflectively-sealed REAL record, real-mode validation fails closed EAR-PRODUCTION-VERIFICATION-UNAVAILABLE (no module-boundary verification result). A caller can neither mint nor supply a production verification result; the local seal is not a production trust root.",
     "Missing authority/trust-anchor/issuer/attestation-policy/evidence references each rejected with the exact code.",
     "Non-UTC, expired, unsupported contract version, wrong lifecycle stage, missing provenance each rejected.",
     "Caller-supplied verifier in real mode -> EAR-CALLER-OWNED-TRUST-LOOP; caller supplying authority AND verifier rejected.",
