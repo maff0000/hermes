@@ -1,0 +1,110 @@
+{
+  "issue_id": "WO-HELM-HERMES-FW08-F2-R3-FUT-2-BUILD-AND-OCI-INSPECTION-PRODUCER-REGISTRATION-CONTRACT-IMPLEMENTATION-0001",
+  "fut": "FUT-2",
+  "lifecycle_stages": [4, 5],
+  "contract_version": "1",
+  "generated_utc": "2026-07-28T00:00:00+00:00",
+  "owner": "HERMES (Helm)",
+  "what_implemented": [
+    "A PURE, INERT design-only contract for registering TWO DISTINCT producer ROLES (stage 4 build-producer registration + stage 5 OCI-inspection-producer registration) of the merged FW-08 real-proof lifecycle (FUT-2, the second future gate), so a build producer and an OCI-inspection producer are STRUCTURALLY separated for later Stage-B.",
+    "ProducerRegistrationRecord frozen dataclass (EV-04 build / EV-05 OCI): binds contract_version, lifecycle_stage, registration_id, producer_role, producer/execution/executable identity references, authority_root reference, approval-record reference, activated-registry-handle reference, permitted + forbidden evidence classes, registration/validity UTC, revocation_state, provenance, synthetic_or_real_classification, status, fault_code, evidence references, created_by, a registration_digest and a module-issuer seal. References + status ONLY; no private/secret/endpoint fields.",
+    "validate_producer_registration: reject-not-repair validator covering type, an INDEPENDENT real-registration gate (evaluated FIRST), digest tamper, seal forgery/relabel, synthetic-in-real-mode, real-status-forbidden, bad role, evidence-class mismatch, dual-role, evidence-class violation, evidence bound-elsewhere, inline-payload and non-canonical references, missing references/provenance, non-UTC, expiry, revocation, contract version, wrong stage, and authority-not-governed.",
+    "evaluate_producer_registration_distinctness: derives distinctness across the six F2-R3 dimensions; DELEGATES execution independence to design.hermes_fw08_execution_identity_v1.evaluate_execution_independence and surfaces its EI-* reasons verbatim (incl. EI-COMMON-EXECUTABLE-AND-AUTHORITY when executable_digest + authority + runner coincide — labels differing is NOT sufficient); adds same-* reference checks and PR-FUT2-ALIASED-IDENTITY for case/whitespace/unicode/proxy-alias collisions.",
+    "validate_registration_approval: rejects producer self-approval (incl. alias), an approver sharing execution/executable/authority with the producer (PR-FUT2-APPROVER-NOT-INDEPENDENT), an approval bound to another producer/role/registration (PR-FUT2-APPROVAL-BINDING), and copied/relabelled/expired/revoked approvals; delegates ApprovalRecord digest recompute for tamper detection.",
+    "validate_evidence_class: build producer output limited to BUILD_EVIDENCE, OCI to OCI_INSPECTION_EVIDENCE; rejects build-emitting-OCI / OCI-emitting-build (PR-FUT2-EVIDENCE-CLASS-VIOLATION), an OCI producer repackaging the build producer's execution output (PR-FUT2-OCI-REPACKAGES-BUILD), inline-payload and non-canonical class references.",
+    "_ModuleRegistrationIssuer (ephemeral in-process HMAC, name-mangled key, no getter), _MODULE_ISSUER singleton, _REGISTRATION_TOKEN module-private sentinel — mirroring FUT-1 _ReadinessIssuer / F2-R1 _ModuleVerifier.",
+    "production_producer_registry_configured() (False) and configured_registry_authority_identity() (None) — the module-controlled real-registration root; register_producer(mode=REAL_CANDIDATE) always fails closed; new_synthetic_producer_registration / new_synthetic_registration are token-gated SYNTHETIC-only mints.",
+    "eventual_evidence_record_ids() extending the D-PR120-EV-TAIL sequence with EV-04-BUILD-PRODUCER-REGISTRATION + EV-05-OCI-INSPECTION-PRODUCER-REGISTRATION."
+  ],
+  "what_not_implemented": [
+    "NO real producer is registered; NO registry is activated; NO image is built or inspected.",
+    "NO external verifier integration (that is FUT-7 / stages 17-18); NO evidence store (that is FUT-3 / gate 6); NO Stage-B.",
+    "NO keys, secrets, credentials, or signing material are created, stored, or embedded anywhere.",
+    "NO runtime is touched; the module is not imported by runtime; no I/O, subprocess, network, filesystem, or environment lookup is performed.",
+    "NO configuration values in code — references only."
+  ],
+  "build_producer_responsibilities": {
+    "role": "BUILD_PRODUCER",
+    "lifecycle_stage": 4,
+    "permitted_evidence_class": "BUILD_EVIDENCE",
+    "forbidden_evidence_classes": ["OCI_INSPECTION_EVIDENCE"],
+    "produces": ["candidate-image build evidence", "immutable image digest", "build execution identity", "build_result record", "artefact digests", "return codes"],
+    "must_not": ["perform_oci_inspection", "verify_proof"],
+    "registration": "governed ProducerRegistry under a trusted ActivatedRegistryHandle (F2-R1) — inert here; the handle is recorded ONLY as a reference and no real handle is activated."
+  },
+  "oci_inspection_producer_responsibilities": {
+    "role": "OCI_INSPECTION_PRODUCER",
+    "lifecycle_stage": 5,
+    "permitted_evidence_class": "OCI_INSPECTION_EVIDENCE",
+    "forbidden_evidence_classes": ["BUILD_EVIDENCE"],
+    "produces": ["independent OCI inspection by digest", "manifest_digest", "config_digest", "ordered layer_digests", "filesystem_digest", "image metadata", "inspection tool output digest", "SBOM", "vulnerability result"],
+    "must_not_consume_build_payload_as_truth": true,
+    "must_inspect_image_independently_by_digest": true
+  },
+  "distinctness": {
+    "assertion": "build producer and OCI producer MUST be distinct across all six dimensions (execution identity, registration, runner, executable boundary, evidence reference, provenance); identity is keyed on executable_digest + authority_reference + runner_identity, NOT on tool/producer names.",
+    "function": "evaluate_producer_registration_distinctness",
+    "delegates_to": "design.hermes_fw08_execution_identity_v1.evaluate_execution_independence",
+    "ei_common_executable_and_authority": "surfaced when build and OCI executions share executable_digest + authority_reference + runner_identity",
+    "labels_insufficient": "differing producer ids / tool names alone do NOT establish distinctness — EI-COMMON-EXECUTABLE-AND-AUTHORITY still fires",
+    "reason_codes": ["PR-FUT2-WRONG-TYPE", "PR-FUT2-SAME-REGISTRATION-ID", "PR-FUT2-SAME-PRODUCER-IDENTITY", "PR-FUT2-SAME-EXECUTION-IDENTITY", "PR-FUT2-SAME-EXECUTABLE-IDENTITY", "PR-FUT2-SAME-AUTHORITY-ROOT", "PR-FUT2-ROLE-MISMATCH", "PR-FUT2-DUAL-ROLE", "PR-FUT2-ALIASED-IDENTITY", "EI-COMMON-EXECUTABLE-AND-AUTHORITY", "EI-ONE-EXECUTION-BOTH-ROLES", "EI-SAME-EXECUTION-ID", "EI-SAME-PROCESS"],
+    "no_self_approval": true,
+    "no_self_audit": true
+  },
+  "registry_and_activated_handle_authority": {
+    "note": "A real producer registration's authority is conferred ONLY by resolution through a governed ActivatedRegistryHandle (F2-R1 §10/§11). In this inert WO the handle is a REFERENCE only; the decisive real-registration root is the module-controlled configured_registry_authority_identity() which is None.",
+    "authority_not_governed": "a real record deriving authority only from the local seal / a raw registry / an unactivated handle / a caller assertion -> PR-FUT2-AUTHORITY-NOT-GOVERNED",
+    "registry_authority_not_configured": "a real record cannot resolve the module-controlled configured registry authority (None) -> PR-FUT2-REGISTRY-AUTHORITY-NOT-CONFIGURED"
+  },
+  "approval_separation": {
+    "function": "validate_registration_approval",
+    "delegates_to": "design.hermes_fw08_approval_record_v1.evaluate_approvals (self-approval semantics)",
+    "reason_codes": ["PR-FUT2-APPROVAL-WRONG-TYPE", "PR-FUT2-SELF-APPROVAL", "PR-FUT2-APPROVER-NOT-INDEPENDENT", "PR-FUT2-APPROVAL-BINDING", "PR-FUT2-APPROVAL-NOT-APPROVED", "PR-FUT2-APPROVAL-COPIED", "PR-FUT2-APPROVAL-REVOKED", "PR-FUT2-APPROVAL-EXPIRED", "PR-FUT2-APPROVAL-UTC-INVALID"]
+  },
+  "evidence_class_separation": {
+    "function": "validate_evidence_class",
+    "build_producer": "BUILD_EVIDENCE only",
+    "oci_inspection_producer": "OCI_INSPECTION_EVIDENCE only",
+    "oci_repackages_build": "OCI evidence produced FROM the build producer's execution -> PR-FUT2-OCI-REPACKAGES-BUILD",
+    "reason_codes": ["PR-FUT2-WRONG-TYPE", "PR-FUT2-BAD-ROLE", "PR-FUT2-EVIDENCE-CLASS-VIOLATION", "PR-FUT2-OCI-REPACKAGES-BUILD", "PR-FUT2-REFERENCE-IS-INLINE-PAYLOAD", "PR-FUT2-REFERENCE-NONCANONICAL"]
+  },
+  "production_unavailability": {
+    "production_producer_registry_configured": false,
+    "configured_registry_authority_identity": null,
+    "real_mode_behaviour": "register_producer(mode=REAL_CANDIDATE) ALWAYS -> (None, ('PR-FUT2-REAL-REGISTRATION-UNAVAILABLE', 'F2R3-FUT2-REAL-PRODUCER-REGISTRATION-NOT-CONFIGURED'))",
+    "decisive_root": "C-FUT2-REGISTRY-SOLE-ROOT: validate_producer_registration's real-registration gate runs FIRST and requires production_producer_registry_configured()==True AND the record to resolve the module-controlled configured_registry_authority_identity() (None here). The identity is a NON-Boolean second anchor so the Boolean can NEVER become the sole root: even with production_producer_registry_configured monkeypatched True, the configured identity is None -> PR-FUT2-REGISTRY-AUTHORITY-NOT-CONFIGURED -> no real record validates. A caller cannot supply this identity (not via the handle reference, not reflectively).",
+    "local_seal_is_integrity_metadata_only": "the _MODULE_ISSUER HMAC (registration_seal) is LOCAL OBJECT-INTEGRITY METADATA ONLY — NOT a production trust root, NOT registry authority, NOT external attestation, and NEVER by itself grounds real-mode acceptance. A reflectively-reachable in-process key can mint a valid seal, so a valid local seal must NEVER by itself cause acceptance.",
+    "no_fallback": "no synthetic substitution, no /etc/env/filesystem/network lookup",
+    "mirrors": "FUT-1 EAR-REAL-AUTHORITY-UNAVAILABLE / production_verifier_configured / configured_production_verifier_identity"
+  },
+  "synthetic_real_boundary": {
+    "classification_setter": "C-FUT2-REGISTRATION-PROMOTION: the token-gated mint (new_synthetic_producer_registration / register_producer) is SYNTHETIC-ONLY and REJECTS any caller-selected non-synthetic classification with ProducerRegistrationForbidden (not silently repaired). A real classification can only ever arise from a genuinely-available governed production registry (unavailable in this WO), never from caller-supplied construction.",
+    "registration_states": ["SYNTHETIC_UNREGISTERED", "REAL_REGISTRATION_UNAVAILABLE", "REVOKED_REGISTRATION", "INVALID_REGISTRATION"],
+    "only_mintable_state": "SYNTHETIC_UNREGISTERED",
+    "seal_binds_classification": "the module seal covers registration_digest + classification, so a relabel synthetic->'REAL' breaks the seal (PR-FUT2-SEAL-INVALID)"
+  },
+  "real_producer_registered": false,
+  "image_activity": false,
+  "no_secrets": true,
+  "later_evidence_store_dependency": "FUT-3/gate-6",
+  "held_stages": "6-22",
+  "prohibited_interpretations": [
+    "This contract does NOT mean a real producer is registered or a registry is activated.",
+    "SYNTHETIC_UNREGISTERED minted here is test-only; it never certifies a real registration.",
+    "The module seal is NOT registry authority; it is an ephemeral in-process integrity seal.",
+    "No output of this contract authorises execution, publication, deployment, image build/inspection, or any runtime change."
+  ],
+  "acceptance_tests": [
+    "REAL_CANDIDATE registration ALWAYS fails closed (PR-FUT2-REAL-REGISTRATION-UNAVAILABLE / F2R3-FUT2-REAL-PRODUCER-REGISTRATION-NOT-CONFIGURED).",
+    "DECISIVE: a reflectively-forged, correctly-sealed REAL registration validated in real_mode with production_producer_registry_configured monkeypatched True is STILL rejected PR-FUT2-REGISTRY-AUTHORITY-NOT-CONFIGURED (Boolean not sole root, seal not sole root); configured_registry_authority_identity() is None.",
+    "Synthetic build + OCI registrations accepted only in TEST_ONLY; the SAME under REAL_CANDIDATE rejected.",
+    "Synthetic passed as real (real_mode) -> PR-FUT2-SYNTHETIC-IN-REAL-MODE; caller-created / copied / relabelled / dataclasses.replace / object.__new__ / subclass / vars-mutation / reflective-issuer records rejected.",
+    "Self-approval and shared-execution/executable/authority/alias approver -> PR-FUT2-SELF-APPROVAL / PR-FUT2-APPROVER-NOT-INDEPENDENT; approval copied/role-mismatch/expired/revoked rejected.",
+    "Distinctness: same producer/execution/executable/authority/registration-id; alias canonical-same -> PR-FUT2-ALIASED-IDENTITY; common executable+authority+runner -> EI-COMMON-EXECUTABLE-AND-AUTHORITY; dual-role; one-execution-both-roles.",
+    "Evidence separation: build emits OCI / OCI emits build / OCI repackages build execution -> PR-FUT2-OCI-REPACKAGES-BUILD; wrong-class; bound-elsewhere; inline; traversal/encoding on refs.",
+    "Inertness: module performs no open()/os.environ/getenv/socket/subprocess/requests/urllib/Path and no import-time I/O; secret-scan module + JSON + MD.",
+    "Positive: a fully-distinct synthetic build + OCI pair validates in TEST_ONLY and the SAME under REAL_CANDIDATE rejects."
+  ],
+  "classification": "BUILD_AND_OCI_PRODUCER_REGISTRATION_CONTRACT_IMPLEMENTED_INERT",
+  "next_held_stage": "evidence-store readiness (stage 6, FUT-3/gate-6)"
+}
