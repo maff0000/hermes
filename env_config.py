@@ -122,7 +122,8 @@ def get_env_list(key: str, default: list = None) -> list:
 # ---------------------------------------------------------------------------------------------------
 
 # Externally-configurable NON-SECRET allowed root for mounted secret files. Safe container default is the
-# conventional read-only Docker-secret mount. Never hard-coded as a hidden host dependency — overridable.
+# conventional read-only Docker-secret mount. Never hard-coded as a hidden host dependency — overridable,
+# BUT only WITHIN a positive allow-list of governed HERMES secret parents (below).
 DEFAULT_SECRET_ROOT = "/run/secrets"
 # Bounded maximum for a credential / webhook value. 8 KiB is ample for API keys, DB passwords and webhook
 # URLs while rejecting log/dump/procfs-style reads. Documented limit.
@@ -130,24 +131,75 @@ MAX_SECRET_FILE_BYTES = 8192
 # Special pseudo-filesystems that must NEVER be readable through the loader, even if the root were mis-set.
 _FORBIDDEN_FS_PREFIXES = ("/proc", "/sys", "/dev", "/srv-dev")
 
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-POSITIVE-SECRET-ROOT-POLICY-CORRECTION-0001
+# C-WP2-SECRET-ROOT-BROAD-ROOT-ACCEPTED: the earlier resolver accepted ANY absolute existing directory as
+# the secret root, so HERMES_SECRET_ROOT=/etc could read /etc/passwd. The root is now POSITIVE allow-list:
+# the configured root must be one of these governed HERMES-owned parents, or a directory BENEATH one. This
+# is a MODULE CONSTANT — an env/operator cannot broaden it; tests inject an extra authorised root by
+# monkeypatching this tuple in-process (never via the environment).
+_AUTHORISED_SECRET_ROOTS = ("/run/secrets", "/run/hermes/secrets", "/var/run/hermes/secrets")
+# Broad system / user roots that must NEVER be a secret root even if someone points HERMES_SECRET_ROOT at
+# them. (Defence-in-depth classification for a clearer fault; the positive allow-list is the real gate.)
+_SYSTEM_ROOT_PATHS = frozenset({
+    "/", "/etc", "/root", "/home", "/usr", "/var", "/bin", "/sbin", "/boot", "/lib", "/lib64",
+    "/opt", "/mnt", "/media", "/tmp", "/var/tmp", "/run", "/var/run", "/proc", "/sys", "/dev",
+})
+
+
+def _is_beneath(path: str, base: str) -> bool:
+    """True iff canonical `path` == `base` or is strictly beneath it."""
+    return path == base or path.startswith(base.rstrip("/") + os.sep)
+
 
 def _resolve_secret_root() -> str:
-    """Resolve + validate the allowed secret root. Fail-closed:
-      - unset -> DEFAULT_SECRET_ROOT
-      - not absolute            -> SECRET-ROOT-RELATIVE
-      - missing                 -> SECRET-ROOT-MISSING
-      - not a directory         -> SECRET-ROOT-NOT-DIRECTORY
-      - realpath differs (root is itself a symlink to elsewhere) is allowed ONLY if it still resolves to a
-        real directory; the CANONICAL root is used for all containment checks.
-    Returns the canonical (realpath) root."""
+    """Resolve + validate the allowed secret root against a POSITIVE allow-list. Fail-closed:
+      - unset                              -> DEFAULT_SECRET_ROOT
+      - not absolute                       -> SECRET-ROOT-RELATIVE
+      - configured path is a symlink       -> SECRET-ROOT-SYMLINK
+      - missing                            -> SECRET-ROOT-MISSING
+      - not a directory                    -> SECRET-ROOT-NOT-DIRECTORY
+      - not within an authorised HERMES secret parent:
+          * equal-to / beneath a broad system|user root -> SECRET-ROOT-SYSTEM-PATH
+          * a cross-application tree (/srv, /srv-dev, tradingproteus, ares) -> SECRET-ROOT-CROSS-APPLICATION
+          * otherwise                                    -> SECRET-ROOT-NOT-AUTHORISED
+      - group/world writable               -> SECRET-ROOT-UNSAFE-PERMISSIONS
+    Returns the canonical (realpath) root. The runtime-user-writability gate is documented as a deployment
+    requirement (§7): the root must be root/deploy-owned and read-only to `hermes`."""
     root = os.getenv(f"{ENV}_HERMES_SECRET_ROOT") or os.getenv("HERMES_SECRET_ROOT") or DEFAULT_SECRET_ROOT
     if not os.path.isabs(root):
-        raise ValueError(f"SECRET-ROOT-RELATIVE: HERMES_SECRET_ROOT must be an absolute path ({root})")
+        raise ValueError("SECRET-ROOT-RELATIVE: HERMES_SECRET_ROOT must be an absolute path")
+    # a symlinked root is refused BEFORE realpath collapses it (a symlink is not a governed mount).
+    if os.path.islink(root):
+        raise ValueError("SECRET-ROOT-SYMLINK: HERMES_SECRET_ROOT must not be a symlink")
     real_root = os.path.realpath(root)
     if not os.path.exists(real_root):
-        raise ValueError(f"SECRET-ROOT-MISSING: HERMES_SECRET_ROOT does not exist ({root})")
+        raise ValueError("SECRET-ROOT-MISSING: HERMES_SECRET_ROOT does not exist")
     if not os.path.isdir(real_root):
-        raise ValueError(f"SECRET-ROOT-NOT-DIRECTORY: HERMES_SECRET_ROOT is not a directory ({root})")
+        raise ValueError("SECRET-ROOT-NOT-DIRECTORY: HERMES_SECRET_ROOT is not a directory")
+
+    # POSITIVE allow-list: the canonical root must be one of the governed parents, or beneath one.
+    authorised = any(_is_beneath(real_root, base) for base in _AUTHORISED_SECRET_ROOTS)
+    if not authorised:
+        low = real_root.lower()
+        # classify for a clearer, non-secret fault (the deny is the same either way).
+        if any(_is_beneath(real_root, s) for s in ("/srv-dev", "/srv")) or \
+                "tradingproteus" in low or "/ares" in low:
+            raise ValueError("SECRET-ROOT-CROSS-APPLICATION: HERMES_SECRET_ROOT is another application's tree")
+        if real_root in _SYSTEM_ROOT_PATHS or any(
+                _is_beneath(real_root, s) for s in ("/etc", "/root", "/home", "/usr", "/bin", "/sbin",
+                                                    "/boot", "/lib", "/proc", "/sys", "/dev", "/opt")):
+            raise ValueError("SECRET-ROOT-SYSTEM-PATH: HERMES_SECRET_ROOT is a system/user path, not a "
+                             "governed HERMES secret mount")
+        raise ValueError("SECRET-ROOT-NOT-AUTHORISED: HERMES_SECRET_ROOT is not an authorised HERMES secret "
+                         "root (must be /run/secrets or a governed HERMES secret mount)")
+
+    # group/world writable root is unsafe (a non-privileged process could plant/replace secrets). Owner
+    # write is expected for the root/deploy owner. The 'not writable by hermes' condition is a deployment
+    # gate (§7) documented in the WP2 doc — enforced portably here as: no group/world write bit.
+    st = os.stat(real_root)
+    import stat as _stat
+    if st.st_mode & (_stat.S_IWGRP | _stat.S_IWOTH):
+        raise ValueError("SECRET-ROOT-UNSAFE-PERMISSIONS: HERMES_SECRET_ROOT is group/world-writable")
     return real_root
 
 

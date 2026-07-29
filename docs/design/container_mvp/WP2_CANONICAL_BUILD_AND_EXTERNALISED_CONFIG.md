@@ -234,3 +234,41 @@ a HERMES-owned path policy:
 
 Deploy pattern: mount HERMES-owned secrets read-only under the root, e.g.
 `--mount type=bind,ro,src=/host/hermes-secrets,dst=/run/secrets` and set `OANDA_API_KEY_FILE=/run/secrets/oanda_api_key`.
+
+---
+
+## Positive secret-root policy (C-WP2-SECRET-ROOT-BROAD-ROOT-ACCEPTED correction)
+
+WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-POSITIVE-SECRET-ROOT-POLICY-CORRECTION-0001.
+
+R2D2's re-audit closed the path-containment finding but flagged a residual: the root check accepted **any**
+absolute existing directory, so `HERMES_SECRET_ROOT=/etc` (with `_FILE=/etc/passwd`) would read a regular
+file beneath a broad root. The root is now a **positive allow-list**, not a deny-list.
+
+- **Authorised roots** — `_AUTHORISED_SECRET_ROOTS = ("/run/secrets", "/run/hermes/secrets",
+  "/var/run/hermes/secrets")` is a **module constant** (an env/operator cannot broaden it). The configured
+  `HERMES_SECRET_ROOT` must equal, or be a directory beneath, one of these governed HERMES secret parents.
+  Default is `/run/secrets`. A governed alternative is declared by extending the constant in the config
+  contract, never via an environment allow-list variable.
+- **Rejections (fail-closed):** a symlinked root → `SECRET-ROOT-SYMLINK`; a broad system/user root
+  (`/`, `/etc`, `/root`, `/home`, `/usr`, `/var`, `/bin`, `/boot`, `/lib`, `/opt`, `/mnt`, `/media`, `/tmp`,
+  `/var/tmp`, `/run`, `/var/run`, `/proc`, `/sys`, `/dev`) → `SECRET-ROOT-SYSTEM-PATH`; a cross-application
+  tree (`/srv`, `/srv-dev`, `tradingproteus`, `ares`) → `SECRET-ROOT-CROSS-APPLICATION`; any other
+  unauthorised directory → `SECRET-ROOT-NOT-AUTHORISED`; relative → `SECRET-ROOT-RELATIVE`; missing →
+  `SECRET-ROOT-MISSING`; not-a-directory → `SECRET-ROOT-NOT-DIRECTORY`; group/world-writable →
+  `SECRET-ROOT-UNSAFE-PERMISSIONS`.
+- Proven: `HERMES_SECRET_ROOT=/etc` cannot read `/etc/passwd`; `=/root` cannot read `/root/.bashrc`; `=/`
+  cannot read arbitrary files (all rejected at root resolution, zero content leak). The default
+  `/run/secrets` remains authorised. All prior path-containment controls are preserved unchanged.
+
+### Deployment ownership contract (§7)
+
+- Mount the authorised secret root **read-only**, owned by `root` (or a governed deploy identity), **not
+  writable by user `hermes`** (uid 10001), e.g.
+  `--mount type=bind,ro,src=/host/hermes-secrets,dst=/run/secrets`.
+- Mount only the individual secrets HERMES requires; the root is HERMES-owned; **no ARES/other-application
+  secret directory is mounted**; secret files are regular and ≤ 8 KiB; secrets are supplied at **runtime,
+  never at image build time**.
+- The loader enforces the portable part of this (positive allow-list, no group/world-writable root, regular
+  bounded files). Container-level ownership (root-owned, read-only to `hermes`) is a **deployment gate** —
+  the loader fails closed on clearly unsafe modes; the mount ownership is verified at deploy time.

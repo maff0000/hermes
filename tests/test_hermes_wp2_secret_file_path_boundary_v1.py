@@ -26,9 +26,14 @@ import env_config as ec
 def secret_root(tmp_path, monkeypatch):
     root = tmp_path / "secrets"
     root.mkdir()
+    os.chmod(root, 0o700)  # owner-only: satisfies the no-group/world-write root policy
     monkeypatch.setenv("HERMES_SECRET_ROOT", str(root))
     # env_config reads {ENV}_HERMES_SECRET_ROOT then HERMES_SECRET_ROOT; clear the prefixed one.
     monkeypatch.delenv(f"{ec.ENV}_HERMES_SECRET_ROOT", raising=False)
+    # POSITIVE allow-list is a MODULE CONSTANT — inject this HERMES-owned test root in-process (never via
+    # the environment). This is exactly how a governed alternative root would be declared in the contract.
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(root)),))
     return root
 
 
@@ -346,3 +351,145 @@ def test_secret_value_never_in_exception(secret_root):
 def test_module_constants_present():
     assert ec.DEFAULT_SECRET_ROOT == "/run/secrets"
     assert ec.MAX_SECRET_FILE_BYTES == 8192
+
+
+# =========================================================================== POSITIVE SECRET-ROOT POLICY
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-POSITIVE-SECRET-ROOT-POLICY-CORRECTION-0001
+# C-WP2-SECRET-ROOT-BROAD-ROOT-ACCEPTED: the root must be a governed HERMES secret mount, not an arbitrary
+# absolute directory. A broad/system/user/cross-app root must fail closed at root resolution.
+
+def _set_root(monkeypatch, root):
+    monkeypatch.setenv("HERMES_SECRET_ROOT", root)
+    monkeypatch.delenv(f"{ec.ENV}_HERMES_SECRET_ROOT", raising=False)
+
+
+@pytest.mark.parametrize("badroot,code", [
+    ("/", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/etc", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/root", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/home", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/usr", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/var", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/opt", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/bin", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/boot", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/tmp", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/var/tmp", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/run", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/var/run", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/proc", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/sys", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/dev", "SECRET-ROOT-SYSTEM-PATH"),
+    ("/srv", "SECRET-ROOT-CROSS-APPLICATION"),
+    ("/srv-dev", "SECRET-ROOT-CROSS-APPLICATION"),
+    ("/srv-dev/tradingProteus", "SECRET-ROOT-CROSS-APPLICATION"),
+    ("/srv-dev/tradingProteus/ares", "SECRET-ROOT-CROSS-APPLICATION"),
+])
+def test_broad_root_rejected(monkeypatch, badroot, code):
+    _set_root(monkeypatch, badroot)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(badroot + "/whatever")
+    msg = str(ei.value)
+    # The security property: the root is REJECTED at resolution (never accepted, never a read). Which
+    # SECRET-ROOT-* code fires can vary by host (e.g. /bin or /var/run may be a symlink -> SECRET-ROOT-
+    # SYMLINK; /srv-dev may be absent -> SECRET-ROOT-MISSING) — all are fail-closed denials. It must NOT
+    # be a SECRET-FILE-* / SECRET-PATH-* code (those would mean the root was accepted).
+    assert "SECRET-ROOT-" in msg, msg
+    # the classified code is preferred where the path exists and is not a symlink
+    if badroot in ("/", "/etc", "/root", "/home", "/usr", "/var", "/opt", "/tmp", "/proc", "/sys", "/dev"):
+        assert any(c in msg for c in (code, "SECRET-ROOT-SYMLINK", "SECRET-ROOT-MISSING")), msg
+
+
+def test_root_etc_cannot_read_passwd(monkeypatch):
+    _set_root(monkeypatch, "/etc")
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file("/etc/passwd")
+    assert "SECRET-ROOT" in str(ei.value)  # rejected at ROOT resolution, before any read
+    assert "root:" not in str(ei.value)    # zero content leak
+
+
+def test_root_root_cannot_read_bashrc(monkeypatch):
+    _set_root(monkeypatch, "/root")
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file("/root/.bashrc")
+    assert "SECRET-ROOT" in str(ei.value)
+
+
+def test_root_slash_cannot_read_arbitrary(monkeypatch):
+    _set_root(monkeypatch, "/")
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file("/etc/hostname")
+    assert "SECRET-ROOT" in str(ei.value)
+
+
+def test_default_root_is_run_secrets_and_authorised(monkeypatch):
+    # unset -> default /run/secrets; it is in the positive allow-list (resolution only fails on MISSING if
+    # the mount is absent, NOT on authorisation).
+    monkeypatch.delenv("HERMES_SECRET_ROOT", raising=False)
+    monkeypatch.delenv(f"{ec.ENV}_HERMES_SECRET_ROOT", raising=False)
+    assert "/run/secrets" in ec._AUTHORISED_SECRET_ROOTS
+    try:
+        ec._resolve_secret_root()
+    except ValueError as e:
+        # on a host without the mount this is MISSING (authorised but absent) — never NOT-AUTHORISED
+        assert "SECRET-ROOT-MISSING" in str(e), str(e)
+
+
+def test_governed_alternative_root_under_authorised_parent(monkeypatch, tmp_path):
+    # a directory BENEATH an authorised parent is accepted (simulated by injecting the parent in-process)
+    parent = tmp_path / "hermes" / "secrets"
+    child = parent / "app1"
+    child.mkdir(parents=True)
+    os.chmod(child, 0o700)
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(parent)),))
+    _set_root(monkeypatch, str(child))
+    f = _write(child / "key")
+    assert ec.load_secret_file(str(f)) == "s3cr3t"
+
+
+def test_world_writable_root_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "wwsecrets"
+    root.mkdir()
+    os.chmod(root, 0o777)  # world-writable
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(root)),))
+    _set_root(monkeypatch, str(root))
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert "SECRET-ROOT-UNSAFE-PERMISSIONS" in str(ei.value)
+
+
+def test_group_writable_root_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "gwsecrets"
+    root.mkdir()
+    os.chmod(root, 0o770)  # group-writable
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(root)),))
+    _set_root(monkeypatch, str(root))
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert "SECRET-ROOT-UNSAFE-PERMISSIONS" in str(ei.value)
+
+
+def test_symlink_root_rejected(monkeypatch, tmp_path):
+    real = tmp_path / "realsecrets"
+    real.mkdir(); os.chmod(real, 0o700)
+    link = tmp_path / "linksecrets"
+    os.symlink(str(real), str(link))
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(real)),))
+    _set_root(monkeypatch, str(link))
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(link / "k"))
+    assert "SECRET-ROOT-SYMLINK" in str(ei.value)
+
+
+def test_unauthorised_but_safe_dir_rejected(monkeypatch, tmp_path):
+    # a perfectly ordinary, owner-only directory that is simply NOT in the allow-list -> NOT-AUTHORISED
+    d = tmp_path / "randomdir"
+    d.mkdir(); os.chmod(d, 0o700)
+    _set_root(monkeypatch, str(d))
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(d / "k"))
+    assert "SECRET-ROOT-NOT-AUTHORISED" in str(ei.value)
