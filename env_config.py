@@ -112,36 +112,138 @@ def get_env_list(key: str, default: list = None) -> list:
 # ---------------------------------------------------------------------------------------------------
 
 
-def load_secret_file(path: str) -> str:
-    """Read a secret from a file, fail-closed.
+# ---------------------------------------------------------------------------------------------------
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-SECRET-FILE-PATH-BOUNDARY-CORRECTION-0001
+# C-WP2-SECRET-FILE-UNBOUNDED-PATH: the *_FILE reference is env/operator-controlled, so the loader MUST
+# NOT be an arbitrary-file read primitive. Every secret file must live BENEATH an explicit, externally
+# configurable, NON-SECRET allowed root (HERMES_SECRET_ROOT, default the conventional Docker-secret mount
+# /run/secrets), must be a REGULAR file (no dir/FIFO/socket/device/procfs), must not escape the root via
+# symlink or traversal, and must be within a bounded size. Fail-closed with distinct, non-secret codes.
+# ---------------------------------------------------------------------------------------------------
 
-    Semantics:
-      - strip a single trailing newline and any trailing whitespace-only tail (rstrip) — internal
-        content is NEVER altered.
-      - EMPTY after strip -> ValueError('SECRET-FILE-EMPTY: <path>')
-      - unreadable / missing -> ValueError('SECRET-FILE-UNREADABLE: <path>')
-      - world/group readable or writable (mode & 0o077) -> WARNING via module logger (policy = warn,
-        does NOT fail). The value is NEVER logged.
+# Externally-configurable NON-SECRET allowed root for mounted secret files. Safe container default is the
+# conventional read-only Docker-secret mount. Never hard-coded as a hidden host dependency — overridable.
+DEFAULT_SECRET_ROOT = "/run/secrets"
+# Bounded maximum for a credential / webhook value. 8 KiB is ample for API keys, DB passwords and webhook
+# URLs while rejecting log/dump/procfs-style reads. Documented limit.
+MAX_SECRET_FILE_BYTES = 8192
+# Special pseudo-filesystems that must NEVER be readable through the loader, even if the root were mis-set.
+_FORBIDDEN_FS_PREFIXES = ("/proc", "/sys", "/dev", "/srv-dev")
+
+
+def _resolve_secret_root() -> str:
+    """Resolve + validate the allowed secret root. Fail-closed:
+      - unset -> DEFAULT_SECRET_ROOT
+      - not absolute            -> SECRET-ROOT-RELATIVE
+      - missing                 -> SECRET-ROOT-MISSING
+      - not a directory         -> SECRET-ROOT-NOT-DIRECTORY
+      - realpath differs (root is itself a symlink to elsewhere) is allowed ONLY if it still resolves to a
+        real directory; the CANONICAL root is used for all containment checks.
+    Returns the canonical (realpath) root."""
+    root = os.getenv(f"{ENV}_HERMES_SECRET_ROOT") or os.getenv("HERMES_SECRET_ROOT") or DEFAULT_SECRET_ROOT
+    if not os.path.isabs(root):
+        raise ValueError(f"SECRET-ROOT-RELATIVE: HERMES_SECRET_ROOT must be an absolute path ({root})")
+    real_root = os.path.realpath(root)
+    if not os.path.exists(real_root):
+        raise ValueError(f"SECRET-ROOT-MISSING: HERMES_SECRET_ROOT does not exist ({root})")
+    if not os.path.isdir(real_root):
+        raise ValueError(f"SECRET-ROOT-NOT-DIRECTORY: HERMES_SECRET_ROOT is not a directory ({root})")
+    return real_root
+
+
+def _canonical_secret_path(path: str, real_root: str) -> str:
+    """Resolve the requested secret path under the allowed root and enforce containment. The `_FILE`
+    value may be absolute (must already resolve beneath the root) or relative (resolved beneath the root
+    under one rule). Symlink escape and traversal fail because we compare the fully-resolved realpath.
+
+    Fail-closed:
+      - empty/malformed         -> SECRET-PATH-RELATIVE-MALFORMED
+      - realpath under a forbidden pseudo-fs -> SECRET-SPECIAL-FS
+      - realpath references a known cross-application tree -> SECRET-CROSS-APP-PATH
+      - realpath not beneath the canonical root -> SECRET-PATH-OUTSIDE-ROOT
     """
-    p = Path(path)
-    try:
-        # Permission check first (warn-only). Never fails the read.
-        try:
-            mode = p.stat().st_mode
-            if mode & 0o077:
-                logger.warning(
-                    "SECRET-FILE-PERMISSIONS: secret file has group/world-accessible mode "
-                    "(%s) path=%s — restrict to 0600/0400 (value not logged)",
-                    oct(mode & 0o777), path,
-                )
-        except OSError:
-            # stat failure is handled by the read below (fail-closed as unreadable).
-            pass
+    if not isinstance(path, str) or not path.strip():
+        raise ValueError("SECRET-PATH-RELATIVE-MALFORMED: empty secret file reference")
+    raw = path.strip()
+    candidate = raw if os.path.isabs(raw) else os.path.join(real_root, raw)
+    # realpath resolves ALL symlinks + `..` in the whole chain — a symlink escape or traversal collapses
+    # to its true target, which the containment check below then rejects.
+    real_path = os.path.realpath(candidate)
+    low = real_path.lower()
+    for pref in _FORBIDDEN_FS_PREFIXES:
+        if real_path == pref or real_path.startswith(pref + os.sep):
+            raise ValueError(f"SECRET-SPECIAL-FS: secret path resolves into a pseudo-filesystem ({pref})")
+    if "tradingproteus" in low or "/ares/" in low or low.endswith("/ares/.env"):
+        raise ValueError("SECRET-CROSS-APP-PATH: secret path references a non-HERMES application tree")
+    # containment: the canonical target must be the root itself's child (root + sep + ...).
+    if real_path != real_root and not real_path.startswith(real_root + os.sep):
+        raise ValueError("SECRET-PATH-OUTSIDE-ROOT: secret file escapes the allowed secret root")
+    return real_path
 
-        with open(p, "r", encoding="utf-8") as fh:
-            raw = fh.read()
-    except (OSError, IOError):
-        raise ValueError(f"SECRET-FILE-UNREADABLE: {path}")
+
+def load_secret_file(path: str) -> str:
+    """Read a secret from a file BENEATH the allowed secret root (HERMES_SECRET_ROOT), fail-closed.
+
+    Path boundary (C-WP2-SECRET-FILE-UNBOUNDED-PATH correction):
+      - the target must resolve BENEATH the canonical allowed root (else SECRET-PATH-OUTSIDE-ROOT);
+      - traversal / symlink escape collapse via realpath and are rejected (SECRET-PATH-OUTSIDE-ROOT);
+      - a final-component symlink is refused at open time via O_NOFOLLOW (SECRET-PATH-SYMLINK);
+      - pseudo-filesystems (/proc,/sys,/dev,/srv-dev) -> SECRET-SPECIAL-FS;
+      - cross-application trees -> SECRET-CROSS-APP-PATH.
+    File validation (on the OPENED fd — TOCTOU-hardened: we validate what we actually opened):
+      - must be a REGULAR file — dir/FIFO/socket/block/char device -> SECRET-FILE-NOT-REGULAR;
+      - bounded size <= MAX_SECRET_FILE_BYTES -> SECRET-FILE-TOO-LARGE;
+      - missing / unreadable -> SECRET-FILE-UNREADABLE;
+      - empty / whitespace-only after strip -> SECRET-FILE-EMPTY.
+    Content is NEVER logged and NEVER placed in an exception message. Group/world-accessible mode -> warn.
+    """
+    import stat as _stat
+
+    real_root = _resolve_secret_root()
+    real_path = _canonical_secret_path(path, real_root)
+
+    fd = None
+    try:
+        # O_NOFOLLOW: if the FINAL component is a symlink, open fails with ELOOP -> we reject it explicitly
+        # (defence-in-depth on top of the realpath containment above). Open the RESOLVED real_path.
+        try:
+            fd = os.open(real_path, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0))
+        except OSError as e:
+            if getattr(e, "errno", None) in (_errno_ELOOP(),):
+                raise ValueError("SECRET-PATH-SYMLINK: secret file (final component) is a symlink")
+            raise ValueError("SECRET-FILE-UNREADABLE: secret file could not be opened")
+
+        # Validate the OPENED descriptor, not the path (TOCTOU: a swap after this fstat cannot change fd).
+        st = os.fstat(fd)
+        if not _stat.S_ISREG(st.st_mode):
+            raise ValueError("SECRET-FILE-NOT-REGULAR: secret path is not a regular file "
+                             "(directory/FIFO/socket/device/pseudo-file rejected)")
+        if st.st_size > MAX_SECRET_FILE_BYTES:
+            raise ValueError(f"SECRET-FILE-TOO-LARGE: secret file exceeds {MAX_SECRET_FILE_BYTES} bytes")
+        if st.st_mode & 0o077:
+            logger.warning(
+                "SECRET-FILE-PERMISSIONS: secret file has group/world-accessible mode (%s) — restrict to "
+                "0600/0400 (value not logged)", oct(st.st_mode & 0o777),
+            )
+        # Read at most MAX+1 bytes so a procfs-style st_size==0-but-streams file is still bounded.
+        raw_bytes = os.read(fd, MAX_SECRET_FILE_BYTES + 1)
+        if len(raw_bytes) > MAX_SECRET_FILE_BYTES:
+            raise ValueError(f"SECRET-FILE-TOO-LARGE: secret file exceeds {MAX_SECRET_FILE_BYTES} bytes")
+    except ValueError:
+        raise
+    except OSError:
+        raise ValueError("SECRET-FILE-UNREADABLE: secret file could not be read")
+    finally:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+    try:
+        raw = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("SECRET-FILE-UNREADABLE: secret file is not valid UTF-8")
 
     # Strip a single trailing newline then any trailing whitespace-only tail. Internal content intact.
     value = raw
@@ -150,9 +252,14 @@ def load_secret_file(path: str) -> str:
     value = value.rstrip()
 
     if value == "":
-        raise ValueError(f"SECRET-FILE-EMPTY: {path}")
+        raise ValueError("SECRET-FILE-EMPTY: secret file is empty or whitespace-only")
 
     return value
+
+
+def _errno_ELOOP() -> int:
+    import errno as _errno
+    return _errno.ELOOP
 
 
 def get_secret(key: str, *, default: str = None, required: bool = False) -> str:

@@ -198,3 +198,39 @@ docker inspect --format '{{json .Config.Env}}' hermes-signal:candidate-<sha12>
 ### Explicit non-actions in WP2
 No image built, no service launched, no OANDA contact, no SQL/Redis write, no migration, no Redis
 key/TTL change, no entrypoint/user change, no cross-application change, no real secret read.
+
+---
+
+## Secret-file path boundary (C-WP2-SECRET-FILE-UNBOUNDED-PATH correction)
+
+WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-SECRET-FILE-PATH-BOUNDARY-CORRECTION-0001.
+
+R2D2's WP2 exact-head audit (AMBER, `C-WP2-SECRET-FILE-UNBOUNDED-PATH`) proved the first-cut loader was an
+arbitrary-file read primitive (it read `/etc/passwd` and `/proc/self/environ`). The corrected loader enforces
+a HERMES-owned path policy:
+
+- **Allowed root** — every `*_FILE` secret reference must resolve BENEATH an explicit, externally
+  configurable, **non-secret** root: `HERMES_SECRET_ROOT` (default `/run/secrets`, the conventional
+  read-only Docker-secret mount). The root must be an absolute, existing **directory** or the loader fails
+  closed (`SECRET-ROOT-RELATIVE` / `SECRET-ROOT-MISSING` / `SECRET-ROOT-NOT-DIRECTORY`). The root is never
+  a hidden host default — it is overridable and defaults only to the conventional secret mount.
+- **Containment** — the requested path (absolute, or relative-to-root) is resolved with `realpath` (which
+  collapses `..` and symlinks) and must remain beneath the canonical root, else `SECRET-PATH-OUTSIDE-ROOT`.
+  Traversal and symlink escape therefore fail. A final-component symlink is additionally refused at open
+  time via `O_NOFOLLOW` (`SECRET-PATH-SYMLINK`).
+- **Pseudo-filesystems / cross-app** — a resolved path under `/proc`, `/sys`, `/dev`, `/srv-dev` →
+  `SECRET-SPECIAL-FS`; a path referencing another application's tree (`tradingproteus`, `ares/.env`) →
+  `SECRET-CROSS-APP-PATH`.
+- **File validation on the opened descriptor** (TOCTOU-hardened — we validate the fd we actually opened,
+  not the path): must be a **regular file** (`SECRET-FILE-NOT-REGULAR` for dir/FIFO/socket/device/pseudo-
+  file), within a bounded **8 KiB** (`MAX_SECRET_FILE_BYTES`, `SECRET-FILE-TOO-LARGE`), non-empty after a
+  single trailing-newline + whitespace strip (`SECRET-FILE-EMPTY`), readable (`SECRET-FILE-UNREADABLE`).
+- **Source conflict** — a `_FILE` reference AND a direct value both set → `SECRET-SOURCE-CONFLICT` (the two
+  values are never compared and never appear in the message; only the SOURCE names). Neither present +
+  required → `SECRET-REQUIRED-MISSING`; neither present + optional → the caller's explicit default.
+- **No leakage** — the secret value never appears in logs (only the key name + source kind), in exception
+  messages, or on any endpoint. Docker-secret and read-only bind-mounted secret directories remain
+  supported; no secret is ever copied into the project tree to satisfy the policy.
+
+Deploy pattern: mount HERMES-owned secrets read-only under the root, e.g.
+`--mount type=bind,ro,src=/host/hermes-secrets,dst=/run/secrets` and set `OANDA_API_KEY_FILE=/run/secrets/oanda_api_key`.

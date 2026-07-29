@@ -105,6 +105,8 @@ def test_get_secret_direct_env(monkeypatch):
 
 def test_get_secret_file_trailing_newline_trimmed(monkeypatch, tmp_path):
     _clear_secret_env(monkeypatch, "MY_SECRET")
+    monkeypatch.setenv("HERMES_SECRET_ROOT", str(tmp_path))
+    monkeypatch.delenv(f"{env_config.ENV}_HERMES_SECRET_ROOT", raising=False)
     f = tmp_path / "secret.txt"
     f.write_text(_SECRET_VALUE + "\n")
     os.chmod(f, 0o600)
@@ -114,6 +116,8 @@ def test_get_secret_file_trailing_newline_trimmed(monkeypatch, tmp_path):
 
 def test_get_secret_missing_file_unreadable(monkeypatch, tmp_path):
     _clear_secret_env(monkeypatch, "MY_SECRET")
+    monkeypatch.setenv("HERMES_SECRET_ROOT", str(tmp_path))
+    monkeypatch.delenv(f"{env_config.ENV}_HERMES_SECRET_ROOT", raising=False)
     monkeypatch.setenv("MY_SECRET_FILE", str(tmp_path / "does_not_exist.txt"))
     with pytest.raises(ValueError, match="SECRET-FILE-UNREADABLE"):
         get_secret("MY_SECRET")
@@ -121,6 +125,8 @@ def test_get_secret_missing_file_unreadable(monkeypatch, tmp_path):
 
 def test_get_secret_empty_file(monkeypatch, tmp_path):
     _clear_secret_env(monkeypatch, "MY_SECRET")
+    monkeypatch.setenv("HERMES_SECRET_ROOT", str(tmp_path))
+    monkeypatch.delenv(f"{env_config.ENV}_HERMES_SECRET_ROOT", raising=False)
     f = tmp_path / "empty.txt"
     f.write_text("   \n")  # whitespace only
     os.chmod(f, 0o600)
@@ -142,6 +148,8 @@ def test_get_secret_source_conflict(monkeypatch, tmp_path):
 
 def test_get_secret_unsafe_perms_warns_not_fails(monkeypatch, tmp_path, caplog):
     _clear_secret_env(monkeypatch, "MY_SECRET")
+    monkeypatch.setenv("HERMES_SECRET_ROOT", str(tmp_path))
+    monkeypatch.delenv(f"{env_config.ENV}_HERMES_SECRET_ROOT", raising=False)
     f = tmp_path / "secret.txt"
     f.write_text(_SECRET_VALUE + "\n")
     os.chmod(f, 0o644)  # group/world readable
@@ -163,6 +171,8 @@ def test_get_secret_required_missing(monkeypatch):
 
 def test_get_secret_value_never_logged(monkeypatch, tmp_path, caplog):
     _clear_secret_env(monkeypatch, "MY_SECRET")
+    monkeypatch.setenv("HERMES_SECRET_ROOT", str(tmp_path))
+    monkeypatch.delenv(f"{env_config.ENV}_HERMES_SECRET_ROOT", raising=False)
     f = tmp_path / "secret.txt"
     f.write_text(_SECRET_VALUE + "\n")
     os.chmod(f, 0o600)
