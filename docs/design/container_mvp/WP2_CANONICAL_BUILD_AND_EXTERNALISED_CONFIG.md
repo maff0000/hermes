@@ -272,3 +272,44 @@ file beneath a broad root. The root is now a **positive allow-list**, not a deny
 - The loader enforces the portable part of this (positive allow-list, no group/world-writable root, regular
   bounded files). Container-level ownership (root-owned, read-only to `hermes`) is a **deployment gate** —
   the loader fails closed on clearly unsafe modes; the mount ownership is verified at deploy time.
+
+---
+
+## Runtime-writable secret-root rejection (C-WP2-SECRET-ROOT-RUNTIME-WRITABLE-ACCEPTED correction)
+
+WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-RUNTIME-WRITABLE-SECRET-ROOT-CORRECTION-0001.
+
+R2D2's static re-audit closed both prior findings but flagged a third residual: the root permission check
+rejected only group/world-writable bits, so a root **owned by the effective runtime identity** and
+owner-writable (e.g. `hermes`-owned `0700`) was accepted — the secret-consuming process could plant, replace,
+rename or delete its own secrets.
+
+The resolver now rejects a root that is **writable by the effective HERMES runtime identity**, via
+deterministic effective-identity + mode analysis (`_root_writable_by_runtime`), independent of the
+developer/CI UID:
+
+- **world-writable** → reject;
+- **group-writable** and the runtime is in the owning group (effective GID or a supplementary group) → reject;
+- **owner-writable** and the root is owned by the effective runtime UID → reject;
+- **effective runtime UID 0** (root can mutate anything) → reject;
+- `os.access(root, W_OK, effective_ids=True)` True — applied only when the module's effective-UID notion
+  equals the real process euid (so it is not misled by root-run tests).
+
+Fault: `SECRET-ROOT-RUNTIME-WRITABLE`. The pure group/world mode-bit check keeps its own
+`SECRET-ROOT-UNSAFE-PERMISSIONS` fault. Proven: a runtime-owned `0700` root beneath an authorised parent is
+rejected; a root owned by a distinct deploy identity at `0755` (not writable by the runtime) is accepted.
+
+`_effective_runtime_uid()` / `_effective_runtime_gids()` are small module functions (default to the real
+`os.geteuid()`/`os.getegid()`+`os.getgroups()`) — tests monkeypatch them to simulate the non-root `hermes`
+identity so the policy is deterministic regardless of who runs the suite.
+
+### Code-enforced vs deployment-gated
+
+- **Code-enforced:** positive allow-list, no group/world-writable root, no runtime-identity-writable root,
+  regular bounded files under the root, all path-containment controls.
+- **Deployment requirement:** the root is a **read-only** mount, owned by root or a governed deploy identity,
+  not writable by `hermes` (uid 10001); only the required individual secrets are mounted; no ARES/other-app
+  secrets; secrets supplied at runtime, never at image build time.
+- **Portability / limitations:** POSIX mode bits + ownership are what the loader can assert portably. ACLs,
+  overlay/tmpfs mount semantics, and Kubernetes `readOnly`/`defaultMode` are enforced at the mount layer and
+  verified at deploy time — the loader fails closed on the mode/ownership signals it can see.

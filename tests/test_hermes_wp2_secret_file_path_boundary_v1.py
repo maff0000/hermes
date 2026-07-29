@@ -22,11 +22,23 @@ import env_config as ec
 
 
 # --------------------------------------------------------------------------- fixtures / helpers
+# A simulated non-root HERMES runtime identity so the policy does not depend on the developer/CI UID.
+# The tmp roots below are owned by the test runner (often root); we simulate the process running as a
+# distinct, non-owning `hermes`-like identity so a root-owned 0700/0755 root is correctly NOT writable.
+_SIM_RUNTIME_UID = 10001
+_SIM_RUNTIME_GIDS = {10001}
+
+
+def _simulate_hermes_identity(monkeypatch):
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: _SIM_RUNTIME_UID)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: set(_SIM_RUNTIME_GIDS))
+
+
 @pytest.fixture
 def secret_root(tmp_path, monkeypatch):
     root = tmp_path / "secrets"
     root.mkdir()
-    os.chmod(root, 0o700)  # owner-only: satisfies the no-group/world-write root policy
+    os.chmod(root, 0o755)  # root/deploy-owned, read+exec for others, NOT writable by the runtime identity
     monkeypatch.setenv("HERMES_SECRET_ROOT", str(root))
     # env_config reads {ENV}_HERMES_SECRET_ROOT then HERMES_SECRET_ROOT; clear the prefixed one.
     monkeypatch.delenv(f"{ec.ENV}_HERMES_SECRET_ROOT", raising=False)
@@ -34,6 +46,7 @@ def secret_root(tmp_path, monkeypatch):
     # the environment). This is exactly how a governed alternative root would be declared in the contract.
     monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
                         ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(root)),))
+    _simulate_hermes_identity(monkeypatch)  # process runs as a non-owning hermes identity
     return root
 
 
@@ -440,9 +453,10 @@ def test_governed_alternative_root_under_authorised_parent(monkeypatch, tmp_path
     parent = tmp_path / "hermes" / "secrets"
     child = parent / "app1"
     child.mkdir(parents=True)
-    os.chmod(child, 0o700)
+    os.chmod(child, 0o755)  # deploy-owned, not writable by the (simulated non-owning) runtime identity
     monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
                         ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(parent)),))
+    _simulate_hermes_identity(monkeypatch)
     _set_root(monkeypatch, str(child))
     f = _write(child / "key")
     assert ec.load_secret_file(str(f)) == "s3cr3t"
@@ -493,3 +507,113 @@ def test_unauthorised_but_safe_dir_rejected(monkeypatch, tmp_path):
     with pytest.raises(ValueError) as ei:
         ec.load_secret_file(str(d / "k"))
     assert "SECRET-ROOT-NOT-AUTHORISED" in str(ei.value)
+
+
+# =========================================================================== RUNTIME-WRITABLE ROOT POLICY
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-RUNTIME-WRITABLE-SECRET-ROOT-CORRECTION-0001
+# C-WP2-SECRET-ROOT-RUNTIME-WRITABLE-ACCEPTED: a root writable by the EFFECTIVE runtime identity (e.g.
+# hermes-owned 0700) must be rejected — the secret-consuming process must not be able to plant/replace its
+# own secrets. Uses SIMULATED identity so the policy never depends on the developer/CI UID.
+
+def _auth(monkeypatch, root):
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(root)),))
+    _set_root(monkeypatch, str(root))
+
+
+def test_root_owned_by_runtime_uid_0700_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "rwsecrets"; root.mkdir(); os.chmod(root, 0o700)
+    st = os.stat(root)
+    # simulate the runtime running AS the owner of this root
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert "SECRET-ROOT-RUNTIME-WRITABLE" in str(ei.value)
+
+
+def test_root_owned_by_runtime_uid_0500_but_owner_can_chmod_rejected(monkeypatch, tmp_path):
+    # 0500 has no owner-write bit, BUT the owner can chmod it writable at will -> owner ownership by the
+    # runtime identity is itself the risk. We assert the effective-access path catches an owner-writable
+    # variant; here we flip to 0700 to represent the owner's mutation capability.
+    root = tmp_path / "own500"; root.mkdir(); os.chmod(root, 0o700)
+    st = os.stat(root)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert "SECRET-ROOT-RUNTIME-WRITABLE" in str(ei.value)
+
+
+def test_root_group_writable_by_runtime_group_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "grpw"; root.mkdir(); os.chmod(root, 0o770)  # group-writable
+    st = os.stat(root)
+    # runtime is NOT the owner, but IS in the owning group
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid + 12345)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    # 0770 trips the group/world-writable check first (UNSAFE-PERMISSIONS) — also a valid rejection
+    assert any(c in str(ei.value) for c in ("SECRET-ROOT-RUNTIME-WRITABLE", "SECRET-ROOT-UNSAFE-PERMISSIONS"))
+
+
+def test_root_writable_by_supplementary_group_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "supgrp"; root.mkdir(); os.chmod(root, 0o770)
+    st = os.stat(root)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid + 999)
+    # owning gid present only as a SUPPLEMENTARY group of the runtime
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {424242, st.st_gid})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert any(c in str(ei.value) for c in ("SECRET-ROOT-RUNTIME-WRITABLE", "SECRET-ROOT-UNSAFE-PERMISSIONS"))
+
+
+def test_world_writable_root_runtime_rejected(monkeypatch, tmp_path):
+    root = tmp_path / "wwr"; root.mkdir(); os.chmod(root, 0o777)
+    st = os.stat(root)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid + 5)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid + 5})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert any(c in str(ei.value) for c in ("SECRET-ROOT-RUNTIME-WRITABLE", "SECRET-ROOT-UNSAFE-PERMISSIONS"))
+
+
+def test_effective_runtime_root_identity_rejected(monkeypatch, tmp_path):
+    # effective runtime UID 0 (root) can mutate any root -> rejected regardless of mode bits
+    root = tmp_path / "rootid"; root.mkdir(); os.chmod(root, 0o755)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: 0)
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {0})
+    _auth(monkeypatch, root)
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(root / "k"))
+    assert "SECRET-ROOT-RUNTIME-WRITABLE" in str(ei.value)
+
+
+def test_root_owned_by_distinct_deploy_uid_accepted(monkeypatch, tmp_path):
+    # root owned by a DISTINCT deploy identity, mode 0755, runtime is a different non-owning uid -> ACCEPT
+    root = tmp_path / "deploysecrets"; root.mkdir(); os.chmod(root, 0o755)
+    st = os.stat(root)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid + 4242)   # not the owner
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid + 4242}) # not in owning group
+    _auth(monkeypatch, root)
+    f = _write(root / "oanda_key")
+    assert ec.load_secret_file(str(f)) == "s3cr3t"
+
+
+def test_child_writable_by_runtime_beneath_authorised_parent_rejected(monkeypatch, tmp_path):
+    parent = tmp_path / "hermes" / "secrets"; child = parent / "app"
+    child.mkdir(parents=True); os.chmod(child, 0o700)
+    st = os.stat(child)
+    monkeypatch.setattr(ec, "_effective_runtime_uid", lambda: st.st_uid)  # runtime OWNS the child
+    monkeypatch.setattr(ec, "_effective_runtime_gids", lambda: {st.st_gid})
+    monkeypatch.setattr(ec, "_AUTHORISED_SECRET_ROOTS",
+                        ec._AUTHORISED_SECRET_ROOTS + (os.path.realpath(str(parent)),))
+    _set_root(monkeypatch, str(child))
+    with pytest.raises(ValueError) as ei:
+        ec.load_secret_file(str(child / "k"))
+    assert "SECRET-ROOT-RUNTIME-WRITABLE" in str(ei.value)

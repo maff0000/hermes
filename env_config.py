@@ -12,6 +12,7 @@ Usage:
 import os
 import logging
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
 # Base directory is where this file lives (no hardcoded paths)
@@ -193,14 +194,68 @@ def _resolve_secret_root() -> str:
         raise ValueError("SECRET-ROOT-NOT-AUTHORISED: HERMES_SECRET_ROOT is not an authorised HERMES secret "
                          "root (must be /run/secrets or a governed HERMES secret mount)")
 
-    # group/world writable root is unsafe (a non-privileged process could plant/replace secrets). Owner
-    # write is expected for the root/deploy owner. The 'not writable by hermes' condition is a deployment
-    # gate (§7) documented in the WP2 doc — enforced portably here as: no group/world write bit.
+    # group/world writable root is unsafe (a non-privileged process could plant/replace secrets).
     st = os.stat(real_root)
     import stat as _stat
     if st.st_mode & (_stat.S_IWGRP | _stat.S_IWOTH):
         raise ValueError("SECRET-ROOT-UNSAFE-PERMISSIONS: HERMES_SECRET_ROOT is group/world-writable")
+
+    # WO-HELM-HERMES-CONTAINER-MVP-WP2-PR125-RUNTIME-WRITABLE-SECRET-ROOT-CORRECTION-0001
+    # C-WP2-SECRET-ROOT-RUNTIME-WRITABLE-ACCEPTED: the group/world bit check above misses a root that is
+    # OWNER-writable AND owned by the EFFECTIVE runtime identity (e.g. hermes-owned 0700). If the process
+    # that consumes the secrets can create/replace/rename/delete entries in the root, the root is not a
+    # trusted secret mount. Reject via deterministic effective-identity + mode analysis.
+    reason = _root_writable_by_runtime(real_root, st)
+    if reason is not None:
+        raise ValueError("SECRET-ROOT-RUNTIME-WRITABLE: HERMES_SECRET_ROOT is writable by the effective "
+                         f"HERMES runtime identity ({reason}); mount it read-only, owned by root/deploy")
     return real_root
+
+
+def _effective_runtime_uid() -> int:
+    """Effective UID the HERMES runtime consumes secrets as. Overridable for deterministic tests (the
+    developer/CI UID must not decide the policy)."""
+    return os.geteuid()
+
+
+def _effective_runtime_gids() -> "set":
+    """Effective + supplementary GIDs of the HERMES runtime. Overridable for deterministic tests."""
+    try:
+        return {os.getegid()} | set(os.getgroups())
+    except Exception:
+        return {os.getegid()}
+
+
+def _root_writable_by_runtime(real_root: str, st) -> Optional[str]:
+    """Return a reason string iff `real_root` is writable by the effective HERMES runtime identity, else
+    None. Deterministic mode + identity analysis (does not depend on the developer/CI UID):
+      - world-writable                                            -> 'world'
+      - group-writable AND the runtime is in the owning group     -> 'group'
+      - owner-writable AND the root is owned by the runtime UID    -> 'owner'
+      - effective runtime UID is 0 (root can always mutate)        -> 'root-identity'
+      - os.access(W_OK, effective_ids) True — applied ONLY when the module's effective-UID notion equals
+        the real process euid (i.e. NOT under test simulation, where os.access would reflect the real UID
+        rather than the simulated one)                             -> 'effective-access'
+    """
+    import stat as _stat
+    mode = st.st_mode
+    euid = _effective_runtime_uid()
+    egids = _effective_runtime_gids()
+    if mode & _stat.S_IWOTH:
+        return "world"
+    if (mode & _stat.S_IWGRP) and st.st_gid in egids:
+        return "group"
+    if (mode & _stat.S_IWUSR) and st.st_uid == euid:
+        return "owner"
+    if euid == 0:
+        return "root-identity"
+    if euid == os.geteuid():
+        try:
+            if os.access(real_root, os.W_OK, effective_ids=True):
+                return "effective-access"
+        except (TypeError, NotImplementedError, OSError):
+            pass
+    return None
 
 
 def _canonical_secret_path(path: str, real_root: str) -> str:
