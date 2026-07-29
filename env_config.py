@@ -10,11 +10,14 @@ Usage:
 """
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Base directory is where this file lives (no hardcoded paths)
 BASE_DIR = Path(__file__).parent.absolute()
+
+logger = logging.getLogger(__name__)
 
 # Load .env from the base directory
 _env_path = BASE_DIR / '.env'
@@ -95,6 +98,106 @@ def get_env_list(key: str, default: list = None) -> list:
     if value is None:
         return default or []
     return [item.strip() for item in value.split(',') if item.strip()]
+
+
+# ---------------------------------------------------------------------------------------------------
+# Secret loading — generic `_FILE` reference support (WP2). BOUNDED, backward-compatible, fail-closed.
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-CANONICAL-BUILD-AND-EXTERNALISED-CONFIGURATION-0001.
+#
+# Resolution for get_secret(key):
+#   1. {ENV}_{key}_FILE or {key}_FILE  -> read that file (file source)
+#   2. else fall back to get_env(key)   -> direct env value (env source)
+# CONFLICT: both a *_FILE ref AND a direct value present -> FAIL CLOSED (SECRET-SOURCE-CONFLICT).
+# The secret VALUE is NEVER logged — only the key name and the source kind ("env" | "file:<path>").
+# ---------------------------------------------------------------------------------------------------
+
+
+def load_secret_file(path: str) -> str:
+    """Read a secret from a file, fail-closed.
+
+    Semantics:
+      - strip a single trailing newline and any trailing whitespace-only tail (rstrip) — internal
+        content is NEVER altered.
+      - EMPTY after strip -> ValueError('SECRET-FILE-EMPTY: <path>')
+      - unreadable / missing -> ValueError('SECRET-FILE-UNREADABLE: <path>')
+      - world/group readable or writable (mode & 0o077) -> WARNING via module logger (policy = warn,
+        does NOT fail). The value is NEVER logged.
+    """
+    p = Path(path)
+    try:
+        # Permission check first (warn-only). Never fails the read.
+        try:
+            mode = p.stat().st_mode
+            if mode & 0o077:
+                logger.warning(
+                    "SECRET-FILE-PERMISSIONS: secret file has group/world-accessible mode "
+                    "(%s) path=%s — restrict to 0600/0400 (value not logged)",
+                    oct(mode & 0o777), path,
+                )
+        except OSError:
+            # stat failure is handled by the read below (fail-closed as unreadable).
+            pass
+
+        with open(p, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except (OSError, IOError):
+        raise ValueError(f"SECRET-FILE-UNREADABLE: {path}")
+
+    # Strip a single trailing newline then any trailing whitespace-only tail. Internal content intact.
+    value = raw
+    if value.endswith("\n"):
+        value = value[:-1]
+    value = value.rstrip()
+
+    if value == "":
+        raise ValueError(f"SECRET-FILE-EMPTY: {path}")
+
+    return value
+
+
+def get_secret(key: str, *, default: str = None, required: bool = False) -> str:
+    """Resolve a secret with `_FILE` reference support, fail-closed.
+
+    Order:
+      - {ENV}_{key}_FILE  -> file
+      - {key}_FILE        -> file
+      - direct value via get_env(key) (i.e. {ENV}_{key} then {key})
+    If BOTH a *_FILE ref AND a direct value are present -> ValueError('SECRET-SOURCE-CONFLICT').
+    required=True and neither present -> ValueError('SECRET-REQUIRED-MISSING: <key>').
+
+    Never logs the secret value — logs only the key name and source kind.
+    """
+    env_file_key = f"{ENV}_{key}_FILE"
+    file_path = os.getenv(env_file_key)
+    file_source_name = env_file_key
+    if file_path is None:
+        file_path = os.getenv(f"{key}_FILE")
+        file_source_name = f"{key}_FILE"
+
+    # Direct value (via existing prefix fallback). None if unset.
+    direct_value = get_env(key)
+    direct_source_name = f"{ENV}_{key}" if os.getenv(f"{ENV}_{key}") is not None else key
+
+    # Explicit documented rule: file + direct conflict fails closed (name SOURCES, never values).
+    if file_path is not None and direct_value is not None:
+        raise ValueError(
+            f"SECRET-SOURCE-CONFLICT: both a file reference ({file_source_name}) and a direct "
+            f"value ({direct_source_name}) are set for '{key}' — provide exactly one source"
+        )
+
+    if file_path is not None:
+        value = load_secret_file(file_path)
+        logger.info("get_secret: key=%s source=file:%s", key, file_path)
+        return value
+
+    if direct_value is not None:
+        logger.info("get_secret: key=%s source=env", key)
+        return direct_value
+
+    if required:
+        raise ValueError(f"SECRET-REQUIRED-MISSING: {key}")
+
+    return default
 
 
 # Convenience exports for common configs

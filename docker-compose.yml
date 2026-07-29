@@ -56,6 +56,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
+      # WP2: HERMES-owned build identity passthrough (secret-free). Sentinels applied in build_identity()
+      # when unset. A candidate MUST pass a full 40-hex SOURCE_SHA (see WP2 design doc).
+      args:
+        SOURCE_SHA: ${SOURCE_SHA:-}
+        BUILD_UTC: ${BUILD_UTC:-}
+        HERMES_IMAGE_REF: ${HERMES_IMAGE_REF:-}
     image: hermes-signal:${HERMES_IMAGE_TAG:-local}
     container_name: hermes-signal
     restart: unless-stopped
@@ -85,6 +91,18 @@ services:
       HERMES_CPUS: ${HERMES_CPUS:-4}
       HERMES_MEM_LIMIT: ${HERMES_MEM_LIMIT:-4g}
       HERMES_PIDS_LIMIT: ${HERMES_PIDS_LIMIT:-512}
+
+      # ---- HERMES-owned Discord passthrough (WP2) ----
+      # HERMES sources Discord ONLY from these HERMES-owned env values or their `_FILE` (secret-file)
+      # variants. `_FILE` refs are preferred and MUST be HERMES-owned / container-mounted.
+      # RETIRED / FORBIDDEN: the ARES deploy-time value
+      #   MONITOR_DISCORD_WEBHOOK_SOURCE_FILE=/srv-dev/tradingProteus/ares/.env
+      # is a CROSS-APPLICATION reference — it is NOT in canonical source, NOT read by HERMES code, and
+      # is REJECTED at runtime (DISCORD-CROSS-APP-REFERENCE-REJECTED). Never wire it here.
+      DISCORD_WEBHOOK_DEV: ${DISCORD_WEBHOOK_DEV:-}
+      DISCORD_WEBHOOK_PROD: ${DISCORD_WEBHOOK_PROD:-}
+      DISCORD_WEBHOOK_DEV_FILE: ${DISCORD_WEBHOOK_DEV_FILE:-}
+      DISCORD_WEBHOOK_PROD_FILE: ${DISCORD_WEBHOOK_PROD_FILE:-}
 
     # Signal service HTTP port (host:container). Override SIGNAL_PORT/SIGNAL_BIND_PORT via .env.
     ports:

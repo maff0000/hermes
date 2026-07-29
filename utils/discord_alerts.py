@@ -16,6 +16,7 @@ Usage:
     )
 """
 
+import os
 import sys
 import json
 import logging
@@ -30,9 +31,61 @@ UTILS_DIR = Path(__file__).parent.absolute()
 BASE_DIR = UTILS_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from env_config import get_env, ENV
+from env_config import get_env, get_secret, ENV
 
 logger = logging.getLogger(__name__)
+
+# WP2 (WO-HELM-HERMES-CONTAINER-MVP-WP2-...): HERMES-owned Discord config ONLY.
+# A resolved Discord config path/value that points at the ARES app tree (/srv-dev/tradingProteus or an
+# ares/.env file) is REFUSED — HERMES never sources its Discord config from another application.
+_CROSS_APP_MARKERS = ("/srv-dev/tradingproteus", "ares/.env")
+
+
+def _is_cross_app_reference(candidate) -> bool:
+    """True if a webhook file-ref path (or value) points at the ARES app tree. Case-insensitive."""
+    if not candidate:
+        return False
+    low = str(candidate).lower()
+    return any(marker in low for marker in _CROSS_APP_MARKERS)
+
+
+def _resolve_webhook(key: str, *, required: bool = False):
+    """Resolve a HERMES-owned Discord webhook via get_secret (supports `_FILE` refs), rejecting any
+    cross-app (ARES) reference. Returns (url_or_None, source) where source in {"env","file","none"}.
+    Never logs the URL value; on cross-app reference logs DISCORD-CROSS-APP-REFERENCE-REJECTED."""
+    env_file_key = f"{ENV}_{key}_FILE"
+    file_ref = os.getenv(env_file_key) or os.getenv(f"{key}_FILE")
+
+    # Refuse a cross-app file reference outright (do NOT read it, do NOT fall back cross-project).
+    if _is_cross_app_reference(file_ref):
+        logger.error(
+            "DISCORD-CROSS-APP-REFERENCE-REJECTED: %s points at a non-HERMES (ARES) path; refusing "
+            "(HERMES sources Discord only from HERMES-owned env or _FILE — no cross-project fallback)",
+            env_file_key if os.getenv(env_file_key) else f"{key}_FILE",
+        )
+        if required:
+            raise ValueError("DISCORD-CROSS-APP-REFERENCE-REJECTED")
+        return None, "none"
+
+    source = "file" if file_ref else ("env" if (os.getenv(f"{ENV}_{key}") or os.getenv(key)) else "none")
+
+    try:
+        url = get_secret(key, required=required)
+    except ValueError:
+        if required:
+            raise
+        return None, "none"
+
+    # Defensive: a direct value that somehow encodes an ARES path is also refused.
+    if _is_cross_app_reference(url):
+        logger.error("DISCORD-CROSS-APP-REFERENCE-REJECTED: resolved %s value references a non-HERMES path", key)
+        if required:
+            raise ValueError("DISCORD-CROSS-APP-REFERENCE-REJECTED")
+        return None, "none"
+
+    if url is None:
+        return None, "none"
+    return url, source
 
 
 class AlertLevel(Enum):
@@ -43,18 +96,24 @@ class AlertLevel(Enum):
     CRITICAL = 0xe74c3c  # Red
 
 
-# Discord webhook URLs (environment-aware)
-DISCORD_WEBHOOKS = {
-    'DEV': get_env('DISCORD_WEBHOOK_DEV',
-        'https://discord.com/api/webhooks/1457680766430613656/GzNc0lcvepYFrMa64_h34YxvAL_kSQIX6pzBwGwo3dy0g9s3ybwCYysMokoenqczYR6i'),
-    'PROD': get_env('DISCORD_WEBHOOK_PROD',
-        'https://discord.com/api/webhooks/1457680766430613656/GzNc0lcvepYFrMa64_h34YxvAL_kSQIX6pzBwGwo3dy0g9s3ybwCYysMokoenqczYR6i'),
-}
-
-
 def get_webhook_url() -> str:
-    """Get webhook URL for current environment."""
-    return DISCORD_WEBHOOKS.get(ENV, DISCORD_WEBHOOKS['DEV'])
+    """Get HERMES-owned webhook URL for the current environment (via get_secret / `_FILE`).
+    Returns None if not configured. Cross-app (ARES) references are refused."""
+    key = 'DISCORD_WEBHOOK_PROD' if ENV == 'PROD' else 'DISCORD_WEBHOOK_DEV'
+    url, _ = _resolve_webhook(key)
+    return url
+
+
+def discord_configured() -> bool:
+    """True iff a HERMES-owned Discord webhook is resolvable for the current environment."""
+    return get_webhook_url() is not None
+
+
+def discord_destination_metadata() -> dict:
+    """Non-secret metadata about the Discord destination. NEVER contains the URL."""
+    key = 'DISCORD_WEBHOOK_PROD' if ENV == 'PROD' else 'DISCORD_WEBHOOK_DEV'
+    url, source = _resolve_webhook(key)
+    return {"configured": url is not None, "source": source, "environment": ENV}
 
 
 def send_alert(
