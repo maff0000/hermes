@@ -1,0 +1,102 @@
+{
+  "issue_id": "WO-HELM-HERMES-FW08-F2-R3-FUT-3-IMMUTABLE-EVIDENCE-STORE-READINESS-CONTRACT-IMPLEMENTATION-0001",
+  "fut": "FUT-3",
+  "lifecycle_stage": 6,
+  "gate": 6,
+  "ev_record_id": "EV-06-EVIDENCE-STORE-AND-RESOLVER-READINESS",
+  "contract_version": "1",
+  "generated_utc": "2026-07-29T00:00:00+00:00",
+  "owner": "HERMES (Helm)",
+  "what_implemented": [
+    "A PURE, INERT design-only contract for immutable evidence-store + resolver readiness (Stage 6 = Gate 6, FUT-3, the third future gate). It produces an EV-06 readiness record that READIES the ALREADY-IMPLEMENTED §9 content-addressed immutable resolver (design/hermes_fw08_content_resolution_v1) and BINDS readiness to EV-04 (build-producer registration) and EV-05 (OCI-inspection-producer registration) from FUT-2. It authorises NO store mutation.",
+    "EvidenceStoreReadinessRecord frozen dataclass (EV-06): binds contract_version, lifecycle_stage(6), fut('FUT-3'), readiness_record_id, ev04_reference, ev05_reference, resolver_contract_reference, resolver_identity_reference, store_policy_reference, digest_algorithm('sha256'), immutable_storage_id, storage_version_scheme, supported_evidence_classes, canonical_serialisation_reference, max_object_size_policy_reference, fail_closed_policy_reference, creation/validity UTC, revocation_state, synthetic_or_real_classification, readiness_status, fault_code, provenance, evidence_references, created_by, a readiness_digest and a module-issuer readiness_seal. References + policy tokens + status ONLY; NO endpoint/bucket/credential/host-path/raw-key fields.",
+    "validate_resolver_readiness (§B): DELEGATES to §9 require_content_resolver(resolver, real_mode=real_mode) and surfaces CR-RESOLVER-MISSING / CR-RESOLVER-UNTRUSTED / CR-SYNTHETIC-IN-REAL-MODE verbatim; additionally requires resolver_identity_reference present + canonical, digest_algorithm=='sha256' (else ES-DIGEST-ALGORITHM-UNSUPPORTED), immutable_storage_id + storage_version_scheme present (else ES-MUTABLE-STORAGE-UNREADY). No raw-dict / local-file / caller-provided-evidence-and-resolver acceptance path (structurally impossible; asserted via tests).",
+    "validate_immutability (§C): requires immutable_storage_id + a resolved storage_version, verifies the resolved evidence's own self-digest recomputes (ES-DIGEST-MUTATED), and DELEGATES resolution to §9 resolve_and_verify — surfacing CR-MUTABLE-REFERENCE / CR-REFERENCE-CONTENT-MISMATCH / CR-CHANGED-CONTENT verbatim. A frozen dataclass is explicitly NOT equated with immutable storage (docstring + test).",
+    "evaluate_duplicate_policy (§D): same canonical identity + different content -> ES-CONFLICTING-DUPLICATE; DELEGATES alias/near-copy to §9 detect_alias_or_nearcopy — surfacing CR-ALIAS-SAME-CONTENT / CR-NEAR-COPY-FROM-BUILD / CR-FABRICATED-OCI-DIGEST / CR-OCI-FROM-ACTIVE-IMPORT / CR-EMBEDDED-EVIDENCE verbatim. No silent canonicalisation / repair of aliases.",
+    "validate_upstream_binding (§E): binds to the EXACT upstream EV-04/EV-05 ProducerRegistrationRecords (real objects, NOT raw strings); DELEGATES each to producer_registration.validate_producer_registration (PR-FUT2-* verbatim) and evaluate_producer_registration_distinctness; rejects missing EV-04/EV-05 (ES-EV04-MISSING/ES-EV05-MISSING), stage!=4/5 (ES-UPSTREAM-LIFECYCLE-MISMATCH), ref mismatch (ES-EV04-REFERENCE-MISMATCH/ES-EV05-REFERENCE-MISMATCH), class mismatch (ES-EVIDENCE-CLASS-MISMATCH), shared registry authority (ES-REGISTRY-AUTHORITY-MISMATCH), wrong resolver contract (ES-RESOLVER-CONTRACT-MISMATCH), copied upstream reference (ES-COPIED-UPSTREAM-REFERENCE), expired/revoked upstream (ES-UPSTREAM-EXPIRED/ES-UPSTREAM-REVOKED), synthetic upstream in real mode (ES-SYNTHETIC-UPSTREAM-IN-REAL-MODE).",
+    "validate_producer_binding (§F): preserves producer-registration id / role / evidence class / storage binding; build vs OCI MUST stay distinct (DELEGATES distinctness); ES-PRODUCER-BINDING-BROKEN, ES-BUILD-OCI-NOT-DISTINCT. content_level_separation_status() -> CONTENT_LEVEL_SEPARATION_PREPARED_NOT_OPERATIONALLY_PROVEN.",
+    "validate_evidence_reference (§6): a reference is a POINTER governed by §9, not evidence; rejects inline JSON/Base64/PEM/compressed/control-chars/path-traversal/encoded-traversal/local-path/file://-URI/shell-fragment/embedded-credential/raw-dict/digest-only-string/mutable-query/alias/non-canonical -> ES-REFERENCE-IS-INLINE-PAYLOAD / ES-REFERENCE-NONCANONICAL / ES-REFERENCE-MUTABLE-QUERY / ES-REFERENCE-DIGEST-ONLY.",
+    "validate_evidence_store_readiness (main): composes §A/§B/§E/§F + the independent real-readiness gate + seal/digest/type/UTC/version/stage/revocation/provenance/ref-presence checks; () iff a valid SYNTHETIC EV-06 record.",
+    "_ModuleReadinessIssuer (ephemeral in-process HMAC, name-mangled key, no getter), _MODULE_ISSUER singleton, _READINESS_TOKEN module-private sentinel — mirroring FUT-1 _ReadinessIssuer / FUT-2 _ModuleRegistrationIssuer.",
+    "production_evidence_store_configured() (False) and configured_store_authority_identity() (None) — the module-controlled real-readiness root; ready_evidence_store(mode=REAL_CANDIDATE) always fails closed; new_synthetic_readiness / new_synthetic_evidence_store_readiness are token-gated SYNTHETIC-only mints.",
+    "eventual_evidence_record_ids() extends EV-04/EV-05 with evidence_store_readiness -> EV-06-EVIDENCE-STORE-AND-RESOLVER-READINESS."
+  ],
+  "what_not_implemented": [
+    "NO real evidence store is created; storage is TECHNOLOGY-NEUTRAL — no filesystem, SQL, Redis, Git, OCI registry, or object store is selected, opened, or written.",
+    "NO evidence object is stored; NO evidence write, NO SQL/Redis/filesystem/object-store write, NO network, NO credentials/endpoints/buckets/host-paths.",
+    "The §9 resolver is CONSUMED, not reimplemented — there is exactly ONE resolver; this module adds no second resolver.",
+    "Production resolution stays UNAVAILABLE and fails closed (§9 ProductionContentResolver ALWAYS raises ContentResolverUnavailable).",
+    "NO runtime is touched; the module is not imported by runtime; no I/O, subprocess, network, filesystem, or environment lookup is performed.",
+    "NO configuration VALUES in code — references / policy tokens only.",
+    "Content-level separation is PREPARED, NOT operationally proven."
+  ],
+  "consumes_existing_resolver": {
+    "module": "design/hermes_fw08_content_resolution_v1.py",
+    "reimplemented": false,
+    "delegated_functions": ["require_content_resolver", "resolve_and_verify", "detect_alias_or_nearcopy"],
+    "delegated_types": ["ContentResolvedEvidence", "ContentResolver", "ProductionContentResolver", "SyntheticContentResolver", "ContentResolverUnavailable"],
+    "surfaced_cr_codes": ["CR-RESOLVER-MISSING", "CR-RESOLVER-UNTRUSTED", "CR-SYNTHETIC-IN-REAL-MODE", "CR-UNRESOLVED-REFERENCE", "CR-MUTABLE-REFERENCE", "CR-REFERENCE-CONTENT-MISMATCH", "CR-CHANGED-CONTENT", "CR-ALIAS-SAME-CONTENT", "CR-NEAR-COPY-FROM-BUILD", "CR-FABRICATED-OCI-DIGEST", "CR-OCI-FROM-ACTIVE-IMPORT", "CR-EMBEDDED-EVIDENCE"]
+  },
+  "upstream_binding": {
+    "ev04": "EV-04-BUILD-PRODUCER-REGISTRATION (stage 4, BUILD_PRODUCER, BUILD_EVIDENCE)",
+    "ev05": "EV-05-OCI-INSPECTION-PRODUCER-REGISTRATION (stage 5, OCI_INSPECTION_PRODUCER, OCI_INSPECTION_EVIDENCE)",
+    "consumed_as": "real design.hermes_fw08_producer_registration_v1.ProducerRegistrationRecord objects — NOT raw strings",
+    "delegated_functions": ["validate_producer_registration", "evaluate_producer_registration_distinctness"]
+  },
+  "storage_semantics": {
+    "technology_neutral": true,
+    "selected_backend": "none",
+    "immutable_content_addressed": true,
+    "digest_algorithm": "sha256",
+    "immutable_storage_id": "reference-only (no endpoint/bucket/host-path)",
+    "storage_version_scheme": "reference-only version scheme token",
+    "duplicate_alias_policy": ["CR-ALIAS-SAME-CONTENT", "CR-MUTABLE-REFERENCE", "ES-CONFLICTING-DUPLICATE"]
+  },
+  "production_unavailability": {
+    "production_evidence_store_configured": false,
+    "configured_store_authority_identity": null,
+    "real_mode_behaviour": "ready_evidence_store(mode=REAL_CANDIDATE) ALWAYS -> (None, ('ES-REAL-READINESS-UNAVAILABLE', 'F2R3-FUT3-REAL-EVIDENCE-STORE-NOT-CONFIGURED'))",
+    "decisive_root": "C-FUT3-STORE-SOLE-ROOT: the real-readiness gate runs FIRST and requires production_evidence_store_configured()==True AND the record to resolve the module-controlled configured_store_authority_identity() (None here). The identity is a NON-Boolean second anchor so the Boolean can NEVER become the sole root: even with production_evidence_store_configured monkeypatched True, the configured identity is None -> ES-STORE-AUTHORITY-NOT-CONFIGURED -> no real record validates. A caller cannot supply this identity.",
+    "local_seal_is_integrity_metadata_only": "the _MODULE_ISSUER HMAC (readiness_seal) is LOCAL OBJECT-INTEGRITY METADATA ONLY — NOT a production trust root, NOT store authority, NOT external attestation, and NEVER by itself grounds real-mode acceptance.",
+    "no_fallback": "no synthetic substitution, no /etc/env/filesystem/network/store lookup",
+    "mirrors": "FUT-1 EAR-REAL-AUTHORITY-UNAVAILABLE / FUT-2 PR-FUT2-REAL-REGISTRATION-UNAVAILABLE"
+  },
+  "synthetic_real_boundary": {
+    "classification_setter": "C-FUT3-READINESS-PROMOTION: the token-gated mint (new_synthetic_readiness / ready_evidence_store) is SYNTHETIC-ONLY and REJECTS any caller-selected non-synthetic classification with EvidenceStoreReadinessForbidden (not silently repaired).",
+    "readiness_states": ["SYNTHETIC_UNREADY", "REAL_READINESS_UNAVAILABLE", "REVOKED_READINESS", "INVALID_READINESS"],
+    "only_mintable_state": "SYNTHETIC_UNREADY",
+    "seal_binds_classification": "the module seal covers readiness_digest + classification, so a relabel synthetic->'REAL' breaks the seal (ES-SEAL-INVALID)"
+  },
+  "content_level_separation": "CONTENT_LEVEL_SEPARATION_PREPARED_NOT_OPERATIONALLY_PROVEN",
+  "real_store_created": false,
+  "evidence_object_stored": false,
+  "store_mutation_authorised": false,
+  "no_secrets": true,
+  "canonical_undeployed": true,
+  "runtime_unchanged": true,
+  "held_gates": "7-8 (FUT-4) and beyond",
+  "disclosed_limitations": [
+    "Opaque-reference: a governed reference is validated as a well-formed pointer (§6), NOT resolved to real content here — real resolution is §9's job and is unavailable in this WO.",
+    "Co-resident wholesale module replacement: a hostile in-process actor replacing the whole module (or the §9 module) is out of scope; supported + lightly-reflective paths fail closed (mirrors FUT-1/FUT-2)."
+  ],
+  "prohibited_interpretations": [
+    "This contract does NOT claim operational immutability, real durability, live resolution, live comparison, retention or recovery, or operational store availability.",
+    "SYNTHETIC_UNREADY minted here is test-only; it never certifies a real evidence store or a real resolver.",
+    "The module seal is NOT store authority; it is an ephemeral in-process integrity seal.",
+    "No output of this contract authorises store mutation, evidence writes, execution, publication, deployment, or any runtime change.",
+    "Content-level separation is PREPARED, NOT operationally proven."
+  ],
+  "acceptance_tests": [
+    "REAL_CANDIDATE readiness ALWAYS fails closed (ES-REAL-READINESS-UNAVAILABLE / F2R3-FUT3-REAL-EVIDENCE-STORE-NOT-CONFIGURED).",
+    "DECISIVE: a reflectively-forged, correctly-sealed REAL readiness record validated in real_mode with production_evidence_store_configured monkeypatched True is STILL rejected ES-STORE-AUTHORITY-NOT-CONFIGURED (Boolean not sole root, seal not sole root); configured_store_authority_identity() is None.",
+    "Resolver readiness DELEGATES to §9 require_content_resolver; caller-provided resolver -> CR-RESOLVER-UNTRUSTED; synthetic in real mode -> CR-SYNTHETIC-IN-REAL-MODE; production resolver -> CR-UNRESOLVED-REFERENCE / ContentResolverUnavailable fail closed.",
+    "Immutability DELEGATES to §9 resolve_and_verify: mutable reference -> CR-MUTABLE-REFERENCE; changed content -> CR-CHANGED-CONTENT; reference/content mismatch -> CR-REFERENCE-CONTENT-MISMATCH; a frozen dataclass is NOT equated with immutable storage.",
+    "Duplicate/alias DELEGATES to §9 detect_alias_or_nearcopy: same content under alternate reference -> CR-ALIAS-SAME-CONTENT; same identity + different content -> ES-CONFLICTING-DUPLICATE.",
+    "Upstream EV-04/EV-05 consumed as real ProducerRegistrationRecords; missing/copied/revoked/expired/synthetic-in-real-mode rejected; lifecycle/class/authority/resolver-contract mismatches rejected.",
+    "§6 reference boundary rejects traversal / encoded traversal / control chars / inline JSON / Base64 / PEM / local path / file:// / URI credential / mutable query / digest-only string.",
+    "Inertness: module performs no open()/os.environ/getenv/socket/subprocess/requests/urllib/pathlib/sqlite/redis and no import-time I/O; secret-scan module + JSON + MD; no evidence/SQL/Redis/FS/object-store write, no credentials.",
+    "Positive: a fully-valid SYNTHETIC EV-06 readiness (trusted synthetic resolver, valid EV-04+EV-05 distinct, sha256, immutable_storage_id + storage_version present, independent) validates in TEST_ONLY; the SAME under REAL_CANDIDATE / real_mode rejects."
+  ],
+  "classification": "EVIDENCE_STORE_AND_RESOLVER_READINESS_CONTRACT_IMPLEMENTED_INERT",
+  "next_held_gate": "candidate-image build + digest capture (gates 7-8, FUT-4)"
+}
