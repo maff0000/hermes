@@ -1224,7 +1224,11 @@ async def lifespan(app: FastAPI):
     #   the JSON-serialised SerializingShadowWriter; never canonical hermes:ticks:*; LIVE rejected).
     # Enabled-but-misconfigured -> FAIL LOUD on init (no silent no-op).
     try:
-        state.shadow_tick_emitter = _build_shadow_tick_emitter()
+        # WP3 manifest binding: in SHADOW the run-scoped, manifest-approved prefix (validated by the guard)
+        # is passed EXPLICITLY so the builder does not re-read HERMES_SHADOW_TICK_KEY_PREFIX / fall back.
+        _mf = getattr(state, "shadow_target_manifest", None)
+        _st_prefix = _mf.shadow_tick_prefix if (_mf is not None and _mf.is_shadow) else None
+        state.shadow_tick_emitter = _build_shadow_tick_emitter(shadow_prefix=_st_prefix)
         logger.info(
             "[SHADOW_TICK_BOOT] emitter=%s enabled=%s",
             type(state.shadow_tick_emitter).__name__,
@@ -1259,7 +1263,11 @@ async def lifespan(app: FastAPI):
     # HERMES_CANDLE_FORWARD_ENABLED unset/false -> DisabledCandleEmitter (default no-op; no write).
     # Enabled without an explicit no-write sink -> FAIL LOUD (no silent no-op, no Proteus/SQL fallback).
     try:
-        state.candle_forward_emitter = _build_candle_forward_seam()
+        # WP3 manifest binding: in SHADOW the run-scoped, manifest-approved prefix (validated by the guard)
+        # is passed EXPLICITLY so the shadow writer does not re-read HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX.
+        _mf = getattr(state, "shadow_target_manifest", None)
+        _cf_prefix = _mf.candle_forward_shadow_prefix if (_mf is not None and _mf.is_shadow) else None
+        state.candle_forward_emitter = _build_candle_forward_seam(shadow_key_prefix=_cf_prefix)
         logger.info(
             "[CANDLE_FORWARD_BOOT] seam=%s enabled=%s",
             type(state.candle_forward_emitter).__name__,

@@ -16,6 +16,7 @@ import datetime
 import pytest
 
 import utils.hermes_shadow_target_guard_v1 as g
+import env_config as ec
 from utils.hermes_shadow_target_guard_v1 import (
     validate_shadow_targets, ShadowTargetGuardError, ShadowTargetManifest, manifest_status_dict,
 )
@@ -655,3 +656,134 @@ def test_shadow_tick_builder_reads_run_scoped_key_prefix_env(monkeypatch):
     emitter = tsa.build_runtime_shadow_emitter_from_env()
     cfg = getattr(emitter, "config", None) or getattr(emitter, "_config", None)
     assert cfg is not None and cfg.shadow_prefix == approved
+
+
+# =========================================================================== MANIFEST -> WRITER BINDING
+# WO-HELM-HERMES-CONTAINER-MVP-WP3-PR126-SHADOW-KEYSPACE-MANIFEST-BINDING-CORRECTION-0001
+# C-WP3-SHADOW-KEYSPACE-MANIFEST-DESCRIPTIVE-NOT-CONTROLLING: the guard-approved prefix must CONTROL the
+# effective writer, not merely be recorded. These tests exercise the ACTUAL composition builders.
+import utils.candle_runtime_seam_v1 as seam
+import utils.candle_publisher_v1 as cp
+import utils.tick_runtime_shadow_adapter_v1 as tsa
+
+_APPROVED_CF = "hermes:shadow:wp3:run-abc123:candles:"
+_APPROVED_ST = "hermes:shadow:wp3:run-abc123:ticks:"
+_CONFLICT = "hermes:shadow:wp3:run-EVIL:candles:"
+
+
+def _shadow_cf_env(monkeypatch, prefix_env=None):
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_ENABLED", "true")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "shadow")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST", "wp3-redis")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT", "6380")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_REDIS_DB", "0")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_AUTHORISED", "true")
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW", "true")
+    for pre in ("", ec.ENV + "_"):
+        monkeypatch.delenv(pre + "HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX", raising=False)
+    if prefix_env is not None:
+        monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX", prefix_env)
+
+
+# ---- §6.1 candle-forward constructor binding via the ACTUAL composition builder ----
+def test_cf_builder_binds_manifest_prefix_over_env(monkeypatch):
+    _shadow_cf_env(monkeypatch, prefix_env=_CONFLICT)               # env says EVIL...
+    monkeypatch.setattr(seam, "_real_shadow_redis_client", lambda config: object())  # fake client
+    built = seam.build_candle_forward_seam_from_env(shadow_key_prefix=_APPROVED_CF)  # manifest says approved
+    # the writer's config carries the manifest prefix, NOT the env value
+    assert built.writer.config.shadow_key_prefix == _APPROVED_CF
+
+
+def test_cf_write_plan_uses_manifest_prefix_not_env(monkeypatch):
+    _shadow_cf_env(monkeypatch, prefix_env=_CONFLICT)
+    env_ = {"key": "hermes:candles:XAU_USD:M1:latest:v1",
+            "data": {"instrument": "XAU_USD", "timeframe": "M1"}}
+    monkeypatch.setattr(cp.cc, "validate_candle_contract", lambda e: True)
+    plan = cp.build_shadow_write_plan(env_, shadow_key_prefix=_APPROVED_CF)
+    assert plan["key"].startswith(_APPROVED_CF) and "run-EVIL" not in plan["key"]
+
+
+def test_cf_write_plan_does_not_read_env_when_manifest_supplied(monkeypatch):
+    # if the manifest prefix is supplied, resolve_shadow_key_prefix (env reader) is NOT called
+    monkeypatch.setattr(cp.cc, "validate_candle_contract", lambda e: True)
+    def _boom(*a, **k):
+        raise AssertionError("resolve_shadow_key_prefix (env read) must not be called when prefix supplied")
+    monkeypatch.setattr(cp, "resolve_shadow_key_prefix", _boom)
+    env_ = {"key": "hermes:candles:EUR_USD:M1:latest:v1", "data": {"instrument": "EUR_USD", "timeframe": "M1"}}
+    plan = cp.build_shadow_write_plan(env_, shadow_key_prefix=_APPROVED_ST.replace("ticks", "candles"))
+    assert plan["key"].startswith("hermes:shadow:wp3:run-abc123:candles:")
+
+
+def test_cf_env_mutation_after_build_does_not_change_writer(monkeypatch):
+    _shadow_cf_env(monkeypatch, prefix_env=_APPROVED_CF)
+    monkeypatch.setattr(seam, "_real_shadow_redis_client", lambda config: object())
+    built = seam.build_candle_forward_seam_from_env(shadow_key_prefix=_APPROVED_CF)
+    monkeypatch.setenv("HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX", _CONFLICT)  # mutate env AFTER build
+    assert built.writer.config.shadow_key_prefix == _APPROVED_CF  # unaffected
+
+
+# ---- §6.2 shadow-tick constructor binding via the ACTUAL builder ----
+def _shadow_tick_env(monkeypatch, prefix_env=None):
+    for k, v in {"HERMES_SHADOW_TICK_PUBLISH_ENABLED": "true", "HERMES_SHADOW_TICK_REDIS_HOST": "wp3-redis",
+                 "HERMES_SHADOW_TICK_REDIS_PORT": "6380", "HERMES_SHADOW_TICK_REDIS_DB": "0",
+                 "HERMES_SHADOW_TICK_AUTHORISED": "true", "HERMES_SHADOW_TICK_DEV_SHADOW": "true"}.items():
+        monkeypatch.setenv(k, v)
+    for pre in ("", ec.ENV + "_"):
+        monkeypatch.delenv(pre + "HERMES_SHADOW_TICK_KEY_PREFIX", raising=False)
+    if prefix_env is not None:
+        monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", prefix_env)
+    # capture the composed config without needing a real Redis client / writer
+    monkeypatch.setattr(tsa, "build_runtime_shadow_emitter", lambda *, config, **k: config)
+
+
+def test_st_builder_binds_manifest_prefix_over_env(monkeypatch):
+    _shadow_tick_env(monkeypatch, prefix_env="hermes:shadow:wp3:run-EVIL:ticks:")
+    cfg = tsa.build_runtime_shadow_emitter_from_env(shadow_prefix=_APPROVED_ST)
+    assert cfg.shadow_prefix == _APPROVED_ST  # manifest wins over env
+
+
+def test_st_env_mutation_after_build_does_not_change_writer(monkeypatch):
+    _shadow_tick_env(monkeypatch, prefix_env=_APPROVED_ST)
+    cfg = tsa.build_runtime_shadow_emitter_from_env(shadow_prefix=_APPROVED_ST)
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:wp3:run-EVIL:ticks:")
+    assert cfg.shadow_prefix == _APPROVED_ST
+
+
+# ---- §6.3 manifest prescriptiveness (the critical regression) ----
+def test_manifest_prescriptive_both_writers(monkeypatch):
+    _shadow_cf_env(monkeypatch, prefix_env=_CONFLICT)          # conflicting candle env
+    _shadow_tick_env(monkeypatch, prefix_env="hermes:shadow:wp3:run-EVIL:ticks:")  # conflicting tick env
+    monkeypatch.setattr(seam, "_real_shadow_redis_client", lambda config: object())
+    cf = seam.build_candle_forward_seam_from_env(shadow_key_prefix=_APPROVED_CF)
+    st_cfg = tsa.build_runtime_shadow_emitter_from_env(shadow_prefix=_APPROVED_ST)
+    assert cf.writer.config.shadow_key_prefix == _APPROVED_CF
+    assert st_cfg.shadow_prefix == _APPROVED_ST
+    assert "run-EVIL" not in cf.writer.config.shadow_key_prefix
+    assert "run-EVIL" not in st_cfg.shadow_prefix
+
+
+# ---- §6.4 invariant: empty/None explicit prefix ----
+def test_candle_config_rejects_empty_prefix():
+    with pytest.raises(ValueError) as e:
+        cp.CandlePublisherConfig(publish_enabled=False, publish_authorised=False, shadow_publish_enabled=True,
+                                 shadow_authorised=True, namespace="hermes", contract_version="v1",
+                                 redis_host="h", redis_port=6380, redis_db=0, dev_shadow=True,
+                                 shadow_key_prefix="   ")
+    assert "GOV-CANDLE-PUB-CFG-004" in str(e.value)
+
+
+def test_candle_config_none_prefix_falls_back_non_shadow():
+    # None (non-SHADOW) is allowed -> legacy env behaviour preserved
+    c = cp.CandlePublisherConfig(publish_enabled=False, publish_authorised=False, shadow_publish_enabled=True,
+                                 shadow_authorised=True, namespace="hermes", contract_version="v1",
+                                 redis_host="h", redis_port=6380, redis_db=0, dev_shadow=True,
+                                 shadow_key_prefix=None)
+    assert c.shadow_key_prefix is None
+
+
+# ---- §9 non-SHADOW compatibility: no prefix supplied -> legacy env path unchanged ----
+def test_cf_non_shadow_uses_env_when_no_manifest_prefix(monkeypatch):
+    _shadow_cf_env(monkeypatch, prefix_env="hermes:shadow:candles:")   # legacy default, no run-id
+    monkeypatch.setattr(seam, "_real_shadow_redis_client", lambda config: object())
+    built = seam.build_candle_forward_seam_from_env()  # no manifest prefix (non-SHADOW composition)
+    assert built.writer.config.shadow_key_prefix is None  # writer resolves from env at write-time (legacy)

@@ -214,8 +214,12 @@ def _default_real_client_factory(spc):
     return sh.connect_shadow_redis(spc)
 
 
-def build_runtime_shadow_emitter_from_env():
+def build_runtime_shadow_emitter_from_env(shadow_prefix=None):
     """Boot entrypoint for main.py. Reads an EXPLICIT, DOCUMENTED env contract via HERMES env_config.
+
+    WP3 manifest binding: when the SHADOW composition root supplies `shadow_prefix` (the run-scoped
+    manifest-approved value from validate_shadow_targets), the emitter uses THAT prefix exactly and never
+    re-reads HERMES_SHADOW_TICK_KEY_PREFIX nor falls back to `hermes:shadow:`. Non-SHADOW callers pass None.
 
     Env contract (all HERMES_*; non-prefixed fall back per env_config):
       HERMES_SHADOW_TICK_PUBLISH_ENABLED   bool, default False  -> disabled no-op emitter
@@ -233,14 +237,14 @@ def build_runtime_shadow_emitter_from_env():
     if not enabled:
         cfg = RuntimeShadowConfig(
             publisher_enabled=False, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-            shadow_prefix=(get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
+            shadow_prefix=(shadow_prefix or get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
             redis_host=None, redis_port=None, redis_db=None,
             redis_ex_seconds=10, payload_ttl_seconds=5, shadow_authorised=False,
             treat_as_production=False, dev_shadow=False)
         return DisabledShadowEmitter(cfg)
     cfg = RuntimeShadowConfig(
         publisher_enabled=True, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-        shadow_prefix=(get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
+        shadow_prefix=(shadow_prefix or get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
         redis_host=get_env("HERMES_SHADOW_TICK_REDIS_HOST", required=True),
         redis_port=get_env_int("HERMES_SHADOW_TICK_REDIS_PORT", required=True),
         redis_db=get_env_int("HERMES_SHADOW_TICK_REDIS_DB", required=True),
