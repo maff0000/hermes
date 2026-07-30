@@ -233,13 +233,14 @@ def build_runtime_shadow_emitter_from_env():
     if not enabled:
         cfg = RuntimeShadowConfig(
             publisher_enabled=False, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-            shadow_prefix="hermes:shadow:", redis_host=None, redis_port=None, redis_db=None,
+            shadow_prefix=(get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
+            redis_host=None, redis_port=None, redis_db=None,
             redis_ex_seconds=10, payload_ttl_seconds=5, shadow_authorised=False,
             treat_as_production=False, dev_shadow=False)
         return DisabledShadowEmitter(cfg)
     cfg = RuntimeShadowConfig(
         publisher_enabled=True, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-        shadow_prefix="hermes:shadow:",
+        shadow_prefix=(get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
         redis_host=get_env("HERMES_SHADOW_TICK_REDIS_HOST", required=True),
         redis_port=get_env_int("HERMES_SHADOW_TICK_REDIS_PORT", required=True),
         redis_db=get_env_int("HERMES_SHADOW_TICK_REDIS_DB", required=True),

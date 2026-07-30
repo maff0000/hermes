@@ -63,6 +63,14 @@ _FALSE_TOKENS = frozenset({"false", "0", "no", "off", ""})
 # disabled BEFORE its client is constructed (all are gated + built after this guard in main.lifespan).
 #   role: what it writes · enable_flag: the master gate (default false) · target: which Redis env it reads
 #   default_enabled: False for every writer · shadow_policy: how the guard treats it in SHADOW.
+# COUNT RECONCILIATION (R2D2 13 vs HELM 14): 14 registry MODULE ENTRIES = 11 that construct their OWN Redis
+# client (redis_publisher, candle_runtime_seam[shadow+canonical], candle_history_forward, candle_d1_history,
+# backfill_status, gap_status, live_tick_emitter, shadow_tick_emitter, publisher_supervisor,
+# healthcheck_process, manual_script) + 3 writer-logic modules that consume an INJECTED client and construct
+# none (candle_d1_publish_wire, candle_h4_publish_wire, candle_publisher_lib). R2D2's 13 counts distinct
+# WRITER ROLES, folding candle_publisher_lib (the shared serialiser the candle-forward seam injects a client
+# into — no own client, no independent enablement). Both are truthful at their granularity; the registry is
+# kept at 14 module entries so the static-inventory test covers every redis.Redis()-bearing module.
 REDIS_WRITER_REGISTRY = {
     "utils/redis_publisher.py": {
         "role": "primary_publisher", "enable_flag": None, "target": "config.redis (REDIS_HOST/PORT)",
@@ -126,6 +134,31 @@ _CANONICAL_WRITER_FLAGS = (
 _FORBIDDEN_CF_SINKS = frozenset({"canonical", "live", "prod", "production"})
 _INERT_CF_SINKS = frozenset({"none", "inert", ""})
 
+# WP3-PR126-SHADOW-REDIS-KEYSPACE-RUN-SCOPING — a generic `hermes:shadow:candles:` prefix is NOT enough:
+# two runs would collide. Each enabled shadow writer's key prefix must carry the EXACT run-id as a discrete
+# ':'-delimited component (boundary-safe: run 'wp3-123' must not match a prefix component 'wp3-1234'), must
+# not resolve into a canonical keyspace, and is recorded in the manifest as the value the writer must use.
+_CANONICAL_CANDLE_PREFIX = "hermes:candles:"
+_CANONICAL_TICK_PREFIX = "hermes:ticks:"
+
+
+def _run_scoped_prefix(prefix: object, run_id: str, *, canonical_marker: str,
+                       req_code: str, canon_code: str, scope_code: str) -> str:
+    """Validate a shadow writer key prefix is present, non-canonical, and RUN-SCOPED (run-id as a discrete
+    ':'-delimited component — no substring coincidence). Returns the validated prefix. Fail-closed."""
+    if not isinstance(prefix, str) or not prefix.strip():
+        raise ShadowTargetGuardError(req_code, "an explicit run-scoped shadow key prefix is required")
+    p = prefix.strip()
+    norm = _normalise_ns(p)
+    if norm == canonical_marker.rstrip(":") or norm == canonical_marker or norm.startswith(canonical_marker):
+        raise ShadowTargetGuardError(canon_code, "shadow key prefix resolves into a canonical keyspace")
+    # boundary-safe component check: split on ':' and require the exact run-id as one whole component.
+    components = [c for c in p.split(":") if c != ""]
+    if run_id not in components:
+        raise ShadowTargetGuardError(
+            scope_code, "shadow key prefix must contain the exact run-id as a discrete ':'-delimited component")
+    return p
+
 
 class ShadowTargetGuardError(RuntimeError):
     """Raised when SHADOW target validation fails closed. `fault_code` is a stable, non-secret code."""
@@ -155,6 +188,8 @@ class ShadowTargetManifest:
     masked_db: Optional[str]
     consumer_state: str
     redis_writers: tuple  # ((role, "disabled"|"shadow-validated"|"primary-validated"), ...) — §12 observability
+    candle_forward_shadow_prefix: Optional[str]  # run-scoped keyspace the writer MUST use (None if disabled)
+    shadow_tick_prefix: Optional[str]            # run-scoped keyspace the writer MUST use (None if disabled)
     validated: bool
     validation_utc: str
     guard_contract_version: str
@@ -209,7 +244,8 @@ def validate_shadow_targets(config: object, *, env: Callable[..., object] = get_
             run_environment=run_env, is_shadow=False, run_id=None, feed_mode=None, oanda_class=None,
             redis_class=None, redis_host=None, redis_port=None, redis_namespace=None, sql_class=None,
             sql_host=None, sql_port=None, masked_db=None,
-            consumer_state=str(env("CONSUMER_LIVE", default="false")), redis_writers=(), validated=True,
+            consumer_state=str(env("CONSUMER_LIVE", default="false")), redis_writers=(),
+            candle_forward_shadow_prefix=None, shadow_tick_prefix=None, validated=True,
             validation_utc=ts, guard_contract_version=GUARD_CONTRACT_VERSION)
 
     redis_cfg = getattr(config, "redis", None)
@@ -326,23 +362,28 @@ def validate_shadow_targets(config: object, *, env: Callable[..., object] = get_
         raise ShadowTargetGuardError(
             "SHADOW-DB-CROSS-APPLICATION-FORBIDDEN", "another application's schema is forbidden in SHADOW")
 
-    # ---- §3-§8 SECONDARY Redis write-target guard (C-WP3-SECONDARY-REDIS-TARGETS-UNGUARDED) ------------
-    redis_writers = _validate_secondary_redis_targets(env, run_id)
+    # ---- §3-§8 SECONDARY Redis write-target guard (C-WP3-SECONDARY-REDIS-TARGETS-UNGUARDED) + §3.2 run-
+    #      scoped keyspace (C-WP3-SHADOW-REDIS-KEYSPACE-NOT-RUN-SCOPED) -----------------------------------
+    redis_writers, cf_prefix, st_prefix = _validate_secondary_redis_targets(env, run_id)
 
     return ShadowTargetManifest(
         run_environment=run_env, is_shadow=True, run_id=run_id, feed_mode=feed_mode, oanda_class=oanda_class,
         redis_class=redis_class, redis_host=redis_host, redis_port=redis_port, redis_namespace=redis_ns,
         sql_class=db_class, sql_host=db_host, sql_port=db_port, masked_db=_mask_db(db_name),
-        consumer_state="false", redis_writers=redis_writers, validated=True, validation_utc=ts,
+        consumer_state="false", redis_writers=redis_writers, candle_forward_shadow_prefix=cf_prefix,
+        shadow_tick_prefix=st_prefix, validated=True, validation_utc=ts,
         guard_contract_version=GUARD_CONTRACT_VERSION)
 
 
 def _validate_secondary_redis_targets(env: Callable[..., object], run_id: str) -> tuple:
     """§3-§8 in SHADOW every SECONDARY Redis writer must be manifest-validated or DISABLED before its client
     is constructed. Every writer here is env-gated (default false) and built AFTER this guard in
-    main.lifespan, so a violation aborts startup before any secondary client exists. Returns a tuple of
-    (role, state) for §12 observability. Fail-closed with stable, non-secret faults."""
+    main.lifespan, so a violation aborts startup before any secondary client exists. Also §3.2 enforces a
+    RUN-SCOPED keyspace for every enabled shadow writer. Returns (writers_tuple, candle_forward_shadow_prefix,
+    shadow_tick_prefix). Fail-closed with stable, non-secret faults."""
     writers = []
+    cf_prefix = None
+    st_prefix = None
 
     # (a) canonical-Redis secondary writers MUST be disabled in SHADOW (each defaults false).
     _cw_roles = {
@@ -396,6 +437,14 @@ def _validate_secondary_redis_targets(env: Callable[..., object], run_id: str) -
                 raise ShadowTargetGuardError(
                     "SHADOW-CANDLE-FORWARD-REDIS-FORBIDDEN",
                     "candle-forward shadow Redis must not be canonical port 6379")
+            # §3.2 the effective key prefix the writer reads (HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX, which
+            # utils.candle_publisher_v1.resolve_shadow_key_prefix consumes) MUST be run-scoped.
+            cf_prefix = _run_scoped_prefix(
+                env("HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX", default=""), run_id,
+                canonical_marker=_CANONICAL_CANDLE_PREFIX,
+                req_code="SHADOW-CANDLE-FORWARD-KEYSPACE-REQUIRED",
+                canon_code="SHADOW-CANDLE-FORWARD-KEYSPACE-CANONICAL",
+                scope_code="SHADOW-CANDLE-FORWARD-KEYSPACE-NOT-RUN-SCOPED")
             writers.append(("candle_forward_seam", "shadow-validated"))
         else:
             raise ShadowTargetGuardError(
@@ -421,10 +470,18 @@ def _validate_secondary_redis_targets(env: Callable[..., object], run_id: str) -
         if _is_truthy(env("HERMES_SHADOW_TICK_TREAT_AS_PRODUCTION", default="false")):
             raise ShadowTargetGuardError(
                 "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN", "HERMES_SHADOW_TICK_TREAT_AS_PRODUCTION must be false in SHADOW")
+        # §3.2 the shadow-tick key prefix (HERMES_SHADOW_TICK_KEY_PREFIX, consumed by the runtime shadow
+        # emitter builder) MUST be run-scoped.
+        st_prefix = _run_scoped_prefix(
+            env("HERMES_SHADOW_TICK_KEY_PREFIX", default=""), run_id,
+            canonical_marker=_CANONICAL_TICK_PREFIX,
+            req_code="SHADOW-SHADOW-TICK-KEYSPACE-REQUIRED",
+            canon_code="SHADOW-SHADOW-TICK-KEYSPACE-CANONICAL",
+            scope_code="SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED")
         writers.append(("shadow_tick_emitter", "shadow-validated"))
 
     writers.append(("primary_publisher", "primary-validated"))
-    return tuple(writers)
+    return tuple(writers), cf_prefix, st_prefix
 
 
 def manifest_status_dict(manifest: ShadowTargetManifest) -> dict:
@@ -443,4 +500,6 @@ def manifest_status_dict(manifest: ShadowTargetManifest) -> dict:
         "sql_database": manifest.masked_db,
         "consumer_state": manifest.consumer_state,
         "redis_writers": {role: st for role, st in (manifest.redis_writers or ())},
+        "candle_forward_shadow_prefix": manifest.candle_forward_shadow_prefix,
+        "shadow_tick_prefix": manifest.shadow_tick_prefix,
     }

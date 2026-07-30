@@ -403,8 +403,10 @@ def test_candle_forward_inert_accepted():
 def test_candle_forward_valid_shadow_sink_accepted():
     m = _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="shadow",
              HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST="wp3-shadow-redis",
-             HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT="6380")
+             HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT="6380",
+             HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-abc123:candles:")
     assert {r: s for r, s in m.redis_writers}["candle_forward_seam"] == "shadow-validated"
+    assert m.candle_forward_shadow_prefix == "hermes:shadow:wp3:run-abc123:candles:"
 
 
 # ---- auxiliary canonical writers must be disabled in SHADOW ----
@@ -432,8 +434,10 @@ def test_auxiliary_writer_malformed_flag_rejected():
 # ---- shadow tick emitter ----
 def test_shadow_tick_enabled_valid_target_accepted():
     m = _run(HERMES_SHADOW_TICK_PUBLISH_ENABLED="true", HERMES_SHADOW_TICK_REDIS_HOST="wp3-redis",
-             HERMES_SHADOW_TICK_REDIS_PORT="6380")
+             HERMES_SHADOW_TICK_REDIS_PORT="6380",
+             HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-abc123:ticks:")
     assert {r: s for r, s in m.redis_writers}["shadow_tick_emitter"] == "shadow-validated"
+    assert m.shadow_tick_prefix == "hermes:shadow:wp3:run-abc123:ticks:"
 
 
 def test_shadow_tick_on_6379_rejected():
@@ -495,3 +499,159 @@ def test_registry_roles_have_shadow_policy():
     for mod, meta in guard.REDIS_WRITER_REGISTRY.items():
         assert meta.get("shadow_policy"), f"{mod} missing shadow_policy"
         assert meta.get("default_enabled") in (True, False)
+
+
+# =========================================================================== SHADOW KEYSPACE RUN-SCOPING
+# WO-HELM-HERMES-CONTAINER-MVP-WP3-PR126-SHADOW-REDIS-KEYSPACE-RUN-SCOPING-CORRECTION-0001
+# C-WP3-SHADOW-REDIS-KEYSPACE-NOT-RUN-SCOPED: every enabled shadow writer's key prefix must carry the exact
+# validated run-id as a discrete ':'-component (no substring), be non-canonical, and be manifest-bound.
+_CF_ON = {"HERMES_CANDLE_FORWARD_ENABLED": "true", "HERMES_CANDLE_FORWARD_SINK": "shadow",
+          "HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST": "wp3-redis",
+          "HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT": "6380"}
+_ST_ON = {"HERMES_SHADOW_TICK_PUBLISH_ENABLED": "true", "HERMES_SHADOW_TICK_REDIS_HOST": "wp3-redis",
+          "HERMES_SHADOW_TICK_REDIS_PORT": "6380"}
+
+
+# ---- candle-forward keyspace ----
+def test_cf_keyspace_valid_run_scoped_accepted():
+    m = _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-abc123:candles:")
+    assert m.candle_forward_shadow_prefix == "hermes:shadow:wp3:run-abc123:candles:"
+
+
+def test_cf_keyspace_generic_default_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:candles:")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-NOT-RUN-SCOPED"
+
+
+def test_cf_keyspace_missing_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON)  # HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX unset
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-REQUIRED"
+
+
+def test_cf_keyspace_empty_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="   ")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-REQUIRED"
+
+
+def test_cf_keyspace_canonical_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:candles:")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-CANONICAL"
+
+
+def test_cf_keyspace_different_run_id_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-other:candles:")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-NOT-RUN-SCOPED"
+
+
+def test_cf_keyspace_substring_run_id_rejected():
+    # run 'run-abc123' must NOT validate against a component 'run-abc1234'
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-abc1234:candles:")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-NOT-RUN-SCOPED"
+
+
+def test_cf_keyspace_runid_glued_not_component_rejected():
+    # run-id glued into a larger token is not a discrete component
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:xrun-abc123y:candles:")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-KEYSPACE-NOT-RUN-SCOPED"
+
+
+# ---- shadow-tick keyspace ----
+def test_st_keyspace_valid_run_scoped_accepted():
+    m = _run(**_ST_ON, HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-abc123:ticks:")
+    assert m.shadow_tick_prefix == "hermes:shadow:wp3:run-abc123:ticks:"
+
+
+def test_st_keyspace_generic_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_ST_ON, HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED"
+
+
+def test_st_keyspace_missing_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_ST_ON)
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-KEYSPACE-REQUIRED"
+
+
+def test_st_keyspace_canonical_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_ST_ON, HERMES_SHADOW_TICK_KEY_PREFIX="hermes:ticks:")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-KEYSPACE-CANONICAL"
+
+
+def test_st_keyspace_mismatched_run_id_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_ST_ON, HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-zzz:ticks:")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED"
+
+
+def test_st_keyspace_substring_run_id_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**_ST_ON, HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-abc1230:ticks:")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED"
+
+
+# ---- disabled writers -> no prefix required ----
+def test_cf_disabled_no_prefix_required():
+    m = _run(HERMES_CANDLE_FORWARD_ENABLED="false")
+    assert m.candle_forward_shadow_prefix is None
+
+
+def test_st_disabled_no_prefix_required():
+    m = _run()  # shadow tick unset -> disabled
+    assert m.shadow_tick_prefix is None
+
+
+# ---- CROSS-RUN collision resistance ----
+def test_cross_run_candle_keys_cannot_collide():
+    m1 = validate_shadow_targets(_Cfg(redis=_R(key_prefix="shadow:wp3:run-aaa:")),
+                                 env=_env(HERMES_SHADOW_RUN_ID="run-aaa", **_CF_ON,
+                                          HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-aaa:candles:"),
+                                 now_utc=NOW)
+    m2 = validate_shadow_targets(_Cfg(redis=_R(key_prefix="shadow:wp3:run-bbb:")),
+                                 env=_env(HERMES_SHADOW_RUN_ID="run-bbb", **_CF_ON,
+                                          HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX="hermes:shadow:wp3:run-bbb:candles:"),
+                                 now_utc=NOW)
+    assert m1.candle_forward_shadow_prefix != m2.candle_forward_shadow_prefix
+    # a concrete key for the SAME instrument/event differs between runs
+    k1 = m1.candle_forward_shadow_prefix + "XAU_USD:M1:latest:v1"
+    k2 = m2.candle_forward_shadow_prefix + "XAU_USD:M1:latest:v1"
+    assert k1 != k2
+
+
+def test_cross_run_tick_keys_cannot_collide():
+    m1 = validate_shadow_targets(_Cfg(redis=_R(key_prefix="shadow:wp3:run-aaa:")),
+                                 env=_env(HERMES_SHADOW_RUN_ID="run-aaa", **_ST_ON,
+                                          HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-aaa:ticks:"), now_utc=NOW)
+    m2 = validate_shadow_targets(_Cfg(redis=_R(key_prefix="shadow:wp3:run-bbb:")),
+                                 env=_env(HERMES_SHADOW_RUN_ID="run-bbb", **_ST_ON,
+                                          HERMES_SHADOW_TICK_KEY_PREFIX="hermes:shadow:wp3:run-bbb:ticks:"), now_utc=NOW)
+    assert (m1.shadow_tick_prefix + "EUR_USD:latest:v1") != (m2.shadow_tick_prefix + "EUR_USD:latest:v1")
+
+
+# ---- MANIFEST-to-RUNTIME binding: the guard-approved prefix equals what the writer resolves ----
+def test_candle_forward_manifest_prefix_equals_runtime_resolved():
+    import utils.candle_publisher_v1 as cp
+    approved = "hermes:shadow:wp3:run-abc123:candles:"
+    m = _run(**_CF_ON, HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX=approved)
+    resolved = cp.resolve_shadow_key_prefix({"HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX": approved})
+    assert resolved == m.candle_forward_shadow_prefix == approved  # no validation/use drift
+
+
+def test_shadow_tick_builder_reads_run_scoped_key_prefix_env(monkeypatch):
+    # manifest/use binding: build_runtime_shadow_emitter_from_env consumes HERMES_SHADOW_TICK_KEY_PREFIX into
+    # the config the writer uses (proven via the disabled path — same env read, no live client needed).
+    import utils.tick_runtime_shadow_adapter_v1 as tsa
+    approved = "hermes:shadow:wp3:run-abc123:ticks:"
+    monkeypatch.setenv("HERMES_SHADOW_TICK_PUBLISH_ENABLED", "false")
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", approved)
+    emitter = tsa.build_runtime_shadow_emitter_from_env()
+    cfg = getattr(emitter, "config", None) or getattr(emitter, "_config", None)
+    assert cfg is not None and cfg.shadow_prefix == approved
