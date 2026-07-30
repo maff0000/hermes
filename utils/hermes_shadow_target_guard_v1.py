@@ -143,15 +143,20 @@ _CANONICAL_TICK_PREFIX = "hermes:ticks:"
 
 
 def _run_scoped_prefix(prefix: object, run_id: str, *, canonical_marker: str,
-                       req_code: str, canon_code: str, scope_code: str) -> str:
+                       req_code: str, canon_code: str, scope_code: str, required_start: str = None) -> str:
     """Validate a shadow writer key prefix is present, non-canonical, and RUN-SCOPED (run-id as a discrete
-    ':'-delimited component — no substring coincidence). Returns the validated prefix. Fail-closed."""
+    ':'-delimited component — no substring coincidence). When `required_start` is given, the prefix must
+    also begin with it (guard/emitter contract alignment — e.g. the tick emitter requires 'hermes:shadow:').
+    Returns the validated prefix. Fail-closed."""
     if not isinstance(prefix, str) or not prefix.strip():
         raise ShadowTargetGuardError(req_code, "an explicit run-scoped shadow key prefix is required")
     p = prefix.strip()
     norm = _normalise_ns(p)
     if norm == canonical_marker.rstrip(":") or norm == canonical_marker or norm.startswith(canonical_marker):
         raise ShadowTargetGuardError(canon_code, "shadow key prefix resolves into a canonical keyspace")
+    if required_start is not None and not p.startswith(required_start):
+        raise ShadowTargetGuardError(
+            scope_code, f"shadow key prefix must begin with '{required_start}' (emitter contract)")
     # boundary-safe component check: split on ':' and require the exact run-id as one whole component.
     components = [c for c in p.split(":") if c != ""]
     if run_id not in components:
@@ -477,7 +482,8 @@ def _validate_secondary_redis_targets(env: Callable[..., object], run_id: str) -
             canonical_marker=_CANONICAL_TICK_PREFIX,
             req_code="SHADOW-SHADOW-TICK-KEYSPACE-REQUIRED",
             canon_code="SHADOW-SHADOW-TICK-KEYSPACE-CANONICAL",
-            scope_code="SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED")
+            scope_code="SHADOW-SHADOW-TICK-KEYSPACE-NOT-RUN-SCOPED",
+            required_start="hermes:shadow:")   # emitter (RuntimeShadowConfig) requires this exact prefix
         writers.append(("shadow_tick_emitter", "shadow-validated"))
 
     writers.append(("primary_publisher", "primary-validated"))

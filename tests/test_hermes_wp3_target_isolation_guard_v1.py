@@ -787,3 +787,91 @@ def test_cf_non_shadow_uses_env_when_no_manifest_prefix(monkeypatch):
     monkeypatch.setattr(seam, "_real_shadow_redis_client", lambda config: object())
     built = seam.build_candle_forward_seam_from_env()  # no manifest prefix (non-SHADOW composition)
     assert built.writer.config.shadow_key_prefix is None  # writer resolves from env at write-time (legacy)
+
+
+# =========================================================================== FINAL TICK-PREFIX CONTRACT
+# WO-HELM-HERMES-CONTAINER-MVP-WP3-PR126-FINAL-TICK-PREFIX-CONTRACT-ALIGNMENT-0001 (two corrections only).
+import utils.tick_shadow_publisher_v1 as _sh
+
+
+# ---- Correction A: explicit empty/whitespace tick prefix fails closed (no env / generic fallback) ----
+def test_tickbuilder_explicit_empty_prefix_fails_closed(monkeypatch):
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:wp3:run-env:ticks:")  # env present
+    with pytest.raises(ValueError) as e:
+        tsa.build_runtime_shadow_emitter_from_env(shadow_prefix="")
+    assert "GOV-PUB-RT-CFG-007" in str(e.value)
+
+
+def test_tickbuilder_explicit_whitespace_prefix_fails_closed(monkeypatch):
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:wp3:run-env:ticks:")
+    with pytest.raises(ValueError) as e:
+        tsa.build_runtime_shadow_emitter_from_env(shadow_prefix="   ")
+    assert "GOV-PUB-RT-CFG-007" in str(e.value)
+
+
+def test_tickbuilder_explicit_empty_does_not_read_env(monkeypatch):
+    # even with a valid env value present, an explicit "" must NOT be replaced by it — it must fail closed
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:wp3:run-env:ticks:")
+    monkeypatch.setattr(tsa, "build_runtime_shadow_emitter", lambda *, config, **k: config)
+    with pytest.raises(ValueError):
+        tsa.build_runtime_shadow_emitter_from_env(shadow_prefix="")
+
+
+def test_tickbuilder_valid_explicit_prefix_used_exactly(monkeypatch):
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:wp3:run-env:ticks:")
+    monkeypatch.setattr(tsa, "build_runtime_shadow_emitter", lambda *, config, **k: config)
+    for k, v in {"HERMES_SHADOW_TICK_PUBLISH_ENABLED": "true", "HERMES_SHADOW_TICK_REDIS_HOST": "wp3",
+                 "HERMES_SHADOW_TICK_REDIS_PORT": "6380", "HERMES_SHADOW_TICK_REDIS_DB": "0",
+                 "HERMES_SHADOW_TICK_AUTHORISED": "true", "HERMES_SHADOW_TICK_DEV_SHADOW": "true"}.items():
+        monkeypatch.setenv(k, v)
+    cfg = tsa.build_runtime_shadow_emitter_from_env(shadow_prefix="hermes:shadow:wp3:run-good:ticks:")
+    assert cfg.shadow_prefix == "hermes:shadow:wp3:run-good:ticks:"  # exact, not env
+
+
+def test_tickbuilder_none_preserves_env_fallback(monkeypatch):
+    monkeypatch.setenv("HERMES_SHADOW_TICK_KEY_PREFIX", "hermes:shadow:legacy:")
+    monkeypatch.setattr(tsa, "build_runtime_shadow_emitter", lambda *, config, **k: config)
+    monkeypatch.delenv("HERMES_SHADOW_TICK_PUBLISH_ENABLED", raising=False)
+    emitter = tsa.build_runtime_shadow_emitter_from_env(shadow_prefix=None)  # disabled path
+    assert emitter.config.shadow_prefix == "hermes:shadow:legacy:"  # legacy env preserved
+
+
+# ---- Correction B: guard tick-prefix grammar matches the emitter contract (hermes:shadow: required) ----
+def _tick_run(prefix):
+    _ST = {"HERMES_SHADOW_TICK_PUBLISH_ENABLED": "true", "HERMES_SHADOW_TICK_REDIS_HOST": "wp3-redis",
+           "HERMES_SHADOW_TICK_REDIS_PORT": "6380", "HERMES_SHADOW_TICK_KEY_PREFIX": prefix}
+    return _run(**_ST)
+
+
+@pytest.mark.parametrize("prefix", [
+    "hermes:shadow:ticks:run-abc123:",
+    "hermes:shadow:wp3:run-abc123:ticks:",
+])
+def test_guard_accepts_valid_tick_prefix(prefix):
+    m = _tick_run(prefix)
+    assert m.shadow_tick_prefix == prefix
+
+
+@pytest.mark.parametrize("prefix", [
+    "shadow:run-abc123:",                         # no hermes:shadow:
+    "wp3:run-abc123:ticks:",                       # no hermes:shadow:
+    "hermes:shadow:",                              # generic, no run-id
+    "hermes:shadow:ticks:",                        # no run-id
+    "hermes:shadow:ticks:run-other:",              # different run-id
+    "hermes:shadow:ticks:run-abc1234:",            # run-id substring (suffix)
+])
+def test_guard_rejects_nonconformant_tick_prefix(prefix):
+    with pytest.raises(ShadowTargetGuardError):
+        _tick_run(prefix)
+
+
+def test_guard_approved_tick_prefix_satisfies_emitter():
+    # contract-equivalence: a guard-accepted prefix constructs RuntimeShadowConfig successfully
+    prefix = "hermes:shadow:wp3:run-abc123:ticks:"
+    m = _tick_run(prefix)
+    cfg = tsa.RuntimeShadowConfig(
+        publisher_enabled=False, write_mode=tsa.WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
+        shadow_prefix=m.shadow_tick_prefix, redis_host=None, redis_port=None, redis_db=None,
+        redis_ex_seconds=10, payload_ttl_seconds=5, shadow_authorised=False,
+        treat_as_production=False, dev_shadow=False)
+    assert cfg.shadow_prefix == prefix and cfg.shadow_prefix.startswith(_sh.SHADOW_PREFIX)

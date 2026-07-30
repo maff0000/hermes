@@ -233,18 +233,26 @@ def build_runtime_shadow_emitter_from_env(shadow_prefix=None):
     Default (flag unset) -> DISABLED no-op. Enabled-but-misconfigured -> FAIL LOUD (no silent no-op).
     """
     from env_config import get_env, get_env_bool, get_env_int  # HERMES-owned config, lazy
+    # WP3 Correction A: an EXPLICITLY supplied prefix (not None) that is empty/whitespace FAILS CLOSED — it
+    # must NOT fall through to the environment or the generic 'hermes:shadow:' default. Only a genuine None
+    # (non-SHADOW / legacy path) resolves env/default.
+    if shadow_prefix is not None and (not isinstance(shadow_prefix, str) or not shadow_prefix.strip()):
+        raise ValueError("GOV-PUB-RT-CFG-007: an explicitly supplied shadow_prefix must be a non-empty "
+                         "string (empty/whitespace never falls back to env or the generic default)")
+    _effective_prefix = shadow_prefix if shadow_prefix is not None else \
+        (get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:")
     enabled = get_env_bool("HERMES_SHADOW_TICK_PUBLISH_ENABLED", False)
     if not enabled:
         cfg = RuntimeShadowConfig(
             publisher_enabled=False, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-            shadow_prefix=(shadow_prefix or get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
+            shadow_prefix=_effective_prefix,
             redis_host=None, redis_port=None, redis_db=None,
             redis_ex_seconds=10, payload_ttl_seconds=5, shadow_authorised=False,
             treat_as_production=False, dev_shadow=False)
         return DisabledShadowEmitter(cfg)
     cfg = RuntimeShadowConfig(
         publisher_enabled=True, write_mode=WRITE_MODE_SHADOW_RUNTIME_INERT, namespace="hermes",
-        shadow_prefix=(shadow_prefix or get_env("HERMES_SHADOW_TICK_KEY_PREFIX", default="") or "hermes:shadow:"),
+        shadow_prefix=_effective_prefix,
         redis_host=get_env("HERMES_SHADOW_TICK_REDIS_HOST", required=True),
         redis_port=get_env_int("HERMES_SHADOW_TICK_REDIS_PORT", required=True),
         redis_db=get_env_int("HERMES_SHADOW_TICK_REDIS_DB", required=True),
