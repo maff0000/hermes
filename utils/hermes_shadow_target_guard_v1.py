@@ -58,6 +58,74 @@ _RUN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9\-]{2,63}$")
 _TRUE_TOKENS = frozenset({"true", "1", "yes", "on"})
 _FALSE_TOKENS = frozenset({"false", "0", "no", "off", ""})
 
+# WO-...-WP3-PR126-ALL-REDIS-WRITE-TARGETS-ISOLATION-CORRECTION-0001 — C-WP3-SECONDARY-REDIS-TARGETS-
+# UNGUARDED. Every Redis WRITE path in the repo, classified. In SHADOW each must be manifest-validated or
+# disabled BEFORE its client is constructed (all are gated + built after this guard in main.lifespan).
+#   role: what it writes · enable_flag: the master gate (default false) · target: which Redis env it reads
+#   default_enabled: False for every writer · shadow_policy: how the guard treats it in SHADOW.
+REDIS_WRITER_REGISTRY = {
+    "utils/redis_publisher.py": {
+        "role": "primary_publisher", "enable_flag": None, "target": "config.redis (REDIS_HOST/PORT)",
+        "default_enabled": True, "shadow_policy": "primary_manifest_validated"},
+    "utils/candle_runtime_seam_v1.py": {
+        "role": "candle_forward_seam", "enable_flag": "HERMES_CANDLE_FORWARD_ENABLED",
+        "target": "canonical: HERMES_CANDLE_CANONICAL_REDIS_* | shadow: HERMES_CANDLE_FORWARD_SHADOW_REDIS_*",
+        "default_enabled": False, "shadow_policy": "canonical_sink_forbidden_or_shadow_target_validated"},
+    "utils/candle_history_forward_writer_v1.py": {
+        "role": "candle_history_forward", "enable_flag": "HERMES_CANDLE_HISTORY_FORWARD_ENABLED",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_*", "default_enabled": False,
+        "shadow_policy": "canonical_writer_forbidden"},
+    "utils/candle_d1_history_v1.py": {
+        "role": "candle_d1_history", "enable_flag": "HERMES_CANDLE_D1_HISTORY_ENABLED",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_*", "default_enabled": False,
+        "shadow_policy": "canonical_writer_forbidden"},
+    "utils/hermes_backfill_status_v1.py": {
+        "role": "backfill_status", "enable_flag": "HERMES_BACKFILL_STATUS_PUBLISH_ENABLED",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_*", "default_enabled": False,
+        "shadow_policy": "canonical_writer_forbidden"},
+    "utils/hermes_gaps_v1.py": {
+        "role": "gap_status", "enable_flag": "HERMES_D1_HISTORY_BACKFILL_ENABLED",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_*", "default_enabled": False,
+        "shadow_policy": "canonical_writer_forbidden"},
+    "utils/tick_live_emitter_v1.py": {
+        "role": "live_tick_emitter", "enable_flag": "HERMES_TICK_PUBLISH_ENABLED",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_*", "default_enabled": False,
+        "shadow_policy": "canonical_writer_forbidden"},
+    "utils/tick_shadow_publisher_v1.py": {
+        "role": "shadow_tick_emitter", "enable_flag": "HERMES_SHADOW_TICK_PUBLISH_ENABLED",
+        "target": "HERMES_SHADOW_TICK_REDIS_*", "default_enabled": False,
+        "shadow_policy": "shadow_target_validated"},
+    "utils/hermes_publisher_runtime_v1.py": {
+        "role": "publisher_supervisor", "enable_flag": "HERMES_PUBLISHER_RUNTIME_ENABLED",
+        "target": "config.redis (via primary publisher)", "default_enabled": False,
+        "shadow_policy": "primary_manifest_validated"},
+    "utils/candle_d1_publish_wire_v1.py": {
+        "role": "candle_d1_publish_wire", "enable_flag": "HERMES_CANDLE_PUBLISH_ENABLED",
+        "target": "canonical seam", "default_enabled": False, "shadow_policy": "canonical_writer_forbidden"},
+    "utils/candle_h4_publish_wire_v1.py": {
+        "role": "candle_h4_publish_wire", "enable_flag": "HERMES_CANDLE_H4_PUBLISH_ENABLED",
+        "target": "canonical seam", "default_enabled": False, "shadow_policy": "canonical_writer_forbidden"},
+    "utils/candle_publisher_v1.py": {
+        "role": "candle_publisher_lib", "enable_flag": None, "target": "injected client (no own client)",
+        "default_enabled": False, "shadow_policy": "library_no_own_client"},
+    "healthcheck/signal_health.py": {
+        "role": "healthcheck_process", "enable_flag": None, "target": "separate healthcheck process",
+        "default_enabled": False, "shadow_policy": "out_of_startup_path"},
+    "scripts/shadow_activate_publish.py": {
+        "role": "manual_script", "enable_flag": None, "target": "manual ops script",
+        "default_enabled": False, "shadow_policy": "out_of_startup_path"},
+}
+
+# Canonical-Redis secondary writers that must be DISABLED in SHADOW (each defaults false; any truthy -> fail).
+_CANONICAL_WRITER_FLAGS = (
+    "HERMES_TICK_PUBLISH_ENABLED", "HERMES_CANDLE_PUBLISH_ENABLED",
+    "HERMES_CANDLE_HISTORY_FORWARD_ENABLED", "HERMES_CANDLE_D1_HISTORY_ENABLED",
+    "HERMES_D1_HISTORY_BACKFILL_ENABLED", "HERMES_BACKFILL_STATUS_PUBLISH_ENABLED",
+    "HERMES_CANDLE_H4_PUBLISH_ENABLED",
+)
+_FORBIDDEN_CF_SINKS = frozenset({"canonical", "live", "prod", "production"})
+_INERT_CF_SINKS = frozenset({"none", "inert", ""})
+
 
 class ShadowTargetGuardError(RuntimeError):
     """Raised when SHADOW target validation fails closed. `fault_code` is a stable, non-secret code."""
@@ -86,6 +154,7 @@ class ShadowTargetManifest:
     sql_port: Optional[int]
     masked_db: Optional[str]
     consumer_state: str
+    redis_writers: tuple  # ((role, "disabled"|"shadow-validated"|"primary-validated"), ...) — §12 observability
     validated: bool
     validation_utc: str
     guard_contract_version: str
@@ -140,7 +209,7 @@ def validate_shadow_targets(config: object, *, env: Callable[..., object] = get_
             run_environment=run_env, is_shadow=False, run_id=None, feed_mode=None, oanda_class=None,
             redis_class=None, redis_host=None, redis_port=None, redis_namespace=None, sql_class=None,
             sql_host=None, sql_port=None, masked_db=None,
-            consumer_state=str(env("CONSUMER_LIVE", default="false")), validated=True,
+            consumer_state=str(env("CONSUMER_LIVE", default="false")), redis_writers=(), validated=True,
             validation_utc=ts, guard_contract_version=GUARD_CONTRACT_VERSION)
 
     redis_cfg = getattr(config, "redis", None)
@@ -257,12 +326,105 @@ def validate_shadow_targets(config: object, *, env: Callable[..., object] = get_
         raise ShadowTargetGuardError(
             "SHADOW-DB-CROSS-APPLICATION-FORBIDDEN", "another application's schema is forbidden in SHADOW")
 
+    # ---- §3-§8 SECONDARY Redis write-target guard (C-WP3-SECONDARY-REDIS-TARGETS-UNGUARDED) ------------
+    redis_writers = _validate_secondary_redis_targets(env, run_id)
+
     return ShadowTargetManifest(
         run_environment=run_env, is_shadow=True, run_id=run_id, feed_mode=feed_mode, oanda_class=oanda_class,
         redis_class=redis_class, redis_host=redis_host, redis_port=redis_port, redis_namespace=redis_ns,
         sql_class=db_class, sql_host=db_host, sql_port=db_port, masked_db=_mask_db(db_name),
-        consumer_state="false", validated=True, validation_utc=ts,
+        consumer_state="false", redis_writers=redis_writers, validated=True, validation_utc=ts,
         guard_contract_version=GUARD_CONTRACT_VERSION)
+
+
+def _validate_secondary_redis_targets(env: Callable[..., object], run_id: str) -> tuple:
+    """§3-§8 in SHADOW every SECONDARY Redis writer must be manifest-validated or DISABLED before its client
+    is constructed. Every writer here is env-gated (default false) and built AFTER this guard in
+    main.lifespan, so a violation aborts startup before any secondary client exists. Returns a tuple of
+    (role, state) for §12 observability. Fail-closed with stable, non-secret faults."""
+    writers = []
+
+    # (a) canonical-Redis secondary writers MUST be disabled in SHADOW (each defaults false).
+    _cw_roles = {
+        "HERMES_TICK_PUBLISH_ENABLED": "live_tick_emitter",
+        "HERMES_CANDLE_PUBLISH_ENABLED": "candle_canonical_publish",
+        "HERMES_CANDLE_HISTORY_FORWARD_ENABLED": "candle_history_forward",
+        "HERMES_CANDLE_D1_HISTORY_ENABLED": "candle_d1_history",
+        "HERMES_D1_HISTORY_BACKFILL_ENABLED": "gap_backfill",
+        "HERMES_BACKFILL_STATUS_PUBLISH_ENABLED": "backfill_status",
+        "HERMES_CANDLE_H4_PUBLISH_ENABLED": "candle_h4_publish",
+    }
+    for flag in _CANONICAL_WRITER_FLAGS:
+        v = _is_truthy(env(flag, default="false"))
+        if v is None or v is True:
+            raise ShadowTargetGuardError(
+                "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN",
+                f"canonical Redis writer {flag} must be disabled in SHADOW ({_cw_roles.get(flag, flag)})")
+        writers.append((_cw_roles.get(flag, flag), "disabled"))
+
+    # (b) defence-in-depth: a canonical-Redis target on port 6379 must never be configured in SHADOW, even
+    #     if the writer that would read it is (claimed) disabled.
+    ccan_port = str(env("HERMES_CANDLE_CANONICAL_REDIS_PORT", default="") or "").strip()
+    if ccan_port == str(_CANONICAL_REDIS_PORT):
+        raise ShadowTargetGuardError(
+            "SHADOW-CANDLE-FORWARD-REDIS-FORBIDDEN",
+            "a canonical Redis target on port 6379 must not be configured in SHADOW")
+
+    # (c) candle-forward seam.
+    cf_enabled = _is_truthy(env("HERMES_CANDLE_FORWARD_ENABLED", default="false"))
+    if cf_enabled is None:
+        raise ShadowTargetGuardError(
+            "SHADOW-CANDLE-FORWARD-CANONICAL-SINK-FORBIDDEN", "HERMES_CANDLE_FORWARD_ENABLED is malformed")
+    if not cf_enabled:
+        writers.append(("candle_forward_seam", "disabled"))
+    else:
+        sink = str(env("HERMES_CANDLE_FORWARD_SINK", default="") or "").strip().lower()
+        if sink in _FORBIDDEN_CF_SINKS:
+            raise ShadowTargetGuardError(
+                "SHADOW-CANDLE-FORWARD-CANONICAL-SINK-FORBIDDEN",
+                f"candle-forward sink '{sink}' selects canonical Redis — forbidden in SHADOW")
+        if sink in _INERT_CF_SINKS:
+            writers.append(("candle_forward_seam", "disabled"))
+        elif sink == "shadow":
+            sh_host = str(env("HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST", default="") or "").strip()
+            sh_port = str(env("HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT", default="") or "").strip()
+            if not sh_host or not sh_port:
+                raise ShadowTargetGuardError(
+                    "SHADOW-CANDLE-FORWARD-TARGET-REQUIRED",
+                    "candle-forward shadow sink requires an explicit shadow Redis host+port")
+            if sh_port == str(_CANONICAL_REDIS_PORT):
+                raise ShadowTargetGuardError(
+                    "SHADOW-CANDLE-FORWARD-REDIS-FORBIDDEN",
+                    "candle-forward shadow Redis must not be canonical port 6379")
+            writers.append(("candle_forward_seam", "shadow-validated"))
+        else:
+            raise ShadowTargetGuardError(
+                "SHADOW-CANDLE-FORWARD-CANONICAL-SINK-FORBIDDEN",
+                f"candle-forward sink '{sink}' is not a recognised safe SHADOW sink")
+
+    # (d) shadow tick emitter — allowed ONLY with a validated non-canonical shadow target.
+    st_enabled = _is_truthy(env("HERMES_SHADOW_TICK_PUBLISH_ENABLED", default="false"))
+    if st_enabled is None:
+        raise ShadowTargetGuardError(
+            "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN", "HERMES_SHADOW_TICK_PUBLISH_ENABLED is malformed")
+    if not st_enabled:
+        writers.append(("shadow_tick_emitter", "disabled"))
+    else:
+        st_port = str(env("HERMES_SHADOW_TICK_REDIS_PORT", default="") or "").strip()
+        st_host = str(env("HERMES_SHADOW_TICK_REDIS_HOST", default="") or "").strip()
+        if not st_host or not st_port:
+            raise ShadowTargetGuardError(
+                "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN", "shadow tick emitter requires an explicit shadow target")
+        if st_port == str(_CANONICAL_REDIS_PORT):
+            raise ShadowTargetGuardError(
+                "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN", "shadow tick emitter must not target canonical port 6379")
+        if _is_truthy(env("HERMES_SHADOW_TICK_TREAT_AS_PRODUCTION", default="false")):
+            raise ShadowTargetGuardError(
+                "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN", "HERMES_SHADOW_TICK_TREAT_AS_PRODUCTION must be false in SHADOW")
+        writers.append(("shadow_tick_emitter", "shadow-validated"))
+
+    writers.append(("primary_publisher", "primary-validated"))
+    return tuple(writers)
 
 
 def manifest_status_dict(manifest: ShadowTargetManifest) -> dict:
@@ -280,4 +442,5 @@ def manifest_status_dict(manifest: ShadowTargetManifest) -> dict:
         "sql_target_class": manifest.sql_class,
         "sql_database": manifest.masked_db,
         "consumer_state": manifest.consumer_state,
+        "redis_writers": {role: st for role, st in (manifest.redis_writers or ())},
     }

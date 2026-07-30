@@ -342,3 +342,156 @@ def test_no_secret_in_fault_messages():
             validate_shadow_targets(_Cfg(**cfgover), env=_env(**envover), now_utc=NOW)
         except ShadowTargetGuardError as e:
             assert "001-000" not in str(e) and "password" not in str(e).lower()
+
+
+# =========================================================================== SECONDARY REDIS WRITE TARGETS
+# WO-HELM-HERMES-CONTAINER-MVP-WP3-PR126-ALL-REDIS-WRITE-TARGETS-ISOLATION-CORRECTION-0001
+# C-WP3-SECONDARY-REDIS-TARGETS-UNGUARDED: every secondary Redis writer must be manifest-validated or
+# DISABLED before its client is constructed. The candle-forward canonical sink is the load-bearing path.
+
+def test_valid_stack_all_secondary_writers_disabled():
+    m = _run()
+    st = {r: s for r, s in m.redis_writers}
+    assert st.get("candle_forward_seam") == "disabled"
+    assert st.get("live_tick_emitter") == "disabled"
+    assert st.get("primary_publisher") == "primary-validated"
+
+
+# ---- candle-forward canonical sink (the finding) ----
+@pytest.mark.parametrize("sink", ["canonical", "live", "prod", "production"])
+def test_candle_forward_canonical_sink_rejected(sink):
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK=sink)
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-CANONICAL-SINK-FORBIDDEN"
+
+
+def test_candle_forward_canonical_redis_port_6379_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_CANDLE_CANONICAL_REDIS_PORT="6379")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-REDIS-FORBIDDEN"
+
+
+def test_candle_forward_shadow_sink_without_target_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="shadow")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-TARGET-REQUIRED"
+
+
+def test_candle_forward_shadow_sink_on_6379_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="shadow",
+             HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST="x", HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT="6379")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-REDIS-FORBIDDEN"
+
+
+def test_candle_forward_unknown_sink_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="banana")
+    assert e.value.fault_code == "SHADOW-CANDLE-FORWARD-CANONICAL-SINK-FORBIDDEN"
+
+
+def test_candle_forward_disabled_accepted():
+    m = _run(HERMES_CANDLE_FORWARD_ENABLED="false")
+    assert {r: s for r, s in m.redis_writers}["candle_forward_seam"] == "disabled"
+
+
+def test_candle_forward_inert_accepted():
+    m = _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="inert")
+    assert {r: s for r, s in m.redis_writers}["candle_forward_seam"] == "disabled"
+
+
+def test_candle_forward_valid_shadow_sink_accepted():
+    m = _run(HERMES_CANDLE_FORWARD_ENABLED="true", HERMES_CANDLE_FORWARD_SINK="shadow",
+             HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST="wp3-shadow-redis",
+             HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT="6380")
+    assert {r: s for r, s in m.redis_writers}["candle_forward_seam"] == "shadow-validated"
+
+
+# ---- auxiliary canonical writers must be disabled in SHADOW ----
+@pytest.mark.parametrize("flag,code", [
+    ("HERMES_TICK_PUBLISH_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_CANDLE_PUBLISH_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_CANDLE_HISTORY_FORWARD_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_CANDLE_D1_HISTORY_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_D1_HISTORY_BACKFILL_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_BACKFILL_STATUS_PUBLISH_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+    ("HERMES_CANDLE_H4_PUBLISH_ENABLED", "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"),
+])
+def test_auxiliary_canonical_writer_enabled_rejected(flag, code):
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(**{flag: "true"})
+    assert e.value.fault_code == code
+
+
+def test_auxiliary_writer_malformed_flag_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_TICK_PUBLISH_ENABLED="maybe")
+    assert e.value.fault_code == "SHADOW-AUX-CANONICAL-WRITER-FORBIDDEN"
+
+
+# ---- shadow tick emitter ----
+def test_shadow_tick_enabled_valid_target_accepted():
+    m = _run(HERMES_SHADOW_TICK_PUBLISH_ENABLED="true", HERMES_SHADOW_TICK_REDIS_HOST="wp3-redis",
+             HERMES_SHADOW_TICK_REDIS_PORT="6380")
+    assert {r: s for r, s in m.redis_writers}["shadow_tick_emitter"] == "shadow-validated"
+
+
+def test_shadow_tick_on_6379_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_SHADOW_TICK_PUBLISH_ENABLED="true", HERMES_SHADOW_TICK_REDIS_HOST="x",
+             HERMES_SHADOW_TICK_REDIS_PORT="6379")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN"
+
+
+def test_shadow_tick_treat_as_production_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_SHADOW_TICK_PUBLISH_ENABLED="true", HERMES_SHADOW_TICK_REDIS_HOST="x",
+             HERMES_SHADOW_TICK_REDIS_PORT="6380", HERMES_SHADOW_TICK_TREAT_AS_PRODUCTION="true")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN"
+
+
+def test_shadow_tick_without_target_rejected():
+    with pytest.raises(ShadowTargetGuardError) as e:
+        _run(HERMES_SHADOW_TICK_PUBLISH_ENABLED="true")
+    assert e.value.fault_code == "SHADOW-SHADOW-TICK-TARGET-FORBIDDEN"
+
+
+# ---- non-SHADOW: secondary writers unguarded (deployed compat) ----
+def test_non_shadow_secondary_writers_not_guarded():
+    m = validate_shadow_targets(_Cfg(), env=_env(RUN_ENV="STAGING", HERMES_CANDLE_FORWARD_ENABLED="true",
+                                                 HERMES_CANDLE_FORWARD_SINK="canonical",
+                                                 HERMES_TICK_PUBLISH_ENABLED="true"), now_utc=NOW)
+    assert m.is_shadow is False and m.redis_writers == ()
+
+
+# =========================================================================== STATIC WRITER-PATH REGISTRY (§14)
+def test_registry_covers_every_redis_client_constructor():
+    """Fails when a NEW Redis-client constructor is added to a runtime module without registering it. Coverage:
+    direct `redis.Redis(` / `redis.from_url` in non-test, non-design .py modules. Limitation: does not detect
+    dynamic/reflective client creation or a client injected from an unlisted third party."""
+    import os
+    import utils.hermes_shadow_target_guard_v1 as guard
+    registered = set(guard.REDIS_WRITER_REGISTRY.keys())
+    found = set()
+    for root, _dirs, files in os.walk("."):
+        if any(seg in root for seg in ("/tests", "/design", "/.git", "/__pycache__")):
+            continue
+        for fn in files:
+            if not fn.endswith(".py"):
+                continue
+            p = os.path.join(root, fn).replace("./", "", 1)
+            try:
+                src = open(p, encoding="utf-8").read()
+            except Exception:
+                continue
+            if "redis.Redis(" in src or "redis.from_url" in src:
+                found.add(p)
+    unregistered = found - registered
+    assert not unregistered, f"unregistered Redis writer module(s): {sorted(unregistered)}"
+
+
+def test_registry_roles_have_shadow_policy():
+    import utils.hermes_shadow_target_guard_v1 as guard
+    for mod, meta in guard.REDIS_WRITER_REGISTRY.items():
+        assert meta.get("shadow_policy"), f"{mod} missing shadow_policy"
+        assert meta.get("default_enabled") in (True, False)
