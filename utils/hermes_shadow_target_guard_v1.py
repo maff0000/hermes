@@ -70,7 +70,7 @@ _FALSE_TOKENS = frozenset({"false", "0", "no", "off", ""})
 # none (candle_d1_publish_wire, candle_h4_publish_wire, candle_publisher_lib). R2D2's 13 counts distinct
 # WRITER ROLES, folding candle_publisher_lib (the shared serialiser the candle-forward seam injects a client
 # into — no own client, no independent enablement). Both are truthful at their granularity; the registry is
-# kept at 14 module entries so the static-inventory test covers every redis.Redis()-bearing module.
+# kept at 14 module entries so the static-inventory test covers every redis-client-bearing module.
 REDIS_WRITER_REGISTRY = {
     "utils/redis_publisher.py": {
         "role": "primary_publisher", "enable_flag": None, "target": "config.redis (REDIS_HOST/PORT)",
