@@ -23,6 +23,10 @@ import uvicorn
 # Environment-aware config (loads .env automatically, no hardcoded paths)
 from env_config import BASE_DIR, ENV, get_env, get_env_int
 
+# WP2: externally-visible, secret-free build identity (set by Dockerfile ENV, fail-soft sentinels).
+# WO-HELM-HERMES-CONTAINER-MVP-WP2-CANONICAL-BUILD-AND-EXTERNALISED-CONFIGURATION-0001.
+from utils.hermes_build_identity_v1 import build_identity
+
 # Ensure module path is set (using relative path)
 sys.path.insert(0, str(BASE_DIR))
 
@@ -1564,25 +1568,28 @@ async def get_fx_rate(pair: str):
 # Admin Endpoints
 # ============================================================================
 
+# WP2: the pure /status payload builder lives in utils.hermes_status_payload_v1 so it is testable
+# without importing this heavy FastAPI app. Re-exported here for the handler + backward-compat.
+from utils.hermes_status_payload_v1 import build_status_payload  # noqa: E402
+
+
 @app.get("/status")
 async def status():
-    """Detailed service status"""
-    adapters = {}
+    """Detailed service status — authoritative-consistent (WP2), backward-compatible."""
+    return build_status_payload(state)
 
-    if state.oanda_adapter:
-        adapters["oanda"] = state.oanda_adapter.health.to_dict()
-    if state.ibkr_adapter:
-        adapters["ibkr"] = state.ibkr_adapter.health.to_dict()
 
-    return {
-        "service": "signal-service",
-        "version": "0.1.0",
-        "started_at": state.started_at.isoformat() if state.started_at else None,
-        "active_source": state.active_source.value,
-        "instruments": state.config.instruments if state.config else [],
-        "adapters": adapters,
-        "tick_count": len(state.latest_ticks)
-    }
+@app.get("/buildinfo")
+async def buildinfo():
+    """Externally-visible, secret-free build identity + minimal runtime posture (WP2)."""
+    payload = build_identity()
+    snap = state.watchdog.get_health_snapshot() if getattr(state, "watchdog", None) else {}
+    payload.update({
+        "consumer_live": get_env("CONSUMER_LIVE", default="false"),
+        "runtime_mode": get_env("RUN_ENV", default="STAGING"),
+        "authoritative_stream_state": snap.get("stream_state") if snap else None,
+    })
+    return payload
 
 
 @app.post("/failover/{source}")
