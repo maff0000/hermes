@@ -140,6 +140,8 @@ class ServiceState:
 
     # Redis publisher (initialized later)
     redis_publisher = None
+    # WP3 SHADOW target-isolation manifest (set by the fail-closed guard before any connector).
+    shadow_target_manifest = None
 
     # Signal builder components (initialized later)
     candle_aggregator = None
@@ -1068,6 +1070,21 @@ async def lifespan(app: FastAPI):
         logger.critical("=" * 60)
         raise RuntimeError("MOCK SIGNALS BLOCKED IN PRODUCTION - SAFETY VIOLATION")
 
+    # WO-HELM-HERMES-CONTAINER-MVP-WP3-SHADOW-TARGET-ISOLATION-GUARDS-0001 — fail-closed SHADOW target
+    # validation. Runs at the earliest config-validation boundary, BEFORE any external connector
+    # (RedisPublisher / SQL / OANDAAdapter / publisher runners) is constructed. Dormant outside
+    # RUN_ENV=SHADOW (no new rejection for the deployed STAGING/PROD runtime). A SHADOW config that could
+    # touch a live/canonical Redis, production SQL, live OANDA or activate a consumer aborts startup here.
+    from utils.hermes_shadow_target_guard_v1 import validate_shadow_targets
+    state.shadow_target_manifest = validate_shadow_targets(state.config)
+    if state.shadow_target_manifest.is_shadow:
+        logger.info(
+            "[SHADOW_GUARD] SHADOW_TARGETS_VALIDATED_BEFORE_EXTERNAL_CONNECTION "
+            "run_id=%s feed=%s redis_class=%s redis_ns=%s db_class=%s db=%s",
+            state.shadow_target_manifest.run_id, state.shadow_target_manifest.feed_mode,
+            state.shadow_target_manifest.redis_class, state.shadow_target_manifest.redis_namespace,
+            state.shadow_target_manifest.sql_class, state.shadow_target_manifest.masked_db)
+
     # WO-0030: Structured configuration logging (GOV-LOG-002)
     logger.info("Configuration loaded", extra={
         'environment': ENV,
@@ -1207,7 +1224,11 @@ async def lifespan(app: FastAPI):
     #   the JSON-serialised SerializingShadowWriter; never canonical hermes:ticks:*; LIVE rejected).
     # Enabled-but-misconfigured -> FAIL LOUD on init (no silent no-op).
     try:
-        state.shadow_tick_emitter = _build_shadow_tick_emitter()
+        # WP3 manifest binding: in SHADOW the run-scoped, manifest-approved prefix (validated by the guard)
+        # is passed EXPLICITLY so the builder does not re-read HERMES_SHADOW_TICK_KEY_PREFIX / fall back.
+        _mf = getattr(state, "shadow_target_manifest", None)
+        _st_prefix = _mf.shadow_tick_prefix if (_mf is not None and _mf.is_shadow) else None
+        state.shadow_tick_emitter = _build_shadow_tick_emitter(shadow_prefix=_st_prefix)
         logger.info(
             "[SHADOW_TICK_BOOT] emitter=%s enabled=%s",
             type(state.shadow_tick_emitter).__name__,
@@ -1242,7 +1263,11 @@ async def lifespan(app: FastAPI):
     # HERMES_CANDLE_FORWARD_ENABLED unset/false -> DisabledCandleEmitter (default no-op; no write).
     # Enabled without an explicit no-write sink -> FAIL LOUD (no silent no-op, no Proteus/SQL fallback).
     try:
-        state.candle_forward_emitter = _build_candle_forward_seam()
+        # WP3 manifest binding: in SHADOW the run-scoped, manifest-approved prefix (validated by the guard)
+        # is passed EXPLICITLY so the shadow writer does not re-read HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX.
+        _mf = getattr(state, "shadow_target_manifest", None)
+        _cf_prefix = _mf.candle_forward_shadow_prefix if (_mf is not None and _mf.is_shadow) else None
+        state.candle_forward_emitter = _build_candle_forward_seam(shadow_key_prefix=_cf_prefix)
         logger.info(
             "[CANDLE_FORWARD_BOOT] seam=%s enabled=%s",
             type(state.candle_forward_emitter).__name__,
@@ -1589,6 +1614,11 @@ async def buildinfo():
         "runtime_mode": get_env("RUN_ENV", default="STAGING"),
         "authoritative_stream_state": snap.get("stream_state") if snap else None,
     })
+    # WP3: non-secret SHADOW target-guard metadata (never credentials / full DSN).
+    _mf = getattr(state, "shadow_target_manifest", None)
+    if _mf is not None:
+        from utils.hermes_shadow_target_guard_v1 import manifest_status_dict
+        payload["shadow_target_guard"] = manifest_status_dict(_mf)
     return payload
 
 

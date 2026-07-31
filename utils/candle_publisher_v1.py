@@ -74,7 +74,7 @@ class CandlePublisherConfig:
     def __init__(self, *, publish_enabled, publish_authorised, shadow_publish_enabled,
                  shadow_authorised, namespace, contract_version,
                  redis_host=None, redis_port=None, redis_db=None,
-                 treat_as_production=False, dev_shadow=False):
+                 treat_as_production=False, dev_shadow=False, shadow_key_prefix=None):
         for name, val in (("publish_enabled", publish_enabled),
                           ("publish_authorised", publish_authorised),
                           ("shadow_publish_enabled", shadow_publish_enabled),
@@ -96,6 +96,11 @@ class CandlePublisherConfig:
         self.redis_db = redis_db
         self.treat_as_production = treat_as_production
         self.dev_shadow = dev_shadow
+        # WP3 manifest binding: when set (SHADOW), the writer uses THIS exact prefix and never re-reads the
+        # environment. Empty is invalid (a manifest-approved prefix must be a real, run-scoped string).
+        if shadow_key_prefix is not None and (not isinstance(shadow_key_prefix, str) or not shadow_key_prefix.strip()):
+            raise ValueError("GOV-CANDLE-PUB-CFG-004: shadow_key_prefix, if supplied, must be a non-empty string")
+        self.shadow_key_prefix = shadow_key_prefix
 
     def assert_canonical_allowed(self):
         """Canonical live publish is DISABLED unless explicitly enabled AND authorised. This WO never
@@ -177,10 +182,12 @@ def build_inert_write_plan(envelope):
             "ex_seconds": _ex_for(envelope), "write_mode": WRITE_MODE_INERT}
 
 
-def build_shadow_write_plan(envelope):
-    """Validated SHADOW write plan (re-keyed to the shadow namespace)."""
+def build_shadow_write_plan(envelope, shadow_key_prefix=None):
+    """Validated SHADOW write plan (re-keyed to the shadow namespace). When `shadow_key_prefix` is supplied
+    (the WP3 manifest-approved, run-scoped value) it is used EXACTLY — no environment read, no fallback.
+    Only when it is None does the legacy env-resolved prefix apply (non-SHADOW / backward compatibility)."""
     cc.validate_candle_contract(envelope)
-    prefix = resolve_shadow_key_prefix()          # resolve once, apply consistently to build + guard
+    prefix = shadow_key_prefix or resolve_shadow_key_prefix()   # manifest value wins; env only when unset
     skey = to_shadow_key(envelope["key"], prefix=prefix)
     assert_shadow_key(skey, prefix=prefix)
     return {"operation": OPERATION_SET, "key": skey, "value": envelope,
@@ -243,7 +250,7 @@ class SerializingCandleShadowWriter:
         self.redis_client = redis_client
 
     def publish(self, envelope):
-        plan = build_shadow_write_plan(envelope)
+        plan = build_shadow_write_plan(envelope, shadow_key_prefix=getattr(self.config, "shadow_key_prefix", None))
         assert_shadow_key(plan["key"])
         json_value = serialize_envelope(plan["value"])
         if not isinstance(json_value, (str, bytes)):

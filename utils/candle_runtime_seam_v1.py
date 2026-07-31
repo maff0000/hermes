@@ -200,13 +200,14 @@ def build_shadow_seam(*, config, redis_client):
     return ShadowCandleForwardSeam(writer)
 
 
-def _shadow_config_from_env(get_env, get_env_bool, get_env_int):
+def _shadow_config_from_env(get_env, get_env_bool, get_env_int, shadow_key_prefix=None):
     """Build the shadow CandlePublisherConfig from the explicit env contract (fail-loud, no defaults).
       HERMES_CANDLE_FORWARD_SHADOW_REDIS_HOST/PORT/DB   (required when shadow enabled)
       HERMES_CANDLE_FORWARD_SHADOW_AUTHORISED           (must be true)
       HERMES_CANDLE_FORWARD_SHADOW_TREAT_AS_PRODUCTION  (default false)
       HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW           (default false; required when host is loopback)
-    """
+    WP3 manifest binding: `shadow_key_prefix`, when supplied, is the run-scoped manifest-approved value the
+    writer MUST use (no env re-read, no fallback)."""
     return cp.CandlePublisherConfig(
         publish_enabled=False, publish_authorised=False,
         shadow_publish_enabled=True,
@@ -216,7 +217,8 @@ def _shadow_config_from_env(get_env, get_env_bool, get_env_int):
         redis_port=get_env_int("HERMES_CANDLE_FORWARD_SHADOW_REDIS_PORT", required=True),
         redis_db=get_env_int("HERMES_CANDLE_FORWARD_SHADOW_REDIS_DB", required=True),
         treat_as_production=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_TREAT_AS_PRODUCTION", False),
-        dev_shadow=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW", False))
+        dev_shadow=get_env_bool("HERMES_CANDLE_FORWARD_SHADOW_DEV_SHADOW", False),
+        shadow_key_prefix=shadow_key_prefix)
 
 
 def _real_shadow_redis_client(config):
@@ -377,11 +379,15 @@ def _real_canonical_redis_client(config):
                        socket_timeout=5)
 
 
-def build_candle_forward_seam_from_env():
+def build_candle_forward_seam_from_env(shadow_key_prefix=None):
     """Boot factory. Default DISABLED. Enabled requires an explicit sink mode:
     none/inert -> no-write; shadow -> dev shadow writer (fail-loud on missing/unsafe config);
     canonical -> canonical writer (fail-loud unless enabled AND authorised AND explicit bus config);
-    live/prod or unknown -> FAIL LOUD. Never enables anything by itself."""
+    live/prod or unknown -> FAIL LOUD. Never enables anything by itself.
+
+    WP3 manifest binding: when the SHADOW composition root supplies `shadow_key_prefix` (the run-scoped
+    manifest-approved value from validate_shadow_targets), the shadow writer uses THAT prefix exactly and
+    never re-reads HERMES_CANDLE_FORWARD_SHADOW_KEY_PREFIX. Non-SHADOW callers pass None (legacy env path)."""
     from env_config import get_env, get_env_bool, get_env_int  # lazy; HERMES-owned config only
     if not get_env_bool("HERMES_CANDLE_FORWARD_ENABLED", False):
         return cp.DisabledCandleEmitter(_disabled_config())
@@ -390,7 +396,8 @@ def build_candle_forward_seam_from_env():
     if sink_mode in ALLOWED_INERT_SINKS:
         return InertCandleForwardSeam(cp.NoWriteCandleSink())
     if sink_mode == SHADOW_SINK:
-        config = _shadow_config_from_env(get_env, get_env_bool, get_env_int)
+        config = _shadow_config_from_env(get_env, get_env_bool, get_env_int,
+                                         shadow_key_prefix=shadow_key_prefix)
         config.assert_shadow_allowed()                 # fail-loud on missing/unsafe target
         client = _real_shadow_redis_client(config)
         if client is None:

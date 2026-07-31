@@ -116,4 +116,18 @@ def build_status_payload(state) -> dict:
         "sql_state": sql_state,
         "redis_state": redis_state,
         "last_recovery_utc": snap.get("last_recovery_utc") if snap else None,
+        # ---- WP3 SHADOW target-guard metadata (non-secret; None outside a validated SHADOW run) ----
+        "shadow_target_guard": _shadow_guard_status(state),
     }
+
+
+def _shadow_guard_status(state):
+    """Non-secret WP3 SHADOW target-guard metadata for /status (never credentials / full DSN)."""
+    mf = getattr(state, "shadow_target_manifest", None)
+    if mf is None:
+        return None
+    try:
+        from utils.hermes_shadow_target_guard_v1 import manifest_status_dict
+        return manifest_status_dict(mf)
+    except Exception:
+        return None
