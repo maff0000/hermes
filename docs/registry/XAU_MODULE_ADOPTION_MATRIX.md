@@ -13,7 +13,7 @@ byte-identical to existing keys) + utils/hermes_instrument_registry_v1.py (loade
 ## Per-module adoption plan (byte-parity by construction: XAU is the only capability-enabled instrument)
 | # | module | scope | current XAU coupling | adopted authority | key | parity | status |
 |---|--------|-------|----------------------|-------------------|-----|--------|--------|
-| 1 | utils/tick_live_emitter_v1.py | A tick | CANONICAL_INSTRUMENT; parse_tick_instruments->{XAU}; __init__ ==-{XAU}; _assert_canonical_live_key | selection_for('tick',records); membership already generic | tick_latest_key (== tc.canonical_key) | key/schema/TTL/seq | PLANNED |
+| 1 | utils/tick_live_emitter_v1.py | A tick | (removed) | selection_for('tick',records); membership generic | tick_latest_key (== tc.canonical_key) | key/schema/TTL/seq GREEN | ADOPTED (26 tests green; CI green; no regression) |
 | 2 | utils/hermes_indicators_v1.py | B indicators | CANONICAL_INSTRUMENT in indicator_key+payload+validators+parser | selection_for('indicator'); tfs from metadata | indicator_key(inst,tf) | 6-TF values/keys/TTL | PLANNED |
 | 3 | utils/hermes_gaps_v1.py | C gaps | CANONICAL_INSTRUMENT in GAPS_KEY+contract fields+validators; single-aggregate surface | selection_for('gap') | gaps_key(inst) | key/class/payload/TTL | PLANNED |
 | 4 | utils/hermes_backfill_status_v1.py | D backfill-status | key from CANONICAL_INSTRUMENT; status-only | backfill_status_instruments() | backfill_status_key(inst) | key/status/flags | PLANNED |
