@@ -23,8 +23,10 @@ SCHEMA_VERSION = "v1"
 PUBLISHER = "HERMES"
 INDICATOR_SET_VERSION = "v1"
 SOURCE_CANDLE_CONTRACT = "v1"
-CANONICAL_INSTRUMENT = "XAU_USD"
+# WO-HELM-HERMES-ADVANCED-V1-XAU-MODULE-ADOPTION-0001: instrument selection is the canonical registry (via the
+# selection seam), NOT a hard-coded XAU authority constant. _ALIAS_DENY / _ALIAS_MAP are inbound format compat.
 _ALIAS_DENY = ("XAUUSD",)
+_ALIAS_MAP = {"XAUUSD": "XAU_USD"}   # inbound broker alias -> canonical (never an output publish key)
 INDICATOR_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1")   # D1 gated until D1 latest GREEN
 _D1 = "D1"
 
@@ -105,18 +107,19 @@ def _scan_no_forbidden_field_keys(obj):
 
 
 def canonical_instrument(instrument):
-    if instrument in _ALIAS_DENY:
-        return CANONICAL_INSTRUMENT          # XAUUSD -> XAU_USD (never an alias output)
+    if instrument in _ALIAS_MAP:
+        return _ALIAS_MAP[instrument]        # inbound broker alias -> canonical (never an alias output)
     return instrument
 
 
 def indicator_key(instrument, timeframe):
-    """Per-timeframe versioned indicator key: hermes:indicators:XAU_USD:{TF}:v1 (no unversioned aliases)."""
-    if instrument in _ALIAS_DENY or instrument != CANONICAL_INSTRUMENT:
-        raise ValueError(f"GOV-HERMES-IND-004: instrument {instrument!r} not allowed (canonical XAU_USD only; no XAUUSD alias)")
+    """Per-timeframe versioned indicator key: hermes:indicators:<INSTRUMENT>:{TF}:v1 (no unversioned aliases).
+    Generic per selected instrument; the XAU key is byte-identical. Inbound alias is refused (never a key)."""
+    if instrument in _ALIAS_DENY:
+        raise ValueError(f"GOV-HERMES-IND-004: instrument {instrument!r} not allowed (inbound alias is never an output key)")
     if timeframe not in INDICATOR_TIMEFRAMES:
         raise ValueError(f"GOV-HERMES-IND-005: timeframe {timeframe!r} not in {INDICATOR_TIMEFRAMES}")
-    return f"hermes:indicators:{CANONICAL_INSTRUMENT}:{timeframe}:{SCHEMA_VERSION}"
+    return f"hermes:indicators:{instrument}:{timeframe}:{SCHEMA_VERSION}"
 
 
 # --------------------------------------------------------------------------- contract payload
@@ -125,13 +128,13 @@ def build_indicator_contract(*, instrument, timeframe, generated_at_utc, value_o
     """hermes:indicators:XAU_USD:{TF}:v1 payload — DETERMINISTIC indicators derived from the v1 candle contract.
     `indicators` is a dict of deterministic indicator name -> value (e.g. {'ema_12':..., 'rsi_14':..., 'atr_14':...}).
     Pure; no I/O. deterministic_only=true; no regime/risk/decision fields."""
-    if instrument in _ALIAS_DENY or instrument != CANONICAL_INSTRUMENT:
-        raise ValueError(f"GOV-HERMES-IND-004: instrument {instrument!r} not allowed (canonical XAU_USD only; no XAUUSD alias)")
+    if instrument in _ALIAS_DENY:
+        raise ValueError(f"GOV-HERMES-IND-004: instrument {instrument!r} not allowed (inbound alias is never an output key)")
     if timeframe not in INDICATOR_TIMEFRAMES:
         raise ValueError(f"GOV-HERMES-IND-005: timeframe {timeframe!r} not in {INDICATOR_TIMEFRAMES}")
     payload = {
         "publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
-        "instrument": CANONICAL_INSTRUMENT, "timeframe": timeframe,
+        "instrument": instrument, "timeframe": timeframe,
         "generated_at_utc": _utc(generated_at_utc),
         "value_open_time_utc": _utc(value_open_time_utc),
         "source_candle_contract": SOURCE_CANDLE_CONTRACT,
@@ -151,8 +154,9 @@ def validate_indicator_contract(p):
         raise ValueError("GOV-HERMES-IND-010: indicator publisher must be HERMES")
     if p.get("contract_version") != "v1":
         raise ValueError("GOV-HERMES-IND-011: indicator contract_version must be v1")
-    if p.get("instrument") != CANONICAL_INSTRUMENT:
-        raise ValueError("GOV-HERMES-IND-012: indicator instrument must be XAU_USD (no alias/non-XAU)")
+    inst = p.get("instrument")
+    if not inst or inst in _ALIAS_DENY:
+        raise ValueError("GOV-HERMES-IND-012: indicator instrument must be a canonical symbol (no alias/empty)")
     if p.get("timeframe") not in INDICATOR_TIMEFRAMES:
         raise ValueError("GOV-HERMES-IND-013: indicator timeframe not in grid")
     if p.get("deterministic_only") is not True:
@@ -173,18 +177,22 @@ def validate_indicator_contract(p):
 
 
 # --------------------------------------------------------------------------- publisher foundation (DISABLED)
-def parse_indicator_instruments(raw):
+def parse_indicator_instruments(raw, *, allowed):
+    """TRANSITIONAL env consistency validator (§16): env INSTRUMENTS is NOT an authority — every env-named
+    instrument must be present in the registry-selected `allowed` set, else fail closed. Returns `allowed`."""
+    allowed = frozenset(allowed)
+    if not allowed:
+        raise ValueError("GOV-HERMES-IND-020: indicator allowlist is empty (fail-closed; caller must disable)")
     if raw is None or not str(raw).strip():
         raise ValueError(f"GOV-HERMES-IND-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
     items = [x.strip() for x in str(raw).split(",") if x.strip()]
     if not items:
         raise ValueError(f"GOV-HERMES-IND-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
-    canon = set()
     for inst in items:
-        if inst == "XAUUSD" or canonical_instrument(inst) != CANONICAL_INSTRUMENT or inst != CANONICAL_INSTRUMENT:
-            raise ValueError(f"GOV-HERMES-IND-021: instrument {inst!r} not allowed (canonical XAU_USD only; no XAUUSD/non-XAU)")
-        canon.add(CANONICAL_INSTRUMENT)
-    return frozenset(canon)
+        if inst in _ALIAS_DENY or inst not in allowed:
+            raise ValueError(f"GOV-HERMES-IND-021: env instrument {inst!r} not in the registry indicator selection "
+                             f"{sorted(allowed)} (the SQL registry is the sole authority; env is a validator)")
+    return allowed
 
 
 def parse_indicator_timeframes(raw, *, allow_d1=False):
@@ -221,8 +229,10 @@ class IndicatorPublisher:
 
     def __init__(self, *, allowed_instruments, timeframes):
         allowed = frozenset(allowed_instruments)
-        if allowed != frozenset({CANONICAL_INSTRUMENT}):
-            raise ValueError("GOV-HERMES-IND-021: indicator allowlist must be exactly {XAU_USD}")
+        if not allowed:
+            raise ValueError("GOV-HERMES-IND-021: indicator allowlist is empty (registry-selected; caller disables)")
+        if any(i in _ALIAS_DENY for i in allowed):
+            raise ValueError("GOV-HERMES-IND-021: indicator allowlist must not contain an inbound alias")
         if not timeframes:
             raise ValueError("GOV-HERMES-IND-024: indicator timeframes must be non-empty")
         self.allowed_instruments = allowed
@@ -239,17 +249,26 @@ class IndicatorPublisher:
         return indicator_key(instrument, timeframe)
 
 
-def build_indicator_publisher_from_env():
+def build_indicator_publisher_from_env(records=None):
     """Boot factory. DEFAULT DISABLED -> DisabledIndicatorPublisher (no-op, no Redis client, no I/O). ENABLED
     without AUTHORISED -> terminal halt SystemExit(101). ENABLED + AUTHORISED -> IndicatorPublisher (payloads
     only, no Redis I/O). D1 indicators gated until HERMES_INDICATOR_D1_AUTHORISED=true (D1 latest GREEN). No
     hidden defaults; lazy env read; NO Redis/network/SQL/file I/O at import or here."""
     from env_config import get_env, get_env_bool   # lazy; HERMES-owned config only
+    from utils.hermes_advanced_v1_selection_v1 import selection_for
+    from utils.hermes_instrument_registry_v1 import load_from_db
     if not get_env_bool(ENABLED_ENV, False):
         return DisabledIndicatorPublisher()
     if not get_env_bool(AUTHORISED_ENV, False):
         raise SystemExit(HALT_CODE)        # fail-loud terminal halt (exit 101)
-    instruments = parse_indicator_instruments(get_env(INSTRUMENTS_ENV, default=None))
+    if records is None:
+        records = load_from_db()
+    instruments = selection_for("indicator", records)   # registry is the selection authority
+    if not instruments:
+        return DisabledIndicatorPublisher()             # zero-selection: no publication, no fallback
+    raw = get_env(INSTRUMENTS_ENV, default=None)
+    if raw is not None and str(raw).strip():
+        parse_indicator_instruments(raw, allowed=instruments)   # env<=registry consistency, fail-closed
     allow_d1 = get_env_bool(D1_AUTHORISED_ENV, False)
     timeframes = parse_indicator_timeframes(get_env(TIMEFRAMES_ENV, default=None), allow_d1=allow_d1)
     return IndicatorPublisher(allowed_instruments=instruments, timeframes=timeframes)

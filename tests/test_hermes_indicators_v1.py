@@ -9,6 +9,16 @@ import pytest
 import utils.hermes_indicators_v1 as ind
 import utils.hermes_control_plane_v1 as cp
 
+
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: indicator selection is the canonical registry. Patch the loader to the
+    XAU-active rollout (XAU indicator-enabled; 7 new NOT_ENABLED) so from_env is registry-driven with no DB."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
 UTC = timezone.utc
 _NOW = datetime(2026, 6, 30, 12, 0, tzinfo=UTC)
 _OPEN = datetime(2026, 6, 30, 11, 0, tzinfo=UTC)
@@ -102,12 +112,15 @@ def test_no_auth_added():
 
 
 # ============================ Part C — indicator contract ============================
-def test_indicator_key_versioned_xau_only():
+def test_indicator_key_versioned_generic_xau_parity():
+    # WO-...-XAU-MODULE-ADOPTION-0001: key factory is generic per instrument (XAU byte-identical). Only the
+    # inbound alias XAUUSD is refused as a key; other instruments produce their own canonical key (activation
+    # is governed by the registry capability flag, not the key format).
     assert ind.indicator_key("XAU_USD", "H4") == "hermes:indicators:XAU_USD:H4:v1"
-    for bad in ("XAUUSD", "EUR_USD", "XAG_USD"):
-        with pytest.raises(ValueError) as e:
-            ind.indicator_key(bad, "H4")
-        assert "GOV-HERMES-IND-004" in str(e.value)
+    assert ind.indicator_key("EUR_USD", "H4") == "hermes:indicators:EUR_USD:H4:v1"
+    with pytest.raises(ValueError) as e:
+        ind.indicator_key("XAUUSD", "H4")
+    assert "GOV-HERMES-IND-004" in str(e.value)
 
 
 def test_indicator_contract_validates_deterministic():
@@ -120,12 +133,15 @@ def test_indicator_contract_validates_deterministic():
     assert ind.validate_indicator_contract(p) is True
 
 
-def test_indicator_contract_xauusd_and_nonxau_rejected():
-    for bad in ("XAUUSD", "EUR_USD"):
-        with pytest.raises(ValueError) as e:
-            ind.build_indicator_contract(instrument=bad, timeframe="H4", generated_at_utc=_NOW,
-                                         value_open_time_utc=_OPEN, indicators=_SAMPLE)
-        assert "GOV-HERMES-IND-004" in str(e.value)
+def test_indicator_contract_alias_rejected_nonxau_generic():
+    # inbound alias XAUUSD is refused; a non-XAU canonical instrument now builds a valid generic contract
+    with pytest.raises(ValueError) as e:
+        ind.build_indicator_contract(instrument="XAUUSD", timeframe="H4", generated_at_utc=_NOW,
+                                     value_open_time_utc=_OPEN, indicators=_SAMPLE)
+    assert "GOV-HERMES-IND-004" in str(e.value)
+    c = ind.build_indicator_contract(instrument="EUR_USD", timeframe="H4", generated_at_utc=_NOW,
+                                     value_open_time_utc=_OPEN, indicators=_SAMPLE)
+    assert c["instrument"] == "EUR_USD" and c["timeframe"] == "H4"
 
 
 def test_d1_indicators_gated_until_d1_green():

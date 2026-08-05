@@ -7,7 +7,8 @@ ADOPTED_SUPPORT = [
     "utils/hermes_advanced_v1_selection_v1.py",
     "utils/hermes_advanced_v1_readiness_v1.py",
     "utils/hermes_instrument_registry_v1.py",
-    "utils/tick_live_emitter_v1.py",   # ADOPTED (WO-...-XAU-MODULE-ADOPTION-0001)
+    "utils/tick_live_emitter_v1.py",       # ADOPTED
+    "utils/hermes_indicators_v1.py",       # ADOPTED
 ]
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
