@@ -19,6 +19,17 @@ _FH_AUTHORISED = fh.AUTHORISED_ENV
 _FH_INSTRUMENTS = fh.INSTRUMENTS_ENV
 
 
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: feed-health instrument authority is the canonical registry (tick capability).
+    Patch the loader to the XAU-active rollout so the enabled step selects exactly [XAU_USD] with no DB — the single-key
+    wiring behaviour holds as a CONSEQUENCE of the registry capability flag, not the env list or a hard-coded ticker."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
+
 class FakeRedis:
     """Minimal in-memory Redis: get/set/exists only. Records writes for single-writer assertions."""
     def __init__(self, seed=None):
@@ -121,22 +132,25 @@ def test_authorised_without_enabled_does_not_publish(monkeypatch):
     assert "feed_health" not in _names()
 
 
-def test_missing_instruments_fails_closed(monkeypatch):
+def test_missing_instruments_is_registry_driven(monkeypatch):
+    # WO-...-XAU-MODULE-ADOPTION-0001: the env instrument list is a consistency check, NOT the authority. Absent env ->
+    # the registry selection governs; the publisher builds over the registry pilot (XAU) and the runner is appended.
     _enable_fh(monkeypatch, instruments=None)
-    with pytest.raises(ValueError) as e:
-        rt.default_runner_specs()
-    assert "GOV-HERMES-FH-020" in str(e.value)
+    pub = fh.build_feed_health_publisher_from_env()
+    assert isinstance(pub, fh.FeedHealthPublisher) and sorted(pub.allowed_instruments) == ["XAU_USD"]
+    assert "feed_health" in _names()
 
 
-def test_empty_instruments_fails_closed(monkeypatch):
-    _enable_fh(monkeypatch, instruments="   ")
-    with pytest.raises(ValueError) as e:
-        fh.build_feed_health_publisher_from_env()
-    assert "GOV-HERMES-FH-020" in str(e.value)
+def test_blank_instruments_treated_as_unset_registry_driven(monkeypatch):
+    _enable_fh(monkeypatch, instruments="   ")           # blank -> effectively unset -> registry-driven (not an error)
+    pub = fh.build_feed_health_publisher_from_env()
+    assert isinstance(pub, fh.FeedHealthPublisher) and sorted(pub.allowed_instruments) == ["XAU_USD"]
 
 
 @pytest.mark.parametrize("bad", ["XAUUSD", "EUR_USD", "XAU_USD,EUR_USD", "XAU_USD,XAUUSD"])
-def test_bad_instruments_rejected(monkeypatch, bad):
+def test_env_inconsistent_with_registry_rejected(monkeypatch, bad):
+    # env may only narrow/confirm the registry selection ({XAU_USD} here); an alias or an out-of-registry instrument is
+    # a fail-closed consistency violation (GOV-HERMES-FH-021), NOT a silent widening of the authority.
     _enable_fh(monkeypatch, instruments=bad)
     with pytest.raises(ValueError) as e:
         fh.build_feed_health_publisher_from_env()
@@ -158,7 +172,8 @@ def test_runner_specs_become_exactly_six(monkeypatch):
 def test_step_builds_key_and_governed_payload(monkeypatch):
     _enable_fh(monkeypatch)
     fake = FakeRedis()
-    assert steps.feed_health_step(fake) == {"published": 1}
+    res = steps.feed_health_step(fake)
+    assert res["published"] == 1 and res["keys"] == ["hermes:feed_health:XAU_USD:v1"]
     assert list(fake.store.keys()) == ["hermes:feed_health:XAU_USD:v1"]
     k, v, ex = fake.sets[0]
     assert k == "hermes:feed_health:XAU_USD:v1" and ex == fh.TTL_SECONDS

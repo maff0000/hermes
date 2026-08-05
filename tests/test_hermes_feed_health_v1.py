@@ -9,6 +9,18 @@ import pytest
 import utils.hermes_feed_health_v1 as fh
 import utils.candle_contract_v1 as cc
 
+
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: feed-health selection follows the tick capability in the canonical registry.
+    Patch the loader to the XAU-active rollout so the enabled publisher selects exactly [XAU_USD] with no DB (XAU pilot
+    ACTIVE; 7 new NOT_ENABLED as a consequence of the capability flag)."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
+
 UTC = timezone.utc
 _NOW = datetime(2026, 7, 2, 12, 0, tzinfo=UTC)
 _TFS = ("M1", "M5", "M15", "H1", "H4", "D1")
@@ -74,12 +86,14 @@ def test_offline_source_red_degraded_amber():
 
 
 # ============================ contract shape / policy ============================
-def test_key_versioned_xau_only():
+def test_key_versioned_generic_xau_byte_identical():
+    # WO-...-XAU-MODULE-ADOPTION-0001: key factory is generic per instrument (XAU byte-identical); only the inbound
+    # alias XAUUSD is refused. Activation (ACTIVE vs NOT_ENABLED) is governed by the registry capability, not the key.
     assert fh.feed_health_key("XAU_USD") == "hermes:feed_health:XAU_USD:v1"
-    for bad in ("XAUUSD", "EUR_USD"):
-        with pytest.raises(ValueError) as e:
-            fh.feed_health_key(bad)
-        assert "GOV-HERMES-FH-004" in str(e.value)
+    assert fh.feed_health_key("EUR_USD") == "hermes:feed_health:EUR_USD:v1"
+    with pytest.raises(ValueError) as e:
+        fh.feed_health_key("XAUUSD")
+    assert "GOV-HERMES-FH-004" in str(e.value)
 
 
 def test_payload_versioned_and_ttl_freshness_present():
@@ -157,9 +171,65 @@ def test_collector_reads_only_no_writes():
             raise AssertionError("collector must not write")
 
     r = FakeRedis()
-    snap = fh.collect_feed_health_snapshot(r, timeframes=("M1", "H1", "D1"), generated_at_utc=_NOW,
+    snap = fh.collect_feed_health_snapshot(r, instrument="XAU_USD", timeframes=("M1", "H1", "D1"), generated_at_utc=_NOW,
                                            source_name="OANDA", d1_latest_green=False)
     assert snap["connectivity"] == fh.CONN_CONNECTED and r.gets > 0
     assert snap["last_candle_close_utc_by_tf"]["D1"] is None      # no D1 latest -> None (stays GATED downstream)
     p = fh.build_feed_health_contract(**{k: v for k, v in snap.items()})
     assert p["status"] in fh.FEED_HEALTH_STATUSES and fh.validate_feed_health_contract(p) is True
+
+
+# ============================ registry-driven per-instrument adoption ============================
+def _records(active_symbols):
+    """Registry where exactly `active_symbols` are tick-capability-enabled (feed-health follows tick)."""
+    from tests.test_hermes_instrument_registry_v1 import _row
+    import utils.hermes_instrument_registry_v1 as reg
+    rows = [_row(s, "precious_metals", 3, 0.001, "metals", tick_cap=(1 if s in active_symbols else 0))
+            for s in ("XAU_USD", "EUR_USD", "GBP_USD")]
+    return reg.load_registry(rows)
+
+
+def _enable(monkeypatch):
+    monkeypatch.setenv(fh.ENABLED_ENV, "true")
+    monkeypatch.setenv(fh.AUTHORISED_ENV, "true")
+    monkeypatch.delenv(fh.INSTRUMENTS_ENV, raising=False)
+
+
+def test_enabled_selects_registry_instruments_xau_pilot(monkeypatch):
+    _enable(monkeypatch)
+    pub = fh.build_feed_health_publisher_from_env()               # rollout fixture -> XAU tick-enabled only
+    assert isinstance(pub, fh.FeedHealthPublisher)
+    assert sorted(pub.allowed_instruments) == ["XAU_USD"]         # XAU pilot ACTIVE
+    assert pub.instrument_state("XAU_USD") == fh.INSTRUMENT_ACTIVE
+    for other in ("XAG_USD", "EUR_USD", "GBP_USD", "AUD_USD", "USD_JPY", "SPX500_USD", "WTICO_USD"):
+        assert pub.instrument_state(other) == fh.INSTRUMENT_NOT_ENABLED   # 7 new NOT_ENABLED via capability, not filter
+    assert pub.status()["registry_state"] == fh.REGISTRY_READY
+
+
+def test_multi_instrument_keys_isolated(monkeypatch):
+    _enable(monkeypatch)
+    pub = fh.build_feed_health_publisher_from_env(records=_records({"XAU_USD", "EUR_USD"}))
+    assert sorted(pub.allowed_instruments) == ["EUR_USD", "XAU_USD"]
+    assert pub.key("XAU_USD") == "hermes:feed_health:XAU_USD:v1"      # XAU byte-identical
+    assert pub.key("EUR_USD") == "hermes:feed_health:EUR_USD:v1"      # distinct, no collision
+    assert pub.instrument_state("GBP_USD") == fh.INSTRUMENT_NOT_ENABLED
+
+
+def test_zero_selection_is_disabled(monkeypatch):
+    _enable(monkeypatch)
+    pub = fh.build_feed_health_publisher_from_env(records=_records(set()))   # no tick-enabled instrument
+    assert isinstance(pub, fh.DisabledFeedHealthPublisher)                   # zero-selection -> no publication
+
+
+def test_migration_required_stays_dark(monkeypatch):
+    _enable(monkeypatch)
+    # migration 025 columns absent (empty information_schema list) -> readiness fails closed -> Disabled, never ACTIVE
+    pub = fh.build_feed_health_publisher_from_env(records=_records({"XAU_USD"}), column_names=[])
+    assert isinstance(pub, fh.DisabledFeedHealthPublisher)
+
+
+def test_env_instrument_list_is_consistency_only(monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setenv(fh.INSTRUMENTS_ENV, "EUR_USD")            # not in the registry selection (XAU only)
+    with pytest.raises(ValueError, match="GOV-HERMES-FH-021"):
+        fh.build_feed_health_publisher_from_env()               # env may only narrow/confirm the registry, never widen

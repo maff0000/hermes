@@ -17,8 +17,22 @@ import utils.hermes_gaps_v1 as gaps
 import utils.candle_d1_derivation_v1 as d1d
 import utils.candle_contract_v1 as cc
 
+
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: backfill-status selection follows the gap capability in the canonical registry.
+    Patch the loader to the XAU-active rollout so the publisher selects exactly [XAU_USD] with no DB (single-key behaviour
+    is a CONSEQUENCE of the registry gap-detection flag, not a hard-coded ticker)."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
+
 UTC = timezone.utc
 INST = "XAU_USD"
+GAPS_KEY = "hermes:gaps:XAU_USD:v1"                     # XAU gaps source key (byte-identical to former aggregate)
+BFS_KEY = "hermes:backfill:status:XAU_USD:v1"           # XAU backfill-status key (byte-identical to former aggregate)
 NOW = datetime(2026, 7, 13, 6, 51, tzinfo=UTC)
 
 
@@ -63,32 +77,33 @@ def _live_gaps_contract(now=NOW, *, gap_state="GAPS_FOUND", d1_depth=34, d1_stat
            "sealed_complete": True, "source_count": 6, "expected_source_count": 6, "coverage": 1.0, "gap": "NONE",
            "invalid_anchor_count": 0, "non_22_anchor_count": 0, "forward_writer_enabled": True,
            "forward_writer_authorised": True, "weekend_d1_buckets": "NOT_EXPECTED", "d1_boundary_state": d1_state}
-    return gaps.build_gaps_contract(timeframes=tfb, d1_boundary=d1b, generated_at_utc=now)
+    return gaps.build_gaps_contract(instrument=INST, timeframes=tfb, d1_boundary=d1b, generated_at_utc=now)
 
 
 # --------------------------------------------------------------------------- key + 1: missing gaps -> GAPS_SURFACE_MISSING
-def test_backfill_status_key_constant():
-    assert bfs.BACKFILL_STATUS_KEY == "hermes:backfill:status:XAU_USD:v1"
-    assert "XAUUSD" not in bfs.BACKFILL_STATUS_KEY
+def test_backfill_status_key_is_per_instrument_xau_byte_identical():
+    assert bfs.backfill_status_key("XAU_USD") == BFS_KEY == "hermes:backfill:status:XAU_USD:v1"
+    assert bfs.backfill_status_key("EUR_USD") == "hermes:backfill:status:EUR_USD:v1"   # generic per instrument
+    assert "XAUUSD" not in bfs.backfill_status_key("XAU_USD")
 
 
 def test_missing_gaps_surface_is_gaps_surface_missing():
     r = FakeRedis({})                                              # no gaps key
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["overall_status"] == "GAPS_SURFACE_MISSING"
     assert c["gaps_source"]["present"] is False
     assert r.sets == [] and r.deletes == []                       # 10 & 11: no writes/deletes
 
 
 def test_unparseable_gaps_fails_closed():
-    r = FakeRedis({gaps.GAPS_KEY: "{not json"})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: "{not json"})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["overall_status"] == "GAPS_SURFACE_MISSING"          # 18: invalid gaps fails closed
 
 
 def test_invalid_gaps_contract_fails_closed():
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps({"instrument": "XAUUSD"})})   # wrong-instrument gaps contract
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps({"instrument": "XAUUSD"})})   # wrong-instrument gaps contract
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["overall_status"] == "GAPS_SURFACE_MISSING"
     assert "XAUUSD" not in json.dumps(c)                          # alias never leaks
 
@@ -97,8 +112,8 @@ def test_invalid_gaps_contract_fails_closed():
 def test_gaps_found_yields_recovery_needed_not_ok():
     gc = _live_gaps_contract(gap_state="GAPS_FOUND")
     assert gc["overall_gap_state"] == "GAPS_FOUND"                # worst-of all-tf GAPS_FOUND
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["overall_status"] == "READY_FOR_BACKFILL_DESIGN"
     assert c["overall_status"] != "OK"
     assert c["blocked_reason"] == bfs.NO_EXECUTOR_REASON
@@ -111,8 +126,8 @@ def test_gaps_found_yields_recovery_needed_not_ok():
 def test_gaps_ok_is_idle_never_ok():
     gc = _live_gaps_contract(gap_state="OK")
     assert gc["overall_gap_state"] == "OK"
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["overall_status"] == "IDLE"                          # gaps OK -> IDLE, never claims OK/complete
     assert c["overall_status"] != "OK"
 
@@ -120,8 +135,8 @@ def test_gaps_ok_is_idle_never_ok():
 # --------------------------------------------------------------------------- 3,4,5: status-only invariants
 def test_status_only_invariants():
     gc = _live_gaps_contract()
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     assert c["consumer_live"] is False
     assert c["execution_enabled"] is False
     assert c["backfill_executed"] is False
@@ -134,8 +149,8 @@ def test_status_only_invariants():
 # --------------------------------------------------------------------------- 7: D1 block reports gates without action
 def test_d1_block_reports_boundary_and_forward_gates():
     gc = _live_gaps_contract()
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW,
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW,
                                     gate_values={bfs.D1_FWD_ENABLED_ENV: True, bfs.D1_FWD_AUTHORISED_ENV: True,
                                                  bfs.D1_BACKFILL_ENABLED_ENV: True, bfs.D1_BACKFILL_AUTHORISED_ENV: True})
     d1 = c["d1"]
@@ -152,8 +167,8 @@ def test_d1_block_reports_boundary_and_forward_gates():
 
 def test_m1h4_have_no_executor_path():
     gc = _live_gaps_contract()
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     for tf in ("M1", "M5", "M15", "H1", "H4"):
         b = c["timeframes"][tf]
         assert b["backfill_path_available"] is False
@@ -165,8 +180,8 @@ def test_m1h4_have_no_executor_path():
 # --------------------------------------------------------------------------- schema completeness
 def test_contract_has_all_required_fields():
     gc = _live_gaps_contract()
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps(gc)})
-    c = bfs.analyze_backfill_status(r, now=NOW, gate_values={})
+    r = FakeRedis({GAPS_KEY: json.dumps(gc)})
+    c = bfs.analyze_backfill_status(r, instrument=INST, now=NOW, gate_values={})
     for f in ("schema_version", "publisher", "instrument", "generated_at_utc", "source", "consumer_live",
               "execution_enabled", "backfill_executed", "repair_executed", "overall_status", "active_job",
               "last_completed_job", "blocked_reason", "rate_limit_tokens", "completed_pct", "timeframes", "d1",
@@ -183,7 +198,7 @@ def test_contract_has_all_required_fields():
 # --------------------------------------------------------------------------- 16: XAUUSD denied
 def test_xauusd_denied_in_validation():
     gc = _live_gaps_contract()
-    c = bfs.build_backfill_status_contract(gaps_contract=gc, now=NOW)
+    c = bfs.build_backfill_status_contract(instrument=INST, gaps_contract=gc, now=NOW)
     poisoned = dict(c); poisoned["instrument"] = "XAUUSD"
     with pytest.raises(ValueError, match="GOV-HERMES-BFS-00[12]"):
         bfs.validate_backfill_status_contract(poisoned)
@@ -191,7 +206,7 @@ def test_xauusd_denied_in_validation():
 
 def test_ok_overall_status_is_rejected_by_validation():
     gc = _live_gaps_contract()
-    c = bfs.build_backfill_status_contract(gaps_contract=gc, now=NOW)
+    c = bfs.build_backfill_status_contract(instrument=INST, gaps_contract=gc, now=NOW)
     c2 = dict(c); c2["overall_status"] = "OK"
     with pytest.raises(ValueError, match="GOV-HERMES-BFS-006"):
         bfs.validate_backfill_status_contract(c2)
@@ -230,15 +245,66 @@ def test_no_execution_path_no_forbidden_deps():
     for tok in ("pymysql", "get_db_config", "sqlalchemy", "cursor(", "market_map", "falcon", "requests.", "urllib",
                 "oanda", "vendor", "execute_backfill", "run_backfill", "repair(", "consumer_live=True"):
         assert tok not in code, f"backfill-status module CODE must not reference {tok!r}"
-    # WO-...-PUBLISH-WIRING-0001: the ONLY mutation the module performs is publish()'s single SET of BACKFILL_STATUS_KEY.
-    # No delete/zadd/expire/zrem/hset/lpush/rpush anywhere; SET appears exactly once (in publish()).
+    # WO-...-XAU-MODULE-ADOPTION-0001: the ONLY mutation the module performs is publish()'s single SET STATEMENT of the
+    # per-instrument backfill-status key, executed once per registry-selected instrument. No delete/zadd/expire/zrem/hset/
+    # lpush/rpush anywhere; SET appears exactly once (one call site in publish()).
     for tok in (".zadd(", ".delete(", ".expire(", ".zrem(", ".hset(", ".lpush(", ".rpush("):
         assert tok not in code, f"status surface must not call {tok!r}"
-    assert code.count(".set(") == 1, "exactly one SET (BACKFILL_STATUS_KEY) may exist"
+    assert code.count(".set(") == 1, "exactly one SET call site (per-instrument backfill-status key) may exist"
     pub_src = inspect.getsource(bfs.BackfillStatusPublisher.publish)
-    assert pub_src.count(".set(") == 1 and "BACKFILL_STATUS_KEY" in pub_src
+    assert pub_src.count(".set(") == 1 and "backfill_status_key(instrument)" in pub_src
     # analyze uses only .get( for Redis (never writes)
     ag = inspect.getsource(bfs.analyze_backfill_status)
     assert ".get(" in ag
     for tok in (".set(", ".zadd(", ".delete("):
         assert tok not in ag
+
+
+# --------------------------------------------------------------------------- registry-driven per-instrument adoption
+def _records(bfs_symbols):
+    """Registry where exactly `bfs_symbols` are gap-detection-enabled (backfill-status follows gap capability)."""
+    from tests.test_hermes_instrument_registry_v1 import _row
+    import utils.hermes_instrument_registry_v1 as reg
+    rows = [_row(s, "precious_metals", 3, 0.001, "metals", gap_cap=(1 if s in bfs_symbols else 0))
+            for s in ("XAU_USD", "EUR_USD", "GBP_USD")]
+    return reg.load_registry(rows)
+
+
+def test_publish_xau_only_byte_identical_single_key():
+    r = FakeRedis({GAPS_KEY: json.dumps(_live_gaps_contract())})
+    pub = bfs.BackfillStatusPublisher(redis_client=r, records=_records({"XAU_USD"}))
+    res = pub.publish(now=NOW)
+    assert res["published"] == 1 and res["keys"] == [BFS_KEY]      # XAU byte-identical, single key
+    assert r.sets == [(BFS_KEY, None)] and r.deletes == []
+    assert res["execution_enabled"] is False and res["backfill_executed"] is False
+
+
+def test_publish_multi_instrument_no_collision():
+    r = FakeRedis({GAPS_KEY: json.dumps(_live_gaps_contract()),
+                   "hermes:gaps:EUR_USD:v1": json.dumps(_live_gaps_contract())})
+    pub = bfs.BackfillStatusPublisher(redis_client=r, records=_records({"XAU_USD", "EUR_USD"}))
+    res = pub.publish(now=NOW)
+    assert res["published"] == 2
+    assert set(res["keys"]) == {BFS_KEY, "hermes:backfill:status:EUR_USD:v1"}
+    for inst in ("XAU_USD", "EUR_USD"):
+        c = json.loads(r.kv[bfs.backfill_status_key(inst)])
+        assert c["instrument"] == inst and c["gaps_source"]["key"] == gaps.gaps_key(inst)
+        bfs.validate_backfill_status_contract(c)
+
+
+def test_publish_zero_selection_is_no_publication():
+    r = FakeRedis({})
+    pub = bfs.BackfillStatusPublisher(redis_client=r, records=_records(set()))
+    res = pub.publish(now=NOW)
+    assert res["published"] == 0 and res["keys"] == [] and r.sets == [] and r.deletes == []
+
+
+def test_seven_new_never_published_via_capability_only():
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    r = FakeRedis({GAPS_KEY: json.dumps(_live_gaps_contract())})
+    pub = bfs.BackfillStatusPublisher(redis_client=r, records=reg.load_registry(rollout_rows()))
+    res = pub.publish(now=NOW)
+    assert res["keys"] == [BFS_KEY]                                # only the gap-enabled pilot
+    for other in ("XAG_USD", "EUR_USD", "GBP_USD", "AUD_USD", "USD_JPY", "SPX500_USD", "WTICO_USD"):
+        assert bfs.backfill_status_key(other) not in r.kv          # 7 new NOT_ENABLED -> never written

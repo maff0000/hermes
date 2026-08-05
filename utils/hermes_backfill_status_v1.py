@@ -21,14 +21,17 @@ from __future__ import annotations
 import json
 
 from utils import candle_contract_v1 as cc
-from utils import hermes_gaps_v1 as gaps     # primary input surface + shared canon/timeframes/depth/retention
+from utils import hermes_gaps_v1 as gaps     # primary input surface + shared timeframes/depth/retention (NOT instrument)
+from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (backfill-status instruments + keys)
 
-CANONICAL_INSTRUMENT = gaps.CANONICAL_INSTRUMENT   # "XAU_USD"
 SCHEMA_VERSION = "v1"
 PUBLISHER = "HERMES"
 TIMEFRAMES = gaps.TIMEFRAMES                        # ("M1","M5","M15","H1","H4","D1")
-BACKFILL_STATUS_KEY = f"hermes:backfill:status:{CANONICAL_INSTRUMENT}:v1"   # the SINGLE aggregate key (never written here)
-GAPS_SOURCE_KEY = gaps.GAPS_KEY                     # hermes:gaps:XAU_USD:v1
+_ALIAS_DENY = ("XAUUSD",)                           # inbound alias only; never an output key
+# Per-instrument keys via the seam: sel.backfill_status_key(instrument) / sel.gaps_key(instrument). Backfill-status
+# projection follows the gap-detection capability (BACKFILL_STATUS_FLAG). One SET per selected instrument; XAU byte-identical.
+def backfill_status_key(instrument):
+    return sel.backfill_status_key(instrument)
 
 # Fail-closed status vocab (WO-suggested order; R2D2 may amend). overall_status is NEVER OK in this WO.
 STATUS_ORDER = ("SOURCE_MISSING", "GAPS_SURFACE_MISSING", "GAPS_FOUND", "READY_FOR_BACKFILL_DESIGN", "IDLE",
@@ -112,10 +115,14 @@ def _overall_status(gaps_contract):
 
 
 # --------------------------------------------------------------------------- pure aggregate builder
-def build_backfill_status_contract(*, gaps_contract, now, gate_values=None, markers=None):
-    """Assemble hermes:backfill:status:XAU_USD:v1 from the LIVE gaps contract (or None). PURE: no I/O, no env, no execution.
-    gate_values = injected {env_name: value} telemetry (read-only). markers = injected {tf: last_backfill_run_marker}.
-    Invariants execution_enabled/backfill_executed/repair_executed/consumer_live are HARD false; active_job/completed_pct null."""
+def build_backfill_status_contract(*, instrument, gaps_contract, now, gate_values=None, markers=None):
+    """Assemble hermes:backfill:status:<instrument>:v1 from that instrument's LIVE gaps contract (or None). Generic per
+    instrument (XAU byte-identical). PURE: no I/O, no env, no execution. gate_values = injected {env_name: value} telemetry
+    (read-only). markers = injected {tf: last_backfill_run_marker}. Invariants execution_enabled/backfill_executed/
+    repair_executed/consumer_live are HARD false; active_job/completed_pct null."""
+    if not instrument or instrument in _ALIAS_DENY:
+        raise ValueError(f"GOV-HERMES-BFS-001: instrument {instrument!r} not a canonical symbol (alias/empty rejected)")
+    gaps_source_key = sel.gaps_key(instrument)
     gate_values = gate_values or {}
     markers = markers or {}
     valid_gaps = isinstance(gaps_contract, dict)
@@ -156,13 +163,13 @@ def build_backfill_status_contract(*, gaps_contract, now, gate_values=None, mark
     overall_blocked = NO_EXECUTOR_REASON if overall in ("READY_FOR_BACKFILL_DESIGN", "SOURCE_MISSING",
                                                         "INSUFFICIENT_HISTORY", "STALE") else None
     c = {"publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
-         "instrument": CANONICAL_INSTRUMENT, "canonical_instrument": CANONICAL_INSTRUMENT,
-         "generated_at_utc": cc._fmt(cc.normalise_utc(now)), "source": f"{GAPS_SOURCE_KEY} (governed, read-only)",
+         "instrument": instrument, "canonical_instrument": instrument,
+         "generated_at_utc": cc._fmt(cc.normalise_utc(now)), "source": f"{gaps_source_key} (governed, read-only)",
          "consumer_live": False, "execution_enabled": False, "backfill_executed": False, "repair_executed": False,
          "deterministic_only": True, "status_order": list(STATUS_ORDER), "overall_status": overall,
          "active_job": None, "last_completed_job": None, "blocked_reason": overall_blocked,
          "rate_limit_tokens": None, "completed_pct": None, "timeframes": tf_blocks, "d1": d1,
-         "gaps_source": {"key": GAPS_SOURCE_KEY, "present": bool(valid_gaps),
+         "gaps_source": {"key": gaps_source_key, "present": bool(valid_gaps),
                          "overall_gap_state": (gaps_contract.get("overall_gap_state") if valid_gaps else None),
                          "generated_at_utc": (gaps_contract.get("generated_at_utc") if valid_gaps else None)},
          "caveats": ["status-only telemetry; this surface NEVER executes backfill/repair, NEVER writes/deletes candle/history",
@@ -174,8 +181,9 @@ def build_backfill_status_contract(*, gaps_contract, now, gate_values=None, mark
 
 
 def validate_backfill_status_contract(c):
-    if c.get("instrument") != CANONICAL_INSTRUMENT or c.get("canonical_instrument") != CANONICAL_INSTRUMENT:
-        raise ValueError("GOV-HERMES-BFS-001: instrument must be canonical XAU_USD")
+    inst = c.get("instrument")
+    if not inst or inst in _ALIAS_DENY or c.get("canonical_instrument") != inst:
+        raise ValueError("GOV-HERMES-BFS-001: instrument must be a canonical symbol (no alias/empty; canonical==instrument)")
     if "XAUUSD" in json.dumps(c):
         raise ValueError("GOV-HERMES-BFS-002: XAUUSD alias must not appear")
     for f in ("consumer_live", "execution_enabled", "backfill_executed", "repair_executed"):
@@ -203,11 +211,11 @@ def _read_env_gate_values():
     return {n: get_env_bool(n, False) for n in names}
 
 
-def analyze_backfill_status(client, *, now, gate_values=None):
-    """READ-ONLY: GET the live gaps key (hermes:gaps:XAU_USD:v1) and build the status contract. Performs NO writes/deletes,
-    NO SQL, NO backfill/repair, NO vendor pull. `client` is used ONLY for GET. Returns the contract dict (caller decides to
-    publish in a LATER gated WO — this function never sets a key)."""
-    raw = client.get(GAPS_SOURCE_KEY)
+def analyze_backfill_status(client, *, instrument, now, gate_values=None):
+    """READ-ONLY: GET that instrument's live gaps key (sel.gaps_key(instrument)) and build its status contract. Performs NO
+    writes/deletes, NO SQL, NO backfill/repair, NO vendor pull. `client` is used ONLY for GET. Every key is instrument-scoped
+    so per-instrument analysis cannot collide. Returns the contract dict; this function never sets a key."""
+    raw = client.get(sel.gaps_key(instrument))
     gaps_contract = None
     if raw:
         try:
@@ -215,7 +223,7 @@ def analyze_backfill_status(client, *, now, gate_values=None):
         except Exception:  # noqa: BLE001 - unparseable gaps input is fail-closed -> GAPS_SURFACE_MISSING
             gaps_contract = None
     gv = gate_values if gate_values is not None else _read_env_gate_values()
-    return build_backfill_status_contract(gaps_contract=gaps_contract, now=now, gate_values=gv)
+    return build_backfill_status_contract(instrument=instrument, gaps_contract=gaps_contract, now=now, gate_values=gv)
 
 
 # --------------------------------------------------------------------------- dark publisher (default DISABLED, NO SET path)
@@ -228,35 +236,49 @@ class DisabledBackfillStatusPublisher:
 
 
 class BackfillStatusPublisher:
-    """ENABLED + AUTHORISED status publisher. Builds the read-only status contract from the governed gaps surface and, when
-    driven by the gated runtime step, publishes it to the SINGLE key BACKFILL_STATUS_KEY. It NEVER writes the gaps key or any
-    candle/history key, NEVER deletes, NEVER writes SQL, NEVER invokes the D1 seed/backfill engine, NEVER launches backfill/
-    repair, NEVER pulls a vendor, NEVER touches market_map/Falcon. Invariants execution_enabled/backfill_executed/
-    repair_executed/consumer_live stay HARD false; active_job/completed_pct null (enforced by validate_backfill_status_contract)."""
+    """ENABLED + AUTHORISED status publisher. For each registry backfill-status instrument (projection follows the
+    gap-detection capability) it builds that instrument's read-only status contract from its governed gaps surface and
+    publishes it to sel.backfill_status_key(instrument) (one SET per instrument; XAU byte-identical). It NEVER writes any
+    gaps/candle/history key, NEVER deletes, NEVER writes SQL, NEVER invokes the D1 seed/backfill engine, NEVER launches
+    backfill/repair, NEVER pulls a vendor, NEVER touches market_map/Falcon. Invariants execution_enabled/backfill_executed/
+    repair_executed/consumer_live stay HARD false; active_job/completed_pct null. Instrument authority is the registry
+    selection seam; zero selected instruments is a valid no-publication state."""
     enabled = True
 
-    def __init__(self, *, redis_client):
+    def __init__(self, *, redis_client, records=None):
         if redis_client is None:
             raise ValueError("GOV-HERMES-BFS-020: enabled backfill-status publisher requires an explicit redis client")
         self.redis_client = redis_client
+        # Default-load through the registry loader's module attribute (single fail-closed source, patchable in tests).
+        if records is None:
+            from utils import hermes_instrument_registry_v1 as reg
+            records = reg.load_from_db()
+        self.instruments = tuple(sel.backfill_status_instruments(records))
 
-    def analyze(self, *, now, gate_values=None):
-        return analyze_backfill_status(self.redis_client, now=now, gate_values=gate_values)
+    def analyze(self, *, instrument, now, gate_values=None):
+        return analyze_backfill_status(self.redis_client, instrument=instrument, now=now, gate_values=gate_values)
 
     def publish(self, *, now, gate_values=None):
-        """Governed publication: build the read-only status contract (analyze -> GET gaps key only) and SET exactly ONE key
-        (BACKFILL_STATUS_KEY). Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming
-        contract; overall_status=OK is rejected). No TTL (status truth surface, parity with the gaps surface). Writes NOTHING
-        else; no gaps-key write, no delete, no SQL, no backfill/repair, no vendor/market_map/Falcon."""
-        contract = self.analyze(now=now, gate_values=gate_values)
-        validate_backfill_status_contract(contract)               # fail-closed guard immediately before the single SET
-        self.redis_client.set(BACKFILL_STATUS_KEY, json.dumps(contract))   # the ONLY write this surface performs
-        return {"published": 1, "key": BACKFILL_STATUS_KEY, "overall_status": contract["overall_status"],
+        """Governed publication: for each selected instrument, build its read-only status contract (analyze -> GET that
+        instrument's gaps key only) and SET exactly ONE key sel.backfill_status_key(instrument). Re-validates before every
+        write (defence-in-depth: never publish an invalid/aliased/overclaiming contract; overall_status=OK is rejected). No
+        TTL. Writes NOTHING else; no gaps-key write, no delete, no SQL, no backfill/repair, no vendor/market_map/Falcon.
+        Per-instrument keys never collide. Zero selected -> published:0."""
+        results = {}
+        for instrument in self.instruments:
+            contract = self.analyze(instrument=instrument, now=now, gate_values=gate_values)
+            validate_backfill_status_contract(contract)           # fail-closed guard immediately before this instrument's SET
+            key = backfill_status_key(instrument)
+            self.redis_client.set(key, json.dumps(contract))      # the ONLY write this surface performs (one per instrument)
+            results[instrument] = {"key": key, "overall_status": contract["overall_status"]}
+        return {"published": len(results), "keys": [r["key"] for r in results.values()],
+                "instruments": list(results), "per_instrument": results,
                 "consumer_live": False, "execution_enabled": False, "backfill_executed": False, "repair_executed": False}
 
     def status(self):
-        return {"enabled": True, "key": BACKFILL_STATUS_KEY, "read_only": True, "execution_enabled": False,
-                "backfill_executed": False, "repair_executed": False}
+        return {"enabled": True, "instruments": list(self.instruments),
+                "keys": [backfill_status_key(i) for i in self.instruments], "read_only": True,
+                "execution_enabled": False, "backfill_executed": False, "repair_executed": False}
 
 
 def backfill_status_publish_enabled():

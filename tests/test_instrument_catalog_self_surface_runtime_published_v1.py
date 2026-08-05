@@ -15,6 +15,17 @@ import utils.hermes_instrument_catalog_v1 as ic
 import utils.hermes_runtime_publisher_steps_v1 as steps
 import utils.hermes_feed_health_v1 as fh
 
+
+@pytest.fixture(autouse=True)
+def _registry_adoption(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: adopted indicator/feed-health/quote runtime paths obtain instrument authority
+    from the canonical registry. Patch the loader to the XAU-active rollout so these enabled-path wiring tests are
+    registry-driven with no DB (behaviour asserted unchanged; XAU pilot active, 7 new NOT_ENABLED)."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
 UTC = timezone.utc
 _NOW = datetime(2026, 7, 4, 8, 0, tzinfo=UTC)
 

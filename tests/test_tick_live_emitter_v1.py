@@ -70,6 +70,17 @@ def _disable_tick(monkeypatch):
         monkeypatch.delenv(e, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: the tick emitter now derives its scope from the canonical registry.
+    Patch the loader to the XAU-active rollout (XAU tick-enabled; the 7 new NOT_ENABLED) so the emitter is
+    registry-driven with no DB, preserving XAU-only selection byte-for-byte."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
+
 # ================================ 1. default inert / gates absent ================================
 def test_disabled_by_default_no_emission(monkeypatch):
     _disable_tick(monkeypatch)
@@ -95,11 +106,12 @@ def test_enabled_without_authorised_fails_loud(monkeypatch):
     assert e2.value.code == 101
 
 
-def test_enabled_without_instrument_scope_fails_loud(monkeypatch):
+def test_enabled_without_env_instruments_uses_registry_scope(monkeypatch):
+    # WO-...-XAU-MODULE-ADOPTION-0001: the SQL registry is the selection authority; env INSTRUMENTS is an
+    # optional consistency validator. Absent env scope -> registry provides scope (XAU) and the emitter builds.
     _enable_tick(monkeypatch, instruments=None)
-    with pytest.raises(ValueError) as e:
-        tle.build_tick_live_emitter_from_env(redis_client=FakeRedis())
-    assert "GOV-HERMES-TICK-020" in str(e.value)
+    em = tle.build_tick_live_emitter_from_env(redis_client=FakeRedis())
+    assert em.enabled is True and em.allowed_instruments == frozenset({"XAU_USD"})
 
 
 @pytest.mark.parametrize("bad", ["XAUUSD", "EUR_USD", "XAU_USD,EUR_USD", "XAU_USD,XAUUSD"])
@@ -180,8 +192,8 @@ def test_stale_tick_is_honest_not_fake_green(monkeypatch):
 def test_emitter_refuses_xauusd_and_shadow_keys():
     for bad in ("hermes:shadow:ticks:XAU_USD:latest:v1", "hermes:ticks:XAUUSD:latest:v1", "hermes:tick:XAU_USD:v1"):
         with pytest.raises(ValueError):
-            tle._assert_canonical_live_key(bad)
-    assert tle._assert_canonical_live_key(_CANON_KEY) is True
+            tle._assert_canonical_live_key(bad, "XAU_USD")
+    assert tle._assert_canonical_live_key(_CANON_KEY, "XAU_USD") is True
 
 
 # ================================ 6. catalog keystone (gate-driven, no split-brain) ================================
