@@ -224,6 +224,16 @@ def load_from_db(fetch: Optional[Callable[[], Sequence[Mapping]]] = None) -> Tup
     return load_registry(rows)
 
 
+def capability_instruments(records: Sequence[InstrumentRecord], capability: str) -> Tuple[str, ...]:
+    """The reusable, registry-driven authority the Advanced-v1 pipeline uses to decide WHICH instruments a
+    capability publishes for — replacing per-module hard-coded XAU authority constants and env allowlists.
+    Returns the enabled instruments whose capability flag is set (sorted). Currently {XAU_USD}; the 7 new
+    instruments are absent (NOT_ENABLED). Fail-closed on an unknown capability."""
+    if capability not in _CAPABILITIES:
+        raise RegistryError(f"unknown capability: {capability!r} (known: {_CAPABILITIES})")
+    return tuple(sorted(r.symbol for r in records if r.enabled and getattr(r, capability)))
+
+
 def registry_component_state(fetch: Optional[Callable[[], Sequence[Mapping]]] = None) -> Dict:
     """§17 health foundation: reusable registry component state that /health /ready /status /metrics can
     consume WITHOUT manual instrument enumeration. Never reports the 7 new Advanced-v1 instruments as active
