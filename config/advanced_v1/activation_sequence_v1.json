@@ -1,0 +1,33 @@
+{
+  "schema_version": "v1",
+  "contract": "hermes.advanced_v1.activation_sequence",
+  "wo": "WO-HELM-HERMES-ADVANCED-V1-PRODUCTION-READINESS-0001",
+  "note": "Exact gated activation order. No gate silently implies the next; each requires explicit named authority. Every gate is HELD by this WO — this is the plan, not execution.",
+  "doctrine": {
+    "source_merge_authorises_migration": false,
+    "migration_authorises_deployment": false,
+    "deployment_authorises_publication": false,
+    "publication_authorises_consumers": false,
+    "consumer_availability_authorises_orders": false,
+    "consumer_live": false,
+    "order_path": "absent"
+  },
+  "gates": [
+    {"step": 1, "gate": "calendar_authority_green", "authority": "HELM+R2D2", "blocks_next_until": "all activated policies production-ready (index_cash/energy currently BLOCKED: ASSUMPTION_REQUIRES_PROVIDER)"},
+    {"step": 2, "gate": "migration_preflight_green", "authority": "HELM"},
+    {"step": 3, "gate": "explicit_migration_authority", "authority": "Chief Architect"},
+    {"step": 4, "gate": "migration_apply", "authority": "HELM (named operator)"},
+    {"step": 5, "gate": "post_migration_verification", "authority": "HELM+R2D2"},
+    {"step": 6, "gate": "dark_deployment_authority", "authority": "Chief Architect"},
+    {"step": 7, "gate": "dark_deployment", "authority": "HELM"},
+    {"step": 8, "gate": "readiness_and_health_verification", "authority": "HELM+R2D2"},
+    {"step": 9, "gate": "isolated_or_suppressed_shadow_authority", "authority": "Chief Architect"},
+    {"step": 10, "gate": "shadow_soak", "authority": "HELM (observe thresholds)"},
+    {"step": 11, "gate": "r2d2_runtime_assurance", "authority": "R2D2"},
+    {"step": 12, "gate": "chief_architect_activation_decision", "authority": "Chief Architect"},
+    {"step": 13, "gate": "capability_activation_by_registry_flags", "authority": "HELM (data only)"},
+    {"step": 14, "gate": "per_family_observation", "authority": "HELM"},
+    {"step": 15, "gate": "rollback_window", "authority": "HELM"},
+    {"step": 16, "gate": "closure", "authority": "Chief Architect+R2D2"}
+  ]
+}

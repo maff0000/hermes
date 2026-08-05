@@ -1,0 +1,41 @@
+{
+  "schema_version": "v1",
+  "contract": "hermes.advanced_v1.health_thresholds",
+  "wo": "WO-HELM-HERMES-ADVANCED-V1-PRODUCTION-READINESS-0001",
+  "note": "Measurable promotion thresholds per family. Every threshold has metric, denominator, observation window, GREEN/AMBER/RED boundary and operator action. Boundaries are governed defaults for the soak; they are evidence gates, not runtime code.",
+  "families": {
+    "tick": [
+      {"metric": "freshness_age_seconds_p95", "denominator": "ticks observed in window during OPEN phase", "window": "5m", "green": "<=2", "amber": "2-5", "red": ">5", "action": "RED -> disable tick capability; investigate stream"},
+      {"metric": "duplicate_key_rate", "denominator": "tick publications in window", "window": "5m", "green": "0", "amber": ">0 and <=1e-4", "red": ">1e-4", "action": "RED -> disable + rollback"},
+      {"metric": "missing_rate_open", "denominator": "expected ticks during OPEN", "window": "15m", "green": "<=0.5%", "amber": "0.5-2%", "red": ">2%", "action": "AMBER hold; RED disable"},
+      {"metric": "spread_validation_failures", "denominator": "tick envelopes built", "window": "15m", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> fail loud, disable"},
+      {"metric": "malformed_payload_count", "denominator": "tick envelopes built", "window": "15m", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> disable"}
+    ],
+    "indicators": [
+      {"metric": "candle_freshness_age_seconds_p95", "denominator": "completed candles in window", "window": "per-tf 2x span", "green": "<=1x span", "amber": "1-2x span", "red": ">2x span", "action": "AMBER hold; RED disable"},
+      {"metric": "warmup_incomplete_ratio", "denominator": "instrument x timeframe series", "window": "startup", "green": "expected only", "amber": "n/a", "red": "unexpected", "action": "RED investigate warm-up"},
+      {"metric": "calculation_failures", "denominator": "indicator contracts built", "window": "15m", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> disable"},
+      {"metric": "numeric_validation_failures", "denominator": "indicator values", "window": "15m", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> disable"},
+      {"metric": "timeframe_coverage", "denominator": "enabled timeframes", "window": "15m", "green": "100% non-D1", "amber": "<100%", "red": "<80%", "action": "AMBER hold"},
+      {"metric": "d1_gating_correct", "denominator": "D1 series", "window": "continuous", "green": "GATED until D1 latest green", "amber": "n/a", "red": "D1 active before green", "action": "RED -> disable"}
+    ],
+    "gaps": [
+      {"metric": "false_positive_rate_during_expected_closure", "denominator": "expected-closure slots (weekend + scheduled halt)", "window": "1 session", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> disable; calendar/policy fault"},
+      {"metric": "open_period_detection", "denominator": "injected open-period gaps", "window": "rehearsal", "green": "100% detected", "amber": "n/a", "red": "<100%", "action": "RED -> disable"},
+      {"metric": "unresolved_gap_count", "denominator": "per instrument", "window": "continuous", "green": "bounded/monotone-resolving", "amber": "growing", "red": "unbounded", "action": "AMBER hold"},
+      {"metric": "policy_staleness_faults", "denominator": "gap classifications", "window": "continuous", "green": "0", "amber": "n/a", "red": ">0", "action": "RED -> fail closed (calendar provenance stale)"}
+    ],
+    "backfill_status": [
+      {"metric": "executor_disabled_truthful", "denominator": "status contracts", "window": "continuous", "green": "execution_enabled=false always", "amber": "n/a", "red": "any true", "action": "RED -> disable"},
+      {"metric": "mutation_count", "denominator": "status publications", "window": "continuous", "green": "0 (status key only)", "amber": "n/a", "red": ">0 other keys", "action": "RED -> disable + rollback"},
+      {"metric": "status_per_enabled_instrument", "denominator": "enabled instruments", "window": "per cycle", "green": "exactly one each", "amber": "n/a", "red": "missing/duplicate", "action": "RED investigate"},
+      {"metric": "false_completion", "denominator": "status contracts", "window": "continuous", "green": "0 (never OK without evidence)", "amber": "n/a", "red": ">0", "action": "RED -> disable"}
+    ],
+    "feed_health": [
+      {"metric": "registry_readiness", "denominator": "boot", "window": "startup", "green": "READY", "amber": "n/a", "red": "MIGRATION_REQUIRED/UNAVAILABLE/INVALID", "action": "RED -> stay dark"},
+      {"metric": "policy_validity", "denominator": "active policies", "window": "continuous", "green": "all validated", "amber": "assumption-pending held", "red": "expired/stale used", "action": "AMBER hold affected instrument; RED fail closed"},
+      {"metric": "per_instrument_state_isolation", "denominator": "instruments", "window": "continuous", "green": "isolated", "amber": "n/a", "red": "cross-contamination", "action": "RED -> disable"},
+      {"metric": "global_false_green", "denominator": "aggregate health", "window": "continuous", "green": "never green while an instrument red", "amber": "n/a", "red": "false global green", "action": "RED -> disable"}
+    ]
+  }
+}

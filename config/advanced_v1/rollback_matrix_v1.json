@@ -1,0 +1,31 @@
+{
+  "schema_version": "v1",
+  "contract": "hermes.advanced_v1.rollback_matrix",
+  "wo": "WO-HELM-HERMES-ADVANCED-V1-PRODUCTION-READINESS-0001",
+  "note": "Rollback/abort triggers -> actions. Every trigger defines: immediate_stop, capability_disable, application_rollback, migration_rollback, evidence_preservation, incident_state, resume_authority.",
+  "actions_legend": {
+    "immediate_stop": "halt further activation immediately",
+    "capability_disable": "set the affected per-capability enable flag(s) false (data)",
+    "application_rollback": "redeploy the prior known-good image (rollback c5fc2a62f424 lineage)",
+    "migration_rollback": "run 025_advanced_v1_registry_metadata_rollback.sql (after evidence + authority)",
+    "evidence_preservation": "capture keys/contracts/logs/DDL before any change",
+    "incident_state": "declare governed incident; board update",
+    "resume_authority": "who may authorise resume"
+  },
+  "triggers": [
+    {"trigger": "migration_failure", "immediate_stop": true, "capability_disable": true, "application_rollback": false, "migration_rollback": true, "incident_state": "MIGRATION_FAILED", "resume_authority": "Chief Architect"},
+    {"trigger": "schema_mismatch", "immediate_stop": true, "capability_disable": true, "migration_rollback": true, "incident_state": "SCHEMA_MISMATCH", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "calendar_validation_failure", "immediate_stop": true, "capability_disable": true, "migration_rollback": false, "incident_state": "CALENDAR_UNVALIDATED", "resume_authority": "HELM after provider evidence"},
+    {"trigger": "readiness_failure", "immediate_stop": true, "capability_disable": true, "incident_state": "MIGRATION_REQUIRED", "resume_authority": "HELM"},
+    {"trigger": "application_startup_failure", "immediate_stop": true, "application_rollback": true, "incident_state": "STARTUP_FAILED", "resume_authority": "HELM"},
+    {"trigger": "unexpected_redis_writes", "immediate_stop": true, "capability_disable": true, "application_rollback": true, "incident_state": "UNEXPECTED_WRITE", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "duplicate_publication", "immediate_stop": true, "capability_disable": true, "incident_state": "DUPLICATE_PUBLICATION", "resume_authority": "HELM+R2D2"},
+    {"trigger": "incorrect_instrument_identity", "immediate_stop": true, "capability_disable": true, "incident_state": "IDENTITY_ERROR", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "stale_or_failed_health", "immediate_stop": false, "capability_disable": true, "incident_state": "HEALTH_DEGRADED", "resume_authority": "HELM"},
+    {"trigger": "state_collision", "immediate_stop": true, "capability_disable": true, "incident_state": "STATE_COLLISION", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "false_gap_classification", "immediate_stop": true, "capability_disable": true, "incident_state": "FALSE_GAP", "resume_authority": "HELM+R2D2"},
+    {"trigger": "one_stream_violation", "immediate_stop": true, "capability_disable": true, "application_rollback": true, "incident_state": "SECOND_STREAM", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "consumer_leakage", "immediate_stop": true, "capability_disable": true, "incident_state": "CONSUMER_LEAK", "resume_authority": "Chief Architect+R2D2"},
+    {"trigger": "order_path_evidence", "immediate_stop": true, "capability_disable": true, "application_rollback": true, "incident_state": "ORDER_PATH_DETECTED", "resume_authority": "Chief Architect (CRITICAL)"}
+  ]
+}
