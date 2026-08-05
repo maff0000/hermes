@@ -1,0 +1,26 @@
+# HERMES Advanced-v1 Reusable Engine — machine-readable COMPLIANCE DENOMINATOR
+# WO-HELM-HERMES-REUSABLE-ADVANCED-V1-CONTRACT-ENGINE-DESIGN-0001
+# Every future "compliant %" MUST be computed as:
+#   compliant_mandatory_observable / total_mandatory_observable
+# scoped to the 8-instrument rollout. No global "100% compliant" claim without this denominator.
+rollout_instruments: [XAU_USD, XAG_USD, EUR_USD, GBP_USD, AUD_USD, USD_JPY, SPX500_USD, WTICO_USD]
+timeframes: [M1, M5, M15, H1, H4, D1]
+requirements:
+  - {id: REQ-ING-01,  capability: ingestion,        mandatory: true,  instrument_scope: all8, timeframe_scope: n/a,  evidence: "live tick within expected_freshness during valid hours", tolerance: "freshness policy", blocking: true,  owner: HELM}
+  - {id: REQ-TICK-01, capability: tick_contract,     mandatory: true,  instrument_scope: all8, timeframe_scope: n/a,  evidence: "hermes:ticks:<INST>:latest:v1 present+valid schema+fresh TTL", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-CDL-01,  capability: candle_engine,     mandatory: true,  instrument_scope: all8, timeframe_scope: all6, evidence: "hermes:candles:<INST>:<TF>:latest:v1 + SQL candles_<TF> row, complete=1", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-GEO-01,  capability: candle_geometry,   mandatory: true,  instrument_scope: all8, timeframe_scope: all6, evidence: "invariants high>=max(o,c); low<=min(o,c); high>=low; wick/body/range formulas", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-IND-01,  capability: indicator_engine,  mandatory: true,  instrument_scope: all8, timeframe_scope: all6, evidence: "hermes:indicators:<INST>:<TF>:v1 == independent oracle within tolerance, warm-up honoured", tolerance: "1e-6 rel", blocking: true, owner: HELM}
+  - {id: REQ-GAP-01,  capability: gap_detection,     mandatory: true,  instrument_scope: all8, timeframe_scope: n/a,  evidence: "hermes:gaps:<INST>:v1 classifies expected-closure vs stall vs sequence-gap", tolerance: "policy", blocking: true, owner: HELM}
+  - {id: REQ-BKF-01,  capability: backfill_state,    mandatory: true,  instrument_scope: all8, timeframe_scope: n/a,  evidence: "hermes:backfill:status:<INST>:v1 reflects state machine; execution separately gated", tolerance: "policy", blocking: false, owner: HELM}
+  - {id: REQ-PUB-01,  capability: redis_publication, mandatory: true,  instrument_scope: all8, timeframe_scope: all6, evidence: "single key factory + serializer; keys run-scoped/versioned; TTL meaningful", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-SQL-01,  capability: sql_persistence,   mandatory: true,  instrument_scope: all8, timeframe_scope: all6, evidence: "shared candles_<TF> tables; no per-ticker table; dup=0; UTC", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-RAWTICK-01, capability: raw_tick_sql,   mandatory: false, instrument_scope: all8, timeframe_scope: n/a,  evidence: "IF enabled: shared ticks table partitioned/indexed by (instrument,timestamp)", tolerance: "policy", blocking: false, owner: HELM}
+  - {id: REQ-HLT-01,  capability: health_observability, mandatory: true, instrument_scope: all8, timeframe_scope: n/a, evidence: "/health /ready /status /metrics auto-enumerate registry; per-instrument coverage", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-ONBOARD-01, capability: data_only_onboarding, mandatory: true, instrument_scope: registry, timeframe_scope: n/a, evidence: "add-one-instrument: git diff = 1 registry record + generated artefacts; ZERO app-code", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-NOFORK-01, capability: single_pipeline, mandatory: true,  instrument_scope: codebase, timeframe_scope: n/a, evidence: "zero `if instrument==` branches; zero per-ticker modules; one component each", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-REG-01,  capability: single_registry,   mandatory: true,  instrument_scope: codebase, timeframe_scope: n/a, evidence: "exactly one instrument authority; the 17 duplicate lists removed/registry-driven", tolerance: exact, blocking: true, owner: HELM}
+  - {id: REQ-TEST-01, capability: parameterised_tests, mandatory: true, instrument_scope: all8, timeframe_scope: all6, evidence: "@pytest.mark.parametrize over enabled_instruments(); independent oracle", tolerance: exact, blocking: true, owner: HELM}
+notes:
+  - "instrument_scope 'all8' means the 8 rollout instruments; other configured HERMES instruments are OUT OF SCOPE and unchanged."
+  - "observable = provable during valid market hours with deterministic replay or live evidence."
