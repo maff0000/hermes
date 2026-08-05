@@ -397,7 +397,16 @@ def test_r2_post_finalise_mutation_invalidates(tmp_path, mutate):
     ctx, ident = _finalised(tmp_path, name=f"c_{mutate}")
     root = Path(ident.root_path)
     target = root / "main.py"
-    os.chmod(target, 0o600)  # root can re-enable writes; detection must still catch the change
+    # A tamperer re-enables writes before mutating; this must work for ANY runner user (not only root, whose
+    # perm-bypass masked the read-only directory locally). Re-enable directory writes (needed to create /
+    # unlink / replace entries) AND the file bit. The seal's checksum MUST still DETECT the change below —
+    # the immutability *check* is unchanged; only the deliberate tamper is made deterministic across users.
+    # WO-HELM-HERMES-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001.
+    os.chmod(root, 0o700)
+    for _p in root.rglob("*"):
+        if _p.is_dir():
+            os.chmod(_p, 0o700)
+    os.chmod(target, 0o600)  # detection must still catch the change
     if mutate == "write":
         target.write_text("import config\nimport evil\n", encoding="utf-8")
     elif mutate == "replace":
