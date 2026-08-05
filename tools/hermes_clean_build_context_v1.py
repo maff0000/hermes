@@ -220,11 +220,38 @@ def verify_commit(source_sha: str, repo_dir: Path) -> None:
         raise CleanBuildContextError(f"source_sha is not a commit object (got '{kind}')")
 
 
+def canonical_repo_identity(url: str) -> str:
+    """Canonical repository identity ('host/owner/repo', lowercased host, no '.git') extracted from ANY git
+    remote transport form, so the SAME repository compares equal regardless of transport: the HTTPS URL form,
+    the scp-like SSH form 'git@host:owner/repo', or an 'ssh' scheme URL — with optional '.git' suffix,
+    optional userinfo and optional port. Genuinely different repositories (owner, repo or host) are NOT equal.
+    Fails closed on unparseable input. This normalises TRANSPORT syntax only — it never accepts an
+    arbitrary/foreign repository. WO-HELM-HERMES-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001."""
+    s = (url or "").strip()
+    if not s:
+        raise CleanBuildContextError("empty remote url")
+    scheme = re.match(r'^[A-Za-z][A-Za-z0-9+.\-]*://(.*)$', s)
+    if scheme:
+        rest = re.sub(r'^[^@/]+@', '', scheme.group(1))          # drop optional userinfo
+        m = re.match(r'^([^/:]+)(?::\d+)?/(.+)$', rest)          # host[:port]/path
+    else:
+        m = re.match(r'^(?:[^@/]+@)?([^/:]+):(.+)$', s)          # scp-like: [user@]host:path
+    if not m:
+        raise CleanBuildContextError(f"unparseable remote url: {url!r}")
+    host = m.group(1).lower()
+    path = re.sub(r'\.git$', '', m.group(2)).strip('/')
+    if not host or '/' not in path:
+        raise CleanBuildContextError(f"unparseable remote identity: {url!r}")
+    return f"{host}/{path}"
+
+
 def verify_repo_identity(repo_dir: Path, expected_remote: str) -> str:
-    """Fail closed unless remote.origin.url matches the expected repository."""
+    """Fail closed unless remote.origin.url identifies the expected repository. Compares CANONICAL repository
+    identity (host/owner/repo) rather than raw transport syntax, so HTTPS and SSH checkouts of the SAME repo
+    are both accepted while genuinely different repos (owner/repo/host) are still rejected."""
     proc = _run_git(["config", "--get", "remote.origin.url"], repo_dir, timeout=_GIT_TIMEOUT_SEC)
     actual = proc.stdout.strip()
-    if actual != expected_remote:
+    if canonical_repo_identity(actual) != canonical_repo_identity(expected_remote):
         raise CleanBuildContextError(
             f"repo identity mismatch: remote.origin.url='{actual}' expected='{expected_remote}'"
         )

@@ -1,0 +1,14 @@
+# HERMES TEST/DEVELOPMENT-ONLY dependencies — NOT installed into the production runtime image.
+# WO-HELM-HERMES-JSONSCHEMA-CI-DEPENDENCY-REPAIR-0001
+#
+# The production image installs ONLY requirements.txt (+ constraints.txt) via the Dockerfile
+# (`pip wheel -r requirements.txt -c constraints.txt`). This file is the authoritative test/dev
+# dependency set consumed by the CI test jobs; keeping test-only deps here prevents them leaking
+# into the runtime image or the reproducible-build constraints.
+#
+# jsonschema: imported by existing schema-contract tests (Draft202012Validator / Draft7Validator /
+#   jsonschema.validate) — e.g. tests/test_hermes_shared_stream_recovery_v1.py,
+#   tests/test_pre_stage_b_build_corrections_v1.py, tests/test_recovery_proposal_publication_contract_design_v1.py.
+#   It is NOT imported by any production/runtime module. Bounded to 4.x for Python 3.12 compatibility;
+#   <5 avoids accidental future major-version breakage (repository-consistent bounded constraint).
+jsonschema>=4.18,<5
