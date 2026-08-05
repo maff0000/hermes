@@ -1,0 +1,42 @@
+# HERMES Canonical Instrument Registry — metadata schema (design; not applied)
+# WO-HELM-HERMES-REUSABLE-ADVANCED-V1-CONTRACT-ENGINE-DESIGN-0001
+# AUTHORITY: the governed SQL table `tradingSignals.instruments` is the single registry authority.
+#   Rationale: it already exists as the persistent SSOT, is loaded at startup, published to Redis,
+#   migration-append-only audited, and honours "config in DB not files". No second list is permitted.
+# This file is the CONTRACT for the columns the reusable engine consumes. New columns are added by a
+# future append-only migration (design-only here; NOT executed under this WO).
+registry_authority: "tradingSignals.instruments (SQL)"
+onboarding_rule: "ADD ONE ROW (or set enabled=1) -> ALL enabled HERMES capabilities discover it. Zero app-code change."
+version: v1
+columns:
+  # --- identity (exists today) ---
+  symbol:               {type: varchar, exists: true,  desc: "OANDA canonical id + HERMES canonical id (e.g. XAU_USD)"}
+  mt5_symbol:           {type: varchar, exists: true,  desc: "broker alt id"}
+  name:                 {type: varchar, exists: true,  desc: "display name"}
+  category:             {type: enum,    exists: true,  values: [precious_metals, base_metals, forex_major, forex_minor, indices, crypto], desc: "asset class"}
+  enabled:              {type: tinyint, exists: true,  desc: "master discovery flag"}
+  oanda_compatible:     {type: tinyint, exists: true,  desc: "OANDA subscribable"}
+  # --- sizing/policy (exists today) ---
+  pip_value_per_lot:    {type: decimal, exists: true}
+  contract_size:        {type: int,     exists: true}
+  default_sl_distance:  {type: decimal, exists: true}
+  trading_hours_start:  {type: time,    exists: true,  desc: "session window (UTC)"}
+  trading_hours_end:    {type: time,    exists: true}
+  # --- NEW advanced-contract policy columns (design; future append-only migration) ---
+  price_precision:      {type: tinyint, exists: false, desc: "decimal places for OHLC/indicator quantisation (e.g. JPY=3, FX=5, XAU=5, SPX=1)"}
+  tick_size:            {type: decimal, exists: false, desc: "minimum price increment; validated vs OANDA where discoverable"}
+  pip_size:             {type: decimal, exists: false, nullable: true, desc: "pip granularity where applicable (null for index/energy if N/A)"}
+  price_authority:      {type: enum,    exists: false, values: [mid, bid, ask], default: mid, desc: "governed OHLC price source; uniform MID unless a real reason varies"}
+  market_hours_policy:  {type: varchar, exists: false, desc: "policy key -> reusable MarketHoursPolicy class (fx_24x5, metals, index_cash, energy)"}
+  expected_freshness_sec: {type: int,   exists: false, desc: "max seconds between ticks during valid hours before STALE"}
+  spread_warn_threshold: {type: decimal, exists: false, nullable: true, desc: "spread AMBER threshold (price units)"}
+  enabled_timeframes:   {type: json,    exists: false, default: ["M1","M5","M15","H1","H4","D1"], desc: "candle+indicator timeframes"}
+  indicator_profile:    {type: varchar, exists: false, default: "standard_v1", desc: "policy key -> reusable indicator profile (which indicators/periods)"}
+  tick_contract_enabled:  {type: tinyint, exists: false, default: 0, desc: "advanced tick contract publication capability flag"}
+  gap_detection_enabled:  {type: tinyint, exists: false, default: 0}
+  backfill_policy:      {type: varchar, exists: false, default: "status_only", values: [disabled, status_only, bounded, full], desc: "reusable BackfillPolicy selected by key"}
+  retention_policy:     {type: varchar, exists: false, default: "default_v1", desc: "reusable RetentionPolicy key (candle/tick/history)"}
+principles:
+  - "All values are DATA/POLICY, never business logic. Policy keys select a REUSABLE class; they never fork code by ticker."
+  - "Broker metadata (tick_size, precision) discovered+validated from OANDA where safe; HERMES-only policy stays in the registry."
+  - "capability flags gate ACTIVATION per instrument; the same one codebase runs for all."
