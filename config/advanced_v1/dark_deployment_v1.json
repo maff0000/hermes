@@ -1,0 +1,27 @@
+{
+  "schema_version": "v1",
+  "contract": "hermes.advanced_v1.dark_deployment",
+  "wo": "WO-HELM-HERMES-ADVANCED-V1-PRODUCTION-READINESS-0001",
+  "note": "Governed dark-deployment control surface. All controls are EXTERNALLY configurable governed flags (env/config, never code). Defaults are fail-closed: a newly deployed image starts DARK and publishes NOTHING until each control is explicitly enabled. This file documents the control contract + safe defaults; it does not enable anything.",
+  "controls": {
+    "master_enable": {"env": "HERMES_ADVANCED_V1_MASTER_ENABLED", "default": false, "meaning": "global Advanced-v1 master switch; false -> entire Advanced-v1 pipeline dark"},
+    "per_capability_enable": {
+      "tick": {"env": "HERMES_TICK_PUBLISH_ENABLED", "authorised_env": "HERMES_TICK_PUBLISH_AUTHORISED", "default": false},
+      "indicators": {"env": "HERMES_INDICATOR_PUBLISH_ENABLED", "authorised_env": "HERMES_INDICATOR_PUBLISH_AUTHORISED", "default": false},
+      "gaps": {"env": "HERMES_GAPS_PUBLISH_ENABLED", "authorised_env": "HERMES_GAPS_PUBLISH_AUTHORISED", "default": false},
+      "backfill_status": {"env": "HERMES_BACKFILL_STATUS_PUBLISH_ENABLED", "authorised_env": "HERMES_BACKFILL_STATUS_PUBLISH_AUTHORISED", "default": false},
+      "feed_health": {"env": "HERMES_FEED_HEALTH_PUBLISH_ENABLED", "authorised_env": "HERMES_FEED_HEALTH_PUBLISH_AUTHORISED", "default": false}
+    },
+    "instrument_selection": {"authority": "registry capability flags (tradingSignals.instruments)", "code_authority": false, "note": "which instruments publish is DATA (registry), never code"},
+    "readiness_guard": {"required": true, "meaning": "migration-025 metadata columns must be present; absent -> MIGRATION_REQUIRED -> fail closed (no publication)"},
+    "publisher_mode": {"values": ["DISABLED", "SUPPRESSED_WRITE_EVIDENCE", "ISOLATED_SHADOW", "ACTIVE"], "default": "DISABLED"},
+    "consumer_enabled": {"value": false, "invariant": "consumer_live must remain false"},
+    "order_path": {"present": false, "invariant": "no order path may exist"},
+    "oanda_streams": {"max": 1, "invariant": "exactly one canonical OANDA stream; activation adds NO stream/subscription/per-instrument worker"},
+    "startup_policy": {"fail_closed": true, "enabled_without_authorised": "SystemExit(101)", "calendar_gate": "policy provenance must be production-ready or the instrument fails closed"}
+  },
+  "reporting": {
+    "dark_vs_active": "each family reports enabled/authorised/publisher_mode + per-instrument ACTIVE/NOT_ENABLED; a dark surface reports published:0 and touches no client",
+    "health_state": "explicit governed vocab (LOADED/UNAVAILABLE/INVALID/MIGRATION_REQUIRED/ACTIVE/NOT_ENABLED/GREEN/AMBER/RED/STALE/FAILED)"
+  }
+}

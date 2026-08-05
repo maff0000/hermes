@@ -1,0 +1,34 @@
+=== ADVANCED-V1 PRODUCTION-LIKE REHEARSAL (2026-08-05T16:29:41Z) ===
+isolated image=mariadb:11.7 db=tradingSignals_rehearsal (NOT production)
+
+STEP 1 preflight: seed production-representative pre-migration schema + 14 rows
+  rows=14 (expect 14)  WTICO=base_metals (expect base_metals)
+
+STEP 2 backup/snapshot: logical dump of instruments (pre-migration restore point)
+  backup bytes=4926  rows_in_backup=1
+
+STEP 3 migrate: apply migration 025
+  rows=14  WTICO=energy (expect energy)
+
+STEP 4 readiness validation: migration-025 metadata columns present -> readiness guard would PASS
+  advanced-v1 columns present=6 (expect 6) -> READINESS_GUARD=PASS
+
+STEP 5 dark no-publication: default env has NO capability enabled -> publishers DISABLED (asserted by unit tests)
+  (dark-mode + no-publication + master/capability disable proven by tests/test_advanced_v1_production_readiness_v1.py
+   and the merged shadow suite; this rehearsal confirms the DB substrate only)
+
+STEP 6 isolated shadow publication: activate the eight cohort by registry DATA only (no code change)
+  cohort(all 3 caps)=8 (expect 8)
+  non-cohort NOT_ENABLED=6 (expect 6)
+
+STEP 7 health checks: 14 rows preserved, energy present, WTICO energy
+  rows=14 energy_in_enum=1
+
+STEP 8 rollback: run 025 rollback
+  rows=14 WTICO=base_metals (expect base_metals) adv_cols=0 (expect 0)
+
+STEP 9 restore fidelity: drop + restore from the pre-migration backup, compare
+  restored rows=14 (expect 14) WTICO=base_metals (expect base_metals)
+
+STEP 10 teardown
+ADVANCED_V1_PRODUCTION_REHEARSAL_GREEN
