@@ -50,6 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: governed-build tests (FW08/pre-stage-b) inspect canonical trees/blobs by SHA; WO-...-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -58,6 +60,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "pytest>=8" "pytest-asyncio>=0.23"
+          pip install -r requirements-dev.txt   # test-only deps (jsonschema); WO-HELM-HERMES-JSONSCHEMA-CI-DEPENDENCY-REPAIR-0001
       - name: Market-hours health + readiness (deployment-readiness validator)
         run: |
           python -m pytest -q -p no:cacheprovider \
@@ -78,6 +81,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: governed-build tests (FW08/pre-stage-b) inspect canonical trees/blobs by SHA; WO-...-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -86,6 +91,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "pytest>=8" "pytest-asyncio>=0.23"
+          pip install -r requirements-dev.txt   # test-only deps (jsonschema); WO-HELM-HERMES-JSONSCHEMA-CI-DEPENDENCY-REPAIR-0001
       - name: Shared-stream recovery pure core (production + design + inertness guard)
         run: |
           python -m pytest -q -p no:cacheprovider \
@@ -107,6 +113,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: governed-build tests (FW08/pre-stage-b) inspect canonical trees/blobs by SHA; WO-...-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -115,6 +123,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "pytest>=8" "pytest-asyncio>=0.23"
+          pip install -r requirements-dev.txt   # test-only deps (jsonschema); WO-HELM-HERMES-JSONSCHEMA-CI-DEPENDENCY-REPAIR-0001
       - name: Infra-free unit suite (classified exclusions)
         run: |
           python -m pytest -q -p no:cacheprovider \
@@ -189,6 +198,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: governed-build tests (FW08/pre-stage-b) inspect canonical trees/blobs by SHA; WO-...-CI-RUNNER-ENVIRONMENT-CONTRACT-REPAIR-0001
       - name: Integration exclusion manifest (informational only)
         run: |
           echo "Excluded integration/repair tests are classified in:"
