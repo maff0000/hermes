@@ -11,6 +11,7 @@ ADOPTED_SUPPORT = [
     "utils/hermes_indicators_v1.py",       # ADOPTED
     "utils/hermes_gaps_v1.py",             # ADOPTED
     "utils/hermes_backfill_status_v1.py",  # ADOPTED
+    "utils/hermes_feed_health_v1.py",      # ADOPTED
 ]
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 

@@ -18,12 +18,22 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from utils import candle_contract_v1 as cc
+from utils import hermes_advanced_v1_selection_v1 as sel      # registry selection seam (feed follows tick capability)
+from utils import hermes_advanced_v1_readiness_v1 as readiness  # migration-025 readiness guard (fail-closed)
 
 SCHEMA_VERSION = "v1"
 CONTRACT_NAME = "feed_health"
 PUBLISHER = "HERMES"
-CANONICAL_INSTRUMENT = "XAU_USD"
+# Instrument authority is the canonical registry (selection seam), NOT a per-module literal. Feed-health follows the
+# tick capability (a feed is expected-live iff the instrument is tick-contract-enabled). XAUUSD is a rejected inbound
+# alias only. Per-instrument reporting/isolation: ACTIVE (capability-enabled) vs NOT_ENABLED; MIGRATION_REQUIRED when
+# migration 025's registry metadata columns are absent (readiness guard fails closed — never a false ACTIVE).
 _ALIAS_DENY = ("XAUUSD",)
+FEED_HEALTH_CAPABILITY = "tick"
+INSTRUMENT_ACTIVE = "ACTIVE"
+INSTRUMENT_NOT_ENABLED = "NOT_ENABLED"
+REGISTRY_READY = "READY"
+REGISTRY_MIGRATION_REQUIRED = "MIGRATION_REQUIRED"
 
 # Deterministic, fail-loud status vocabulary (aggregate + per-timeframe).
 STATUS_GREEN = "GREEN"
@@ -90,13 +100,13 @@ def _scan_no_forbidden_field_keys(obj):
 
 
 def _assert_instrument(instrument):
-    if instrument in _ALIAS_DENY or instrument != CANONICAL_INSTRUMENT:
-        raise ValueError(f"GOV-HERMES-FH-004: instrument {instrument!r} not allowed (canonical XAU_USD only; no XAUUSD alias)")
+    if not instrument or instrument in _ALIAS_DENY:
+        raise ValueError(f"GOV-HERMES-FH-004: instrument {instrument!r} not allowed (canonical symbol required; no XAUUSD alias/empty)")
 
 
 def feed_health_key(instrument):
     _assert_instrument(instrument)
-    return f"hermes:{CONTRACT_NAME}:{CANONICAL_INSTRUMENT}:{SCHEMA_VERSION}"
+    return f"hermes:{CONTRACT_NAME}:{instrument}:{SCHEMA_VERSION}"
 
 
 def stale_threshold_seconds(tf):
@@ -173,7 +183,7 @@ def build_feed_health_contract(*, instrument, generated_at_utc, source_name, con
     fault = {"state": "FAULTS_PRESENT" if any(int(v) > 0 for v in faults.values()) else "NONE", "counters": faults}
     payload = {
         "publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract": f"{CONTRACT_NAME}:{SCHEMA_VERSION}",
-        "instrument": CANONICAL_INSTRUMENT, "canonical_instrument": CANONICAL_INSTRUMENT,
+        "instrument": instrument, "canonical_instrument": instrument,
         "generated_at_utc": _utc(generated_at_utc),
         "source": {"name": str(source_name) if source_name else "UNKNOWN", "connectivity": connectivity},
         "status": status,
@@ -208,8 +218,9 @@ def validate_feed_health_contract(p):
         raise ValueError("GOV-HERMES-FH-010: feed-health publisher/schema_version must be HERMES/v1")
     if p.get("contract") != f"{CONTRACT_NAME}:{SCHEMA_VERSION}":
         raise ValueError("GOV-HERMES-FH-011: feed-health contract must be feed_health:v1")
-    if p.get("instrument") != CANONICAL_INSTRUMENT or p.get("canonical_instrument") != CANONICAL_INSTRUMENT:
-        raise ValueError("GOV-HERMES-FH-012: feed-health instrument must be XAU_USD (no alias/non-XAU)")
+    inst = p.get("instrument")
+    if not inst or inst in _ALIAS_DENY or p.get("canonical_instrument") != inst:
+        raise ValueError("GOV-HERMES-FH-012: feed-health instrument must be a canonical symbol (no alias/empty; canonical==instrument)")
     if p.get("status") not in FEED_HEALTH_STATUSES:
         raise ValueError("GOV-HERMES-FH-013: feed-health status not in governed vocab")
     if (p.get("source") or {}).get("connectivity") not in SOURCE_CONNECTIVITY_STATES:
@@ -226,16 +237,17 @@ def validate_feed_health_contract(p):
 
 
 # --------------------------------------------------------------------------- snapshot collector (READ-ONLY)
-def collect_feed_health_snapshot(redis_client, *, timeframes, generated_at_utc, source_name=None,
+def collect_feed_health_snapshot(redis_client, *, instrument, timeframes, generated_at_utc, source_name=None,
                                  d1_latest_green=False, source_dependencies=None):
-    """Build the builder kwargs from HERMES-owned Redis surfaces via an INJECTED client. READ-ONLY (GET only) —
-    NEVER writes, NO I/O at import. Derives per-tf last CLOSED-candle close from the governed candle latest keys
-    (`hermes:candles:XAU_USD:{tf}:latest:v1`) and connectivity from the publisher heartbeat. Missing/stale are
-    left EXPLICIT (a missing latest key -> last_candle_close None -> RED_MISSING / GATED for D1)."""
+    """Build the builder kwargs for `instrument` from HERMES-owned Redis surfaces via an INJECTED client. READ-ONLY
+    (GET only) — NEVER writes, NO I/O at import. Every candle key read is instrument-scoped
+    (`hermes:candles:<instrument>:{tf}:latest:v1`) so per-instrument snapshots are fully isolated. Connectivity from
+    the publisher heartbeat. Missing/stale left EXPLICIT (a missing latest key -> None -> RED_MISSING / GATED for D1)."""
     import json
+    _assert_instrument(instrument)
     last_close = {}
     for tf in timeframes:
-        raw = redis_client.get(f"hermes:candles:{CANONICAL_INSTRUMENT}:{tf}:latest:v1")
+        raw = redis_client.get(f"hermes:candles:{instrument}:{tf}:latest:v1")
         close = None
         if raw:
             e = json.loads(raw)
@@ -247,23 +259,29 @@ def collect_feed_health_snapshot(redis_client, *, timeframes, generated_at_utc, 
     hb_raw = redis_client.get("hermes:publisher:heartbeat:v1")
     connectivity = CONN_UNKNOWN if not hb_raw else (
         CONN_CONNECTED if json.loads(hb_raw).get("status") == "OK" else CONN_DEGRADED)
-    return {"instrument": CANONICAL_INSTRUMENT, "generated_at_utc": generated_at_utc, "source_name": source_name,
+    return {"instrument": instrument, "generated_at_utc": generated_at_utc, "source_name": source_name,
             "connectivity": connectivity, "timeframes": list(timeframes), "last_candle_close_utc_by_tf": last_close,
             "last_tick_utc": None, "last_quote_utc": None, "d1_latest_green": d1_latest_green,
             "source_dependencies": source_dependencies}
 
 
 # --------------------------------------------------------------------------- publisher foundation (DISABLED)
-def parse_feed_health_instruments(raw):
+def parse_feed_health_instruments(raw, *, allowed=None):
+    """Consistency validator (NOT the authority): parse the optional env instrument list and prove it is alias-free and,
+    when `allowed` (the registry selection) is supplied, a SUBSET of it. The registry is the authority; env may only
+    narrow/confirm. Fail-closed on empty/alias/out-of-registry."""
     if raw is None or not str(raw).strip():
         raise ValueError(f"GOV-HERMES-FH-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
     items = [x.strip() for x in str(raw).split(",") if x.strip()]
     if not items:
         raise ValueError(f"GOV-HERMES-FH-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
+    allow = frozenset(allowed) if allowed is not None else None
     for inst in items:
-        if inst == "XAUUSD" or inst != CANONICAL_INSTRUMENT:
-            raise ValueError(f"GOV-HERMES-FH-021: instrument {inst!r} not allowed (canonical XAU_USD only; no XAUUSD/non-XAU)")
-    return frozenset({CANONICAL_INSTRUMENT})
+        if inst in _ALIAS_DENY:
+            raise ValueError(f"GOV-HERMES-FH-021: instrument {inst!r} not allowed (XAUUSD alias is never a feed-health instrument)")
+        if allow is not None and inst not in allow:
+            raise ValueError(f"GOV-HERMES-FH-021: instrument {inst!r} not in the registry feed-health selection {sorted(allow)}")
+    return frozenset(items)
 
 
 class DisabledFeedHealthPublisher:
@@ -273,17 +291,33 @@ class DisabledFeedHealthPublisher:
         return {"enabled": False}
 
 
+def feed_health_selection(records):
+    """Deterministic registry selection for feed-health (follows the tick capability). Returns the sorted tuple of
+    feed-health ACTIVE instruments; every other registry instrument is NOT_ENABLED. No ticker literals."""
+    return sel.selection_for(FEED_HEALTH_CAPABILITY, records)
+
+
 class FeedHealthPublisher:
     enabled = True
 
-    def __init__(self, *, allowed_instruments, source_name):
-        if frozenset(allowed_instruments) != frozenset({CANONICAL_INSTRUMENT}):
-            raise ValueError("GOV-HERMES-FH-021: feed-health allowlist must be exactly {XAU_USD}")
-        self.allowed_instruments = frozenset(allowed_instruments)
+    def __init__(self, *, allowed_instruments, source_name, registry_state=REGISTRY_READY):
+        allowed = frozenset(allowed_instruments)
+        if not allowed:
+            raise ValueError("GOV-HERMES-FH-021: feed-health allowlist must be non-empty (zero-selection -> Disabled, not this class)")
+        for inst in allowed:
+            _assert_instrument(inst)                      # alias/empty can never enter the allowlist
+        self.allowed_instruments = allowed
         self.source_name = source_name
+        self.registry_state = registry_state
+
+    def instrument_state(self, instrument):
+        """Per-instrument reporting isolation: ACTIVE iff registry feed-health-selected, else NOT_ENABLED. The seven
+        new instruments are NOT_ENABLED purely as a CONSEQUENCE of their registry capability flag — no ticker filter."""
+        return INSTRUMENT_ACTIVE if instrument in self.allowed_instruments else INSTRUMENT_NOT_ENABLED
 
     def status(self):
-        return {"enabled": True, "instruments": sorted(self.allowed_instruments), "source_name": self.source_name}
+        return {"enabled": True, "instruments": sorted(self.allowed_instruments), "source_name": self.source_name,
+                "registry_state": self.registry_state}
 
     def build(self, **kw):
         return build_feed_health_contract(**kw)
@@ -292,15 +326,38 @@ class FeedHealthPublisher:
         return feed_health_key(instrument)
 
 
-def build_feed_health_publisher_from_env():
-    """DEFAULT DISABLED -> DisabledFeedHealthPublisher (no-op, no Redis client, no I/O). ENABLED without
-    AUTHORISED -> SystemExit(101). ENABLED + AUTHORISED -> FeedHealthPublisher (payloads only, NO Redis I/O).
+def build_feed_health_publisher_from_env(*, records=None, column_names=None):
+    """DEFAULT DISABLED -> DisabledFeedHealthPublisher (no-op, no Redis client, no I/O; NO registry access on this
+    path — production feed-health stays inert without touching the registry). ENABLED without AUTHORISED ->
+    SystemExit(101). ENABLED + AUTHORISED -> instrument authority is the canonical registry:
+      * migration 025 not applied (readiness fails closed) -> DisabledFeedHealthPublisher (MIGRATION_REQUIRED) — never
+        a false ACTIVE, never auto-migrates;
+      * zero feed-health-selected instruments -> DisabledFeedHealthPublisher (valid no-publication state);
+      * otherwise -> FeedHealthPublisher over the registry-selected instruments (XAU pilot ACTIVE; 7 new NOT_ENABLED).
+    The env instrument list, when set, is a fail-closed CONSISTENCY check (must be a subset of the registry selection).
     No hidden defaults; NO Redis/SQL/network at import or here."""
     from env_config import get_env, get_env_bool   # lazy; HERMES-owned config only
     if not get_env_bool(ENABLED_ENV, False):
         return DisabledFeedHealthPublisher()
     if not get_env_bool(AUTHORISED_ENV, False):
         raise SystemExit(HALT_CODE)
-    instruments = parse_feed_health_instruments(get_env(INSTRUMENTS_ENV, default=None))
+    # Instrument authority = the canonical registry (single fail-closed loader attribute; patchable in tests).
+    if records is None:
+        from utils import hermes_instrument_registry_v1 as reg
+        records = reg.load_from_db()
+    # Readiness gate: migration 025's registry columns/metadata must be present (fail-closed -> MIGRATION_REQUIRED,
+    # stays dark). Pure checks over the already-loaded records; never auto-migrates.
+    try:
+        if column_names is not None:
+            readiness.check_columns_present(column_names)
+        readiness.assert_ready(records)
+    except readiness.ReadinessError:
+        return DisabledFeedHealthPublisher()
+    selected = frozenset(feed_health_selection(records))
+    if not selected:
+        return DisabledFeedHealthPublisher()             # zero-selection -> no publication (valid)
+    raw = get_env(INSTRUMENTS_ENV, default=None)
+    if raw is not None and str(raw).strip():
+        parse_feed_health_instruments(raw, allowed=selected)   # consistency-only; registry remains the authority
     source_name = get_env(SOURCE_NAME_ENV, default="UNKNOWN") or "UNKNOWN"
-    return FeedHealthPublisher(allowed_instruments=instruments, source_name=source_name)
+    return FeedHealthPublisher(allowed_instruments=selected, source_name=source_name, registry_state=REGISTRY_READY)
