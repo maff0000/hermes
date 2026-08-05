@@ -1,0 +1,38 @@
+=== ISOLATED MIGRATION-025 LIFECYCLE HARNESS ===
+image=mariadb:11.7 db=tradingSignals_shadow container=hermes-shadow-db-825 (throwaway, isolated; NOT production)
+waiting for mariadb ready...
+VERSION()
+11.7.2-MariaDB-ubu2404
+
+=== STEP 1: create base instruments table + seed 14 canonical rows (pre-025) ===
+rows before migration: 14 (expect 14)
+WTICO category before: base_metals (expect base_metals)
+advanced-v1 columns before: 0 (expect 0 = absent)
+
+=== STEP 2: APPLY migration 025 (the real file) ===
+APPLY ok
+rows after apply: 14 (expect 14)
+energy in category ENUM: 1 (expect 1)
+WTICO category after: energy (expect energy)
+XAU caps after (tick,ind,gap): 1,1,1 (expect 1,1,1)
+seven-new caps default (sum tick_contract_enabled over 7 new): 0 (expect 0 = all NOT_ENABLED)
+
+=== STEP 3: REAPPLY migration 025 (idempotence) ===
+reapply ok; rows: 14 (expect 14)
+columns unchanged (advanced-v1 col count): 6 (expect 6)
+
+=== STEP 4: activate eight-instrument cohort by DATA ONLY ===
+cohort (all three caps on) count: 8 (expect 8)
+cohort members: AUD_USD,EUR_USD,GBP_USD,SPX500_USD,USD_JPY,WTICO_USD,XAG_USD,XAU_USD
+six non-cohort NOT_ENABLED (all caps 0): 6 (expect 6)
+six non-cohort members: EUR_GBP,NZD_USD,USD_CAD,USD_CHF,XCU_USD,XPT_USD
+14-row preservation held: 14 (expect 14)
+
+=== STEP 5: ROLLBACK migration 025 (validity) ===
+rollback ok; rows: 14 (expect 14)
+WTICO category after rollback: base_metals (expect base_metals)
+advanced-v1 columns after rollback: 0 (expect 0 = dropped)
+energy removed from ENUM: 0 (expect 0)
+
+=== TEARDOWN ===
+container removed. isolated harness complete.
