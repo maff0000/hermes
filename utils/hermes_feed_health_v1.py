@@ -300,7 +300,7 @@ def feed_health_selection(records):
 class FeedHealthPublisher:
     enabled = True
 
-    def __init__(self, *, allowed_instruments, source_name, registry_state=REGISTRY_READY):
+    def __init__(self, *, allowed_instruments, source_name, registry_state=REGISTRY_READY, records=None):
         allowed = frozenset(allowed_instruments)
         if not allowed:
             raise ValueError("GOV-HERMES-FH-021: feed-health allowlist must be non-empty (zero-selection -> Disabled, not this class)")
@@ -309,6 +309,7 @@ class FeedHealthPublisher:
         self.allowed_instruments = allowed
         self.source_name = source_name
         self.registry_state = registry_state
+        self.records = tuple(records) if records is not None else None   # registry snapshot the gate must agree with
 
     def instrument_state(self, instrument):
         """Per-instrument reporting isolation: ACTIVE iff registry feed-health-selected, else NOT_ENABLED. The seven
@@ -360,4 +361,4 @@ def build_feed_health_publisher_from_env(*, records=None, column_names=None):
     if raw is not None and str(raw).strip():
         parse_feed_health_instruments(raw, allowed=selected)   # consistency-only; registry remains the authority
     source_name = get_env(SOURCE_NAME_ENV, default="UNKNOWN") or "UNKNOWN"
-    return FeedHealthPublisher(allowed_instruments=selected, source_name=source_name, registry_state=REGISTRY_READY)
+    return FeedHealthPublisher(allowed_instruments=selected, source_name=source_name, registry_state=REGISTRY_READY, records=records)

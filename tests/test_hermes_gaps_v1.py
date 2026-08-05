@@ -273,10 +273,14 @@ def test_publish_xau_only_byte_identical_single_key():
     assert r["consumer_live"] is False and r["repair_executed"] is False and r["backfill_executed"] is False
 
 
-def test_publish_multi_instrument_no_collision():
+def test_publish_multi_instrument_no_collision(monkeypatch):
+    # multi-instrument = EXPANSION scope -> requires the runtime master/scope gate (EUR_USD is calendar-eligible 'metals').
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
+    eff_now = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)   # within the governed calendar effective window
     fake = _FakeRedis()
     pub = gaps.GapsPublisher(redis_client=fake, records=_records({"XAU_USD", "EUR_USD"}))
-    r = pub.publish(now=NOW_OPEN, forward_enabled=True, forward_authorised=True)
+    r = pub.publish(now=eff_now, forward_enabled=True, forward_authorised=True)
     assert r["published"] == 2
     assert set(r["keys"]) == {"hermes:gaps:XAU_USD:v1", "hermes:gaps:EUR_USD:v1"}   # distinct, no collision
     assert len(fake.writes) == 2 and fake.deletes == []

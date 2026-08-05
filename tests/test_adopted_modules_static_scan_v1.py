@@ -13,6 +13,7 @@ ADOPTED_SUPPORT = [
     "utils/hermes_backfill_status_v1.py",  # ADOPTED
     "utils/hermes_feed_health_v1.py",      # ADOPTED
     "utils/hermes_market_hours_policy_v1.py",  # ADOPTED (metadata-driven market-hours authority)
+    "utils/hermes_advanced_v1_publication_gate_v1.py",  # ADOPTED (central master/scope publication gate; pilot scope is DATA)
 ]
 # Cohort tickers that must never appear as behavioural authority in production market-hours/policy logic.
 _COHORT_TICKERS = ("XAU_USD", "XAG_USD", "EUR_USD", "GBP_USD", "AUD_USD", "USD_JPY", "SPX500_USD", "WTICO_USD")

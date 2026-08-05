@@ -1,0 +1,10 @@
+{
+  "schema_version": "v1",
+  "contract": "hermes.advanced_v1.pilot_scope",
+  "wo": "WO-HELM-HERMES-ADVANCED-V1-RUNTIME-MASTER-AND-SCOPE-GATE-0001",
+  "version": "v1",
+  "note": "Governed authority naming the already-authorised Advanced-v1 PILOT scope. Instruments listed here may continue publishing under their existing per-family enable/authority controls WITHOUT the expansion master. Any instrument NOT listed here is EXPANSION scope and is fail-closed until the runtime expansion master + publisher mode + registry capability + calendar + readiness gates are all satisfied. This is DATA (no ticker logic in publisher modules). Adding/removing a pilot instrument is a governed config change, reviewed and versioned.",
+  "provenance": "XAU_USD is the existing authorised production pilot (live five-family publication predating the Advanced-v1 expansion generalisation). Confirmed by the deployed dev-override family controls (all five enabled+authorised, scoped XAU_USD) and the live hermes:*:XAU_USD:*:v1 keys.",
+  "effective_from_utc": "2026-08-05T00:00:00Z",
+  "pilot_scope": ["XAU_USD"]
+}

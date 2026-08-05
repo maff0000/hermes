@@ -279,11 +279,15 @@ def test_publish_xau_only_byte_identical_single_key():
     assert res["execution_enabled"] is False and res["backfill_executed"] is False
 
 
-def test_publish_multi_instrument_no_collision():
+def test_publish_multi_instrument_no_collision(monkeypatch):
+    # multi-instrument = EXPANSION scope -> requires the runtime master/scope gate (EUR_USD calendar-eligible 'metals').
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
+    eff_now = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)   # within the governed calendar effective window
     r = FakeRedis({GAPS_KEY: json.dumps(_live_gaps_contract()),
                    "hermes:gaps:EUR_USD:v1": json.dumps(_live_gaps_contract())})
     pub = bfs.BackfillStatusPublisher(redis_client=r, records=_records({"XAU_USD", "EUR_USD"}))
-    res = pub.publish(now=NOW)
+    res = pub.publish(now=eff_now)
     assert res["published"] == 2
     assert set(res["keys"]) == {BFS_KEY, "hermes:backfill:status:EUR_USD:v1"}
     for inst in ("XAU_USD", "EUR_USD"):

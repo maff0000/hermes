@@ -26,12 +26,25 @@ import utils.candle_contract_v1 as cc
 import utils.tick_contract_v1 as tc
 
 UTC = timezone.utc
-NOW = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)          # Wednesday noon UTC -> common open window for the cohort
+NOW = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)          # Wednesday noon UTC -> common open window for the cohort
 TFS = ("M1", "M5", "M15", "H1", "H4")                   # D1 stays GATED until D1-latest green (asserted separately)
 
 COHORT = ("XAU_USD", "XAG_USD", "EUR_USD", "GBP_USD", "AUD_USD", "USD_JPY", "SPX500_USD", "WTICO_USD")
 NON_COHORT = ("XPT_USD", "XCU_USD", "USD_CHF", "USD_CAD", "NZD_USD", "EUR_GBP")
 ALL14 = COHORT + NON_COHORT
+# WO-...-RUNTIME-MASTER-AND-SCOPE-GATE-0001: publication is now gated. XAU is the pilot (always eligible). Expansion
+# instruments publish only under master+ACTIVE AND a production-eligible calendar policy. metals/fx_24x5 are
+# BROKER_CONFIRMED (eligible); index_cash (SPX500_USD) and energy (WTICO_USD) are calendar-BLOCKED even under master.
+CALENDAR_BLOCKED = ("SPX500_USD", "WTICO_USD")
+PUBLISHABLE = tuple(s for s in COHORT if s not in CALENDAR_BLOCKED)   # XAU pilot + 5 calendar-eligible expansion
+
+
+@pytest.fixture
+def _gate_active(monkeypatch):
+    """Enable the runtime master/scope gate for expansion (master=true, publisher mode ACTIVE) so the multi-instrument
+    mechanics run as authorised expansion-in-isolation. Calendar-blocked policies (index_cash/energy) still fail closed."""
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
 
 # Representative per-instrument metadata (mirrors migration 025 seed + activation). Category/policy/precision are DATA.
 _META = {
@@ -114,17 +127,19 @@ def test_exact_eight_capability_selection_and_six_not_enabled():
 
 
 # =========================================================================== 10. tick shadow
-def test_tick_shadow_eight_generic():
+def test_tick_shadow_eight_generic(_gate_active):
     recs = records(); r = FakeRedis()
     em = ticke.build_tick_live_emitter_from_registry(recs, redis_client=r)
     assert em.allowed_instruments == frozenset(COHORT)
-    for s in COHORT:
+    for s in PUBLISHABLE:                                              # pilot + calendar-eligible expansion emit
         res = em.emit_tick(_tick(s), now=NOW)
         assert res["emitted"] and res["key"] == f"hermes:ticks:{s}:latest:v1"
+    for s in CALENDAR_BLOCKED:                                        # index_cash/energy calendar-blocked -> gated
+        assert em.emit_tick(_tick(s), now=NOW)["emitted"] is False
     assert em.emit_tick(_tick("XAUUSD"), now=NOW)["emitted"] is False   # alias never in scope -> skipped
     keys = [k for k, _ in r.sets]
-    assert sorted(keys) == sorted(f"hermes:ticks:{s}:latest:v1" for s in COHORT)   # 8 distinct, no collision
-    for s in COHORT:
+    assert sorted(keys) == sorted(f"hermes:ticks:{s}:latest:v1" for s in PUBLISHABLE)   # distinct, no collision
+    for s in PUBLISHABLE:
         env = json.loads(r.kv[f"hermes:ticks:{s}:latest:v1"])
         d = env["data"]
         assert d["instrument"] == s and d["bid"] == 100.0 and d["ask"] == 100.2
@@ -154,21 +169,22 @@ def test_indicator_shadow_eight_across_timeframes(monkeypatch):
 
 
 # =========================================================================== 12 & 13. gaps + backfill shadow
-def test_gaps_and_backfill_shadow_eight_generic():
+def test_gaps_and_backfill_shadow_eight_generic(_gate_active):
     recs = records(); r = FakeRedis()
     for s in COHORT:
         _seed_candles(r, s)
     gres = gaps.GapsPublisher(redis_client=r, records=recs).publish(now=NOW, forward_enabled=False, forward_authorised=False)
-    assert set(gres["keys"]) == {f"hermes:gaps:{s}:v1" for s in COHORT}       # 8 gaps keys, one per instrument
-    for s in COHORT:
+    assert set(gres["keys"]) == {f"hermes:gaps:{s}:v1" for s in PUBLISHABLE}   # pilot + calendar-eligible expansion
+    for s in CALENDAR_BLOCKED:
+        assert f"hermes:gaps:{s}:v1" not in r.kv                              # index_cash/energy calendar-blocked
+    for s in PUBLISHABLE:
         c = json.loads(r.kv[f"hermes:gaps:{s}:v1"])
         assert c["instrument"] == s and gaps.validate_gaps_contract(c) is True
-        # complete fresh history in an open window -> no fabricated outage for any instrument (incl SPX500/WTICO)
         assert c["overall_gap_state"] in gaps.GAP_STATES
     # backfill-status projection reads each instrument's own gaps key
     bres = bfs.BackfillStatusPublisher(redis_client=r, records=recs).publish(now=NOW)
-    assert set(bres["keys"]) == {f"hermes:backfill:status:{s}:v1" for s in COHORT}
-    for s in COHORT:
+    assert set(bres["keys"]) == {f"hermes:backfill:status:{s}:v1" for s in PUBLISHABLE}
+    for s in PUBLISHABLE:
         c = json.loads(r.kv[f"hermes:backfill:status:{s}:v1"])
         assert c["instrument"] == s and c["gaps_source"]["key"] == f"hermes:gaps:{s}:v1"
         assert c["execution_enabled"] is False and c["backfill_executed"] is False and c["repair_executed"] is False
@@ -204,24 +220,23 @@ def test_feed_health_fourteen_instrument_enumeration():
 
 
 # =========================================================================== 16. state isolation / interleaving
-def test_eight_instrument_state_isolation_green():
+def test_eight_instrument_state_isolation_green(_gate_active):
     recs = records(); shared = FakeRedis()
     for s in COHORT:
         _seed_candles(shared, s)
-    gp = gaps.GapsPublisher(redis_client=shared, records=recs)
     # deliberate wide interleave: publish A, B, C, then A again, then all — no shared watermark/state
-    for order in (COHORT, tuple(reversed(COHORT)), (COHORT[0], COHORT[3], COHORT[0])):
+    for order in (PUBLISHABLE, tuple(reversed(PUBLISHABLE)), (PUBLISHABLE[0], PUBLISHABLE[3], PUBLISHABLE[0])):
         for s in order:
             gaps.GapsPublisher(redis_client=shared, records=records((s,))).publish(now=NOW)
-    for s in COHORT:
+    for s in PUBLISHABLE:
         c = json.loads(shared.kv[f"hermes:gaps:{s}:v1"])
         assert c["instrument"] == s and c["canonical_instrument"] == s    # never overwritten by another instrument
-    assert set(k for k in shared.kv if k.startswith("hermes:gaps:")) == {f"hermes:gaps:{s}:v1" for s in COHORT}
+    assert set(k for k in shared.kv if k.startswith("hermes:gaps:")) == {f"hermes:gaps:{s}:v1" for s in PUBLISHABLE}
     assert shared.deletes == []
 
 
 # =========================================================================== 17. fault isolation
-def test_fault_isolation_matrix():
+def test_fault_isolation_matrix(_gate_active):
     recs = records(); r = FakeRedis()
     # all healthy except: EUR_USD stale (old candles), XAG_USD missing (no candles seeded)
     for s in COHORT:
@@ -229,7 +244,7 @@ def test_fault_isolation_matrix():
             continue                                   # missing source
         _seed_candles(r, s, fresh=(s != "EUR_USD"))    # EUR_USD stale
     gres = gaps.GapsPublisher(redis_client=r, records=recs).publish(now=NOW)
-    assert set(gres["keys"]) == {f"hermes:gaps:{s}:v1" for s in COHORT}   # every instrument still produced a contract
+    assert set(gres["keys"]) == {f"hermes:gaps:{s}:v1" for s in PUBLISHABLE}   # each publishable instrument still produced a contract
     xag = json.loads(r.kv["hermes:gaps:XAG_USD:v1"])
     healthy = json.loads(r.kv["hermes:gaps:GBP_USD:v1"])
     assert xag["overall_gap_state"] == "SOURCE_MISSING"                   # faulty instrument isolated + fail-closed
@@ -240,19 +255,20 @@ def test_fault_isolation_matrix():
 
 
 # =========================================================================== 18. data-only activation
-def test_data_only_activation_green():
+def test_data_only_activation_green(_gate_active):
     xau_only = records(("XAU_USD",))
     eight = records(COHORT)
     # the SAME code, only the registry data differs, moves selection from {XAU} to the full eight.
     assert set(sel.selection_for("gap", xau_only)) == {"XAU_USD"}
     assert set(sel.selection_for("gap", eight)) == set(COHORT)
-    # no per-instrument code path: every cohort member flows through the identical publisher classes
+    # no per-instrument code path: every cohort member flows through the identical publisher classes; publication is
+    # then gated (pilot always; expansion under master+calendar), so `after` = pilot + calendar-eligible expansion.
     r = FakeRedis()
     for s in COHORT:
         _seed_candles(r, s)
     before = gaps.GapsPublisher(redis_client=r, records=xau_only).publish(now=NOW)["keys"]
     after = gaps.GapsPublisher(redis_client=r, records=eight).publish(now=NOW)["keys"]
-    assert before == ["hermes:gaps:XAU_USD:v1"] and set(after) == {f"hermes:gaps:{s}:v1" for s in COHORT}
+    assert before == ["hermes:gaps:XAU_USD:v1"] and set(after) == {f"hermes:gaps:{s}:v1" for s in PUBLISHABLE}
 
 
 # =========================================================================== 20. contract validation + alias rejection
@@ -265,7 +281,7 @@ def test_alias_rejected_every_family():
             fn()
 
 
-def test_market_hours_policy_metadata_consumed_by_gaps_CORRECTED():
+def test_market_hours_policy_metadata_consumed_by_gaps_CORRECTED(monkeypatch):
     """CORRECTION LANDED: the generic gap classifier now resolves market-hours behaviour from the registry
     `market_hours_policy` key via the reusable mhp resolver — no uniform default, no ticker branch. Each cohort
     instrument's publisher-produced gaps contract records its governed policy key; the six non-cohort instruments still
@@ -275,12 +291,14 @@ def test_market_hours_policy_metadata_consumed_by_gaps_CORRECTED():
     policies = {r.symbol: r.market_hours_policy for r in recs}
     assert policies["SPX500_USD"] == "index_cash" and policies["WTICO_USD"] == "energy"
     assert policies["EUR_USD"] == "fx_24x5" and policies["XAU_USD"] == "metals"
-    # the gap publisher resolves and records the governed policy key per instrument (metadata-driven, not uniform)
+    # the gap publisher resolves and records the governed policy key per publishable instrument (metadata-driven).
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
     r = FakeRedis()
     for s in COHORT:
         _seed_candles(r, s)
     gaps.GapsPublisher(redis_client=r, records=recs).publish(now=NOW)
-    for s in COHORT:
+    for s in PUBLISHABLE:
         c = json.loads(r.kv[f"hermes:gaps:{s}:v1"])
         assert c["market_hours_policy"] == policies[s]                 # per-instrument governed policy key recorded
         assert c["calendar_source"] == f"MARKET_HOURS_POLICY:{policies[s]}"
@@ -291,35 +309,37 @@ def test_market_hours_policy_metadata_consumed_by_gaps_CORRECTED():
         mhp.resolve_policy(None)
 
 
-def test_eight_instrument_market_hours_policy_green():
+def test_eight_instrument_market_hours_policy_green(_gate_active):
     """EIGHT_INSTRUMENT_MARKET_HOURS_POLICY_GREEN — at the daily 17:00-18:00 NY halt, the SAME publisher classifies each
     cohort instrument by its registry policy: fx_24x5 stays OPEN, metals/index_cash/energy enter CLOSED_SESSION — no
     ticker branch, per-instrument, recorded in each contract's market_hours_policy + market_phase."""
     recs = records(); r = FakeRedis()
-    halt = datetime(2026, 7, 8, 21, 30, tzinfo=UTC)         # Wed 17:30 EDT — inside the daily halt window
+    halt = datetime(2026, 8, 12, 21, 30, tzinfo=UTC)         # Wed 17:30 EDT — inside the daily halt window
     gaps.GapsPublisher(redis_client=r, records=recs).publish(now=halt)
-    expected_phase = {"fx_24x5": "OPEN", "metals": "CLOSED_SESSION", "index_cash": "CLOSED_SESSION", "energy": "CLOSED_SESSION"}
+    expected_phase = {"fx_24x5": "OPEN", "metals": "CLOSED_SESSION"}   # index_cash/energy are calendar-blocked (not published here)
     pol = {rec.symbol: rec.market_hours_policy for rec in recs}
-    for s in COHORT:
+    for s in PUBLISHABLE:
         c = json.loads(r.kv[f"hermes:gaps:{s}:v1"])
         assert c["market_hours_policy"] == pol[s]
         assert c["timeframes"]["M1"]["market_phase"] == expected_phase[pol[s]], s
-    # fx instruments OPEN while metals/index/energy are CLOSED_SESSION — simultaneously, from one generic pass
+    # fx instruments OPEN while metals are CLOSED_SESSION — simultaneously, from one generic pass (index/energy blocked)
     assert json.loads(r.kv["hermes:gaps:EUR_USD:v1"])["timeframes"]["M1"]["market_phase"] == "OPEN"
-    assert json.loads(r.kv["hermes:gaps:SPX500_USD:v1"])["timeframes"]["M1"]["market_phase"] == "CLOSED_SESSION"
+    assert json.loads(r.kv["hermes:gaps:XAU_USD:v1"])["timeframes"]["M1"]["market_phase"] == "CLOSED_SESSION"
+    for s in CALENDAR_BLOCKED:
+        assert f"hermes:gaps:{s}:v1" not in r.kv                       # index_cash/energy remain calendar-blocked
 
 
-def test_market_hours_policy_isolation_green():
+def test_market_hours_policy_isolation_green(_gate_active):
     """MARKET_HOURS_POLICY_ISOLATION_GREEN — different policies coexist with no shared/global market phase; one
-    instrument's expected closure does not change another's classification."""
+    instrument's expected closure does not change another's classification (index/energy calendar-blocked here)."""
     recs = records(); r = FakeRedis()
-    halt = datetime(2026, 7, 8, 21, 30, tzinfo=UTC)
+    halt = datetime(2026, 8, 12, 21, 30, tzinfo=UTC)
     gaps.GapsPublisher(redis_client=r, records=recs).publish(now=halt)
-    phases = {s: json.loads(r.kv[f"hermes:gaps:{s}:v1"])["timeframes"]["M1"]["market_phase"] for s in COHORT}
-    # WTICO (energy) closed does not suppress EUR_USD (fx) open; each key holds its own policy-correct phase
-    assert phases["WTICO_USD"] == "CLOSED_SESSION" and phases["EUR_USD"] == "OPEN"
+    phases = {s: json.loads(r.kv[f"hermes:gaps:{s}:v1"])["timeframes"]["M1"]["market_phase"] for s in PUBLISHABLE}
+    # XAU/XAG (metals) closed does not suppress EUR/USD_JPY (fx) open; each key holds its own policy-correct phase
+    assert phases["XAG_USD"] == "CLOSED_SESSION" and phases["EUR_USD"] == "OPEN"
     assert phases["XAU_USD"] == "CLOSED_SESSION" and phases["USD_JPY"] == "OPEN"
-    assert set(k for k in r.kv if k.startswith("hermes:gaps:")) == {f"hermes:gaps:{s}:v1" for s in COHORT}
+    assert set(k for k in r.kv if k.startswith("hermes:gaps:")) == {f"hermes:gaps:{s}:v1" for s in PUBLISHABLE}
 
 
 def test_full_14_registry_preserved():
