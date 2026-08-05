@@ -21,9 +21,11 @@ from datetime import datetime, timedelta, timezone
 
 from utils import candle_contract_v1 as cc
 from utils import candle_d1_history_v1 as d1h     # reuse: assert_sealed_complete_d1 + D1 forward gate names (safe shared)
+from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (gap-capability instruments + generic keys)
 
 UTC = timezone.utc
-CANONICAL_INSTRUMENT = "XAU_USD"
+# Instrument authority is the canonical registry (selection seam), NOT a per-module literal. XAUUSD is a rejected
+# inbound alias only (never an output key). The gap surface publishes one key per registry gap-enabled instrument.
 _ALIAS_DENY = ("XAUUSD",)
 SCHEMA_VERSION = "v1"
 PUBLISHER = "HERMES"
@@ -55,7 +57,11 @@ D1_FWD_AUTHORISED_ENV = d1h.D1_HISTORY_AUTHORISED_ENV
 GAPS_ENABLED_ENV = "HERMES_GAPS_PUBLISH_ENABLED"
 GAPS_AUTHORISED_ENV = "HERMES_GAPS_PUBLISH_AUTHORISED"
 HALT_CODE = 101
-GAPS_KEY = f"hermes:gaps:{CANONICAL_INSTRUMENT}:v1"   # the SINGLE aggregate key this surface ever writes (SET target)
+# Per-instrument write target: sel.gaps_key(instrument) -> "hermes:gaps:<instrument>:v1" (byte-identical to the former
+# XAU aggregate key for XAU_USD). The publisher SETs exactly one such key per registry gap-enabled instrument; zero
+# selected instruments is a valid no-publication state.
+def gaps_key(instrument):
+    return sel.gaps_key(instrument)
 
 
 # --------------------------------------------------------------------------- market calendar (weekly weekend, UTC)
@@ -137,8 +143,9 @@ def _reason(gap_state, missing_open, invalid_anchor, sufficient, stale, phase):
     }.get(gap_state, gap_state)
 
 
-def classify_timeframe(tf, *, latest, history_opens, now, latest_status=None):
-    """PURE per-tf gap block. `latest` = the latest candle envelope dict (or None); `history_opens` = iterable of int
+def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_status=None):
+    """PURE per-tf gap block. `instrument` = the canonical symbol this block belongs to (scopes the reported
+    history_key/latest_key); `latest` = the latest candle envelope dict (or None); `history_opens` = iterable of int
     open-epochs present in history; `now` = aware UTC. Reads nothing. Returns the per-tf contract block."""
     now = cc.normalise_utc(now)
     now_epoch = int(now.timestamp())
@@ -148,7 +155,7 @@ def classify_timeframe(tf, *, latest, history_opens, now, latest_status=None):
     retention_floor_dt = datetime.fromtimestamp(retention_floor, UTC)
     # source presence
     if latest is None and not opens:
-        return {"timeframe": tf, "period_seconds": p, "history_key": _hist_index_key(tf), "latest_key": _latest_key(tf),
+        return {"timeframe": tf, "period_seconds": p, "history_key": _hist_index_key(instrument, tf), "latest_key": _latest_key(instrument, tf),
                 "history_depth": 0, "min_required_depth": MIN_REQUIRED_DEPTH[tf], "sufficient_depth": False,
                 "retention_policy": f"{RETENTION_DAYS[tf]}d", "retention_floor_utc": cc._fmt(retention_floor_dt),
                 "oldest_open_utc": None, "newest_open_utc": None, "expected_grid_policy": EXPECTED_GRID_POLICY[tf],
@@ -203,7 +210,7 @@ def classify_timeframe(tf, *, latest, history_opens, now, latest_status=None):
         candidates.append("OUT_OF_RETENTION")
     gap_state = _worst(candidates) if candidates else "OK"
     srt = sorted(opens)
-    return {"timeframe": tf, "period_seconds": p, "history_key": _hist_index_key(tf), "latest_key": _latest_key(tf),
+    return {"timeframe": tf, "period_seconds": p, "history_key": _hist_index_key(instrument, tf), "latest_key": _latest_key(instrument, tf),
             "history_depth": depth, "min_required_depth": MIN_REQUIRED_DEPTH[tf], "sufficient_depth": sufficient,
             "retention_policy": f"{RETENTION_DAYS[tf]}d", "retention_floor_utc": cc._fmt(retention_floor_dt),
             "oldest_open_utc": _fmt_epoch(srt[0]) if srt else None, "newest_open_utc": _fmt_epoch(srt[-1]) if srt else None,
@@ -252,11 +259,16 @@ def classify_d1_boundary(*, d1_latest, d1_history_opens, now, forward_enabled=Fa
 
 
 # --------------------------------------------------------------------------- aggregate contract (PURE)
-def build_gaps_contract(*, timeframes, d1_boundary, generated_at_utc, source="hermes:candles:XAU_USD:* (governed, read-only)"):
-    """Assemble hermes:gaps:XAU_USD:v1. repair/backfill/consumer are HARD false (this surface never repairs/backfills/exposes)."""
+def build_gaps_contract(*, instrument, timeframes, d1_boundary, generated_at_utc, source=None):
+    """Assemble hermes:gaps:<instrument>:v1 (generic per instrument; XAU byte-identical). repair/backfill/consumer are
+    HARD false (this surface never repairs/backfills/exposes)."""
+    if not instrument or instrument in _ALIAS_DENY:
+        raise ValueError(f"GOV-HERMES-GAPS-001: instrument {instrument!r} not a canonical symbol (alias/empty rejected)")
+    if source is None:
+        source = f"hermes:candles:{instrument}:* (governed, read-only)"
     overall = _worst([b["gap_state"] for b in timeframes.values()])
     c = {"publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
-         "instrument": CANONICAL_INSTRUMENT, "canonical_instrument": CANONICAL_INSTRUMENT,
+         "instrument": instrument, "canonical_instrument": instrument,
          "generated_at_utc": cc._fmt(cc.normalise_utc(generated_at_utc)), "source": source,
          "calendar_source": CALENDAR_SOURCE, "consumer_live": False, "repair_executed": False,
          "backfill_executed": False, "deterministic_only": True, "overall_gap_state": overall,
@@ -268,8 +280,9 @@ def build_gaps_contract(*, timeframes, d1_boundary, generated_at_utc, source="he
 
 
 def validate_gaps_contract(c):
-    if c.get("instrument") != CANONICAL_INSTRUMENT or c.get("canonical_instrument") != CANONICAL_INSTRUMENT:
-        raise ValueError("GOV-HERMES-GAPS-001: instrument must be canonical XAU_USD")
+    inst = c.get("instrument")
+    if not inst or inst in _ALIAS_DENY or c.get("canonical_instrument") != inst:
+        raise ValueError("GOV-HERMES-GAPS-001: instrument must be a canonical symbol (no alias/empty; canonical==instrument)")
     if "XAUUSD" in json.dumps(c):
         raise ValueError("GOV-HERMES-GAPS-002: XAUUSD alias must not appear")
     for f in ("repair_executed", "backfill_executed", "consumer_live"):
@@ -286,35 +299,37 @@ def validate_gaps_contract(c):
 
 
 # --------------------------------------------------------------------------- read-only Redis reader (NO writes)
-def _latest_key(tf):
-    return f"hermes:candles:{CANONICAL_INSTRUMENT}:{tf}:latest:v1"
+def _latest_key(instrument, tf):
+    return f"hermes:candles:{instrument}:{tf}:latest:v1"
 
 
-def _hist_index_key(tf):
-    return f"hermes:candles:{CANONICAL_INSTRUMENT}:{tf}:history:v1:index"
+def _hist_index_key(instrument, tf):
+    return f"hermes:candles:{instrument}:{tf}:history:v1:index"
 
 
 def _fmt_epoch(epoch):
     return cc._fmt(datetime.fromtimestamp(int(epoch), UTC))
 
 
-def analyze_gaps(client, *, now, forward_enabled=False, forward_authorised=False):
-    """READ-ONLY: reads governed candle latest/history from Redis and builds the gaps contract. Performs NO writes/deletes,
-    NO SQL, NO backfill/repair. `client` is used only for GET/ZRANGE/EXISTS. Returns the contract dict (caller decides to
-    publish in a LATER gated WO — this function never sets a key)."""
+def analyze_gaps(client, *, instrument, now, forward_enabled=False, forward_authorised=False):
+    """READ-ONLY: reads governed candle latest/history for `instrument` from Redis and builds its gaps contract. Performs
+    NO writes/deletes, NO SQL, NO backfill/repair. `client` is used only for GET/ZRANGE/EXISTS. Fully partitioned by
+    instrument (every key read is instrument-scoped), so concurrent per-instrument analysis cannot collide. Returns the
+    contract dict; this function never sets a key."""
     tf_blocks = {}
     for tf in TIMEFRAMES:
-        lraw = client.get(_latest_key(tf))
+        lraw = client.get(_latest_key(instrument, tf))
         latest = json.loads(lraw) if lraw else None
-        idx = _hist_index_key(tf)
+        idx = _hist_index_key(instrument, tf)
         opens = [int(e) for e in client.zrange(idx, 0, -1)] if client.exists(idx) else []
-        tf_blocks[tf] = classify_timeframe(tf, latest=latest, history_opens=opens, now=now)
-    d1raw = client.get(_latest_key("D1"))
+        tf_blocks[tf] = classify_timeframe(tf, instrument=instrument, latest=latest, history_opens=opens, now=now)
+    d1raw = client.get(_latest_key(instrument, "D1"))
     d1_latest = json.loads(d1raw) if d1raw else None
-    d1_opens = [int(e) for e in client.zrange(_hist_index_key("D1"), 0, -1)] if client.exists(_hist_index_key("D1")) else []
+    d1idx = _hist_index_key(instrument, "D1")
+    d1_opens = [int(e) for e in client.zrange(d1idx, 0, -1)] if client.exists(d1idx) else []
     d1b = classify_d1_boundary(d1_latest=d1_latest, d1_history_opens=d1_opens, now=now,
                                forward_enabled=forward_enabled, forward_authorised=forward_authorised)
-    return build_gaps_contract(timeframes=tf_blocks, d1_boundary=d1b, generated_at_utc=now)
+    return build_gaps_contract(instrument=instrument, timeframes=tf_blocks, d1_boundary=d1b, generated_at_utc=now)
 
 
 # --------------------------------------------------------------------------- dark publisher (default DISABLED)
@@ -327,34 +342,50 @@ class DisabledGapsPublisher:
 
 
 class GapsPublisher:
-    """ENABLED + AUTHORISED gaps publisher. Builds the read-only gaps contract from governed candle surfaces and, when
-    driven by the gated runtime step, publishes it to the SINGLE key GAPS_KEY. It NEVER writes any candle/history key,
-    NEVER deletes, NEVER writes SQL, NEVER launches backfill/repair, NEVER calls vendor/market_map/Falcon. The contract
-    invariants consumer_live/repair_executed/backfill_executed stay HARD false (enforced by validate_gaps_contract)."""
+    """ENABLED + AUTHORISED gaps publisher. For each registry gap-detection-enabled instrument it builds that instrument's
+    read-only gaps contract from its governed candle surfaces and publishes it to sel.gaps_key(instrument) (one SET per
+    instrument; XAU byte-identical). It NEVER writes any candle/history key, NEVER deletes, NEVER writes SQL, NEVER launches
+    backfill/repair, NEVER calls vendor/market_map/Falcon. consumer_live/repair_executed/backfill_executed stay HARD false
+    (enforced by validate_gaps_contract). Instrument authority is the canonical registry selection seam, NOT a literal;
+    zero selected instruments is a valid no-publication state."""
     enabled = True
 
-    def __init__(self, *, redis_client):
+    def __init__(self, *, redis_client, records=None):
         if redis_client is None:
             raise ValueError("GOV-HERMES-GAPS-020: enabled gaps publisher requires an explicit redis client")
         self.redis_client = redis_client
+        # Deterministic, sorted selection through the seam; loaded once at construction (records injected for tests).
+        # Default-load goes through the registry loader's module attribute (single fail-closed source, patchable in tests).
+        if records is None:
+            from utils import hermes_instrument_registry_v1 as reg
+            records = reg.load_from_db()
+        self.instruments = tuple(sel.selection_for("gap", records))
 
-    def analyze(self, *, now, forward_enabled=False, forward_authorised=False):
-        return analyze_gaps(self.redis_client, now=now, forward_enabled=forward_enabled,
-                            forward_authorised=forward_authorised)
+    def analyze(self, *, instrument, now, forward_enabled=False, forward_authorised=False):
+        return analyze_gaps(self.redis_client, instrument=instrument, now=now,
+                            forward_enabled=forward_enabled, forward_authorised=forward_authorised)
 
     def publish(self, *, now, forward_enabled=False, forward_authorised=False):
-        """Governed publication: build the read-only gaps contract (analyze_gaps) and SET exactly ONE key (GAPS_KEY).
-        Re-validates before write (defence-in-depth: never publish an invalid/aliased/overclaiming contract). Persistent
-        truth surface -> no TTL (parity with control-plane manifest/catalog). Writes NOTHING else; no delete/SQL/backfill/
-        repair. Returns a small result dict; consumer_live/repair_executed/backfill_executed are hard false."""
-        contract = self.analyze(now=now, forward_enabled=forward_enabled, forward_authorised=forward_authorised)
-        validate_gaps_contract(contract)                       # fail-closed guard immediately before the single SET
-        self.redis_client.set(GAPS_KEY, json.dumps(contract))  # the ONLY write this surface performs
-        return {"published": 1, "key": GAPS_KEY, "overall_gap_state": contract["overall_gap_state"],
+        """Governed publication: for each selected instrument, build its read-only gaps contract (analyze_gaps) and SET
+        exactly ONE key sel.gaps_key(instrument). Re-validates before every write (defence-in-depth: never publish an
+        invalid/aliased/overclaiming contract). Persistent truth surface -> no TTL. Writes NOTHING else; no delete/SQL/
+        backfill/repair. Per-instrument keys never collide (partitioned by instrument). Zero selected -> published:0.
+        Returns a result dict; consumer_live/repair_executed/backfill_executed are hard false."""
+        results = {}
+        for instrument in self.instruments:
+            contract = self.analyze(instrument=instrument, now=now, forward_enabled=forward_enabled,
+                                    forward_authorised=forward_authorised)
+            validate_gaps_contract(contract)                   # fail-closed guard immediately before this instrument's SET
+            key = gaps_key(instrument)
+            self.redis_client.set(key, json.dumps(contract))   # the ONLY write this surface performs (one per instrument)
+            results[instrument] = {"key": key, "overall_gap_state": contract["overall_gap_state"]}
+        return {"published": len(results), "keys": [r["key"] for r in results.values()],
+                "instruments": list(results), "per_instrument": results,
                 "consumer_live": False, "repair_executed": False, "backfill_executed": False}
 
     def status(self):
-        return {"enabled": True, "key": GAPS_KEY, "read_only": True,
+        return {"enabled": True, "instruments": list(self.instruments),
+                "keys": [gaps_key(i) for i in self.instruments], "read_only": True,
                 "repair_executed": False, "backfill_executed": False}
 
 

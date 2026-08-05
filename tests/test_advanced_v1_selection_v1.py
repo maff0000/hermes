@@ -53,13 +53,15 @@ def test_indicator_key_parity_with_existing_module():
 
 
 def test_gaps_key_parity_with_existing_module():
+    # WO-...-XAU-MODULE-ADOPTION-0001: the gaps module now derives its per-instrument key from the seam; parity is proven
+    # against the byte-identical XAU key it emitted as its former single aggregate.
     from utils import hermes_gaps_v1 as g
-    assert sel.gaps_key("XAU_USD") == g.GAPS_KEY
+    assert sel.gaps_key("XAU_USD") == g.gaps_key("XAU_USD") == "hermes:gaps:XAU_USD:v1"
 
 
 def test_backfill_status_key_parity_with_existing_module():
     from utils import hermes_backfill_status_v1 as b
-    assert sel.backfill_status_key("XAU_USD") == b.BACKFILL_STATUS_KEY
+    assert sel.backfill_status_key("XAU_USD") == b.backfill_status_key("XAU_USD") == "hermes:backfill:status:XAU_USD:v1"
 
 
 def test_tick_key_parity_with_existing_module():

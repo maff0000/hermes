@@ -9,6 +9,8 @@ ADOPTED_SUPPORT = [
     "utils/hermes_instrument_registry_v1.py",
     "utils/tick_live_emitter_v1.py",       # ADOPTED
     "utils/hermes_indicators_v1.py",       # ADOPTED
+    "utils/hermes_gaps_v1.py",             # ADOPTED
+    "utils/hermes_backfill_status_v1.py",  # ADOPTED
 ]
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 

@@ -18,7 +18,20 @@ import utils.hermes_gaps_v1 as gaps
 import utils.hermes_runtime_publisher_steps_v1 as steps
 import utils.hermes_publisher_runtime_v1 as runtime
 
+
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: XAU-active rollout -> enabled publisher selects exactly [XAU_USD] with no DB, so
+    the single-key wiring behaviour holds as a CONSEQUENCE of the registry gap-detection flag, not a hard-coded ticker."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
+
+
 UTC = timezone.utc
+GAPS_KEY = "hermes:gaps:XAU_USD:v1"
+BFS_KEY = "hermes:backfill:status:XAU_USD:v1"
 NOW = datetime(2026, 7, 13, 12, 30, tzinfo=UTC)
 
 
@@ -53,11 +66,11 @@ def _gaps_contract(gap_state="GAPS_FOUND", d1_state="OK"):
            "sealed_complete": True, "source_count": 6, "expected_source_count": 6, "coverage": 1.0, "gap": "NONE",
            "invalid_anchor_count": 0, "non_22_anchor_count": 0, "forward_writer_enabled": True,
            "forward_writer_authorised": True, "weekend_d1_buckets": "NOT_EXPECTED", "d1_boundary_state": d1_state}
-    return gaps.build_gaps_contract(timeframes=tfb, d1_boundary=d1b, generated_at_utc=NOW)
+    return gaps.build_gaps_contract(instrument="XAU_USD", timeframes=tfb, d1_boundary=d1b, generated_at_utc=NOW)
 
 
 def _live(gap_state="GAPS_FOUND"):
-    return FakeRedis({gaps.GAPS_KEY: json.dumps(_gaps_contract(gap_state))})
+    return FakeRedis({GAPS_KEY: json.dumps(_gaps_contract(gap_state))})
 
 
 def _enable(monkeypatch, *, enabled=True, authorised=True):
@@ -66,9 +79,10 @@ def _enable(monkeypatch, *, enabled=True, authorised=True):
 
 
 # ---- key + 1 & 2: disabled publisher / step are no-op ----------------------
-def test_key_constant():
-    assert bfs.BACKFILL_STATUS_KEY == "hermes:backfill:status:XAU_USD:v1"
-    assert "XAUUSD" not in bfs.BACKFILL_STATUS_KEY
+def test_key_factory_per_instrument_xau_byte_identical():
+    assert bfs.backfill_status_key("XAU_USD") == BFS_KEY == "hermes:backfill:status:XAU_USD:v1"
+    assert bfs.backfill_status_key("EUR_USD") == "hermes:backfill:status:EUR_USD:v1"
+    assert "XAUUSD" not in bfs.backfill_status_key("XAU_USD")
 
 
 def test_disabled_publisher_and_step_noop(monkeypatch):
@@ -111,14 +125,14 @@ def test_enabled_authorised_publishes_single_key(monkeypatch):
     _enable(monkeypatch)
     r = _live("GAPS_FOUND")
     res = steps.backfill_status_step(r)
-    assert res["published"] == 1 and res["key"] == bfs.BACKFILL_STATUS_KEY
-    assert r.sets == [(bfs.BACKFILL_STATUS_KEY, None)]              # exactly one write, no TTL
+    assert res["published"] == 1 and res["keys"] == [BFS_KEY]
+    assert r.sets == [(BFS_KEY, None)]              # exactly one write, no TTL
     assert r.deletes == [] and r.zadds == []
     # 8: never wrote the gaps key or any other key
-    assert [k for k, _ in r.sets] == [bfs.BACKFILL_STATUS_KEY]
-    assert gaps.GAPS_KEY not in [k for k, _ in r.sets]
+    assert [k for k, _ in r.sets] == [BFS_KEY]
+    assert GAPS_KEY not in [k for k, _ in r.sets]
     assert not any(k.startswith("hermes:candles:") for k, _ in r.sets)
-    payload = json.loads(r.kv[bfs.BACKFILL_STATUS_KEY])
+    payload = json.loads(r.kv[BFS_KEY])
     assert bfs.validate_backfill_status_contract(payload) is True  # 6: validates
     for f in ("consumer_live", "execution_enabled", "backfill_executed", "repair_executed"):
         assert payload[f] is False                                 # 7
@@ -141,21 +155,21 @@ def test_missing_gaps_publishes_gaps_surface_missing(monkeypatch):
     _enable(monkeypatch)
     r = FakeRedis({})                                              # no gaps key
     steps.backfill_status_step(r)
-    assert json.loads(r.kv[bfs.BACKFILL_STATUS_KEY])["overall_status"] == "GAPS_SURFACE_MISSING"
+    assert json.loads(r.kv[BFS_KEY])["overall_status"] == "GAPS_SURFACE_MISSING"
 
 
 def test_gaps_found_publishes_recovery_not_ok(monkeypatch):
     _enable(monkeypatch)
     r = _live("GAPS_FOUND")
     steps.backfill_status_step(r)
-    p = json.loads(r.kv[bfs.BACKFILL_STATUS_KEY])
+    p = json.loads(r.kv[BFS_KEY])
     assert p["overall_status"] == "READY_FOR_BACKFILL_DESIGN"
     assert p["overall_status"] != "OK"
 
 
 def test_ok_cannot_be_published(monkeypatch):
     # a forced-OK contract must be rejected by the pre-SET validation (publish never emits OK)
-    c = bfs.build_backfill_status_contract(gaps_contract=_gaps_contract(), now=NOW)
+    c = bfs.build_backfill_status_contract(instrument="XAU_USD", gaps_contract=_gaps_contract(), now=NOW)
     c["overall_status"] = "OK"
     with pytest.raises(ValueError, match="GOV-HERMES-BFS-006"):
         bfs.validate_backfill_status_contract(c)
@@ -163,9 +177,9 @@ def test_ok_cannot_be_published(monkeypatch):
 
 def test_xauusd_never_leaks_through_publish(monkeypatch):
     _enable(monkeypatch)
-    r = FakeRedis({gaps.GAPS_KEY: json.dumps({"instrument": "XAUUSD"})})   # poisoned gaps -> fail-closed
+    r = FakeRedis({GAPS_KEY: json.dumps({"instrument": "XAUUSD"})})   # poisoned gaps -> fail-closed
     steps.backfill_status_step(r)
-    p = json.loads(r.kv[bfs.BACKFILL_STATUS_KEY])
+    p = json.loads(r.kv[BFS_KEY])
     assert p["overall_status"] == "GAPS_SURFACE_MISSING"
     assert p["instrument"] == "XAU_USD" and "XAUUSD" not in json.dumps(p)
 

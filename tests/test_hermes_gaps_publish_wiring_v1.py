@@ -20,8 +20,20 @@ import utils.candle_contract_v1 as cc
 
 UTC = timezone.utc
 INST = "XAU_USD"
+KEY = "hermes:gaps:XAU_USD:v1"                          # the XAU per-instrument gaps key (byte-identical to the former aggregate)
 NOW_OPEN = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)      # Wednesday noon -> market OPEN
 NOW_CLOSED = datetime(2026, 7, 12, 13, 0, tzinfo=UTC)   # Sunday 13:00 -> market CLOSED_WEEKEND (< 22:00)
+
+
+@pytest.fixture(autouse=True)
+def _registry(monkeypatch):
+    """WO-...-XAU-MODULE-ADOPTION-0001: gap selection is the canonical registry. Patch the loader to the XAU-active
+    rollout (XAU gap-enabled; 7 new NOT_ENABLED) so the enabled publisher selects exactly [XAU_USD] with no DB — the
+    single-key wiring behaviour is preserved as a CONSEQUENCE of the registry capability flag, not a hard-coded ticker."""
+    from tests.test_hermes_instrument_registry_v1 import rollout_rows
+    import utils.hermes_instrument_registry_v1 as reg
+    recs = reg.load_registry(rollout_rows())
+    monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
 
 
 class FakeRedis:
@@ -83,17 +95,17 @@ def _seed(now=NOW_OPEN, *, h1_open_hist=False):
     r = FakeRedis()
     d1_open = datetime(2026, 7, 7, 22, 0, tzinfo=UTC)
     ep = int(d1_open.timestamp())
-    r.kv[gaps._latest_key("D1")] = json.dumps(_sealed_d1(d1_open))
-    r.z.setdefault(gaps._hist_index_key("D1"), {})[str(ep)] = ep
+    r.kv[gaps._latest_key(INST, "D1")] = json.dumps(_sealed_d1(d1_open))
+    r.z.setdefault(gaps._hist_index_key(INST, "D1"), {})[str(ep)] = ep
     if h1_open_hist:
         now_e = int(now.timestamp()); p = gaps.PERIOD_SECONDS["H1"]
         floor = now_e - gaps.RETENTION_DAYS["H1"] * 86400
         opens = {o for o in gaps._grid_opens("H1", floor - gaps._OOR_LOOKBACK_PERIODS * p, now_e)
                  if o >= floor and gaps._period_fully_open(o, "H1")}
-        idx = gaps._hist_index_key("H1")
+        idx = gaps._hist_index_key(INST, "H1")
         for o in opens:
             r.z.setdefault(idx, {})[str(o)] = o
-        r.kv[gaps._latest_key("H1")] = json.dumps(_latest_env("H1", datetime.fromtimestamp(max(opens), UTC)))
+        r.kv[gaps._latest_key(INST, "H1")] = json.dumps(_latest_env("H1", datetime.fromtimestamp(max(opens), UTC)))
     return r
 
 
@@ -109,9 +121,10 @@ def _enable(monkeypatch, *, enabled=True, authorised=True):
 
 
 # ---- key constant ---------------------------------------------------------
-def test_gaps_key_is_single_canonical_key():
-    assert gaps.GAPS_KEY == "hermes:gaps:XAU_USD:v1"
-    assert "XAUUSD" not in gaps.GAPS_KEY
+def test_gaps_key_is_per_instrument_xau_byte_identical():
+    assert gaps.gaps_key("XAU_USD") == KEY == "hermes:gaps:XAU_USD:v1"      # XAU byte-identical to the former aggregate
+    assert gaps.gaps_key("EUR_USD") == "hermes:gaps:EUR_USD:v1"             # generic per instrument
+    assert "XAUUSD" not in gaps.gaps_key("XAU_USD")
 
 
 # ---- 1 & 10: disabled publisher / step performs NO Redis writes -----------
@@ -143,12 +156,12 @@ def test_enabled_authorised_publishes_single_key(monkeypatch):
     _enable(monkeypatch)
     r = _seed(h1_open_hist=True)
     res = steps.gaps_step(r)
-    assert res["published"] == 1 and res["key"] == gaps.GAPS_KEY
+    assert res["published"] == 1 and res["keys"] == [KEY]
     # exactly ONE write, and it is the gaps key, persistent (no TTL)
-    assert r.sets == [(gaps.GAPS_KEY, None)]
-    assert gaps.GAPS_KEY in r.kv
+    assert r.sets == [(KEY, None)]
+    assert KEY in r.kv
     # 5: invariants in the returned result AND the published payload
-    payload = json.loads(r.kv[gaps.GAPS_KEY])
+    payload = json.loads(r.kv[KEY])
     assert payload["consumer_live"] is False
     assert payload["repair_executed"] is False
     assert payload["backfill_executed"] is False
@@ -159,7 +172,7 @@ def test_published_payload_validates(monkeypatch):
     _enable(monkeypatch)
     r = _seed(h1_open_hist=True)
     steps.gaps_step(r)
-    payload = json.loads(r.kv[gaps.GAPS_KEY])
+    payload = json.loads(r.kv[KEY])
     assert gaps.validate_gaps_contract(payload) is True
     for f in ("schema_version", "publisher", "instrument", "generated_at_utc", "source", "calendar_source",
               "consumer_live", "repair_executed", "backfill_executed", "overall_gap_state", "severity_order",
@@ -176,7 +189,7 @@ def test_publish_writes_only_gaps_key_no_candle_no_delete(monkeypatch):
     _enable(monkeypatch)
     r = _seed(h1_open_hist=True)
     steps.gaps_step(r)
-    assert [k for k, _ in r.sets] == [gaps.GAPS_KEY]                        # only the gaps key
+    assert [k for k, _ in r.sets] == [KEY]                        # only the gaps key
     assert not any(k.startswith("hermes:candles:") for k, _ in r.sets)     # never a candle/history key
     assert r.deletes == []                                                 # never deletes
     assert r.zadds == []                                                   # never zadd (no history mutation)
@@ -213,11 +226,11 @@ def test_xauusd_alias_never_leaks_through_publish(monkeypatch):
     r = _seed()
     # poison the D1 latest source with the forbidden alias — the publisher must NOT propagate it (fail-closed: the
     # poisoned source is treated as NOT_SEALED and its instrument string never enters the published contract).
-    r.kv[gaps._latest_key("D1")] = json.dumps({"status": "OK", "data": {"instrument": "XAUUSD",
+    r.kv[gaps._latest_key(INST, "D1")] = json.dumps({"status": "OK", "data": {"instrument": "XAUUSD",
                                               "timestamp_utc": cc._fmt(datetime(2026, 7, 7, 22, 0, tzinfo=UTC))}})
     res = steps.gaps_step(r)
     assert res["published"] == 1
-    payload = json.loads(r.kv[gaps.GAPS_KEY])
+    payload = json.loads(r.kv[KEY])
     assert payload["instrument"] == "XAU_USD"
     assert "XAUUSD" not in json.dumps(payload)                            # alias never reaches the published key
 
@@ -227,10 +240,10 @@ def test_weekend_closed_not_gaps_through_publish():
     # publish() takes an explicit `now` (the runtime step uses wall-clock _now()); drive a deterministic weekend now.
     r = _seed(now=NOW_CLOSED, h1_open_hist=True)
     gaps.GapsPublisher(redis_client=r).publish(now=NOW_CLOSED, forward_enabled=False, forward_authorised=False)
-    h1 = json.loads(r.kv[gaps.GAPS_KEY])["timeframes"]["H1"]
+    h1 = json.loads(r.kv[KEY])["timeframes"]["H1"]
     assert h1["market_phase"] == "CLOSED_WEEKEND"
     assert h1["gap_state"] != "GAPS_FOUND"                                 # closed-market slots never GAPS_FOUND
-    assert r.sets == [(gaps.GAPS_KEY, None)] and r.deletes == []           # still one key, still no delete
+    assert r.sets == [(KEY, None)] and r.deletes == []           # still one key, still no delete
 
 
 # ---- 8 & 17: no SQL / market_map / Falcon / consumer-live in NEW code -----
