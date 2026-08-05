@@ -2,7 +2,7 @@
 
 **WO:** `WO-HELM-HERMES-ADVANCED-V1-EIGHT-INSTRUMENT-SHADOW-0001`
 **Base:** canonical `main` `40a29f6c` (PR #131 merge).
-**Verdict:** `AMBER` — one bounded instrument-policy metadata gap (see §Finding). Everything else GREEN.
+**Verdict:** `GREEN` — the previous AMBER market-hours-policy metadata gap is CORRECTED (see §Correction). All families GREEN.
 
 ## What this proves
 The now-generic Advanced-v1 pipeline (tick, indicators, gaps, backfill-status, feed-health) operates across the full
@@ -44,16 +44,26 @@ rollback (14 rows, WTICO→base_metals, metadata cols dropped, `energy` removed)
 - **fault isolation:** stale/missing/registry-down isolated & fail-closed; unaffected instruments uncontaminated.
 - **data-only activation:** same code, XAU-only → eight, purely by registry data.
 
-## Finding (AMBER) — smallest correction
-The generic gap classifier is registry-driven for **selection** but its **market-hours classification** still uses one
-uniform weekly-weekend calendar (`gaps.market_phase`) and does **not** consume the per-instrument `market_hours_policy`
-metadata (`fx_24x5|metals|index_cash|energy`). There is **no ticker branch** (hard anti-requirement holds), but
-`index_cash` (SPX500_USD) and `energy` (WTICO_USD) expected daily closures are not modelled, so "expected closure vs
-outage" cannot be distinguished for those policies.
+## Correction (was AMBER → now GREEN) — metadata-driven market-hours policy
+New reusable authority `utils/hermes_market_hours_policy_v1.py`: four governed policies as **data instances** —
+`fx_24x5`, `metals`, `index_cash`, `energy` — resolved by the registry `market_hours_policy` key (`resolve_policy`,
+fail-closed on unknown/missing, **no** uniform default, **no** ticker lookup). DST-correct via explicit
+`ZoneInfo("America/New_York")`; UTC is the sole internal authority. `fx`/`metals` mirror the governed
+`config/market_hours_schedule.v1.json` (config_version 3); `index_cash`/`energy` are explicit **documented** governed
+assumptions (no in-repo named schedule) to validate against the exchange calendar before production activation.
 
-**Smallest correction:** route `market_phase`/`classify_timeframe` through a reusable `MarketHoursPolicy` selected by the
-registry `market_hours_policy` key (a policy-class lookup — still no ticker branch). Pinned by
-`test_market_hours_policy_metadata_not_yet_consumed_by_gaps_AMBER_finding`.
+The generic gap path now consumes it: `market_phase(dt, policy)`, `_period_fully_open(open_epoch, tf, policy)`,
+`classify_timeframe(..., policy)`, `analyze_gaps(..., policy)`; `GapsPublisher` resolves each instrument's policy from
+registry metadata and records the key in the contract (`market_hours_policy` + `calendar_source`). Results:
+- **fx_24x5** continuous week, no daily break; **XAU/FX parity preserved** (metals Sun-18:00/Fri-17:00 NY coincide with
+  the legacy fixed-UTC window in EDT — existing gaps tests unchanged, 3012-test suite green).
+- **metals/index_cash/energy** model the daily 17:00–18:00 NY halt as `CLOSED_SESSION` (expected closure, **not** an
+  outage), DST-correct (21:30Z summer / 22:30Z winter).
+- Open-period gaps still detected; expected-closure slots never fabricate `GAPS_FOUND`; per-policy isolation holds.
+- **No ticker branch, no ticker→policy dict, no host-local time, no env-driven selection** (static scan enforced).
+
+Named results: `MARKET_HOURS_POLICY_ISOLATION_GREEN`, `EIGHT_INSTRUMENT_MARKET_HOURS_POLICY_GREEN`. Pinned by
+`tests/test_market_hours_policy_v1.py` (21 tests) and the shadow suite.
 
 ## Held (not performed)
 Production migration 025, deployment, restart, seven-new production activation, production Redis keys, OANDA

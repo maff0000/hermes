@@ -265,26 +265,61 @@ def test_alias_rejected_every_family():
             fn()
 
 
-def test_market_hours_policy_metadata_not_yet_consumed_by_gaps_AMBER_finding():
-    """TRANSPARENT AMBER FINDING (no silent cap): the generic gap classifier is registry-driven for SELECTION but its
-    market-hours classification still uses ONE uniform weekly-weekend calendar (gaps.market_phase) — it does NOT yet
-    consume the per-instrument `market_hours_policy` metadata (fx_24x5|metals|index_cash|energy). There is NO ticker
-    branch (the hard anti-requirement holds), but index_cash (SPX500_USD) and energy (WTICO_USD) expected DAILY closures
-    are not modelled, so 'expected closure vs outage' cannot be distinguished for those policies. Smallest correction:
-    route market_phase/classify_timeframe through a reusable MarketHoursPolicy selected by the registry
-    market_hours_policy key (policy-class lookup, still no ticker branch). This test PINS the current behaviour so the
-    gap is visible and regression-tracked until that wiring lands."""
-    import inspect
-    gsrc = inspect.getsource(gaps)
-    # gaps does not reference the registry market-hours policy metadata anywhere in its market-phase logic
-    assert "market_hours_policy" not in gsrc
-    # and it exposes exactly one uniform gold-centric calendar function (no per-policy variants yet)
-    assert gsrc.count("def market_phase(") == 1
-    # registry DOES carry the per-instrument policy that the classifier should eventually consume
+def test_market_hours_policy_metadata_consumed_by_gaps_CORRECTED():
+    """CORRECTION LANDED: the generic gap classifier now resolves market-hours behaviour from the registry
+    `market_hours_policy` key via the reusable mhp resolver — no uniform default, no ticker branch. Each cohort
+    instrument's publisher-produced gaps contract records its governed policy key; the six non-cohort instruments still
+    carry valid policy metadata. Pins the corrected behaviour so a regression to the uniform calendar is caught."""
+    import utils.hermes_market_hours_policy_v1 as mhp
     recs = records()
     policies = {r.symbol: r.market_hours_policy for r in recs}
     assert policies["SPX500_USD"] == "index_cash" and policies["WTICO_USD"] == "energy"
     assert policies["EUR_USD"] == "fx_24x5" and policies["XAU_USD"] == "metals"
+    # the gap publisher resolves and records the governed policy key per instrument (metadata-driven, not uniform)
+    r = FakeRedis()
+    for s in COHORT:
+        _seed_candles(r, s)
+    gaps.GapsPublisher(redis_client=r, records=recs).publish(now=NOW)
+    for s in COHORT:
+        c = json.loads(r.kv[f"hermes:gaps:{s}:v1"])
+        assert c["market_hours_policy"] == policies[s]                 # per-instrument governed policy key recorded
+        assert c["calendar_source"] == f"MARKET_HOURS_POLICY:{policies[s]}"
+    # resolver is fail-closed: unknown/missing policy metadata never silently becomes a uniform default
+    with pytest.raises(mhp.PolicyError):
+        mhp.resolve_policy("not_a_policy")
+    with pytest.raises(mhp.PolicyError):
+        mhp.resolve_policy(None)
+
+
+def test_eight_instrument_market_hours_policy_green():
+    """EIGHT_INSTRUMENT_MARKET_HOURS_POLICY_GREEN — at the daily 17:00-18:00 NY halt, the SAME publisher classifies each
+    cohort instrument by its registry policy: fx_24x5 stays OPEN, metals/index_cash/energy enter CLOSED_SESSION — no
+    ticker branch, per-instrument, recorded in each contract's market_hours_policy + market_phase."""
+    recs = records(); r = FakeRedis()
+    halt = datetime(2026, 7, 8, 21, 30, tzinfo=UTC)         # Wed 17:30 EDT — inside the daily halt window
+    gaps.GapsPublisher(redis_client=r, records=recs).publish(now=halt)
+    expected_phase = {"fx_24x5": "OPEN", "metals": "CLOSED_SESSION", "index_cash": "CLOSED_SESSION", "energy": "CLOSED_SESSION"}
+    pol = {rec.symbol: rec.market_hours_policy for rec in recs}
+    for s in COHORT:
+        c = json.loads(r.kv[f"hermes:gaps:{s}:v1"])
+        assert c["market_hours_policy"] == pol[s]
+        assert c["timeframes"]["M1"]["market_phase"] == expected_phase[pol[s]], s
+    # fx instruments OPEN while metals/index/energy are CLOSED_SESSION — simultaneously, from one generic pass
+    assert json.loads(r.kv["hermes:gaps:EUR_USD:v1"])["timeframes"]["M1"]["market_phase"] == "OPEN"
+    assert json.loads(r.kv["hermes:gaps:SPX500_USD:v1"])["timeframes"]["M1"]["market_phase"] == "CLOSED_SESSION"
+
+
+def test_market_hours_policy_isolation_green():
+    """MARKET_HOURS_POLICY_ISOLATION_GREEN — different policies coexist with no shared/global market phase; one
+    instrument's expected closure does not change another's classification."""
+    recs = records(); r = FakeRedis()
+    halt = datetime(2026, 7, 8, 21, 30, tzinfo=UTC)
+    gaps.GapsPublisher(redis_client=r, records=recs).publish(now=halt)
+    phases = {s: json.loads(r.kv[f"hermes:gaps:{s}:v1"])["timeframes"]["M1"]["market_phase"] for s in COHORT}
+    # WTICO (energy) closed does not suppress EUR_USD (fx) open; each key holds its own policy-correct phase
+    assert phases["WTICO_USD"] == "CLOSED_SESSION" and phases["EUR_USD"] == "OPEN"
+    assert phases["XAU_USD"] == "CLOSED_SESSION" and phases["USD_JPY"] == "OPEN"
+    assert set(k for k in r.kv if k.startswith("hermes:gaps:")) == {f"hermes:gaps:{s}:v1" for s in COHORT}
 
 
 def test_full_14_registry_preserved():

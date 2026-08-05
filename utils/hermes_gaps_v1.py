@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from utils import candle_contract_v1 as cc
 from utils import candle_d1_history_v1 as d1h     # reuse: assert_sealed_complete_d1 + D1 forward gate names (safe shared)
 from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (gap-capability instruments + generic keys)
+from utils import hermes_market_hours_policy_v1 as mhp      # reusable market-hours policy authority (selected by registry key)
 
 UTC = timezone.utc
 # Instrument authority is the canonical registry (selection seam), NOT a per-module literal. XAUUSD is a rejected
@@ -48,7 +49,7 @@ _NY5PM_SHIFT = 2 * 3600                           # 22:00Z is 2h before UTC midn
 GAP_STATES = ("SOURCE_MISSING", "INVALID_ANCHOR", "INSUFFICIENT_HISTORY", "GAPS_FOUND", "STALE",
               "MARKET_CLOSED", "OUT_OF_RETENTION", "OK")
 _SEVERITY = {s: i for i, s in enumerate(GAP_STATES)}     # lower index = worse
-MARKET_PHASES = ("OPEN", "CLOSED_WEEKEND")
+MARKET_PHASES = mhp.MARKET_PHASES        # ("OPEN","CLOSED_WEEKEND","CLOSED_SESSION") — metadata-driven policy vocab
 
 # D1 gates (reused from the D1 history writer) for forward-writer state reporting.
 D1_FWD_ENABLED_ENV = d1h.D1_HISTORY_ENABLED_ENV
@@ -65,9 +66,13 @@ def gaps_key(instrument):
 
 
 # --------------------------------------------------------------------------- market calendar (weekly weekend, UTC)
-def market_phase(dt):
-    """OPEN vs CLOSED_WEEKEND for gold at UTC datetime dt. Open-market ~ Sunday 22:00Z -> Friday 21:00Z (weekly).
-    Mon-Thu open all day; Fri open until 21:00Z; Sat closed; Sun closed until 22:00Z. Holiday calendar NOT modelled."""
+def market_phase(dt, policy=None):
+    """Governed market phase at UTC `dt`. When `policy` (a reusable mhp.SessionPolicy resolved from the instrument's
+    registry market_hours_policy) is supplied, classification is METADATA-DRIVEN and DST-correct (OPEN / CLOSED_WEEKEND /
+    CLOSED_SESSION). When `policy` is None, the LEGACY fixed-UTC weekly-weekend calendar is used (preserved for direct
+    callers/tests): Mon-Thu open; Fri open until 21:00Z; Sat closed; Sun closed until 22:00Z. No ticker branch either way."""
+    if policy is not None:
+        return policy.phase(cc.normalise_utc(dt))
     d = cc.normalise_utc(dt)
     wd, hm = d.weekday(), d.hour * 60 + d.minute     # Mon=0 .. Sun=6
     if wd in (0, 1, 2, 3):                           # Mon-Thu
@@ -79,18 +84,20 @@ def market_phase(dt):
     return "CLOSED_WEEKEND"                            # Saturday
 
 
-def _period_fully_open(open_epoch, tf):
-    """True iff the WHOLE candle period [open, open+period) lies in open-market time (sampled at open + each hour + end)."""
+def _period_fully_open(open_epoch, tf, policy=None):
+    """True iff the WHOLE candle period [open, open+period) lies in open-market time under `policy` (or the legacy
+    calendar when None). Sampled at open + each hour + end; a scheduled daily break / weekend inside the period ->
+    not fully open (that slot is an EXPECTED closure, never counted toward the open-market grid)."""
     period = PERIOD_SECONDS[tf]
     start = datetime.fromtimestamp(open_epoch, UTC)
     end = start + timedelta(seconds=period)
     t = start
     step = timedelta(hours=1) if period > 3600 else timedelta(seconds=period)
     while t < end:
-        if market_phase(t) != "OPEN":
+        if market_phase(t, policy) != "OPEN":
             return False
         t += step
-    return market_phase(end - timedelta(seconds=1)) == "OPEN"
+    return market_phase(end - timedelta(seconds=1), policy) == "OPEN"
 
 
 # --------------------------------------------------------------------------- expected grid
@@ -143,10 +150,11 @@ def _reason(gap_state, missing_open, invalid_anchor, sufficient, stale, phase):
     }.get(gap_state, gap_state)
 
 
-def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_status=None):
+def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_status=None, policy=None):
     """PURE per-tf gap block. `instrument` = the canonical symbol this block belongs to (scopes the reported
-    history_key/latest_key); `latest` = the latest candle envelope dict (or None); `history_opens` = iterable of int
-    open-epochs present in history; `now` = aware UTC. Reads nothing. Returns the per-tf contract block."""
+    history_key/latest_key); `policy` = the reusable market-hours policy resolved from the instrument's registry
+    market_hours_policy (None -> legacy calendar); `latest` = the latest candle envelope dict (or None); `history_opens`
+    = iterable of int open-epochs present in history; `now` = aware UTC. Reads nothing. Returns the per-tf contract block."""
     now = cc.normalise_utc(now)
     now_epoch = int(now.timestamp())
     p = PERIOD_SECONDS[tf]
@@ -159,7 +167,7 @@ def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_sta
                 "history_depth": 0, "min_required_depth": MIN_REQUIRED_DEPTH[tf], "sufficient_depth": False,
                 "retention_policy": f"{RETENTION_DAYS[tf]}d", "retention_floor_utc": cc._fmt(retention_floor_dt),
                 "oldest_open_utc": None, "newest_open_utc": None, "expected_grid_policy": EXPECTED_GRID_POLICY[tf],
-                "anchor": ANCHOR[tf], "market_phase": market_phase(now), "expected_slots_open_market": 0,
+                "anchor": ANCHOR[tf], "market_phase": market_phase(now, policy), "expected_slots_open_market": 0,
                 "present_slots": 0, "missing_slots": 0, "missing_open_epochs_sample": [],
                 "closed_market_missing_slots": 0, "out_of_retention_slots": 0, "invalid_anchor_count": 0,
                 "latest_status": "ABSENT", "gap_state": "SOURCE_MISSING", "status_reason": "no latest and no history"}
@@ -174,7 +182,7 @@ def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_sta
             if o not in opens:
                 oor_missing += 1
             continue
-        if _period_fully_open(o, tf):
+        if _period_fully_open(o, tf, policy):
             expected_open += 1
             if o not in opens:
                 missing_open.append(o)
@@ -193,7 +201,7 @@ def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_sta
         if lts:
             lopen = int(datetime.strptime(lts[:-1], cc._UTC_MS).replace(tzinfo=UTC).timestamp())
             age = now_epoch - (lopen + p)            # age since the latest candle CLOSED
-            stale = age > STALE_THRESHOLD_SECONDS[tf] and market_phase(now) == "OPEN"
+            stale = age > STALE_THRESHOLD_SECONDS[tf] and market_phase(now, policy) == "OPEN"
     # fail-closed state (worst-of severity)
     candidates = []
     if invalid_anchor:
@@ -204,7 +212,7 @@ def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_sta
         candidates.append("GAPS_FOUND")
     if stale:
         candidates.append("STALE")
-    if market_phase(now) == "CLOSED_WEEKEND":
+    if market_phase(now, policy) != "OPEN":            # weekend OR scheduled daily break -> expected closure
         candidates.append("MARKET_CLOSED")
     if oor_missing and not candidates:
         candidates.append("OUT_OF_RETENTION")
@@ -214,12 +222,12 @@ def classify_timeframe(tf, *, instrument, latest, history_opens, now, latest_sta
             "history_depth": depth, "min_required_depth": MIN_REQUIRED_DEPTH[tf], "sufficient_depth": sufficient,
             "retention_policy": f"{RETENTION_DAYS[tf]}d", "retention_floor_utc": cc._fmt(retention_floor_dt),
             "oldest_open_utc": _fmt_epoch(srt[0]) if srt else None, "newest_open_utc": _fmt_epoch(srt[-1]) if srt else None,
-            "expected_grid_policy": EXPECTED_GRID_POLICY[tf], "anchor": ANCHOR[tf], "market_phase": market_phase(now),
+            "expected_grid_policy": EXPECTED_GRID_POLICY[tf], "anchor": ANCHOR[tf], "market_phase": market_phase(now, policy),
             "expected_slots_open_market": expected_open, "present_slots": present, "missing_slots": len(missing_open),
             "missing_open_epochs_sample": [int(x) for x in missing_open[:MISSING_SAMPLE_CAP]],
             "closed_market_missing_slots": closed_missing, "out_of_retention_slots": oor_missing,
             "invalid_anchor_count": invalid_anchor, "latest_status": latest_status, "gap_state": gap_state,
-            "status_reason": _reason(gap_state, missing_open, invalid_anchor, sufficient, stale, market_phase(now))}
+            "status_reason": _reason(gap_state, missing_open, invalid_anchor, sufficient, stale, market_phase(now, policy))}
 
 
 def classify_d1_boundary(*, d1_latest, d1_history_opens, now, forward_enabled=False, forward_authorised=False):
@@ -259,18 +267,20 @@ def classify_d1_boundary(*, d1_latest, d1_history_opens, now, forward_enabled=Fa
 
 
 # --------------------------------------------------------------------------- aggregate contract (PURE)
-def build_gaps_contract(*, instrument, timeframes, d1_boundary, generated_at_utc, source=None):
-    """Assemble hermes:gaps:<instrument>:v1 (generic per instrument; XAU byte-identical). repair/backfill/consumer are
-    HARD false (this surface never repairs/backfills/exposes)."""
+def build_gaps_contract(*, instrument, timeframes, d1_boundary, generated_at_utc, source=None, market_hours_policy=None):
+    """Assemble hermes:gaps:<instrument>:v1 (generic per instrument; XAU byte-identical). `market_hours_policy` is the
+    governed registry policy KEY used to classify expected closures (None -> legacy weekly-weekend calendar).
+    repair/backfill/consumer are HARD false (this surface never repairs/backfills/exposes)."""
     if not instrument or instrument in _ALIAS_DENY:
         raise ValueError(f"GOV-HERMES-GAPS-001: instrument {instrument!r} not a canonical symbol (alias/empty rejected)")
     if source is None:
         source = f"hermes:candles:{instrument}:* (governed, read-only)"
+    calendar_source = f"MARKET_HOURS_POLICY:{market_hours_policy}" if market_hours_policy else CALENDAR_SOURCE
     overall = _worst([b["gap_state"] for b in timeframes.values()])
     c = {"publisher": PUBLISHER, "schema_version": SCHEMA_VERSION, "contract_version": "v1",
-         "instrument": instrument, "canonical_instrument": instrument,
+         "instrument": instrument, "canonical_instrument": instrument, "market_hours_policy": market_hours_policy,
          "generated_at_utc": cc._fmt(cc.normalise_utc(generated_at_utc)), "source": source,
-         "calendar_source": CALENDAR_SOURCE, "consumer_live": False, "repair_executed": False,
+         "calendar_source": calendar_source, "consumer_live": False, "repair_executed": False,
          "backfill_executed": False, "deterministic_only": True, "overall_gap_state": overall,
          "severity_order": list(GAP_STATES), "timeframes": timeframes, "d1_boundary": d1_boundary,
          "caveats": ["read-only detection; no repair/backfill/delete", "market calendar = weekly weekend UTC; holiday calendar not modelled",
@@ -311,25 +321,28 @@ def _fmt_epoch(epoch):
     return cc._fmt(datetime.fromtimestamp(int(epoch), UTC))
 
 
-def analyze_gaps(client, *, instrument, now, forward_enabled=False, forward_authorised=False):
-    """READ-ONLY: reads governed candle latest/history for `instrument` from Redis and builds its gaps contract. Performs
-    NO writes/deletes, NO SQL, NO backfill/repair. `client` is used only for GET/ZRANGE/EXISTS. Fully partitioned by
-    instrument (every key read is instrument-scoped), so concurrent per-instrument analysis cannot collide. Returns the
-    contract dict; this function never sets a key."""
+def analyze_gaps(client, *, instrument, now, forward_enabled=False, forward_authorised=False, policy=None,
+                 market_hours_policy=None):
+    """READ-ONLY: reads governed candle latest/history for `instrument` from Redis and builds its gaps contract. `policy`
+    is the reusable market-hours policy (mhp.SessionPolicy) that classifies expected closures; `market_hours_policy` is
+    its governed KEY recorded in the contract (both None -> legacy calendar). Performs NO writes/deletes, NO SQL, NO
+    backfill/repair. `client` is used only for GET/ZRANGE/EXISTS. Fully partitioned by instrument (every key read is
+    instrument-scoped), so concurrent per-instrument analysis cannot collide. Returns the contract dict; never sets a key."""
     tf_blocks = {}
     for tf in TIMEFRAMES:
         lraw = client.get(_latest_key(instrument, tf))
         latest = json.loads(lraw) if lraw else None
         idx = _hist_index_key(instrument, tf)
         opens = [int(e) for e in client.zrange(idx, 0, -1)] if client.exists(idx) else []
-        tf_blocks[tf] = classify_timeframe(tf, instrument=instrument, latest=latest, history_opens=opens, now=now)
+        tf_blocks[tf] = classify_timeframe(tf, instrument=instrument, latest=latest, history_opens=opens, now=now, policy=policy)
     d1raw = client.get(_latest_key(instrument, "D1"))
     d1_latest = json.loads(d1raw) if d1raw else None
     d1idx = _hist_index_key(instrument, "D1")
     d1_opens = [int(e) for e in client.zrange(d1idx, 0, -1)] if client.exists(d1idx) else []
     d1b = classify_d1_boundary(d1_latest=d1_latest, d1_history_opens=d1_opens, now=now,
                                forward_enabled=forward_enabled, forward_authorised=forward_authorised)
-    return build_gaps_contract(instrument=instrument, timeframes=tf_blocks, d1_boundary=d1b, generated_at_utc=now)
+    return build_gaps_contract(instrument=instrument, timeframes=tf_blocks, d1_boundary=d1b, generated_at_utc=now,
+                               market_hours_policy=market_hours_policy)
 
 
 # --------------------------------------------------------------------------- dark publisher (default DISABLED)
@@ -360,17 +373,26 @@ class GapsPublisher:
             from utils import hermes_instrument_registry_v1 as reg
             records = reg.load_from_db()
         self.instruments = tuple(sel.selection_for("gap", records))
+        # Per-instrument governed market-hours policy KEY resolved from registry metadata (DATA, not ticker). The
+        # reusable policy instance is resolved at publish time; missing/unknown metadata fails closed (mhp.PolicyError).
+        self._policy_key = {rec.symbol: rec.market_hours_policy for rec in records if rec.symbol in self.instruments}
+
+    def _policy_for(self, instrument):
+        key = self._policy_key.get(instrument)
+        return key, mhp.resolve_policy(key)      # fail-closed on missing/unknown metadata; never a uniform default
 
     def analyze(self, *, instrument, now, forward_enabled=False, forward_authorised=False):
-        return analyze_gaps(self.redis_client, instrument=instrument, now=now,
-                            forward_enabled=forward_enabled, forward_authorised=forward_authorised)
+        key, policy = self._policy_for(instrument)
+        return analyze_gaps(self.redis_client, instrument=instrument, now=now, forward_enabled=forward_enabled,
+                            forward_authorised=forward_authorised, policy=policy, market_hours_policy=key)
 
     def publish(self, *, now, forward_enabled=False, forward_authorised=False):
-        """Governed publication: for each selected instrument, build its read-only gaps contract (analyze_gaps) and SET
-        exactly ONE key sel.gaps_key(instrument). Re-validates before every write (defence-in-depth: never publish an
-        invalid/aliased/overclaiming contract). Persistent truth surface -> no TTL. Writes NOTHING else; no delete/SQL/
-        backfill/repair. Per-instrument keys never collide (partitioned by instrument). Zero selected -> published:0.
-        Returns a result dict; consumer_live/repair_executed/backfill_executed are hard false."""
+        """Governed publication: for each selected instrument, resolve its registry market-hours policy, build its
+        read-only gaps contract (analyze_gaps) and SET exactly ONE key sel.gaps_key(instrument). Re-validates before every
+        write (defence-in-depth: never publish an invalid/aliased/overclaiming contract). Persistent truth surface -> no
+        TTL. Writes NOTHING else; no delete/SQL/backfill/repair. Per-instrument keys never collide (partitioned by
+        instrument). Zero selected -> published:0. Returns a result dict; consumer_live/repair_executed/backfill_executed
+        are hard false."""
         results = {}
         for instrument in self.instruments:
             contract = self.analyze(instrument=instrument, now=now, forward_enabled=forward_enabled,
