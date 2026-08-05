@@ -24,7 +24,8 @@ from datetime import datetime, timezone
 from utils import tick_contract_v1 as tc
 from utils.tick_runtime_shadow_adapter_v1 import tick_to_raw_tick   # reuse the proven SignalTick -> raw adapter
 
-CANONICAL_INSTRUMENT = "XAU_USD"
+# WO-HELM-HERMES-ADVANCED-V1-XAU-MODULE-ADOPTION-0001: instrument selection is the canonical registry
+# (via the selection seam), NOT a hard-coded XAU authority constant. `_ALIAS_DENY` remains a format guard.
 _ALIAS_DENY = ("XAUUSD",)
 SHADOW_PREFIX = "hermes:shadow:"
 HALT_CODE = 101
@@ -36,28 +37,44 @@ AUTHORISED_ENV = "HERMES_TICK_PUBLISH_AUTHORISED"
 INSTRUMENTS_ENV = "HERMES_TICK_PUBLISH_INSTRUMENTS"
 
 
-def parse_tick_instruments(raw):
+def _validate_allowed(allowed):
+    """Fail-closed: the tick allowlist (from the registry selection seam) must be a non-empty set of canonical
+    symbols with no inbound alias. Zero-selection is handled by the caller (Disabled emitter), not here."""
+    allowed = frozenset(allowed)
+    if not allowed:
+        raise ValueError("GOV-HERMES-TICK-020: tick allowlist is empty (fail-closed; caller must disable)")
+    for inst in allowed:
+        if inst in _ALIAS_DENY:
+            raise ValueError(f"GOV-HERMES-TICK-021: instrument {inst!r} not allowed (XAUUSD is an inbound alias, "
+                             "never an output publish key)")
+    return allowed
+
+
+def parse_tick_instruments(raw, *, allowed):
+    """TRANSITIONAL env consistency validator (§16): env INSTRUMENTS is NOT an authority — every env-named
+    instrument must be present in the registry-selected `allowed` set, else fail closed. Returns `allowed`."""
+    allowed = _validate_allowed(allowed)
     if raw is None or not str(raw).strip():
         raise ValueError(f"GOV-HERMES-TICK-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
     items = [x.strip() for x in str(raw).split(",") if x.strip()]
     if not items:
         raise ValueError(f"GOV-HERMES-TICK-020: {INSTRUMENTS_ENV} required and non-empty (fail-closed)")
     for inst in items:
-        if inst == "XAUUSD" or inst != CANONICAL_INSTRUMENT:
-            raise ValueError(f"GOV-HERMES-TICK-021: instrument {inst!r} not allowed (canonical XAU_USD only; "
-                             "XAUUSD is an inbound alias, never an output publish key)")
-    return frozenset({CANONICAL_INSTRUMENT})
+        if inst in _ALIAS_DENY or inst not in allowed:
+            raise ValueError(f"GOV-HERMES-TICK-021: env instrument {inst!r} not in the registry tick selection "
+                             f"{sorted(allowed)} (the SQL registry is the sole authority; env is a validator)")
+    return allowed
 
 
-def _assert_canonical_live_key(key):
-    """The LIVE emitter writes ONLY the per-instrument canonical key. Refuse shadow-prefix, XAUUSD, aggregate,
-    or any non-canonical key (fail-loud — never a silent wrong-key write)."""
+def _assert_canonical_live_key(key, instrument):
+    """The LIVE emitter writes ONLY the per-instrument canonical key for the instrument being emitted. Refuse
+    shadow-prefix, XAUUSD alias, or any non-canonical key (fail-loud — never a silent wrong-key write)."""
     if key.startswith(SHADOW_PREFIX):
         raise ValueError(f"GOV-HERMES-TICK-030: LIVE emitter refuses shadow key {key!r} (canonical live only)")
     if "XAUUSD" in key:
-        raise ValueError(f"GOV-HERMES-TICK-031: LIVE emitter refuses XAUUSD key {key!r} (canonical XAU_USD only)")
-    if key != tc.canonical_key(CANONICAL_INSTRUMENT):
-        raise ValueError(f"GOV-HERMES-TICK-032: LIVE emitter writes only {tc.canonical_key(CANONICAL_INSTRUMENT)} "
+        raise ValueError(f"GOV-HERMES-TICK-031: LIVE emitter refuses XAUUSD key {key!r} (canonical alias)")
+    if key != tc.canonical_key(instrument):
+        raise ValueError(f"GOV-HERMES-TICK-032: LIVE emitter writes only {tc.canonical_key(instrument)} "
                          f"(got {key!r})")
     return True
 
@@ -100,8 +117,7 @@ class LiveTickEmitter:
     enabled = True
 
     def __init__(self, *, allowed_instruments, redis_client):
-        if frozenset(allowed_instruments) != frozenset({CANONICAL_INSTRUMENT}):
-            raise ValueError("GOV-HERMES-TICK-021: tick allowlist must be exactly {XAU_USD}")
+        allowed_instruments = _validate_allowed(allowed_instruments)  # registry-selected, non-empty, no alias
         if redis_client is None:
             raise ValueError("GOV-HERMES-TICK-033: enabled LIVE tick emitter requires an explicit redis client "
                              "(no silent no-op when enabled)")
@@ -151,7 +167,7 @@ class LiveTickEmitter:
         self.attempts += 1
         env = self.build_envelope(tick, now=now)
         key = env["key"]
-        _assert_canonical_live_key(key)         # canonical-only; no shadow/XAUUSD/aggregate
+        _assert_canonical_live_key(key, env["data"]["instrument"])   # canonical-only per emitted instrument
         self.redis_client.set(key, json.dumps(env), ex=tc.REDIS_EX_SECONDS)   # SET canonical, EX=10
         self.published += 1
         return {"emitted": True, "key": key, "status": env["status"], "freshness_state": env["freshness_state"]}
@@ -188,27 +204,47 @@ def tick_live_gate_enabled():
     client, does NO I/O. Enabled-without-authorised -> SystemExit(101); enabled+authorised without a valid
     canonical scope -> fail-closed (GOV-HERMES-TICK-020/021). The catalog uses THIS to mark tick RUNTIME_PUBLISHED
     atomically with the emitter (same gate condition -> no split-brain)."""
-    from env_config import get_env, get_env_bool
+    from env_config import get_env_bool
     if not get_env_bool(ENABLED_ENV, False):
         return False
     if not get_env_bool(AUTHORISED_ENV, False):
         raise SystemExit(HALT_CODE)
-    parse_tick_instruments(get_env(INSTRUMENTS_ENV, default=None))   # fail-closed on missing/invalid scope
-    return True
+    return True   # instrument scope is now the registry's authority (validated at emitter build)
 
 
-def build_tick_live_emitter_from_env(*, redis_client=None, redis_client_factory=None):
-    """Boot entrypoint for main.py. DISABLED by default -> DisabledTickEmitter (no client, no I/O). Enabled-without-
-    authorised -> SystemExit(101). Enabled+authorised without valid canonical scope -> fail-closed
-    (GOV-HERMES-TICK-020/021). Enabled+authorised -> LiveTickEmitter writing ONLY hermes:ticks:XAU_USD:latest:v1
-    (EX=10) to the canonical HERMES redis. No hidden defaults; NO Redis client is constructed when disabled."""
+def build_tick_live_emitter_from_registry(records=None, *, redis_client=None, redis_client_factory=None):
+    """Registry-driven authority (WO-...-XAU-MODULE-ADOPTION-0001). Selects tick instruments from the canonical
+    registry seam (selection_for('tick', records)); records default to the loaded canonical registry. Zero
+    selection -> DisabledTickEmitter (no publication, no fallback). One/many -> a generic LiveTickEmitter over
+    the selected set (byte-identical XAU key preserved)."""
+    from utils.hermes_advanced_v1_selection_v1 import selection_for
+    from utils.hermes_instrument_registry_v1 import load_from_db
+    if records is None:
+        records = load_from_db()
+    allowed = selection_for("tick", records)
+    if not allowed:
+        return DisabledTickEmitter()   # zero-selection: truthful no-op, never a fallback
+    client = redis_client
+    if client is None:
+        client = (redis_client_factory or _default_canonical_redis_client)()
+    return LiveTickEmitter(allowed_instruments=allowed, redis_client=client)
+
+
+def build_tick_live_emitter_from_env(*, records=None, redis_client=None, redis_client_factory=None):
+    """Boot entrypoint for main.py. DISABLED by default -> DisabledTickEmitter. Enabled-without-authorised ->
+    SystemExit(101). Enabled+authorised -> registry-driven emitter. The canonical registry (`records`, default
+    loaded) is the sole selection authority; env INSTRUMENTS is a transitional CONSISTENCY validator only (§16)."""
     from env_config import get_env, get_env_bool
+    from utils.hermes_advanced_v1_selection_v1 import selection_for
+    from utils.hermes_instrument_registry_v1 import load_from_db
     if not get_env_bool(ENABLED_ENV, False):
         return DisabledTickEmitter()
     if not get_env_bool(AUTHORISED_ENV, False):
         raise SystemExit(HALT_CODE)
-    instruments = parse_tick_instruments(get_env(INSTRUMENTS_ENV, default=None))
-    client = redis_client
-    if client is None:
-        client = (redis_client_factory or _default_canonical_redis_client)()
-    return LiveTickEmitter(allowed_instruments=instruments, redis_client=client)
+    if records is None:
+        records = load_from_db()
+    raw = get_env(INSTRUMENTS_ENV, default=None)
+    if raw is not None and str(raw).strip():
+        parse_tick_instruments(raw, allowed=selection_for("tick", records))   # env<=registry consistency, fail-closed
+    return build_tick_live_emitter_from_registry(records, redis_client=redis_client,
+                                                 redis_client_factory=redis_client_factory)
