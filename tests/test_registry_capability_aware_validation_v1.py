@@ -188,15 +188,104 @@ def test_alias_row_rejected_even_inactive():
     assert not pg.decide("XAUUSD", "gaps", now=NOW, records=[r], master=True, publisher_mode="ACTIVE").permitted
 
 
-def test_malformed_capability_flag_is_false_not_active():
+def test_malformed_capability_flag_rejected_not_coerced():
+    # STRICT parsing: a malformed capability authority value is CONFIGURATION_INVALID -> raises; NEVER coerced to False
+    # and NEVER interpreted as NOT_ENABLED.
     row = _inactive_null_row("XCU_USD"); row["tick_contract_enabled"] = "garbage"
-    rec = reg.validate_record(row)                                # non-truthy string -> False -> NOT_ENABLED (null meta ok)
-    assert rec.advanced_v1_active is False and rec.effective_state == reg.STATE_NOT_ENABLED
+    with pytest.raises(reg.RegistryError, match="INVALID-CAPABILITY-FLAG"):
+        reg.validate_record(row)
+
+
+@pytest.mark.parametrize("bad", [None, "", " ", "0", "1", "true", "false", "yes", "no", "on", "off", "maybe", "2",
+                                 2, -1, 0.0, 1.0, [1], {"a": 1}, b"1", object()])
+@pytest.mark.parametrize("field", ["tick_contract_enabled", "indicator_contract_enabled", "gap_detection_enabled"])
+def test_strict_capability_flag_rejects_malformed(field, bad):
+    row = _inactive_null_row("XPT_USD"); row[field] = bad
+    with pytest.raises(reg.RegistryError, match="INVALID-CAPABILITY-FLAG"):
+        reg.validate_record(row)
+
+
+@pytest.mark.parametrize("field", ["tick_contract_enabled", "indicator_contract_enabled", "gap_detection_enabled"])
+@pytest.mark.parametrize("good,expected", [(0, False), (1, True), (False, False), (True, True)])
+def test_strict_capability_flag_accepts_governed_forms(field, good, expected):
+    # a fully inactive base row; set exactly one flag to a governed form. When True, the row becomes active and must
+    # carry complete metadata (use a complete base so True is valid); when False it stays NOT_ENABLED with null metadata.
+    base = _complete_row("EUR_USD", caps=0) if expected else _inactive_null_row("XPT_USD")
+    base["tick_contract_enabled"] = 0; base["indicator_contract_enabled"] = 0; base["gap_detection_enabled"] = 0
+    base[field] = good
+    rec = reg.validate_record(base)
+    assert rec.capability(field) is expected
+
+
+def test_one_malformed_among_valid_flags_rejected():
+    row = _complete_row("EUR_USD", caps=0); row["tick_contract_enabled"] = 1; row["gap_detection_enabled"] = "x"
+    with pytest.raises(reg.RegistryError, match="INVALID-CAPABILITY-FLAG"):
+        reg.validate_record(row)
 
 
 def test_14_row_fixture_not_silently_truncated_to_8():
     assert len(production_shape_rows()) == 14                     # guard against accidental cohort-only fixture use
     assert len([r for r in production_shape_rows() if r["price_precision"] is None]) == 6
+
+
+# ============================ §10 require_complete() load-bearing at all five family boundaries ============================
+def _active_incomplete_record(symbol="XPT_USD"):
+    """A directly-CONSTRUCTED InstrumentRecord that bypassed validate_record: a capability is active but required
+    metadata is None. This is exactly what require_complete() at the family boundary must catch."""
+    return reg.InstrumentRecord(
+        symbol=symbol, broker_symbol=symbol, name=symbol, category="precious_metals", enabled=True,
+        oanda_compatible=True, price_precision=None, tick_size=None, price_authority="mid",
+        market_hours_policy=None, expected_freshness_sec=None, enabled_timeframes=None, indicator_profile="standard_v1",
+        tick_contract_enabled=True, indicator_contract_enabled=True, gap_detection_enabled=True,
+        backfill_policy="status_only", retention_policy="default_v1", metadata_version="v1")
+
+
+def test_gaps_boundary_rejects_injected_incomplete_active():
+    bad = _active_incomplete_record()
+    r = _FakeRedis()
+    with pytest.raises(reg.RegistryError, match="INCOMPLETE-ACTIVE|REG-INACTIVE"):
+        gaps.GapsPublisher(redis_client=r, records=[bad])         # boundary guard fires at construction
+    assert r.writes == []                                          # no key emitted
+
+
+def test_backfill_boundary_rejects_injected_incomplete_active():
+    bad = _active_incomplete_record()
+    r = _FakeRedis()
+    with pytest.raises(reg.RegistryError, match="INCOMPLETE-ACTIVE|REG-INACTIVE"):
+        bfs.BackfillStatusPublisher(redis_client=r, records=[bad])
+    assert r.writes == []
+
+
+def test_feed_health_boundary_rejects_injected_incomplete_active():
+    import utils.hermes_feed_health_v1 as fh
+    bad = _active_incomplete_record()
+    with pytest.raises(reg.RegistryError, match="INCOMPLETE-ACTIVE|REG-INACTIVE"):
+        fh.FeedHealthPublisher(allowed_instruments=frozenset({"XPT_USD"}), source_name="X", records=[bad])
+
+
+def test_tick_boundary_rejects_injected_incomplete_active():
+    import utils.tick_live_emitter_v1 as tk
+    bad = _active_incomplete_record()
+    with pytest.raises(reg.RegistryError, match="INCOMPLETE-ACTIVE|REG-INACTIVE"):
+        tk.LiveTickEmitter(allowed_instruments=frozenset({"XPT_USD"}), redis_client=_FakeRedis(), records=[bad])
+
+
+def test_indicator_boundary_rejects_injected_incomplete_active():
+    import utils.hermes_indicators_v1 as ind
+    bad = _active_incomplete_record()
+    with pytest.raises(reg.RegistryError, match="INCOMPLETE-ACTIVE|REG-INACTIVE"):
+        ind.IndicatorPublisher(allowed_instruments=frozenset({"XPT_USD"}), timeframes=("M5",), records=[bad])
+
+
+def test_boundary_accepts_valid_active_complete_records():
+    # a valid active-complete registry -> all boundaries construct without raising (guard is not over-eager)
+    import utils.hermes_feed_health_v1 as fh, utils.tick_live_emitter_v1 as tk, utils.hermes_indicators_v1 as ind
+    recs = reg.load_registry([_complete_row("XAU_USD", caps=1)])
+    gaps.GapsPublisher(redis_client=_FakeRedis(), records=recs)
+    bfs.BackfillStatusPublisher(redis_client=_FakeRedis(), records=recs)
+    fh.FeedHealthPublisher(allowed_instruments=frozenset({"XAU_USD"}), source_name="X", records=recs)
+    tk.LiveTickEmitter(allowed_instruments=frozenset({"XAU_USD"}), redis_client=_FakeRedis(), records=recs)
+    ind.IndicatorPublisher(allowed_instruments=frozenset({"XAU_USD"}), timeframes=("M5",), records=recs)
 
 
 # ============================ §16 isolated production-shape rehearsal ============================

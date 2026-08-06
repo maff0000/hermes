@@ -27,6 +27,19 @@ fail-close all five publishers and **stop the authorised XAU pilot** on the new 
   | `gap_detection_enabled` | price_precision, tick_size, market_hours_policy, expected_freshness_sec, enabled_timeframes |
   (backfill-status follows the gap capability; feed-health follows the tick capability — no separate flags.)
 
+## Capability flags are STRICT authority fields
+Capability flags (`tick_contract_enabled`, `indicator_contract_enabled`, `gap_detection_enabled`) are strict authority
+and are parsed by `_parse_capability_flag`, **not** the permissive `_as_bool`:
+- **Accepted** (governed loader contract): int `0`, int `1`, bool `False`, bool `True` (the SQL `tinyint(1)` driver forms;
+  booleans are checked before ints since `bool` subclasses `int`).
+- **Rejected** → `RegistryError: GOV-HERMES-REG-INVALID-CAPABILITY-FLAG` (state `CONFIGURATION_INVALID`): `None`, any
+  string (incl. `"0"`, `"1"`, `"true"`, `"false"`, `"yes"`, `"no"`, `"on"`, `"off"`, `"maybe"`, `"2"`), int `2`/`-1`,
+  floats (`0.0`/`1.0`), lists, dicts, bytes, arbitrary objects.
+- A malformed flag is a **configuration fault** — it is **never** coerced to `False` and **never** interpreted as
+  `NOT_ENABLED`. The inactive-metadata tolerance below applies only **after** the capability flags parse validly as
+  false. The SQL constraint (`tinyint(1) NOT NULL DEFAULT 0`) and this loader validation are **complementary** controls;
+  the database constraint does not replace loader validation, and malformed values are not assumed unreachable.
+
 ## Row semantics
 - **Fully inactive row** (all Advanced-v1 capabilities false): loads with NULL capability-specific metadata,
   classified `effective_state = NOT_ENABLED`. **No defaults are invented** (fields stay `None`, not `0`/`""`/`mid`).
@@ -37,6 +50,16 @@ fail-close all five publishers and **stop the authorised XAU pilot** on the new 
   metadata_version). No partial operation, no downgrade to NOT_ENABLED.
 - The typed `InstrumentRecord` marks the capability-specific fields `Optional[...]`; `require_complete()` is a guarded
   accessor so capability-active code never consumes `None`.
+
+## Two complementary boundaries
+1. **Selectors are the primary cohort boundary** — `selection_for(...)`/`backfill_status_instruments(...)` return only
+   capability-enabled instruments, so inactive rows never reach a family.
+2. **`require_complete()` at every family boundary is defence-in-depth** — each of the five publishers
+   (tick/indicators/gaps/backfill-status/feed-health) calls `reg.assert_records_complete(records, selected_symbols)` at
+   construction, which invokes the central `require_complete()` policy. This catches a directly-injected, constructed,
+   or stale `InstrumentRecord` that is capability-active but has `None` required metadata (or a `NOT_ENABLED` record
+   reaching a publisher). The guard is load-bearing: removing it makes a per-family boundary test fail. It does not
+   duplicate the validation matrix.
 
 ## Effective-state preflight
 `registry_effective_summary(records)` reports `{registry_rows, advanced_v1_active, not_enabled, not_enabled_count,

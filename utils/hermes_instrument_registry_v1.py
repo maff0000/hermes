@@ -112,6 +112,7 @@ def _required_fields_for(capabilities: Mapping) -> frozenset:
 
 
 def _as_bool(v) -> bool:
+    """Permissive boolean coercion for NON-authority universal flags (enabled, oanda_compatible)."""
     if isinstance(v, bool):
         return v
     if isinstance(v, (int,)):
@@ -119,6 +120,23 @@ def _as_bool(v) -> bool:
     if isinstance(v, str):
         return v.strip().lower() in ("1", "true", "yes", "on")
     return bool(v)
+
+
+def _parse_capability_flag(value, *, field: str, symbol: str, metadata_version) -> bool:
+    """STRICT parser for Advanced-v1 capability AUTHORITY fields. Accepts ONLY the governed loader-contract forms —
+    bool True/False and int 0/1 (the SQL tinyint(1) driver forms). EVERYTHING ELSE (None, strings incl. '0'/'1'/
+    'true', int 2/-1, floats, lists, dicts, bytes, objects) is a CONFIGURATION_INVALID fault and raises — it is NEVER
+    coerced to False and NEVER interpreted as NOT_ENABLED. Booleans are checked before ints (bool is an int subclass)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):                                  # bool already handled above
+        if value in (0, 1):
+            return bool(value)
+    safe = value if isinstance(value, (int, bool)) else f"<{type(value).__name__}>"
+    raise RegistryError(
+        f"GOV-HERMES-REG-INVALID-CAPABILITY-FLAG: {symbol} capability field {field!r} has malformed authority "
+        f"value={safe} (type={type(value).__name__}); accepted: int 0/1 or bool True/False; "
+        f"state=CONFIGURATION_INVALID; metadata_version={metadata_version}")
 
 
 def _parse_timeframes(v) -> Tuple[str, ...]:
@@ -165,7 +183,9 @@ def validate_record(raw: Mapping) -> InstrumentRecord:
     if category not in GOVERNED_CATEGORIES:
         raise RegistryError(f"unsupported asset category {category!r} for {symbol} (governed: {sorted(GOVERNED_CATEGORIES)})")
 
-    caps = {c: _as_bool(raw.get(c, 0)) for c in _CAPABILITIES}
+    # Capability AUTHORITY fields are STRICTLY parsed (int 0/1 or bool only); malformed -> CONFIGURATION_INVALID fault.
+    _mdv = raw.get("metadata_version")
+    caps = {c: _parse_capability_flag(raw.get(c, 0), field=c, symbol=symbol, metadata_version=_mdv) for c in _CAPABILITIES}
     required = _required_fields_for(caps)                        # union of fields the ENABLED capabilities need
 
     def _needs(field):
@@ -330,6 +350,19 @@ def capability_instruments(records: Sequence[InstrumentRecord], capability: str)
     if capability not in _CAPABILITIES:
         raise RegistryError(f"unknown capability: {capability!r} (known: {_CAPABILITIES})")
     return tuple(sorted(r.symbol for r in records if r.enabled and getattr(r, capability)))
+
+
+def assert_records_complete(records: Sequence[InstrumentRecord], symbols) -> None:
+    """Family-boundary guard (defence-in-depth): assert every `symbol` a family is about to consume maps to a loaded,
+    capability-ACTIVE, metadata-COMPLETE record. Raises RegistryError if a symbol is absent, NOT_ENABLED, or has
+    incomplete required capability metadata. Uses the central require_complete() policy — no duplicated matrix. Selectors
+    remain the primary cohort boundary; this catches a directly-injected/constructed/stale record that bypassed loading."""
+    by = {r.symbol: r for r in records}
+    for s in symbols:
+        rec = by.get(s)
+        if rec is None:
+            raise RegistryError(f"GOV-HERMES-REG-SELECTED-ABSENT: selected instrument {s!r} is not in the loaded registry")
+        rec.require_complete()
 
 
 def registry_effective_summary(records: Sequence[InstrumentRecord]) -> Dict:

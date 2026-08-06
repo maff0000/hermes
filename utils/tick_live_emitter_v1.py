@@ -125,6 +125,9 @@ class LiveTickEmitter:
         self.allowed_instruments = frozenset(allowed_instruments)
         self.redis_client = redis_client
         self._records = tuple(records) if records is not None else None   # registry snapshot the gate must agree with
+        if self._records is not None:                            # family boundary (defence-in-depth): every allowed
+            from utils import hermes_instrument_registry_v1 as _reg   # instrument must be capability-active + complete
+            _reg.assert_records_complete(self._records, self.allowed_instruments)
         self.attempts = 0
         self.published = 0
         self.faults = 0
