@@ -29,7 +29,7 @@ import utils.tick_live_emitter_v1 as tick
 import utils.hermes_instrument_registry_v1 as reg
 
 UTC = timezone.utc
-NOW = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)      # Wednesday noon -> market OPEN
+NOW = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)     # Wednesday noon -> market OPEN, within the calendar effective window
 
 # The exact XAU keys the five families emitted BEFORE adoption — the byte-parity anchor.
 XAU_KEYS = {
@@ -101,6 +101,9 @@ def test_xau_advanced_v1_parity_green(rollout):
 # =========================================================================== 2. configuration-only onboarding
 def test_configuration_only_onboarding_green(monkeypatch):
     # Onboard EUR_USD by DATA only: flip its registry capability flags. No ticker-specific code exists anywhere.
+    # PUBLICATION of the onboarded (expansion) instrument additionally requires the runtime master/scope gate.
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
     recs = _records(all_caps={"XAU_USD", "EUR_USD"})
     monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
 
@@ -144,6 +147,8 @@ def test_configuration_only_onboarding_green(monkeypatch):
 
 # =========================================================================== 3. state isolation / interleaving
 def test_state_isolation_interleaved_publication_green(monkeypatch):
+    monkeypatch.setenv("HERMES_ADVANCED_V1_MASTER_ENABLED", "true")   # EUR_USD is expansion -> gate required to publish
+    monkeypatch.setenv("HERMES_ADVANCED_V1_PUBLISHER_MODE", "ACTIVE")
     recs = _records(all_caps={"XAU_USD", "EUR_USD"})
     monkeypatch.setattr(reg, "load_from_db", lambda fetch=None: recs)
     shared = FakeRedis()

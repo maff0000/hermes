@@ -32,6 +32,7 @@ from utils import hermes_feed_health_v1 as fh          # feed-health runtime pub
 from utils import hermes_quote_tick_contract_v1 as qt  # quote runtime publisher step (gated dark)
 from utils import hermes_gaps_v1 as gaps               # PH2 gaps runtime publisher step (gated dark)
 from utils import hermes_backfill_status_v1 as bfs     # PH2 backfill-status runtime publisher step (gated dark)
+from utils import hermes_advanced_v1_publication_gate_v1 as pgate   # central master/scope publication-eligibility gate
 from utils import candle_d1_history_v1 as d1h          # D1 history depth guard + sealed-6/6 source validation
 
 UTC = datetime.timezone.utc
@@ -365,6 +366,8 @@ def indicator_step(client):
     if not getattr(pub, "enabled", False):
         return {"published": 0}
     now, n = _now(), 0
+    if not pgate.decide(INST, "indicator", now=now).permitted:   # pilot preserved; expansion fail-closed
+        return {"published": 0}
     for tf in LATEST_TFS + _d1_tf_if_ready(pub, client):   # D1 appended ONLY when authorised + depth>=min (dark default)
         candles = _read_d1_history_validated(client, INDICATOR_WINDOW) if tf == D1_TF \
             else _read_history(client, tf, INDICATOR_WINDOW)
@@ -666,6 +669,8 @@ def feed_health_step(client):
     now = _now()
     published, keys = 0, []
     for instrument in sorted(pub.allowed_instruments):
+        if not pgate.decide(instrument, "feed_health", now=now, records=getattr(pub, "records", None)).permitted:   # pilot preserved; expansion fail-closed
+            continue
         d1_green = bool(client.exists(f"hermes:candles:{instrument}:D1:latest:v1"))   # D1 GATED unless a genuine D1 latest
         snap = fh.collect_feed_health_snapshot(client, instrument=instrument, timeframes=_FH_TFS, generated_at_utc=now,
                                                source_name=pub.source_name, d1_latest_green=d1_green)  # READ-ONLY (GET only)

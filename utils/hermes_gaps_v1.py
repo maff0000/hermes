@@ -23,6 +23,7 @@ from utils import candle_contract_v1 as cc
 from utils import candle_d1_history_v1 as d1h     # reuse: assert_sealed_complete_d1 + D1 forward gate names (safe shared)
 from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (gap-capability instruments + generic keys)
 from utils import hermes_market_hours_policy_v1 as mhp      # reusable market-hours policy authority (selected by registry key)
+from utils import hermes_advanced_v1_publication_gate_v1 as pgate   # central master/scope publication-eligibility gate
 
 UTC = timezone.utc
 # Instrument authority is the canonical registry (selection seam), NOT a per-module literal. XAUUSD is a rejected
@@ -372,6 +373,7 @@ class GapsPublisher:
         if records is None:
             from utils import hermes_instrument_registry_v1 as reg
             records = reg.load_from_db()
+        self._records = tuple(records)                          # the registry snapshot the gate must agree with
         self.instruments = tuple(sel.selection_for("gap", records))
         # Per-instrument governed market-hours policy KEY resolved from registry metadata (DATA, not ticker). The
         # reusable policy instance is resolved at publish time; missing/unknown metadata fails closed (mhp.PolicyError).
@@ -395,6 +397,8 @@ class GapsPublisher:
         are hard false."""
         results = {}
         for instrument in self.instruments:
+            if not pgate.decide(instrument, "gaps", now=now, records=self._records).permitted:   # pilot preserved; expansion fail-closed
+                continue
             contract = self.analyze(instrument=instrument, now=now, forward_enabled=forward_enabled,
                                     forward_authorised=forward_authorised)
             validate_gaps_contract(contract)                   # fail-closed guard immediately before this instrument's SET

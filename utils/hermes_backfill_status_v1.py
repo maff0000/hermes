@@ -23,6 +23,7 @@ import json
 from utils import candle_contract_v1 as cc
 from utils import hermes_gaps_v1 as gaps     # primary input surface + shared timeframes/depth/retention (NOT instrument)
 from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (backfill-status instruments + keys)
+from utils import hermes_advanced_v1_publication_gate_v1 as pgate   # central master/scope publication-eligibility gate
 
 SCHEMA_VERSION = "v1"
 PUBLISHER = "HERMES"
@@ -253,6 +254,7 @@ class BackfillStatusPublisher:
         if records is None:
             from utils import hermes_instrument_registry_v1 as reg
             records = reg.load_from_db()
+        self._records = tuple(records)                          # the registry snapshot the gate must agree with
         self.instruments = tuple(sel.backfill_status_instruments(records))
 
     def analyze(self, *, instrument, now, gate_values=None):
@@ -266,6 +268,8 @@ class BackfillStatusPublisher:
         Per-instrument keys never collide. Zero selected -> published:0."""
         results = {}
         for instrument in self.instruments:
+            if not pgate.decide(instrument, "backfill_status", now=now, records=self._records).permitted:   # pilot preserved; expansion fail-closed
+                continue
             contract = self.analyze(instrument=instrument, now=now, gate_values=gate_values)
             validate_backfill_status_contract(contract)           # fail-closed guard immediately before this instrument's SET
             key = backfill_status_key(instrument)

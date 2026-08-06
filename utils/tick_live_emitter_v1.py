@@ -22,6 +22,7 @@ import json
 from datetime import datetime, timezone
 
 from utils import tick_contract_v1 as tc
+from utils import hermes_advanced_v1_publication_gate_v1 as _pubgate   # central master/scope publication-eligibility gate
 from utils.tick_runtime_shadow_adapter_v1 import tick_to_raw_tick   # reuse the proven SignalTick -> raw adapter
 
 # WO-HELM-HERMES-ADVANCED-V1-XAU-MODULE-ADOPTION-0001: instrument selection is the canonical registry
@@ -116,13 +117,14 @@ class LiveTickEmitter:
     never raises (a tick-emit fault must not disrupt the market-truth path)."""
     enabled = True
 
-    def __init__(self, *, allowed_instruments, redis_client):
+    def __init__(self, *, allowed_instruments, redis_client, records=None):
         allowed_instruments = _validate_allowed(allowed_instruments)  # registry-selected, non-empty, no alias
         if redis_client is None:
             raise ValueError("GOV-HERMES-TICK-033: enabled LIVE tick emitter requires an explicit redis client "
                              "(no silent no-op when enabled)")
         self.allowed_instruments = frozenset(allowed_instruments)
         self.redis_client = redis_client
+        self._records = tuple(records) if records is not None else None   # registry snapshot the gate must agree with
         self.attempts = 0
         self.published = 0
         self.faults = 0
@@ -164,6 +166,12 @@ class LiveTickEmitter:
         if not self.in_scope(tick):
             self.skipped_out_of_scope += 1
             return {"emitted": False, "reason": "OUT_OF_SCOPE", "instrument": _tick_instrument(tick)}
+        # CENTRAL MASTER/SCOPE GATE: pilot preserved; expansion instruments fail-closed until master+mode+registry+
+        # calendar+readiness all pass. A denied expansion tick is a governed skip (no envelope, no write), not a fault.
+        _inst = _tick_instrument(tick)
+        if not _pubgate.decide(_inst, "tick", now=now, records=self._records).permitted:
+            self.skipped_out_of_scope += 1
+            return {"emitted": False, "reason": "EXPANSION_GATED", "instrument": _inst}
         self.attempts += 1
         env = self.build_envelope(tick, now=now)
         key = env["key"]
@@ -227,7 +235,7 @@ def build_tick_live_emitter_from_registry(records=None, *, redis_client=None, re
     client = redis_client
     if client is None:
         client = (redis_client_factory or _default_canonical_redis_client)()
-    return LiveTickEmitter(allowed_instruments=allowed, redis_client=client)
+    return LiveTickEmitter(allowed_instruments=allowed, redis_client=client, records=records)
 
 
 def build_tick_live_emitter_from_env(*, records=None, redis_client=None, redis_client_factory=None):
