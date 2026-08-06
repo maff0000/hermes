@@ -375,6 +375,8 @@ class GapsPublisher:
             records = reg.load_from_db()
         self._records = tuple(records)                          # the registry snapshot the gate must agree with
         self.instruments = tuple(sel.selection_for("gap", records))
+        from utils import hermes_instrument_registry_v1 as _reg   # family boundary (defence-in-depth): every selected
+        _reg.assert_records_complete(self._records, self.instruments)  # record must be capability-active + complete
         # Per-instrument governed market-hours policy KEY resolved from registry metadata (DATA, not ticker). The
         # reusable policy instance is resolved at publish time; missing/unknown metadata fails closed (mhp.PolicyError).
         self._policy_key = {rec.symbol: rec.market_hours_policy for rec in records if rec.symbol in self.instruments}

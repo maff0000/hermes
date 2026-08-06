@@ -227,7 +227,7 @@ class IndicatorPublisher:
     and NO I/O (publishing is a separate, later, authorised WO)."""
     enabled = True
 
-    def __init__(self, *, allowed_instruments, timeframes):
+    def __init__(self, *, allowed_instruments, timeframes, records=None):
         allowed = frozenset(allowed_instruments)
         if not allowed:
             raise ValueError("GOV-HERMES-IND-021: indicator allowlist is empty (registry-selected; caller disables)")
@@ -237,6 +237,10 @@ class IndicatorPublisher:
             raise ValueError("GOV-HERMES-IND-024: indicator timeframes must be non-empty")
         self.allowed_instruments = allowed
         self.timeframes = tuple(timeframes)
+        self.records = tuple(records) if records is not None else None
+        if self.records is not None:                             # family boundary (defence-in-depth): every allowed
+            from utils import hermes_instrument_registry_v1 as _reg   # instrument must be capability-active + complete
+            _reg.assert_records_complete(self.records, self.allowed_instruments)
 
     def status(self):
         return {"enabled": True, "instruments": sorted(self.allowed_instruments),
@@ -271,4 +275,4 @@ def build_indicator_publisher_from_env(records=None):
         parse_indicator_instruments(raw, allowed=instruments)   # env<=registry consistency, fail-closed
     allow_d1 = get_env_bool(D1_AUTHORISED_ENV, False)
     timeframes = parse_indicator_timeframes(get_env(TIMEFRAMES_ENV, default=None), allow_d1=allow_d1)
-    return IndicatorPublisher(allowed_instruments=instruments, timeframes=timeframes)
+    return IndicatorPublisher(allowed_instruments=instruments, timeframes=timeframes, records=records)

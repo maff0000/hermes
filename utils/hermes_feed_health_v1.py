@@ -310,6 +310,9 @@ class FeedHealthPublisher:
         self.source_name = source_name
         self.registry_state = registry_state
         self.records = tuple(records) if records is not None else None   # registry snapshot the gate must agree with
+        if self.records is not None:                             # family boundary (defence-in-depth): selected records
+            from utils import hermes_instrument_registry_v1 as _reg   # must be capability-active + metadata-complete
+            _reg.assert_records_complete(self.records, self.allowed_instruments)
 
     def instrument_state(self, instrument):
         """Per-instrument reporting isolation: ACTIVE iff registry feed-health-selected, else NOT_ENABLED. The seven

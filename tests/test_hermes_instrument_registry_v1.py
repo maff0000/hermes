@@ -98,10 +98,13 @@ def test_duplicate_broker_mapping_rejected():
     (lambda r: r.update(enabled_timeframes=[]), "non-empty list"),
     (lambda r: r.update(price_authority="oops"), "invalid price_authority"),
     (lambda r: r.update(backfill_policy="whatever"), "invalid backfill_policy"),
-    (lambda r: r.pop("market_hours_policy"), "missing required registry field"),
+    # a capability-ACTIVE row missing a required capability field still fails closed (strict validation preserved)
+    (lambda r: r.pop("market_hours_policy"), "INCOMPLETE-ACTIVE"),
 ])
 def test_invalid_metadata_fails_closed(mutate, err):
-    row = _row("EUR_USD", "forex_major", 5, 0.00001, "fx_24x5")
+    # capability-ACTIVE row (tick_cap=1): present-but-invalid capability metadata fails, and a missing required
+    # capability field fails closed under capability-aware validation. Inactive-row tolerance is tested separately.
+    row = _row("EUR_USD", "forex_major", 5, 0.00001, "fx_24x5", tick_cap=1)
     mutate(row)
     with pytest.raises(RegistryError, match=err):
         validate_record(row)

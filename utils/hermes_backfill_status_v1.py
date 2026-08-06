@@ -251,11 +251,12 @@ class BackfillStatusPublisher:
             raise ValueError("GOV-HERMES-BFS-020: enabled backfill-status publisher requires an explicit redis client")
         self.redis_client = redis_client
         # Default-load through the registry loader's module attribute (single fail-closed source, patchable in tests).
+        from utils import hermes_instrument_registry_v1 as reg
         if records is None:
-            from utils import hermes_instrument_registry_v1 as reg
             records = reg.load_from_db()
         self._records = tuple(records)                          # the registry snapshot the gate must agree with
         self.instruments = tuple(sel.backfill_status_instruments(records))
+        reg.assert_records_complete(self._records, self.instruments)   # family boundary (defence-in-depth): complete records only
 
     def analyze(self, *, instrument, now, gate_values=None):
         return analyze_backfill_status(self.redis_client, instrument=instrument, now=now, gate_values=gate_values)
