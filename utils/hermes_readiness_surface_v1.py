@@ -24,8 +24,10 @@ RED = "RED"
 
 # Deterministic authority-compliance fault codes (fail-closed).
 F_SOURCE_MISSING = "RDY-SOURCE-IDENTITY-MISSING"
-F_SOURCE_MISMATCH = "RDY-SOURCE-IDENTITY-MISMATCH"
 F_SOURCE_MALFORMED = "RDY-SOURCE-IDENTITY-MALFORMED"
+# NOTE: an OCI-revision==source_sha MISMATCH is not runtime-derivable from build_identity (image_ref is a digest,
+# not the git SHA); it is a BUILD-TIME guarantee enforced by ops/build/build_production_candidate.sh. No dead
+# runtime fault code is declared for it (reconciled per WO §24).
 F_REGISTRY_LOAD = "RDY-REGISTRY-LOAD-FAILED"
 F_MALFORMED_CAP = "RDY-MALFORMED-CAPABILITY"
 F_ACTIVE_INCOMPLETE = "RDY-ACTIVE-INCOMPLETE-ROW"
@@ -40,6 +42,14 @@ F_CALENDAR_DRIFT = "RDY-CALENDAR-APPROVAL-DRIFT"
 F_CONSUMER_ON = "RDY-CONSUMER-ENABLED"
 F_ORDER_PRESENT = "RDY-ORDER-PATH-PRESENT"
 F_BACKFILL_ON = "RDY-BACKFILL-EXECUTION-ACTIVE"
+# Observation-failure faults (fail-closed): an input that could NOT be authoritatively observed must fault, never
+# silently report the safe value. Introduced by WO-...-PROVENANCE-SCOPE-READINESS-...-0001 continuation.
+F_STREAM_UNKNOWN = "RDY-STREAM-STATE-UNKNOWN"
+F_ORDER_UNKNOWN = "RDY-ORDER-PATH-UNKNOWN"
+F_INACTIVE_UNOBSERVED = "RDY-INACTIVE-PUBLICATION-UNOBSERVED"
+
+# Strict order-path states (the live derivation is strict; the helper still accepts a legacy boolean).
+_ORDER_FAULTY_STATES = ("PRESENT", "PRESENT_ENABLED", "PRESENT_DISABLED")
 
 
 def _iso(dt):
@@ -52,7 +62,14 @@ def build_readiness_report(*, now, build_identity, registry, master_enabled, pub
                            calendar_provenance, core_health, db_ok, redis_ok, stream_count,
                            consumer_live, order_path_present, backfill_execution,
                            seven_new_published_count=0, inactive_published_count=0, last_xau_tick_utc=None,
-                           expected_master=False, expected_mode="DISABLED"):
+                           expected_master=False, expected_mode="DISABLED",
+                           order_path_state=None, stream_unknown=False, inactive_observation_ok=True,
+                           stream_health=None, configured_stream_count=None, active_stream_count=None,
+                           last_stream_heartbeat_utc=None):
+    """`order_path_state` (ABSENT|PRESENT_DISABLED|PRESENT_ENABLED|UNKNOWN) is the STRICT authoritative signal; when
+    None it is derived from the legacy `order_path_present` bool. `stream_unknown` marks an indeterminate stream
+    observation (fail-closed, never counted as the safe 1). `inactive_observation_ok=False` marks an inactive-
+    publication observation that could not complete (fail readiness rather than report zero)."""
     """Assemble the readiness dict. `registry` is either an exception-free dict from registry_effective_summary + the
     typed records, or a fault marker; callers pass what they can resolve read-only. All authority state is injected so
     this stays pure and testable. `expected_*` express the authorised DARK deployment contract."""
@@ -112,6 +129,8 @@ def build_readiness_report(*, now, build_identity, registry, master_enabled, pub
     seven_selected = [s for s in SEVEN_NEW if s in active]
     if seven_new_published_count:
         faults.append(F_SEVEN_NEW_PUBLISHED)
+    if not inactive_observation_ok:
+        faults.append(F_INACTIVE_UNOBSERVED)          # could not observe -> fail-closed, never report zero
     if inactive_published_count:
         faults.append(F_INACTIVE_PUBLISHED)
     expansion_block = {
@@ -138,26 +157,41 @@ def build_readiness_report(*, now, build_identity, registry, master_enabled, pub
     # ---- boundaries ----
     if _truthy(consumer_live):
         faults.append(F_CONSUMER_ON)
-    if order_path_present:
+    # strict order-path authority: UNKNOWN (unobservable) is fail-closed; PRESENT_* is a breach; ABSENT is the only pass.
+    o_state = order_path_state if order_path_state is not None else ("PRESENT" if order_path_present else "ABSENT")
+    o_state = str(o_state).upper()
+    if o_state == "UNKNOWN":
+        faults.append(F_ORDER_UNKNOWN)
+    elif o_state in _ORDER_FAULTY_STATES:
         faults.append(F_ORDER_PRESENT)
     if _truthy(backfill_execution):
         faults.append(F_BACKFILL_ON)
     boundaries = {"consumer_state": "ON" if _truthy(consumer_live) else "OFF",
-                  "order_path_state": "PRESENT" if order_path_present else "ABSENT",
-                  "order_authority_state": "ABSENT", "backfill_execution_state": "ON" if _truthy(backfill_execution) else "OFF",
+                  "order_path_state": o_state,
+                  "order_authority_state": "ABSENT" if o_state == "ABSENT" else o_state,
+                  "backfill_execution_state": "ON" if _truthy(backfill_execution) else "OFF",
                   "autonomous_repair_state": "OFF"}
 
     # ---- stream / core ----
-    if stream_count != 1:
+    # An indeterminate observation faults explicitly and can NEVER be read as the safe 1; a bad exact count faults too.
+    if stream_unknown:
+        faults.append(F_STREAM_UNKNOWN)
+    elif stream_count != 1:
         faults.append(F_STREAM_COUNT)
+    stream_ok = (not stream_unknown) and stream_count == 1
     core_block = {"service_health": core_health, "ingestion_health": core_health,
                   "database_connectivity": "OK" if db_ok else "FAILED",
                   "redis_connectivity": "OK" if redis_ok else "FAILED",
-                  "shared_stream_state": "OK" if stream_count == 1 else "DEGRADED", "stream_count": stream_count}
+                  "shared_stream_state": "OK" if stream_ok else ("UNKNOWN" if stream_unknown else "DEGRADED"),
+                  "stream_count": stream_count,
+                  "configured_stream_count": configured_stream_count if configured_stream_count is not None else 1,
+                  "active_stream_count": active_stream_count if active_stream_count is not None else stream_count,
+                  "stream_health": stream_health or ("UNKNOWN" if stream_unknown else ("ACTIVE" if stream_ok else "DEGRADED")),
+                  "last_stream_heartbeat_utc": last_stream_heartbeat_utc}
 
     # ---- overall decision ----
     authority_compliant = not faults
-    core_green = (core_health == OK) and db_ok and redis_ok and stream_count == 1
+    core_green = (core_health == OK) and db_ok and redis_ok and stream_ok
     overall = OK if (authority_compliant and core_green) else (RED if not authority_compliant else AMBER)
     return {
         "identity": identity, "core": core_block, "registry": reg_block, "pilot": pilot_block,

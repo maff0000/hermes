@@ -16,16 +16,51 @@ post-deployment AMBER findings. **Source-only; production untouched; not deploye
   readiness fault. The immutable image **digest** is the runtime identity; the Git SHA identifies the source.
 
 ## B. External scope-aware readiness — `GET /readiness`
-`utils/hermes_readiness_surface_v1.build_readiness_report(...)` assembles a versioned (`v1`), read-only, deterministic
-contract from authoritative constituents (build identity, live `registry_effective_summary`, effective master/mode,
-pilot scope, calendar provenance, stream/consumer/order/backfill state, core health). Blocks: `identity`, `core`,
-`registry`, `pilot`, `expansion`, `calendar`, `boundaries`, `readiness` (separate `liveness` / `core_health` /
-`deployment_authority_compliance` / `expansion_readiness` / `trading_execution_readiness` + `overall` + `fault_codes`).
-The endpoint is **GREEN for the authorised DARK deployment** while reporting `expansion_readiness=NOT_READY_DARK` and
-`trading_execution_readiness=ABSENT`; it returns **503/RED** on any authority breach (source missing/mismatch/malformed,
-registry load fail, master true, mode not DISABLED, seven-new/inactive published, stream≠1, calendar drift, consumer on,
-order present, backfill on). No secrets are exposed; state is derived from configuration/runtime, not Redis key patterns
-(key counts are observability only).
+The route lives in `utils/hermes_readiness_router_v1.py` as a dedicated `APIRouter` (`main.py` does
+`app.include_router(...)` and binds `readiness_sources` to the live service state via FastAPI DI). Its `assemble()`
+runs the authoritative observers and `utils/hermes_readiness_surface_v1.build_readiness_report(...)` to produce a
+versioned (`v1`), read-only, deterministic contract. Blocks: `identity`, `core`, `registry`, `pilot`, `expansion`,
+`calendar`, `boundaries`, `readiness` (separate `liveness` / `core_health` / `deployment_authority_compliance` /
+`expansion_readiness` / `trading_execution_readiness` + `overall` + `fault_codes`). The endpoint is **GREEN for the
+authorised DARK deployment** while reporting `expansion_readiness=NOT_READY_DARK` and `trading_execution_readiness=ABSENT`;
+it returns **503/RED** on any authority breach. No secrets are exposed; state is derived from configuration/runtime, not
+from Redis key-pattern scans.
+
+### Authoritative field-to-source table (every safety field is DERIVED, never a constant)
+| Field | Authoritative source | Observation | Freshness | Failure behaviour | Fault code | Privileged? |
+|-------|----------------------|-------------|-----------|-------------------|-----------|-------------|
+| `identity.source_sha` | `build_identity()` ENV (Dockerfile-stamped) | read env | build-time | missing/malformed → RED | `RDY-SOURCE-IDENTITY-MISSING` / `-MALFORMED` | no |
+| `registry.*` | `registry_effective_summary(load_from_db())` | live DB read | per request | load fail → RED | `RDY-REGISTRY-LOAD-FAILED`, `RDY-ACTIVE-INCOMPLETE-ROW`, `RDY-MALFORMED-CAPABILITY` | DB |
+| `pilot.xau_pilot_state` | registry active set + `load_pilot_scope()` | derived | per request | empty/inactive → RED | `RDY-PILOT-SCOPE-INVALID`, `RDY-XAU-PILOT-INACTIVE` | DB |
+| `expansion.master/mode` | `load_master_enabled()` / `load_publisher_mode()` | config | per request | true / not-DISABLED → RED | `RDY-EXPANSION-MASTER-TRUE-UNDER-DARK`, `RDY-PUBLISHER-MODE-NOT-DISABLED` | no |
+| `core.stream_count` | `observe_stream` over OANDA+IBKR adapters (`adapter.health`, task) | read-only | last tick heartbeat (30 s) | active≠1 → RED; indeterminate → RED | `RDY-STREAM-COUNT-NOT-ONE`, `RDY-STREAM-STATE-UNKNOWN` | no |
+| `boundaries.order_path_state` | `observe_order_path` (routes + state components + order ENV flags) | read-only | per request | present/enabled → RED; unobservable → RED | `RDY-ORDER-PATH-PRESENT`, `RDY-ORDER-PATH-UNKNOWN` | no |
+| `expansion.inactive_row_published_count` | `observe_inactive_publication` (exact canonical keys for NOT_ENABLED rows × 5 families) | bounded `exists()` | key TTL (existing key = current) | published>0 → RED; unobservable → RED | `RDY-INACTIVE-ROW-PUBLISHED`, `RDY-INACTIVE-PUBLICATION-UNOBSERVED` | Redis |
+| `expansion.seven_new_published_count` | bounded exact-key `exists()` for the 7 new instruments | bounded `exists()` | key TTL | published>0 → RED | `RDY-SEVEN-NEW-PUBLISHED` | Redis |
+| `calendar.*` | `load_calendar_provenance()` | config | per request | production_approved drift → RED | `RDY-CALENDAR-APPROVAL-DRIFT` | no |
+| `boundaries.consumer_state` / `backfill_execution_state` | `CONSUMER_LIVE` / `HERMES_BACKFILL_EXECUTION_ENABLED` ENV | read env | per request | on → RED | `RDY-CONSUMER-ENABLED`, `RDY-BACKFILL-EXECUTION-ACTIVE` | no |
+
+The three corrected fields — `stream_count`, `order_path_state`, `inactive_row_published_count` — are **observed, not
+assumed**: an observation that cannot complete fails readiness (never reports the safe 1 / ABSENT / 0). **19** reachable
+readiness fault codes are declared (the earlier `RDY-SOURCE-IDENTITY-MISMATCH` was removed — it is a build-time
+wrapper guarantee, not runtime-derivable; a dead-fault reachability test enforces this). Two route-level operational
+sentinels exist outside the authority set: `RDY-PROVIDER-UNWIRED` (unwired app) and `RDY-EVALUATION-ERROR` (bounded
+error contract, never a stack trace).
+
+### HTTP contract
+| Aspect | Behaviour |
+|--------|-----------|
+| Route / method | `GET /readiness` only |
+| `POST/PUT/PATCH/DELETE` | `405 Method Not Allowed` |
+| `HEAD` | not supported → `405` (use GET) |
+| Content type | `application/json` |
+| Status | `200` GREEN or AMBER · `503` RED / unwired / evaluation error |
+| Mutation | none — read-only DB/registry reads + bounded exact-key `exists()` only; no write, no key creation, no stream/OANDA/order side effect |
+| Evaluation timing | synchronous per request; bounded (≤ inactive_rows × (4 + timeframes) exact key checks; no scan) |
+| Dependency failure | fail-closed to RED with a deterministic fault; no traceback leaked |
+| Distinction from `/ready` | `/ready` = tick-freshness liveness (existing); `/readiness` = scope-aware Advanced-v1 deployment-authority surface |
+| Distinction from `/health` | `/health` = watchdog health_state for the container probe |
+| Relation to `/buildinfo` | `/buildinfo` returns the same `build_identity()` the readiness `identity` block is derived from |
 
 ## C. Reproducible dark deployment configuration
 Replaces reliance on the untracked project-local override with **version-controlled** artefacts:

@@ -66,13 +66,61 @@ def test_contract_version_and_timestamps():
     ({"calendar_provenance": {**CAL, "index_cash": {**CAL["index_cash"], "production_approved": True}}}, rs.F_CALENDAR_DRIFT),
     ({"consumer_live": "true"}, rs.F_CONSUMER_ON),
     ({"order_path_present": True}, rs.F_ORDER_PRESENT),
+    ({"order_path_state": "PRESENT_ENABLED"}, rs.F_ORDER_PRESENT),
+    ({"order_path_state": "UNKNOWN"}, rs.F_ORDER_UNKNOWN),
     ({"backfill_execution": "true"}, rs.F_BACKFILL_ON),
+    ({"stream_unknown": True}, rs.F_STREAM_UNKNOWN),
+    ({"inactive_observation_ok": False}, rs.F_INACTIVE_UNOBSERVED),
 ])
 def test_each_breach_is_red_with_fault(over, fault):
     r = _report(**over)
     assert fault in r["readiness"]["fault_codes"]
     assert r["readiness"]["deployment_authority_compliance"] == rs.RED
     assert r["readiness"]["overall"] == rs.RED
+
+
+def test_stream_unknown_never_reads_as_the_safe_one():
+    # an indeterminate stream observation must fault even if a stale count of 1 was passed
+    r = _report(stream_count=1, stream_unknown=True)
+    assert rs.F_STREAM_UNKNOWN in r["readiness"]["fault_codes"] and r["readiness"]["overall"] == rs.RED
+
+
+def test_order_state_supersedes_legacy_bool():
+    r = _report(order_path_present=False, order_path_state="ABSENT")
+    assert r["boundaries"]["order_path_state"] == "ABSENT" and rs.F_ORDER_PRESENT not in r["readiness"]["fault_codes"]
+
+
+# ============================ dead-fault reachability (WO §24) ============================
+def test_every_declared_fault_code_is_reachable():
+    """Every F_* declared in the surface must be produced by at least one input permutation — no dead safety fault."""
+    declared = {v for k, v in vars(rs).items() if k.startswith("F_") and isinstance(v, str)}
+    breaches = [
+        {"build_identity": {**BI, "source_sha": "UNKNOWN_SOURCE_SHA"}},
+        {"build_identity": {**BI, "source_sha": "abc123"}},
+        {"registry": {"loaded": False}},
+        {"registry": {**REG, "invalid_active": 1}},
+        {"registry": {**REG, "malformed_capability": 1}},
+        {"pilot_scope": set()},
+        {"registry": {**REG, "active": []}},
+        {"master_enabled": True},
+        {"publisher_mode": "ACTIVE"},
+        {"seven_new_published_count": 1},
+        {"inactive_published_count": 1},
+        {"inactive_observation_ok": False},
+        {"stream_count": 0},
+        {"stream_unknown": True},
+        {"calendar_provenance": {**CAL, "index_cash": {**CAL["index_cash"], "production_approved": True}}},
+        {"consumer_live": "true"},
+        {"order_path_state": "PRESENT_ENABLED"},
+        {"order_path_state": "UNKNOWN"},
+        {"backfill_execution": "true"},
+    ]
+    produced = set()
+    for over in breaches:
+        produced.update(_report(**over)["readiness"]["fault_codes"])
+    missing = declared - produced
+    assert not missing, f"unreachable (dead) fault codes: {missing}"
+    assert len(declared) == 19    # reconciled count (17 original - 1 dead mismatch + 3 observation-failure)
 
 
 def test_core_degraded_is_amber_not_red_when_compliant():
