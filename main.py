@@ -1508,6 +1508,103 @@ async def ready():
     }
 
 
+# ============================================================================
+# Scope-aware readiness — dedicated router (WO-...-PROVENANCE-SCOPE-READINESS-...-0001 continuation)
+# GET /readiness lives in utils/hermes_readiness_router_v1.py so the real ASGI route + assembly are exercisable
+# without the full boot. Production binds the sources below to the LIVE service state; the three safety inputs
+# (stream count, order-path presence, inactive-row publication) are DERIVED from runtime authority — never
+# hard-coded — and fail-closed when they cannot be observed.
+# ============================================================================
+from utils import hermes_readiness_router_v1 as _readiness_router
+from utils import hermes_readiness_observers_v1 as _readiness_obs
+from utils import hermes_readiness_surface_v1 as _readiness_surface
+
+
+class _ProductionReadinessSources:
+    """Readiness sources bound to the live HERMES service state. Read-only; performs no mutation."""
+
+    def now(self):
+        from datetime import datetime as _dt, timezone as _tz
+        return _dt.now(_tz.utc)
+
+    def build_identity(self):
+        from utils.hermes_build_identity_v1 import build_identity
+        return build_identity()
+
+    def load_registry(self):
+        from utils import hermes_instrument_registry_v1 as reg
+        recs = reg.load_from_db()
+        summ = reg.registry_effective_summary(recs)
+        registry = {"loaded": True, "rows": summ["registry_rows"], "active": list(summ["advanced_v1_active"]),
+                    "not_enabled": summ["not_enabled_count"], "invalid_active": 0, "malformed_capability": 0}
+        # indicator timeframes for the inactive-publication probe: the timeframes ACTIVE rows actually publish
+        tfs = sorted({tf for r in recs if r.advanced_v1_active and r.enabled_timeframes for tf in r.enabled_timeframes})
+        return registry, list(summ["not_enabled"]), tuple(tfs)
+
+    def load_master_mode_pilot(self):
+        from utils import hermes_advanced_v1_publication_gate_v1 as pgate
+        return pgate.load_master_enabled(), pgate.load_publisher_mode(), pgate.load_pilot_scope()
+
+    def load_calendar(self):
+        from utils import hermes_advanced_v1_readiness_package_v1 as rp
+        return rp.load_calendar_provenance()
+
+    def core_snapshot(self):
+        snap = state.watchdog.get_health_snapshot() if getattr(state, "watchdog", None) else {}
+        core = snap.get("health_state", "AMBER") if snap else "AMBER"
+        ok = bool(snap) and core != "RED"
+        return core, ok, ok
+
+    def stream_handles(self):
+        # all pricing-stream slots (OANDA + IBKR); a second ACTIVE slot is a rogue-second-stream breach
+        try:
+            tasks = state.adapter_tasks
+        except Exception:  # noqa: BLE001
+            tasks = {}
+        pairs = []
+        for adapter_attr, task_key in (("oanda_adapter", "oanda"), ("ibkr_adapter", "ibkr")):
+            adapter = getattr(state, adapter_attr, None)
+            if adapter is not None:
+                pairs.append((adapter, (tasks or {}).get(task_key)))
+        return pairs
+
+    def _redis(self):
+        return (getattr(state, "canonical_redis", None) or getattr(state, "redis", None)
+                or getattr(getattr(state, "redis_publisher", None), "_client", None))
+
+    def redis_client(self):
+        return self._redis()
+
+    def order_handles(self):
+        route_paths = [getattr(r, "path", "") for r in app.routes]
+        present = {a for a in _readiness_obs.ORDER_STATE_ATTRS if getattr(state, a, None) is not None}
+        env = {k: get_env(k, default=None) for k in
+               ("CONSUMER_LIVE", "HERMES_BACKFILL_EXECUTION_ENABLED", *_readiness_obs.ORDER_ENV_FLAGS)}
+        return route_paths, present, env
+
+    def seven_new_count(self):
+        from utils.hermes_advanced_v1_selection_v1 import tick_latest_key, gaps_key, backfill_status_key
+        from utils.hermes_feed_health_v1 import feed_health_key
+        rc = self._redis()
+        if rc is None:
+            return 0
+        n = 0
+        try:
+            for s in _readiness_surface.SEVEN_NEW:
+                for k in (tick_latest_key(s), gaps_key(s), backfill_status_key(s), feed_health_key(s)):
+                    if rc.exists(k):
+                        n += 1
+                        break
+        except Exception:  # noqa: BLE001
+            return 0
+        return n
+
+
+app.include_router(_readiness_router.router)
+# FastAPI-native DI: production supplies the live-bound sources; route-level tests override with fakes.
+app.dependency_overrides[_readiness_router.readiness_sources] = lambda: _ProductionReadinessSources()
+
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus-style metrics"""
