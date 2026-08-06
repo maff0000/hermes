@@ -31,7 +31,7 @@ _SENTINEL_IMAGE = "UNKNOWN_IMAGE"
 _SENTINEL_CONFIG = "UNKNOWN"
 _SENTINEL_CLASSIFICATION = "UNVERIFIED"
 
-_40HEX = re.compile(r"^[0-9a-fA-F]{40}$")
+_40HEX = re.compile(r"^[0-9a-f]{40}$")   # 40 LOWERCASE hex (governed contract; matches `git rev-parse HEAD` output)
 _INVALID_SHA_SENTINELS = {"", "latest", "UNKNOWN_SOURCE_SHA", "unknown_source_sha", "none", "None"}
 
 

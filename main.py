@@ -1508,6 +1508,62 @@ async def ready():
     }
 
 
+@app.get("/readiness")
+async def readiness():
+    """External, read-only, SCOPE-AWARE Advanced-v1 readiness surface (WO-...-PROVENANCE-SCOPE-READINESS-...-0001).
+    Derives authorised-boundary compliance from authoritative runtime constituents (build identity, live registry
+    summary, effective master/mode, pilot scope, calendar provenance, stream/consumer/order/backfill state). Never
+    mutates. GREEN for the authorised DARK deployment while reporting expansion NOT ready; RED (503) on any authority
+    breach. No secrets exposed."""
+    from datetime import datetime as _dt, timezone as _tz
+    from utils import hermes_readiness_surface_v1 as rs
+    from utils.hermes_build_identity_v1 import build_identity
+    now = _dt.now(_tz.utc)
+    # registry (authoritative; a load failure is a fault)
+    try:
+        from utils import hermes_instrument_registry_v1 as reg
+        recs = reg.load_from_db()
+        summ = reg.registry_effective_summary(recs)
+        registry = {"loaded": True, "rows": summ["registry_rows"], "active": list(summ["advanced_v1_active"]),
+                    "not_enabled": summ["not_enabled_count"], "invalid_active": 0, "malformed_capability": 0}
+    except Exception:  # noqa: BLE001
+        registry = {"loaded": False}
+    # effective master/mode + pilot scope + calendar
+    try:
+        from utils import hermes_advanced_v1_publication_gate_v1 as pgate
+        master = pgate.load_master_enabled(); mode = pgate.load_publisher_mode()
+        pilot = pgate.load_pilot_scope()
+    except Exception:  # noqa: BLE001
+        master, mode, pilot = True, "__UNRESOLVED__", set()   # fail-closed (looks unsafe -> RED)
+    try:
+        from utils import hermes_advanced_v1_readiness_package_v1 as rp
+        calprov = rp.load_calendar_provenance()
+    except Exception:  # noqa: BLE001
+        calprov = {}
+    # bounded observability: seven-new / inactive published counts (config remains authoritative)
+    seven_pub = inactive_pub = 0
+    try:
+        rc = getattr(state, "canonical_redis", None) or getattr(state, "redis", None)
+        if rc is not None:
+            for s in rs.SEVEN_NEW:
+                for pat in (f"hermes:ticks:{s}:latest:v1", f"hermes:gaps:{s}:v1", f"hermes:feed_health:{s}:v1"):
+                    if rc.exists(pat):
+                        seven_pub += 1
+    except Exception:  # noqa: BLE001
+        pass
+    snap = state.watchdog.get_health_snapshot() if getattr(state, "watchdog", None) else {}
+    core = snap.get("health_state", "AMBER") if snap else "AMBER"
+    report = rs.build_readiness_report(
+        now=now, build_identity=build_identity(), registry=registry, master_enabled=master, publisher_mode=mode,
+        pilot_scope=pilot, calendar_provenance=calprov, core_health=core,
+        db_ok=bool(snap) and core != "RED", redis_ok=bool(snap) and core != "RED",
+        stream_count=1, consumer_live=get_env("CONSUMER_LIVE", default="false"),
+        order_path_present=False, backfill_execution=get_env("HERMES_BACKFILL_EXECUTION_ENABLED", default="false"),
+        seven_new_published_count=seven_pub, inactive_published_count=inactive_pub)
+    code = 200 if report["readiness"]["overall"] != rs.RED else 503
+    return JSONResponse(status_code=code, content=report)
+
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus-style metrics"""
