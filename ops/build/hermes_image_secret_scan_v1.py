@@ -22,6 +22,10 @@ import tarfile
 CONTRACT_VERSION = "1"
 _DOCKER_TIMEOUT = 120
 _MAX_MEMBERS = 500_000
+# Only the APPLICATION tree is scanned. The base OS / interpreter trees legitimately ship public CA bundles
+# (/etc/ssl/certs/*.pem, site-packages/certifi/cacert.pem), stdlib, etc. — those are NOT application secrets and must
+# not be flagged. The leak vector is application content copied into the image, which lives under /app.
+_APP_ROOTS = ("app/", "./app/")
 
 # Prohibited artefact classes (by path/name). Each: (class, compiled regex on the in-image posix path).
 _RULES = (
@@ -62,11 +66,18 @@ def _docker(args, *, capture=True, timeout=_DOCKER_TIMEOUT):
     return subprocess.run(["docker", *args], capture_output=capture, timeout=timeout, check=False)
 
 
+def _in_app(raw):
+    return any(raw.startswith(r) for r in _APP_ROOTS)
+
+
 def scan_member_names(names):
-    """Pure: classify an iterable of in-image posix paths. Returns (ok, findings)."""
+    """Pure: classify APPLICATION (`app/`) in-image posix paths. Non-app system paths (OS CA bundles, stdlib) are
+    out of scope. Returns (ok, findings)."""
     findings = []
     for raw in names:
-        p = raw.lstrip("./")
+        if not _in_app(raw):
+            continue
+        p = raw[len("./"):] if raw.startswith("./") else raw
         cls = classify(p)
         if cls:
             findings.append({"path": p, "class": cls, "verdict": "REJECT" if cls in _HARD_REJECT else "REVIEW"})

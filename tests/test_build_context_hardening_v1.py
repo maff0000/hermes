@@ -60,6 +60,22 @@ def test_scanner_member_scan_clean_passes():
     assert ok and findings == []
 
 
+def test_scanner_ignores_system_ca_bundles_and_stdlib():
+    # base-OS / interpreter trust stores are NOT application secrets and must not be flagged
+    ok, findings = scan.scan_member_names([
+        "etc/ssl/certs/DigiCert_Global_Root_CA.pem",
+        "usr/local/lib/python3.12/site-packages/certifi/cacert.pem",
+        "usr/lib/ssl/cert.pem",
+        "app/main.py",
+    ])
+    assert ok and findings == []
+
+
+def test_scanner_flags_pem_under_app():
+    ok, findings = scan.scan_member_names(["app/secrets/server.pem"])
+    assert not ok and findings[0]["class"] == "PRIVATE_KEY"
+
+
 # ----------------------------------------------------------------- canary fail-closed config
 canary = _load("healthcheck/canary/hermes_signal_truth_canary.py", "hermes_signal_truth_canary")
 _CANARY_KEYS = ["CANARY_ENABLED", "CANARY_INSTRUMENT", "CANARY_CHECK_INTERVAL_SECONDS",
