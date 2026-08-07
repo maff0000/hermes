@@ -92,3 +92,68 @@ docker compose -p hermes-dev -f docker-compose.yml -f deploy/advanced_v1/docker-
 ### Container/cloud absorption
 All controls are project-owned, secret-free, and env-driven — portable to a future container/cloud deployment by
 supplying the same governed env file + overlay; the SHA→digest evidence makes the running image independently auditable.
+
+---
+
+# D. Complete tracked runtime configuration & XAU parity
+**WO-HELM-HERMES-COMPLETE-TRACKED-RUNTIME-CONFIG-AND-XAU-PARITY-0001.** Completes the tracked bundle so it reproduces
+the **entire** authorised XAU runtime (not just the Advanced-v1 dark controls), replacing the untracked
+`docker-compose.dev-override.yml`. Source-only; production untouched.
+
+## Artefact architecture
+| Artefact | Role |
+|----------|------|
+| `runtime_config_schema_v1.py` | **Single source of truth** — one machine-readable record per deployment-contract field (type, required, enum/range, secret/authority/host classification, parity-critical flag, deprecated aliases, must-equal, consequence). Drives preflight, renderer, parity, template, tests. |
+| `config_inventory_v1.md` | Secret-free inventory + classification (A–F) + reconciliation sets, generated from the schema. |
+| `docker-compose.operational.yml` | **NEW** operational overlay — every non-secret XAU control (candle/indicator/level/session/feature/D1/warm-start/publisher-runtime/catalog/quote/canonical-Redis/control-plane), canonical-named, defaults matching the current authorised values. |
+| `docker-compose.dark.yml` | Expansion-dark overlay (master=false, mode=DISABLED, 5 Advanced-v1 families, consumer/backfill-exec off). Applied **last** so dark controls win. |
+| `deployment.env.template` | Complete governed env template — canonical names, per-field metadata, placeholders only. |
+| `runtime_config_preflight_v1.py` | Full-contract fail-closed preflight (supersedes `dark_config_preflight.py`). |
+| `render_effective_config.py` | Pure effective-config renderer (compose merge + interpolation) + secret-redacted report. |
+| `xau_parity_v1.py` | Deterministic parity checker vs the live effective config. |
+| `deploy.sh` / `rollback.sh` | Governed deployment / rollback wrappers. |
+
+## Canonical naming (clean vs DEV_*)
+The app (`env_config`, `ENVIRONMENT=DEV`) consumes `DEV_*` routing names. The **deployment contract** uses canonical,
+environment-neutral names (`DB_HOST`, `DB_PORT`, `REDIS_HOST`, …); the operational overlay **maps** them onto the app's
+`DEV_*` names. `DB_PORT=3307` is reproduced explicitly — the base compose's `${DB_PORT:-3306}` silent default is
+eliminated (`${DB_PORT:?}` fail-loud). If both a canonical name and its legacy `DEV_*` alias are supplied with different
+values, preflight **fails** (`CFG-ALIAS-CONFLICT`); a legacy alias without its canonical name fails (`CFG-LEGACY-ONLY`).
+
+## Governed deploy command
+```
+docker compose -p hermes-dev \
+  -f docker-compose.yml \
+  -f deploy/advanced_v1/docker-compose.operational.yml \
+  -f deploy/advanced_v1/docker-compose.dark.yml \
+  --env-file <governed.env> up -d hermes-signal
+```
+Secrets (DB/Redis passwords, OANDA keys) come from the base `.env` env_file; the governed env file carries non-secret
+routing/identity + the authority-bearing canonical activation token. Use `deploy/advanced_v1/deploy.sh --env-file <f>`.
+
+## Backfill / history boundary (§15)
+`HERMES_D1_HISTORY_BACKFILL_*`, `*_WARMSTART_*`, `HERMES_CANDLE_HISTORY_FORWARD_*` and `HERMES_BACKFILL_STATUS_*` are
+authorised **history warm-start / status** controls and remain enabled for XAU. They are **distinct** from the prohibited
+`HERMES_BACKFILL_EXECUTION_ENABLED` (kept `false`) and from autonomous repair (off). The Advanced-v1 backfill *executor*
+stays absent.
+
+## Old untracked override retirement plan (§37)
+Executed under a later **deployment** WO (not here):
+1. Preserve `docker-compose.dev-override.yml` checksum (`e967ce048c4f31d3…`) + restricted backup.
+2. Generate the governed env file from `deployment.env.template` (chmod 600; never committed).
+3. Render + parity-check (`render_effective_config` / `xau_parity_v1`) against the live effective config → 0 diffs.
+4. `runtime_config_preflight_v1` GREEN on the exact deployment inputs.
+5. Deploy the exact promoted digest with the tracked compose sequence (no `dev-override`).
+6. Prove XAU continuity + `/buildinfo` + `/readiness`.
+7. Remove `dev-override.yml` from the active compose invocation; archive it as rollback evidence.
+8. Future deployment/rollback reconstruction relies only on: tracked overlays + governed env file + immutable digest +
+   preflight + documented command. No dependence on the untracked override.
+
+## Blueprint inputs for independent assurance (§38)
+- **Authority map / canonical names / aliases:** `runtime_config_schema_v1.py` (`BY_NAME`, `ALIAS_TO_CANONICAL`, `PARITY_CRITICAL`, `MUST_EQUAL`).
+- **DB/Redis routes:** `DB_HOST`/`DB_PORT=3307`/`DB_NAME`; `REDIS_HOST`/`REDIS_PORT`/`REDIS_DB`; canonical-Redis `HERMES_CANDLE_CANONICAL_REDIS_*`.
+- **XAU operational groups:** `feature_group in {xau_operational, adv1_families, canonical_redis, process}`.
+- **Secret references:** `SECRET_FIELDS` + `AUTHORITY_FIELDS` (values external; presence-checked).
+- **Parity gate:** `xau_parity_v1.compare` vs `tests/fixtures/live_effective_config_v1.json`.
+- **Preflight / commands:** `runtime_config_preflight_v1`, `deploy.sh`, `rollback.sh`.
+- **Production unchanged:** container `c690a2ca25cb`, image `d42c1f4c`, restarts 0. **Exact next gate:** R2D2 exact-head assurance before merge/redeploy.

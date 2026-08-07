@@ -1,0 +1,116 @@
+# Governed, VERSION-CONTROLLED HERMES OPERATIONAL overlay (XAU pilot runtime parity).
+# WO-HELM-HERMES-COMPLETE-TRACKED-RUNTIME-CONFIG-AND-XAU-PARITY-0001.
+#
+# Purpose: reproduce the COMPLETE authorised XAU operational runtime from canonical Git, replacing the untracked
+# docker-compose.dev-override.yml. Project-owned, NO secrets. Environment-specific + secret values come from the
+# governed env file (see deployment.env.template) via ${VAR} interpolation; the base compose's `.env` env_file still
+# supplies existing secrets (DB/Redis passwords, OANDA keys). This overlay carries only NON-secret controls.
+#
+# CANONICAL NAMING: the app (env_config, ENVIRONMENT=DEV) consumes DEV_*-prefixed routing names. This overlay MAPS the
+# canonical, environment-neutral names (DB_HOST/DB_PORT/REDIS_HOST/...) from the governed env file onto the DEV_* names
+# the app reads — so the deployment contract is clean-named while the running app is unchanged. Required host/routing
+# values use ${VAR:?} (fail-loud; NO silent 3306/localhost fallback). Behavioural controls default to the current
+# authorised value so a minimal env file still reproduces parity.
+#
+# Compose invocation (with the dark overlay LAST so expansion controls win):
+#   docker compose -p hermes-dev \
+#     -f docker-compose.yml \
+#     -f deploy/advanced_v1/docker-compose.operational.yml \
+#     -f deploy/advanced_v1/docker-compose.dark.yml \
+#     --env-file <governed.env> up -d hermes-signal
+services:
+  hermes-signal:
+    environment:
+      # ---- runtime context ----
+      ENVIRONMENT: "${ENVIRONMENT:-DEV}"
+      RUN_ENV: "${RUN_ENV:-STAGING}"                 # keeps purge/backfill inert; NOT the Advanced-v1 executor
+      SIGNAL_PORT: "${SIGNAL_PORT:-8211}"
+
+      # ---- DB connectivity (canonical -> app-consumed DEV_*); port MUST be governed (no 3306 fallback) ----
+      DEV_DB_HOST: "${DB_HOST:?DB_HOST (canonical) required — no host fallback}"
+      DEV_DB_PORT: "${DB_PORT:?DB_PORT (canonical) required — no 3306 fallback}"
+      DB_NAME: "${DB_NAME:?DB_NAME required}"
+      # DEV_DB_USER / DEV_DB_PASSWORD remain supplied by the base .env env_file (secrets stay external).
+
+      # ---- Redis routing (canonical -> app-consumed DEV_*) ----
+      DEV_REDIS_HOST: "${REDIS_HOST:?REDIS_HOST (canonical) required — no localhost fallback}"
+      DEV_REDIS_PORT: "${REDIS_PORT:-6379}"
+      DEV_REDIS_DB: "${REDIS_DB:-0}"
+      DEV_REDIS_KEY_PREFIX: "${REDIS_KEY_PREFIX:-hermes:}"
+
+      # ---- canonical-Redis candle publishing route + authority ----
+      HERMES_CANDLE_CANONICAL_REDIS_HOST: "${HERMES_CANDLE_CANONICAL_REDIS_HOST:?canonical Redis host required}"
+      HERMES_CANDLE_CANONICAL_REDIS_PORT: "${HERMES_CANDLE_CANONICAL_REDIS_PORT:-6379}"
+      HERMES_CANDLE_CANONICAL_REDIS_DB: "${HERMES_CANDLE_CANONICAL_REDIS_DB:-0}"
+      HERMES_CANDLE_CANONICAL_INSTRUMENTS: "${HERMES_CANDLE_CANONICAL_INSTRUMENTS:-XAU_USD}"
+      # Authority-bearing token — EXTERNAL secret reference (never in Git); fail-loud if absent.
+      HERMES_CANDLE_CANONICAL_ACTIVATION_APPROVAL: "${HERMES_CANDLE_CANONICAL_ACTIVATION_APPROVAL:?governed canonical activation approval required (external secret; never in Git)}"
+
+      # ---- OANDA endpoint (keys stay in .env; endpoint selection is non-secret) + stream scope ----
+      OANDA_ENVIRONMENT: "${OANDA_ENVIRONMENT:?OANDA_ENVIRONMENT required (live|practice)}"
+      INSTRUMENTS: "${INSTRUMENTS:-XAU_USD,XAG_USD,XPT_USD,XCU_USD,GBP_USD,EUR_USD,USD_JPY,AUD_USD,NZD_USD,USD_CAD,USD_CHF,EUR_GBP,WTICO_USD,SPX500_USD}"
+
+      # ---- publisher runtime ownership / process model ----
+      HERMES_PUBLISHER_RUNTIME_ENABLED: "${HERMES_PUBLISHER_RUNTIME_ENABLED:-true}"
+      HERMES_PUBLISHER_RUNTIME_AUTHORISED: "${HERMES_PUBLISHER_RUNTIME_AUTHORISED:-true}"
+      HERMES_PUBLISHER_RUNTIME_OWNER: "${HERMES_PUBLISHER_RUNTIME_OWNER:-in_process}"
+      HERMES_REDIS_CONTROL_PLANE_ENABLED: "${HERMES_REDIS_CONTROL_PLANE_ENABLED:-true}"
+      HERMES_REDIS_CONTROL_PLANE_AUTHORISED: "${HERMES_REDIS_CONTROL_PLANE_AUTHORISED:-true}"
+
+      # ---- candle forwarding + publication (XAU) ----
+      HERMES_CANDLE_FORWARD_ENABLED: "${HERMES_CANDLE_FORWARD_ENABLED:-true}"
+      HERMES_CANDLE_FORWARD_SINK: "${HERMES_CANDLE_FORWARD_SINK:-canonical}"
+      HERMES_CANDLE_PUBLISH_ENABLED: "${HERMES_CANDLE_PUBLISH_ENABLED:-true}"
+      HERMES_CANDLE_PUBLISH_AUTHORISED: "${HERMES_CANDLE_PUBLISH_AUTHORISED:-true}"
+      HERMES_CANDLE_H4_PUBLISH_ENABLED: "${HERMES_CANDLE_H4_PUBLISH_ENABLED:-true}"
+      HERMES_CANDLE_D1_PUBLISH_ENABLED: "${HERMES_CANDLE_D1_PUBLISH_ENABLED:-true}"
+      HERMES_CANDLE_D1_PUBLISH_AUTHORISED: "${HERMES_CANDLE_D1_PUBLISH_AUTHORISED:-true}"
+      HERMES_CANDLE_D1_INSTRUMENTS: "${HERMES_CANDLE_D1_INSTRUMENTS:-XAU_USD}"
+      HERMES_CANDLE_D1_SOURCE_TIMEFRAME: "${HERMES_CANDLE_D1_SOURCE_TIMEFRAME:-H4}"
+
+      # ---- candle history forwarding + D1 history warm-start (NOT the prohibited Advanced-v1 executor) ----
+      HERMES_CANDLE_HISTORY_FORWARD_ENABLED: "${HERMES_CANDLE_HISTORY_FORWARD_ENABLED:-true}"
+      HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED: "${HERMES_CANDLE_HISTORY_FORWARD_AUTHORISED:-true}"
+      HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS: "${HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS:-XAU_USD}"
+      HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES: "${HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES:-M1,M5,M15,H1,H4}"
+      HERMES_CANDLE_D1_HISTORY_ENABLED: "${HERMES_CANDLE_D1_HISTORY_ENABLED:-true}"
+      HERMES_CANDLE_D1_HISTORY_AUTHORISED: "${HERMES_CANDLE_D1_HISTORY_AUTHORISED:-true}"
+      HERMES_D1_HISTORY_BACKFILL_ENABLED: "${HERMES_D1_HISTORY_BACKFILL_ENABLED:-true}"
+      HERMES_D1_HISTORY_BACKFILL_AUTHORISED: "${HERMES_D1_HISTORY_BACKFILL_AUTHORISED:-true}"
+      HERMES_D1_HISTORY_BACKFILL_DRY_RUN: "${HERMES_D1_HISTORY_BACKFILL_DRY_RUN:-false}"
+      HERMES_D1_HISTORY_BACKFILL_MAX_CANDLES: "${HERMES_D1_HISTORY_BACKFILL_MAX_CANDLES:-60}"
+      HERMES_D1_HISTORY_BACKFILL_MIN_DEPTH: "${HERMES_D1_HISTORY_BACKFILL_MIN_DEPTH:-26}"
+      HERMES_D1_WARMSTART_ENABLED: "${HERMES_D1_WARMSTART_ENABLED:-true}"
+      HERMES_D1_WARMSTART_AUTHORISED: "${HERMES_D1_WARMSTART_AUTHORISED:-true}"
+      HERMES_H4_WARMSTART_ENABLED: "${HERMES_H4_WARMSTART_ENABLED:-true}"
+      HERMES_H4_WARMSTART_AUTHORISED: "${HERMES_H4_WARMSTART_AUTHORISED:-true}"
+
+      # ---- indicator / feature / session / level / quote / catalog publication (XAU) ----
+      HERMES_INDICATOR_PUBLISH_ENABLED: "${HERMES_INDICATOR_PUBLISH_ENABLED:-true}"
+      HERMES_INDICATOR_PUBLISH_AUTHORISED: "${HERMES_INDICATOR_PUBLISH_AUTHORISED:-true}"
+      HERMES_INDICATOR_PUBLISH_INSTRUMENTS: "${HERMES_INDICATOR_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_INDICATOR_PUBLISH_TIMEFRAMES: "${HERMES_INDICATOR_PUBLISH_TIMEFRAMES:-M1,M5,M15,H1,H4,D1}"
+      HERMES_INDICATOR_D1_AUTHORISED: "${HERMES_INDICATOR_D1_AUTHORISED:-true}"
+      HERMES_CANDLE_FEATURE_PUBLISH_ENABLED: "${HERMES_CANDLE_FEATURE_PUBLISH_ENABLED:-true}"
+      HERMES_CANDLE_FEATURE_PUBLISH_AUTHORISED: "${HERMES_CANDLE_FEATURE_PUBLISH_AUTHORISED:-true}"
+      HERMES_CANDLE_FEATURE_PUBLISH_INSTRUMENTS: "${HERMES_CANDLE_FEATURE_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_CANDLE_FEATURE_PUBLISH_TIMEFRAMES: "${HERMES_CANDLE_FEATURE_PUBLISH_TIMEFRAMES:-M1,M5,M15,H1,H4,D1}"
+      HERMES_CANDLE_FEATURE_D1_AUTHORISED: "${HERMES_CANDLE_FEATURE_D1_AUTHORISED:-true}"
+      HERMES_SESSION_PUBLISH_ENABLED: "${HERMES_SESSION_PUBLISH_ENABLED:-true}"
+      HERMES_SESSION_PUBLISH_AUTHORISED: "${HERMES_SESSION_PUBLISH_AUTHORISED:-true}"
+      HERMES_SESSION_PUBLISH_INSTRUMENTS: "${HERMES_SESSION_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_LEVEL_PUBLISH_ENABLED: "${HERMES_LEVEL_PUBLISH_ENABLED:-true}"
+      HERMES_LEVEL_PUBLISH_AUTHORISED: "${HERMES_LEVEL_PUBLISH_AUTHORISED:-true}"
+      HERMES_LEVEL_PUBLISH_INSTRUMENTS: "${HERMES_LEVEL_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_LEVEL_PUBLISH_SCOPES: "${HERMES_LEVEL_PUBLISH_SCOPES:-session,intraday,daily}"
+      HERMES_LEVEL_D1_AUTHORISED: "${HERMES_LEVEL_D1_AUTHORISED:-true}"
+      HERMES_QUOTE_PUBLISH_ENABLED: "${HERMES_QUOTE_PUBLISH_ENABLED:-true}"
+      HERMES_QUOTE_PUBLISH_AUTHORISED: "${HERMES_QUOTE_PUBLISH_AUTHORISED:-true}"
+      HERMES_QUOTE_PUBLISH_INSTRUMENTS: "${HERMES_QUOTE_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_INSTRUMENT_CATALOG_PUBLISH_ENABLED: "${HERMES_INSTRUMENT_CATALOG_PUBLISH_ENABLED:-true}"
+      HERMES_INSTRUMENT_CATALOG_PUBLISH_AUTHORISED: "${HERMES_INSTRUMENT_CATALOG_PUBLISH_AUTHORISED:-true}"
+      HERMES_INSTRUMENT_CATALOG_PUBLISH_INSTRUMENTS: "${HERMES_INSTRUMENT_CATALOG_PUBLISH_INSTRUMENTS:-XAU_USD}"
+
+      # ---- tick + feed-health publication SCOPE (the dark overlay sets their enable/authorise; scope is XAU here) ----
+      HERMES_TICK_PUBLISH_INSTRUMENTS: "${HERMES_TICK_PUBLISH_INSTRUMENTS:-XAU_USD}"
+      HERMES_FEED_HEALTH_PUBLISH_INSTRUMENTS: "${HERMES_FEED_HEALTH_PUBLISH_INSTRUMENTS:-XAU_USD}"
