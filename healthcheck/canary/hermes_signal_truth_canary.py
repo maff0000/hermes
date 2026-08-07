@@ -39,23 +39,21 @@ _REQUIRED_CONFIG = [
 
 
 def load_config():
-    """Load config from .env file + env vars. Fail loud on missing."""
-    config = {}
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, val = line.split("=", 1)
-                    config[key.strip()] = val.strip()
+    """Load config STRICTLY from the process environment — external, application-specific, fail-closed.
 
-    # Env vars override file
+    WO-HELM-HERMES-BUILD-CONTEXT-SECRET-LEAK-CONTAINMENT-AND-CLEAN-SOURCE-BUILD-HARDENING-0001:
+    this NEVER reads a plaintext `.env` beside the script (that nearby-secret-file pattern was the build-context
+    leak vector that baked a real shared credential into HERMES images), and NEVER falls back to a shared estate
+    account or an embedded default. Each key is supplied externally via the HERMES-specific
+    canonical name (`HERMES_CANARY_*`, preferred) or the legacy name (`CANARY_*`). Any missing key -> RED, exit 1."""
+    config = {}
     for key in _REQUIRED_CONFIG:
-        if key in os.environ:
-            config[key] = os.environ[key]
+        # HERMES-specific canonical name first, then the legacy name; external environment ONLY.
+        val = os.environ.get("HERMES_" + key)
+        if val is None:
+            val = os.environ.get(key)
+        if val is not None:
+            config[key] = val
 
     # Validate all required keys present
     missing = [k for k in _REQUIRED_CONFIG if k not in config]

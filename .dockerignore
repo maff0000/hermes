@@ -8,6 +8,16 @@
 .env
 .env.*
 !.env.example
+# NESTED secret env files (WO-...-BUILD-CONTEXT-SECRET-LEAK-CONTAINMENT-0001): the root patterns above match only the
+# repo root; a nested healthcheck/canary/.env leaked a real credential into images. Exclude .env at ANY depth. NOTE:
+# .dockerignore is now defence-in-depth ONLY — the primary boundary is the exact-SHA clean context (git archive) built
+# by ops/build/build_production_candidate.sh, which never reads the mutable working tree.
+**/.env
+**/.env.*
+# Re-allow only intentional, non-secret tracked examples/templates.
+!**/*.env.example
+!**/*.env.template
+!**/.env.example
 
 # Version control (top-level AND any nested .git that was ever committed)
 .git
