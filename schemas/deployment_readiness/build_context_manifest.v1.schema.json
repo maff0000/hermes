@@ -44,11 +44,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "sha256", "size"],
+        "required": ["path", "sha256", "size", "git_mode", "exported_executable"],
         "properties": {
           "path": {"type": "string", "minLength": 1},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-          "size": {"type": "integer", "minimum": 0}
+          "size": {"type": "integer", "minimum": 0},
+          "git_mode": {"type": "string", "description": "git-authority mode (100644/100755/120000); empty if unresolved"},
+          "exported_executable": {"type": "boolean", "description": "actual executable state in the exported clean context"}
         }
       }
     },

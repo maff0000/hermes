@@ -104,9 +104,12 @@ class FileEntry:
     path: str
     sha256: str
     size: int
+    git_mode: str = ""              # git-authority mode (100644 / 100755 / 120000)
+    exported_executable: bool = False  # actual executable state in the exported clean context
 
     def to_dict(self) -> Dict[str, object]:
-        return {"path": self.path, "sha256": self.sha256, "size": self.size}
+        return {"path": self.path, "sha256": self.sha256, "size": self.size,
+                "git_mode": self.git_mode, "exported_executable": self.exported_executable}
 
 
 @dataclass(frozen=True)
@@ -265,6 +268,54 @@ def tracked_paths(source_sha: str, repo_dir: Path) -> List[str]:
     return sorted(p for p in raw.split("\0") if p)
 
 
+def tracked_modes(source_sha: str, repo_dir: Path) -> Dict[str, str]:
+    """{path: git_mode} for the exact commit — git is the authority for tracked executable intent
+    (100644 non-exec, 100755 exec, 120000 symlink). Used to validate the exported context preserves mode."""
+    proc = _run_git(["ls-tree", "-r", "-z", source_sha], repo_dir, timeout=_GIT_TIMEOUT_SEC)
+    out: Dict[str, str] = {}
+    for rec in proc.stdout.split("\0"):
+        if not rec:
+            continue
+        meta, _, path = rec.partition("\t")
+        parts = meta.split()
+        if len(parts) >= 2 and path:
+            out[path] = parts[0]
+    return out
+
+
+def _is_executable(abspath: Path) -> bool:
+    try:
+        return bool(abspath.stat().st_mode & 0o111)
+    except OSError:
+        return False
+
+
+def validate_export_modes(source_sha: str, repo_dir: Path, dest_root: Path) -> List[Dict[str, str]]:
+    """LOAD-BEARING: every 100755 tracked regular file must be executable in the export; every 100644 tracked
+    regular file must be non-executable. Returns a list of mismatch records (empty == GREEN). Symlinks (120000)
+    are exempt (recreated as links, never executed)."""
+    modes = tracked_modes(source_sha, repo_dir)
+    findings: List[Dict[str, str]] = []
+    for path, gmode in sorted(modes.items()):
+        if gmode == "120000":
+            continue
+        f = dest_root / path
+        if not f.is_file():
+            continue
+        want_exec = gmode == "100755"
+        got_exec = _is_executable(f)
+        if want_exec != got_exec:
+            findings.append({"path": path, "git_mode": gmode,
+                             "exported_executable": str(got_exec), "expected_executable": str(want_exec)})
+    return findings
+
+
+def entrypoint_is_executable(dest_root: Path, entrypoint: str = "docker/entrypoint.sh") -> bool:
+    """The configured container entrypoint must exist and be executable in the exported context."""
+    f = dest_root / entrypoint
+    return f.is_file() and _is_executable(f)
+
+
 # --------------------------------------------------------------------------- output-dir safety
 def validate_output_dir(output_dir: Path) -> Path:
     """Refuse host-global / prohibited roots. Refuse a non-empty pre-existing dir unless it carries this
@@ -376,6 +427,12 @@ def export_tracked_content(source_sha: str, repo_dir: Path, dest_root: Path) -> 
                         if not chunk:
                             break
                         dst.write(chunk)
+                # Preserve GIT executable INTENT (exact-SHA provenance is bytes AND mode). `git archive` tar members
+                # carry 0o755 for a 100755 tracked file and 0o644 for 100644. Derive the exported mode STRICTLY from
+                # the git-authority exec bit — never host umask / filesystem state / arbitrary tar bits.
+                # WO-HELM-HERMES-CLEAN-CONTEXT-GIT-MODE-PRESERVATION-...-0001 (fixes the dropped-exec-bit defect that
+                # made a 100755 entrypoint land as 0o644 -> container "permission denied").
+                os.chmod(out_path, 0o755 if (member.mode & 0o111) else 0o644)
     finally:
         try:
             proc.stdout.close()
@@ -832,6 +889,7 @@ def build_clean_context(
     # but are skipped for content; require the FILE set to be a subset of tracked paths, and every
     # tracked non-symlink path to be present.
     git_paths = set(tracked_paths(source_sha, repo_dir))
+    git_modes = tracked_modes(source_sha, repo_dir)   # path -> git mode (executable-intent authority)
     disk_set = set(exported_rel)
     extra = disk_set - git_paths
     if extra:
@@ -859,7 +917,8 @@ def build_clean_context(
     scanned = 0
     for rel, abspath in files_on_disk:
         digest, size = _sha256_file(abspath)
-        entries.append(FileEntry(path=rel, sha256=digest, size=size))
+        entries.append(FileEntry(path=rel, sha256=digest, size=size,
+                                 git_mode=git_modes.get(rel, ""), exported_executable=_is_executable(abspath)))
         if rel not in included_set:
             continue  # excluded from the image by .dockerignore -> not part of the leakable surface
         scanned += 1

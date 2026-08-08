@@ -59,3 +59,21 @@ consumer to dedicated least-privilege identities. `.env.example` placeholders ar
   historical/current images that embed it are `SECURITY_DEGRADED_SHARED_CREDENTIAL_EMBEDDED` and must not be treated as
   clean production candidates.
 - **Production runtime:** continues on the current image pending a separately authorised clean rebuild + cutover.
+
+---
+
+## Git-mode preservation & real-entrypoint startup (WO-...-GIT-MODE-PRESERVATION-...-0001)
+> **Exact-SHA build provenance includes both tracked file content AND tracked executable intent. A clean build
+> context that reproduces bytes but changes Git mode semantics is not provenance-equivalent.**
+
+The clean-context exporter now preserves Git's executable authority: `git archive` tar members carry `0o755` for a
+`100755` tracked file and `0o644` for `100644`; the exporter chmods each extracted file **strictly from the git-authority
+exec bit** (never host umask/filesystem state). The manifest records per-file `git_mode` + `exported_executable`; the
+build wrapper **gates** on mode parity (every `100755` exported executable, every `100644` non-executable) and on the
+configured entrypoint being executable in both the context and the image.
+
+> **A production candidate rehearsal must exercise the configured runtime ENTRYPOINT. An alternate `--entrypoint`
+> invocation (e.g. `--entrypoint python`) cannot substitute for startup proof** — that gap let a non-executable
+> entrypoint (dropped exec bit) reach a production deploy and fail at container start with "permission denied".
+Both proofs are required and load-bearing: (1) structural mode parity (manifest + validators + tests, incl. a negative
+that reproduces the dropped-exec-bit defect RED); (2) real configured-entrypoint container start (rehearsal harness).

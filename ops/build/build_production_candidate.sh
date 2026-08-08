@@ -56,7 +56,17 @@ paths = {f.get('path') if isinstance(f, dict) else f for f in m.get('files', [])
 assert "Dockerfile" in paths, "Dockerfile missing from clean context"
 assert not any(str(p).endswith('healthcheck/canary/.env') for p in paths), "canary .env in clean context"
 assert os.path.isfile(os.path.join(ctx, "Dockerfile")), "exported context missing Dockerfile"
-print(f"CLEAN-CONTEXT OK: files={m.get('exported_file_count')} manifest_checksum={str(m.get('manifest_checksum',''))[:16]}")
+# GIT-MODE PARITY GATE (WO-...-GIT-MODE-PRESERVATION-...-0001): every 100755 tracked file must be exported
+# executable, every 100644 non-executable; the configured entrypoint MUST be executable. Gate from the manifest's
+# per-file git_mode/exported_executable provenance. A mismatch is a hard abort BEFORE docker build.
+mm = [f for f in m.get('files', []) if isinstance(f, dict) and (
+        (f.get('git_mode') == '100755' and not f.get('exported_executable')) or
+        (f.get('git_mode') == '100644' and f.get('exported_executable')))]
+assert not mm, f"git-mode parity mismatch (exec-bit not preserved): {[x['path'] for x in mm][:10]}"
+ep = [f for f in m.get('files', []) if isinstance(f, dict) and f.get('path') == 'docker/entrypoint.sh']
+assert ep and ep[0].get('exported_executable'), "entrypoint docker/entrypoint.sh missing or NOT executable in clean context"
+assert os.access(os.path.join(ctx, 'docker/entrypoint.sh'), os.X_OK), "exported entrypoint not executable on disk"
+print(f"CLEAN-CONTEXT OK: files={m.get('exported_file_count')} manifest_checksum={str(m.get('manifest_checksum',''))[:16]} mode_parity=OK entrypoint=exec")
 PY
 rm -f "$CTX.err"
 
@@ -76,6 +86,15 @@ if ! SCAN=$(python3 ops/build/hermes_image_secret_scan_v1.py "$IMG"); then
   echo "FAIL: image secret-artefact gate REJECTED the candidate:" >&2; echo "$SCAN" >&2; exit 4
 fi
 echo "$SCAN"
+
+# 5b) IMAGE ENTRYPOINT MODE GATE (WO-...-GIT-MODE-PRESERVATION-...-0001): the configured entrypoint must be
+# executable IN THE IMAGE (the dropped-exec-bit defect made a candidate fail at container start). --entrypoint sh
+# is used ONLY to test the file mode; the REAL configured-entrypoint startup is proven by the rehearsal harness.
+echo "=== image entrypoint mode gate ==="
+if ! docker run --rm --entrypoint sh "$IMG" -c 'test -x /app/docker/entrypoint.sh'; then
+  echo "FAIL: /app/docker/entrypoint.sh is NOT executable in the image (mode not preserved)" >&2; exit 5
+fi
+echo "image entrypoint /app/docker/entrypoint.sh: executable OK"
 
 # 6) emit reproducible SHA->digest + clean-context evidence (governed off-git location; NO secrets)
 EVID_DIR="${HERMES_BUILD_EVIDENCE_DIR:-/srv/backup/build_evidence}"
