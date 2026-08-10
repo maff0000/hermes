@@ -32,7 +32,9 @@ def readiness_sources():
       load_master_mode_pilot() -> (master_enabled, publisher_mode, pilot_scope_set)          (may raise)
       load_calendar()          -> calendar-provenance dict                                   (may raise)
       core_snapshot()          -> (core_health, db_ok, redis_ok)
-      stream_handles()         -> iterable of (adapter, adapter_task) pricing-stream pairs
+      stream_handles()         -> iterable of (adapter, adapter_task) pricing-stream pairs, projected from the
+                                  authoritative runtime stream state (the same watchdog truth /health reports)
+      last_xau_tick()          -> authoritative last REAL XAU tick UTC (aware datetime) or None   [optional]
       order_handles()          -> (route_paths, state_attrs_present, env)
       redis_client()           -> redis client or None
       seven_new_count()        -> int
@@ -71,6 +73,11 @@ def assemble(sources) -> dict:
     # --- the three corrected authoritative inputs ---
     stream = obs.observe_stream(streams=sources.stream_handles(), now=now)
 
+    # authoritative last real XAU tick — from the SAME runtime truth /health reports (never a heartbeat/synthetic).
+    # Optional on the sources contract; absent -> None (observability field only, does not gate readiness).
+    _last_xau = getattr(sources, "last_xau_tick", None)
+    last_xau_tick_utc = _last_xau() if callable(_last_xau) else None
+
     route_paths, state_attrs, env = sources.order_handles()
     order = obs.observe_order_path(route_paths=route_paths, state_attrs_present=state_attrs, env=env)
 
@@ -83,7 +90,7 @@ def assemble(sources) -> dict:
         core_health=core, db_ok=db_ok, redis_ok=redis_ok,
         stream_count=stream["count"], stream_unknown=stream["unknown"], stream_health=stream["health"],
         configured_stream_count=stream["configured_count"], active_stream_count=stream["active_count"],
-        last_stream_heartbeat_utc=stream["last_heartbeat_utc"],
+        last_stream_heartbeat_utc=stream["last_heartbeat_utc"], last_xau_tick_utc=last_xau_tick_utc,
         consumer_live=(env or {}).get("CONSUMER_LIVE", "false"),
         order_path_present=order["present"], order_path_state=order["state"],
         backfill_execution=(env or {}).get("HERMES_BACKFILL_EXECUTION_ENABLED", "false"),
