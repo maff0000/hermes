@@ -16,7 +16,7 @@ INVARIANTS (all three):
 No secrets are read or returned.
 """
 from __future__ import annotations
-from datetime import timezone
+from datetime import datetime, timezone
 
 UTC = timezone.utc
 
@@ -39,6 +39,87 @@ def _truthy(v):
     if isinstance(v, bool):
         return v
     return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+# ---------------------------------------------------- authoritative runtime -> readiness stream projection
+# The ONE governed pricing stream's authoritative live state is owned by the watchdog — the SAME runtime truth
+# /health reports (stream_state promoted to FLOWING only on a REAL price tick, never on a heartbeat; last_tick_utc
+# advanced only on a real tick). Readiness must observe THAT authority, not a second, independently-maintained
+# truth. The base pricing adapter's own AdapterHealth.state is a lower-level connection flag that is NOT maintained
+# CONNECTED while the runtime streams via adapter.stream(), and its last_tick_at is refreshed by heartbeats — so it
+# reads DISCONNECTED with a fresh heartbeat even during genuine flow. These helpers PROJECT the watchdog health
+# snapshot into the read-only (adapter, last_tick) shape observe_stream already consumes, so the governed active
+# semantics in _classify_one_stream are applied to the authoritative state. No new stream, no parallel heartbeat,
+# no redefinition of "active" (a projected stream is ACTIVE only when the watchdog says FLOWING AND the authoritative
+# last real tick is fresh). Read-only; holds no connection; performs no I/O.
+_STREAM_FLOWING_STATES = ("FLOWING", "PARTIAL_FLOWING")
+_STREAM_RECONNECTING_STATES = ("CONNECTED_UNPROVEN", "RECOVERING")
+_STREAM_DOWN_STATES = ("DISCONNECTED", "STALE")
+
+
+class _ProjectedStreamHealth:
+    """Read-only AdapterHealth-shaped view (state value + last real tick) derived from the watchdog."""
+    __slots__ = ("state", "last_tick_at")
+
+    def __init__(self, state, last_tick_at):
+        self.state = state                 # plain lowercase lifecycle string; _classify reads .value-or-str
+        self.last_tick_at = last_tick_at
+
+
+class ProjectedStream:
+    """Read-only projection of the single authoritative pricing stream. Carries only the observed state; it holds
+    no connection and performs no work, so observe_stream cannot mutate or drive any live component through it."""
+    __slots__ = ("health",)
+
+    def __init__(self, health):
+        self.health = health
+
+
+def _parse_snapshot_dt(v):
+    """Parse a watchdog-snapshot timestamp (aware datetime or ISO/str) to an aware UTC datetime, else None."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return v if v.tzinfo else v.replace(tzinfo=UTC)
+    try:
+        dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def project_watchdog_stream(snapshot):
+    """Map an authoritative watchdog health snapshot -> a read-only ProjectedStream for observe_stream, or None when
+    no authoritative stream state is available (the caller then supplies no slot and readiness fails closed).
+
+    Maps the governed watchdog stream_state to adapter-lifecycle vocabulary WITHOUT relaxing any threshold:
+      FLOWING / PARTIAL_FLOWING           -> "connected"     (real ticks flowing)
+      CONNECTED_UNPROVEN / RECOVERING     -> "reconnecting"  (not yet active)
+      DISCONNECTED / STALE                -> "disconnected"  (down / no fresh flow, e.g. market-closed weekend)
+      anything else / absent              -> None            (indeterminate -> fail-closed)
+    last_tick_at is the watchdog's authoritative last REAL tick (never a heartbeat/candle/wall-clock value); the
+    unchanged _classify_one_stream still applies the freshness gate, so a stale FLOWING can never read ACTIVE."""
+    if not snapshot:
+        return None
+    raw = str(snapshot.get("stream_state") or "").upper()
+    if raw in _STREAM_FLOWING_STATES:
+        state = "connected"
+    elif raw in _STREAM_RECONNECTING_STATES:
+        state = "reconnecting"
+    elif raw in _STREAM_DOWN_STATES:
+        state = "disconnected"
+    else:
+        return None
+    return ProjectedStream(_ProjectedStreamHealth(state, _parse_snapshot_dt(snapshot.get("last_tick_utc"))))
+
+
+def authoritative_last_instrument_tick_utc(snapshot, instrument):
+    """The authoritative last REAL tick UTC for `instrument` from the watchdog snapshot's per-instrument tick truth
+    (advanced only by record_tick on a genuine price tick), or None. Never a heartbeat, candle, or synthetic value."""
+    if not snapshot or not instrument:
+        return None
+    inst = (snapshot.get("instruments") or {}).get(instrument) or {}
+    return _parse_snapshot_dt(inst.get("last_tick_utc"))
 
 
 # ------------------------------------------------------------------ stream

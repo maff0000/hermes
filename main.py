@@ -1549,24 +1549,49 @@ class _ProductionReadinessSources:
         from utils import hermes_advanced_v1_readiness_package_v1 as rp
         return rp.load_calendar_provenance()
 
+    def _snapshot(self):
+        # The authoritative runtime health snapshot — the SAME source /health reports. Computed once per readiness
+        # evaluation (it reads gap/incident truth) and shared by core_snapshot + stream_handles + last_xau_tick so
+        # readiness observes ONE runtime truth, never a second independently-maintained one.
+        if not hasattr(self, "_snap_cache"):
+            self._snap_cache = state.watchdog.get_health_snapshot() if getattr(state, "watchdog", None) else {}
+        return self._snap_cache
+
     def core_snapshot(self):
-        snap = state.watchdog.get_health_snapshot() if getattr(state, "watchdog", None) else {}
+        snap = self._snapshot()
         core = snap.get("health_state", "AMBER") if snap else "AMBER"
         ok = bool(snap) and core != "RED"
         return core, ok, ok
 
     def stream_handles(self):
-        # all pricing-stream slots (OANDA + IBKR); a second ACTIVE slot is a rogue-second-stream breach
+        # Observe the SINGLE authoritative pricing stream through the watchdog health snapshot — the same runtime
+        # truth /health reports (stream_state promoted to FLOWING only on a real tick; last_tick_utc advanced only on
+        # a real tick). A read-only projection is fed to the UNCHANGED observe_stream so the governed active-stream
+        # semantics apply to the authoritative state — no second connection, no parallel heartbeat, no redefinition
+        # of "active". The base adapter's own AdapterHealth.state is deliberately NOT used here: it stays DISCONNECTED
+        # while the runtime streams via adapter.stream(), and its last_tick_at is heartbeat-refreshed, which is exactly
+        # why /readiness read active=0 during genuine flow. Fail-closed: no authoritative state -> no slot -> not-ready.
+        proj = _readiness_obs.project_watchdog_stream(self._snapshot())
+        if proj is None:
+            return []
         try:
-            tasks = state.adapter_tasks
+            task = (state.adapter_tasks or {}).get("oanda")
         except Exception:  # noqa: BLE001
-            tasks = {}
-        pairs = []
-        for adapter_attr, task_key in (("oanda_adapter", "oanda"), ("ibkr_adapter", "ibkr")):
-            adapter = getattr(state, adapter_attr, None)
-            if adapter is not None:
-                pairs.append((adapter, (tasks or {}).get(task_key)))
-        return pairs
+            task = None
+        return [(proj, task)]
+
+    def last_xau_tick(self):
+        # authoritative last REAL tick UTC for the pilot instrument, from the watchdog snapshot (never a heartbeat,
+        # candle, or wall-clock value). Pilot instrument is derived from the governed pilot-scope authority.
+        inst = None
+        try:
+            from utils import hermes_advanced_v1_publication_gate_v1 as pgate
+            pilot = pgate.load_pilot_scope()
+            if pilot and len(pilot) == 1:
+                inst = sorted(pilot)[0]
+        except Exception:  # noqa: BLE001
+            inst = None
+        return _readiness_obs.authoritative_last_instrument_tick_utc(self._snapshot(), inst)
 
     def _redis(self):
         return (getattr(state, "canonical_redis", None) or getattr(state, "redis", None)

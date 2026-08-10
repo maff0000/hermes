@@ -82,8 +82,10 @@ class FakeSources:
         self._order = kw.get("order", (list(ROUTES), set(), dict(BASE_ENV)))
         self._redis = kw.get("redis", _Redis())
         self._seven = kw.get("seven", 0)
+        self._last_xau = kw.get("last_xau", None)
 
     def now(self): return self._now()
+    def last_xau_tick(self): return self._last_xau
     def build_identity(self): return self._bi
     def load_registry(self):
         if self._raise_registry:
