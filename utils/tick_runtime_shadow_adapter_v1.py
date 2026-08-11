@@ -13,7 +13,7 @@ HERMES owns raw market truth only — this seam consumes HERMES raw tick facts, 
 consumer, never reads SQL, never imports legacy/consumer code. ALL timestamps UTC.
 """
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from utils import tick_contract_v1 as tc
 from utils import tick_shadow_publisher_v1 as sh
@@ -130,6 +130,10 @@ class RuntimeShadowEmitter:
     rate-limit, and a governed recovery probe."""
 
     def __init__(self, config, writer):
+        self._cb_consecutive_failures = 0
+        self._cb_open_until = None
+        self._CB_THRESHOLD = 3          # §20 circuit breaker: open after N consecutive emit failures
+        self._CB_COOLDOWN_S = 30        # skip redis I/O for this cooldown while open (no event-loop block)
         if not isinstance(writer, act.SerializingShadowWriter):
             raise ValueError("GOV-PUB-RT-ADP-002: enabled emitter requires a SerializingShadowWriter "
                              "(the only allowed real-client path)")
@@ -155,15 +159,24 @@ class RuntimeShadowEmitter:
 
     def emit_tick_observed(self, tick, *, logger=None, generated_at_utc=None, instrument_registry=None):
         """Runtime tick-path entrypoint: never raises (a shadow fault must not disrupt the market-truth
-        path), records counters, applies the warning rate-limit, surfaces structured reason tags."""
+        path), records counters, applies the warning rate-limit, surfaces structured reason tags.
+        §20 circuit breaker: after _CB_THRESHOLD consecutive failures the breaker OPENS and shadow redis
+        I/O is SKIPPED for _CB_COOLDOWN_S so a down endpoint can never block the async tick loop per tick."""
+        now = datetime.now(timezone.utc)
+        if self._cb_open_until is not None and now < self._cb_open_until:
+            return {"emitted": False, "reason": obs.REASON_RATE_LIMITED, "breaker": "open"}
         try:
             res = self.emit_tick(tick, generated_at_utc=generated_at_utc,
                                  instrument_registry=instrument_registry)
+            self._cb_consecutive_failures = 0
+            self._cb_open_until = None
             if logger is not None:
                 logger.debug("[%s] key=%s", obs.REASON_EMIT_OK, res.get("key"))
             return res
         except Exception as exc:  # noqa: BLE001 - bounded: shadow emit never breaks the tick path
-            now = datetime.now(timezone.utc)
+            self._cb_consecutive_failures += 1
+            if self._cb_consecutive_failures >= self._CB_THRESHOLD:
+                self._cb_open_until = now + timedelta(seconds=self._CB_COOLDOWN_S)
             warn, suppressed = self.metrics.should_emit_warning(now)
             if logger is not None:
                 if warn:

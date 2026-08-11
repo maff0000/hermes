@@ -115,7 +115,8 @@ def connect_shadow_redis(config):
     if not isinstance(config, ShadowPublisherConfig):
         raise ValueError("GOV-PUB-SHADOW-CONN-001: explicit ShadowPublisherConfig required (no inferred target)")
     import redis  # lazy; explicit dependency only on the shadow path
-    return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db)
+    return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
+                       socket_connect_timeout=0.5, socket_timeout=0.5)  # §20: bounded — never block the async tick loop
 
 
 # --------------------------------------------------------------------------- shadow plan + publish
