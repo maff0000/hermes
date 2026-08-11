@@ -164,6 +164,16 @@ class RuntimeShadowEmitter:
         I/O is SKIPPED for _CB_COOLDOWN_S so a down endpoint can never block the async tick loop per tick."""
         now = datetime.now(timezone.utc)
         if self._cb_open_until is not None and now < self._cb_open_until:
+            # Breaker OPEN: skip the (already bounded) shadow socket I/O so a persistently-down
+            # endpoint cannot cost the async tick loop even the bounded per-tick timeout. The tick
+            # was still NOT shadow-emitted -> it is a failure and MUST be counted; a breaker must
+            # never hide a persistent failure from observability (test_rate_limit_does_not_hide_
+            # persistent_failure). We record the failure but perform no redis I/O.
+            self.metrics.record_attempt()
+            self.metrics.record_failure(now, "SHADOW_BREAKER_OPEN")
+            if logger is not None:
+                logger.debug("[%s] breaker=open failed=%d (shadow I/O skipped; persistent failure)",
+                             obs.REASON_RATE_LIMITED, self.metrics.failed)
             return {"emitted": False, "reason": obs.REASON_RATE_LIMITED, "breaker": "open"}
         try:
             res = self.emit_tick(tick, generated_at_utc=generated_at_utc,
