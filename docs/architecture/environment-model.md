@@ -51,3 +51,20 @@ Assured source SHA `00ff3091bccff1315c5b6b4e720ee9061877f685`; image digest
 Every material decision affecting environment purpose, deployment topology, data lifecycle, persistence,
 retention, secrets, configuration, operational boundaries, interfaces, disaster recovery, or cloud deployment
 must produce a durable Git artefact here (or the repository-conventional location) — not chat/Fabric alone.
+
+## 10. PROD data initialisation (bounded seed, not a DEV clone)
+PROD is seeded with the minimum data live HERMES requires — NOT the DEV historical estate:
+- **Include:** HERMES config/reference tables (instruments, market_hours, source_policy, hermes_config, regime_config,
+  recovery_library, etc.); warm-start higher-timeframe candles (D1/H4/H1/M30/M15, full for the active instrument,
+  satisfying the ~100–200 bar max indicator lookback); and ~90 days of lower-timeframe continuity (M5/M1, signals,
+  canonical_m1, hermes_levels) for the currently active PROD instrument set.
+- **Exclude (schema present, zero rows):** `ticks`, `tick_seq_backfill_staging`, and DEV operational-history logs
+  (backfill provenance, recovery jobs, incidents, data gaps). Raw ticks are not required for PROD (indicators derive
+  from candles; DEV retains ticks for backtesting).
+- **Redis:** starts CLEAN (noeviction, appendonly). No DEV RDB/AOF copy — PROD Redis warms from SQL + live flow.
+- **Method:** logical HERMES-only `mariadb-dump`/import, MariaDB 11.4 → 11.4, table- and time-filtered, run online
+  (`--single-transaction`) read-only against DEV. No physical datadir copy. No DEV stop/mutation.
+- **Instrument scope:** the currently authorised PROD instrument set (initially `XAU_USD`; canonical gold naming
+  `XAU_USD`, never `XAUUSD`). Multi-instrument capability is retained; extra instruments are enabled by config only.
+- **Retention:** still NOT implemented; remains a separate PROD-only, environment-bound, DEV-incapable future control.
+- **Signal stays dark** until a separately authorised OANDA cutover — exactly one live authoritative stream (DEV).
