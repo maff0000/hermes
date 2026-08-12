@@ -34,3 +34,20 @@ constants. They govern REST *initiation* only and never distort market timestamp
 ## Secrets
 Behavioural config lives in the shared env file; secret VALUES live in separately-permissioned secret files
 (referenced by the app), never in Git/Fabric/logs.
+
+## Core candle-history contract (multi-instrument)
+WO-HELM-HERMES-DEV-MULTI-INSTRUMENT-CORE-CANDLE-WICK-HISTORY-CONTRACT-0001.
+
+Every enabled instrument (`INSTRUMENTS`) exposes the SAME core candle surface for the base clock timeframes
+**M1, M5, M15, H1**: `hermes:candles:<INSTR>:<TF>:latest:v1` and `hermes:candles:<INSTR>:<TF>:history:v1:*`
+(+ `:index`). Each candle record carries the generic OHLC + geometry from `candle_contract_v1`: `open/high/low/
+close/volume`, `body_high/body_low/body_size`, `range_size` (== total_range), `wick_high` (== upper_wick_size),
+`wick_low` (== lower_wick_size), `candle_direction`, completion state, `schema_version`, and freshness/provenance.
+Geometry is pure OHLC math — identical for metals/FX/indices/oil.
+
+Scope is CONFIG-driven (`HERMES_CANDLE_CANONICAL_INSTRUMENTS`, `HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS` = the
+enabled set), fail-closed (no default fan-out). **H4/D1 remain XAU_USD only** on the governed fixed-22:00-UTC
+(NY-5PM) grid, decoupled via `HERMES_CANDLE_H4_INSTRUMENTS`/`HERMES_CANDLE_D1_INSTRUMENTS`; non-XAU H4/D1 are
+`UNSUPPORTED_BY_CONTRACT_PENDING_SESSION_ANCHOR_RULING` (applying gold's daily boundary to FX/index/oil could
+create false daily market truth). XAU additionally exposes richer specialist surfaces (features, levels,
+sessions, gaps, quote/tick, D1). Instrument enablement authority = `INSTRUMENTS` config; consumers select subsets.

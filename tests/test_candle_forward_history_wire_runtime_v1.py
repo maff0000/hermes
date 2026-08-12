@@ -274,12 +274,24 @@ def test_factory_history_d1_timeframe_fails_loud(monkeypatch):
     assert "GOV-CANDLE-HIST-FWD-005" in str(e.value)
 
 
-def test_factory_history_non_xau_fails_loud(monkeypatch):
+def test_factory_history_multi_instrument_ok(monkeypatch):
+    # WO-...-CORE-CANDLE-WICK-HISTORY: the forward-history lane now serves the configured multi-instrument set.
     _canonical_env(monkeypatch)
     monkeypatch.setenv(fw.ENABLED_ENV, "true")
     monkeypatch.setenv(fw.AUTHORISED_ENV, "true")
     monkeypatch.setenv(fw.TIMEFRAMES_ENV, "M1,M5")
-    monkeypatch.setenv(fw.INSTRUMENTS_ENV, "EUR_USD")                 # non-XAU
+    monkeypatch.setenv(fw.INSTRUMENTS_ENV, "XAU_USD,EUR_USD,XAG_USD")   # multi-instrument, incl non-XAU
+    sh = seam.build_candle_forward_seam_from_env()
+    assert isinstance(sh, seam.CanonicalCandleForwardSeam)
+    assert sh.status()["history_forward_enabled"] is True
+
+
+def test_factory_history_alias_still_fails_loud(monkeypatch):
+    _canonical_env(monkeypatch)
+    monkeypatch.setenv(fw.ENABLED_ENV, "true")
+    monkeypatch.setenv(fw.AUTHORISED_ENV, "true")
+    monkeypatch.setenv(fw.TIMEFRAMES_ENV, "M1,M5")
+    monkeypatch.setenv(fw.INSTRUMENTS_ENV, "XAUUSD")                    # alias output rejected
     with pytest.raises(ValueError) as e:
         seam.build_candle_forward_seam_from_env()
     assert "GOV-CANDLE-HIST-FWD-006" in str(e.value)

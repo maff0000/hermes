@@ -45,6 +45,11 @@ key/catalog contract (all instruments — signals, prices, indicators, candles/f
 is the consumer handover reference; see the WO-...-REDIS-AUTHORISED-IP-CONSUMER-ACCESS-0001 inventory / fabric
 `helm:hermes:redis:consumer_contract:inventory`.
 
+Every enabled HERMES instrument exposes the CORE contract: current price, current signal/indicator snapshot,
+and recent candle-history (M1/M5/M15/H1 latest+history) including OHLC and wick/body geometry. XAU_USD may expose
+additional richer specialist domains (H4/D1 candles, features, levels, sessions, gaps, quote/tick). See
+docs/config/hermes-configuration-reference.md#core-candle-history-contract-multi-instrument.
+
 ## 5. Configuration principle
 Same core HERMES application source for DEV and PROD. Environment differences are supplied EXTERNALLY
 (`ENVIRONMENT=DEV|PROD` + external config/secrets). No PROD/DEV behaviour hardcoded in core signal code.
