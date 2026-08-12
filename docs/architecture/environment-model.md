@@ -24,8 +24,26 @@ interface contract requires clarification.
 ## 4. PROD cloud topology
 Standalone private three-container stack on the dedicated HERMES VPS:
 `hermes-signal` (app) + `hermes-db` (MariaDB) + `hermes-cache` (Redis), on a private Docker network.
-Database and Redis remain internal/private (no public ports). No other trading-platform application on this host.
+MariaDB (`hermes-db`) remains internal/private — it is NEVER a consumer interface and exposes no host port.
+Redis (`hermes-cache`) IS the published HERMES consumer interface (see §4a). No other trading-platform application on this host.
 Inbound firewall is the IONOS per-server managed service; no host firewall.
+
+## 4a. HERMES Redis — published consumer interface
+HERMES exists to PUBLISH market information for other applications. HERMES Redis is the published HERMES
+consumer interface. It is exposed on TCP/6379 and protected by infrastructure source-IP allowlisting. Initially
+authorised remote source: `217.155.0.138`. Additional consumer source IPs (e.g. ARES, HELIOS, FALCON, authorised
+development tooling) may be added through governed IONOS infrastructure configuration — NO HERMES application-code
+change is required to add a consumer. MariaDB remains private and is never a consumer interface.
+
+Access control model (deliberately simple): the IONOS per-server firewall source-IP allowlist is the authoritative
+external perimeter (`ALLOW 6379 from approved IPs; DENY all else`). This phase uses NO per-consumer Redis
+users/ACLs/passwords/certs/proxies; Redis runs open (`protected-mode no`, no `requirepass`) and is safe because the
+firewall governs who can reach the port. Colocated Docker consumers reach it over the service network. Consumers
+configure the endpoint externally (`HERMES_REDIS_HOST`/`HERMES_REDIS_PORT`, or a Docker-local hostname) — no
+config-in-code, no hardcoded Docker IPs. Canonical gold contract is `XAU_USD` (never `XAUUSD`). The live Redis
+key/catalog contract (all instruments — signals, prices, indicators, candles/features, freshness/health/catalog)
+is the consumer handover reference; see the WO-...-REDIS-AUTHORISED-IP-CONSUMER-ACCESS-0001 inventory / fabric
+`helm:hermes:redis:consumer_contract:inventory`.
 
 ## 5. Configuration principle
 Same core HERMES application source for DEV and PROD. Environment differences are supplied EXTERNALLY
