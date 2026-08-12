@@ -27,6 +27,8 @@ HISTORY_MARKER = "history"
 # Fail-closed allowlists. Instruments are CANONICAL ids only — the alias XAUUSD is denied as OUTPUT
 # (callers must canonicalise first). H4 is now a governed (derived, NY-5PM aligned) history timeframe;
 # D1/D remain excluded from the history grid.
+# Retained as the informational default only. The ACTIVE instrument allowlist is config-driven upstream
+# (HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS); the structural guards below no longer clamp on this tuple.
 HISTORY_INSTRUMENTS = ("XAU_USD",)
 HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
 _ALIAS_DENY = ("XAUUSD",)
@@ -48,9 +50,9 @@ def _assert_inst_tf(instrument, timeframe):
     if instrument in _ALIAS_DENY:
         raise ValueError(f"GOV-CANDLE-HIST-002: alias instrument {instrument!r} may not be a history "
                          "output id — canonicalise to XAU_USD first (no alias keys)")
-    if instrument not in HISTORY_INSTRUMENTS:
-        raise ValueError(f"GOV-CANDLE-HIST-001: instrument {instrument!r} not in history allowlist "
-                         f"{HISTORY_INSTRUMENTS} (fail-closed)")
+    # WO-...-CORE-CANDLE-WICK-HISTORY: instrument POLICY (which instruments) is governed UPSTREAM by the
+    # forward-history config allowlist (HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS). This module enforces only
+    # STRUCTURE: a canonical (non-alias) id and a valid history timeframe. Any canonical id is accepted here.
     if timeframe not in HISTORY_TIMEFRAMES:
         raise ValueError(f"GOV-CANDLE-HIST-003: timeframe {timeframe!r} not in history grid "
                          f"{HISTORY_TIMEFRAMES} (D1/D excluded)")
@@ -96,8 +98,7 @@ def assert_history_target(key):
     inst, tf, tail = parts[2], parts[3], parts[6]
     if inst in _ALIAS_DENY:
         raise ValueError(f"GOV-CANDLE-HIST-TGT-004: alias instrument {inst!r} key forbidden")
-    if inst not in HISTORY_INSTRUMENTS:
-        raise ValueError(f"GOV-CANDLE-HIST-TGT-005: instrument {inst!r} not in history allowlist")
+    # Instrument policy governed by the forward-history config allowlist upstream; structural guard here only.
     if tf not in HISTORY_TIMEFRAMES:
         raise ValueError(f"GOV-CANDLE-HIST-TGT-006: timeframe {tf!r} not in history grid (H4/D1 excluded)")
     if tail != "index" and not tail.isdigit():

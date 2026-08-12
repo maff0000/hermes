@@ -69,16 +69,25 @@ def test_xauusd_alias_rejected_as_output():
         assert "GOV-CANDLE-HIST-TGT-004" in str(e)
 
 
-def test_non_xau_instrument_rejected():
+def test_non_xau_instrument_accepted():
+    # WO-...-CORE-CANDLE-WICK-HISTORY: base history now serves the multi-instrument enabled set; the module
+    # accepts any canonical id (instrument POLICY is governed by the upstream forward-history config allowlist).
     for inst in ("AUD_USD", "EUR_USD", "XAG_USD"):
-        try:
-            h.history_key(inst, "M5", int(_TS.timestamp())); assert False, inst
-        except ValueError as e:
-            assert "GOV-CANDLE-HIST-001" in str(e)
-        try:
-            h.assert_history_target(f"hermes:candles:{inst}:M5:history:v1:{int(_TS.timestamp())}"); assert False
-        except ValueError as e:
-            assert "GOV-CANDLE-HIST-TGT-005" in str(e)
+        k = h.history_key(inst, "M5", int(_TS.timestamp()))
+        assert k == f"hermes:candles:{inst}:M5:history:v1:{int(_TS.timestamp())}"
+        assert h.assert_history_target(k) is True
+
+
+def test_alias_and_d1_still_rejected():
+    # structural governance retained: XAUUSD alias output + D1/D timeframe are still refused.
+    try:
+        h.history_key("XAUUSD", "M5", int(_TS.timestamp())); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-002" in str(e)
+    try:
+        h.history_key("XAG_USD", "D1", int(_TS.timestamp())); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-003" in str(e)
 
 
 def test_h4_now_accepted_d1_still_rejected():
