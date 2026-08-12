@@ -80,11 +80,14 @@ def parse_forward_instruments(raw):
                          "when history forwarding is enabled (fail-closed, no default fan-out)")
     canon = set()
     for inst in items:
-        c = seam.canonical_instrument(inst)
-        if c not in chv.HISTORY_INSTRUMENTS:     # ("XAU_USD",)
-            raise ValueError(f"GOV-CANDLE-HIST-FWD-006: instrument {inst!r} not allowed "
-                             f"(forward history lane is {chv.HISTORY_INSTRUMENTS} only)")
-        canon.add(c)
+        # WO-HELM-HERMES-DEV-MULTI-INSTRUMENT-CORE-CANDLE-WICK-HISTORY-CONTRACT-0001: the forward-history
+        # lane now serves the configured multi-instrument enabled set. Aliases (XAUUSD) are still rejected
+        # as an output-key request; canonical ids are accepted. Fail-closed remains (raw is required and is
+        # the EXPLICIT allowlist -> no default fan-out to all instruments).
+        if inst in chv._ALIAS_DENY:
+            raise ValueError(f"GOV-CANDLE-HIST-FWD-006: alias {inst!r} not allowed as a canonical output "
+                             "instrument (use the canonical id, e.g. XAU_USD)")
+        canon.add(seam.canonical_instrument(inst))
     return frozenset(canon)
 
 
@@ -107,8 +110,10 @@ class CandleHistoryForwardWriter:
         if not allowed:
             raise ValueError("GOV-CANDLE-HIST-FWD-001: forward-history allowlist must be non-empty")
         for inst in allowed:
-            if inst in chv._ALIAS_DENY or inst not in chv.HISTORY_INSTRUMENTS:
-                raise ValueError(f"GOV-CANDLE-HIST-FWD-006: instrument {inst!r} not allowed (XAU_USD only)")
+            # Multi-instrument (WO-...-CORE-CANDLE-WICK-HISTORY): accept any canonical id; still reject the
+            # XAUUSD alias form as an output instrument. Enablement is governed by the explicit config allowlist.
+            if inst in chv._ALIAS_DENY:
+                raise ValueError(f"GOV-CANDLE-HIST-FWD-006: alias {inst!r} not allowed (use canonical id)")
         tfs = tuple(timeframes)
         if not tfs:
             raise ValueError("GOV-CANDLE-HIST-FWD-008: forward-history timeframes must be non-empty")

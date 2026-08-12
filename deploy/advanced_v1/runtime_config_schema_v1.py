@@ -103,7 +103,14 @@ FIELDS = [
        xau_parity_critical=True, feature_group="canonical_redis", current_effective=EXTERNAL_REQUIRED,
        consequence="canonical activation refused -> candle canonical publish disabled"),
     _f("HERMES_CANDLE_CANONICAL_INSTRUMENTS", type="csv", required=True, default=_XAU, xau_parity_critical=True,
-       feature_group="canonical_redis", current_effective=_XAU, consequence="canonical scope change"),
+       feature_group="canonical_redis", current_effective=_INSTR14,
+       consequence="base candle latest+history instrument scope (WO-...-CORE-CANDLE-WICK-HISTORY: full enabled set for M1/M5/M15/H1)"),
+    # WO-...-CORE-CANDLE-WICK-HISTORY: H4 has its OWN allowlist, DECOUPLED from the base set above, so base
+    # M1/M5/M15/H1 fan out to all enabled instruments while H4 stays on its governed XAU grid. Registered (required)
+    # but NOT parity-compared here (no new compose-render plumbing); its XAU scope is asserted by unit tests.
+    _f("HERMES_CANDLE_H4_INSTRUMENTS", type="csv", required=True, default=_XAU,
+       feature_group="xau_operational", current_effective=_XAU,
+       consequence="H4 derivation scope (kept XAU_USD; non-XAU H4/D1 held pending session-anchor ruling)"),
 
     # ---------- runtime context ----------
     _f("ENVIRONMENT", type="enum", required=True, enum=["DEV", "STAGING", "PROD"], xau_parity_critical=True,
@@ -176,7 +183,8 @@ FIELDS += [
     _f("HERMES_CANDLE_FEATURE_D1_AUTHORISED", type="bool", required=True, default="true", xau_parity_critical=True,
        feature_group="xau_operational", current_effective="true"),
     _f("HERMES_CANDLE_HISTORY_FORWARD_INSTRUMENTS", type="csv", required=True, default=_XAU, xau_parity_critical=True,
-       feature_group="xau_operational", current_effective=_XAU),
+       feature_group="xau_operational", current_effective=_INSTR14,
+       consequence="forward candle-history instrument scope (WO-...-CORE-CANDLE-WICK-HISTORY: full enabled set)"),
     _f("HERMES_CANDLE_HISTORY_FORWARD_TIMEFRAMES", type="csv", required=True, default="M1,M5,M15,H1,H4",
        xau_parity_critical=True, feature_group="xau_operational", current_effective="M1,M5,M15,H1,H4",
        consequence="history forward timeframe change"),

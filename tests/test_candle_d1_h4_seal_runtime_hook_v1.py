@@ -106,6 +106,7 @@ def _canon_env(monkeypatch):
     monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_PORT", "6379")
     monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_DB", "0")
     monkeypatch.setenv("HERMES_CANDLE_CANONICAL_INSTRUMENTS", "XAU_USD")
+    monkeypatch.setenv("HERMES_CANDLE_H4_INSTRUMENTS", "XAU_USD")   # WO-...: H4 allowlist decoupled from base
 
 
 def test_hook_d1_enabled_unauthorised_fails_loud(monkeypatch):

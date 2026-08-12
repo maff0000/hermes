@@ -127,15 +127,25 @@ def test_parse_d1_timeframe_rejected():
         assert "GOV-CANDLE-HIST-FWD-005" in str(e.value)
 
 
-def test_parse_non_xau_instrument_rejected():
-    for raw in ("EUR_USD", "XAU_USD,GBP_USD"):
-        with pytest.raises(ValueError) as e:
-            fw.parse_forward_instruments(raw)
-        assert "GOV-CANDLE-HIST-FWD-006" in str(e.value)
+def test_parse_multi_instrument_accepted():
+    # WO-...-CORE-CANDLE-WICK-HISTORY: the forward-history lane now serves the configured multi-instrument set.
+    assert fw.parse_forward_instruments("EUR_USD") == frozenset({"EUR_USD"})
+    assert fw.parse_forward_instruments("XAU_USD,GBP_USD,XAG_USD") == frozenset({"XAU_USD", "GBP_USD", "XAG_USD"})
 
 
-def test_parse_alias_canonicalises_to_xau():
-    assert fw.parse_forward_instruments("XAUUSD") == frozenset({"XAU_USD"})
+def test_parse_alias_output_rejected():
+    # The raw XAUUSD alias is rejected as an output-key instrument request (use canonical XAU_USD).
+    with pytest.raises(ValueError) as e:
+        fw.parse_forward_instruments("XAUUSD")
+    assert "GOV-CANDLE-HIST-FWD-006" in str(e.value)
+
+
+def test_writer_accepts_multi_instrument():
+    w = _writer(allowed=("XAU_USD", "EUR_USD", "USD_JPY"))
+    assert {"XAU_USD", "EUR_USD", "USD_JPY"} == set(w.allowed_instruments)
+
+
+
 
 
 # ============================ guards on write ============================

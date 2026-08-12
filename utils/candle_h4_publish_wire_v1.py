@@ -21,6 +21,10 @@ from utils import candle_contract_v1 as cc       # _UTC_MS for adapting a publis
 from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical config/allowlist/client
 
 H4_PUBLISH_ENABLED_ENV = "HERMES_CANDLE_H4_PUBLISH_ENABLED"
+# WO-...-CORE-CANDLE-WICK-HISTORY: H4 has its OWN instrument allowlist, DECOUPLED from the base canonical set
+# (HERMES_CANDLE_CANONICAL_INSTRUMENTS). This lets the base M1/M5/M15/H1 latest+history fan out to the full
+# enabled instrument set while H4 derivation stays on its governed (currently XAU-only) fixed-22:00-UTC grid.
+H4_INSTRUMENTS_ENV = "HERMES_CANDLE_H4_INSTRUMENTS"
 
 
 def _tf_name(candle):
@@ -325,7 +329,7 @@ def build_h4_producer_from_env():
         return DisabledH4Producer()
     config = seam._canonical_config_from_env(get_env, get_env_bool, get_env_int)
     config.assert_canonical_allowed()                          # publish_enabled AND authorised (fail-loud)
-    allowed = seam.parse_canonical_allowlist(get_env(seam.CANONICAL_ALLOWLIST_ENV, required=True))  # fail-closed
+    allowed = seam.parse_canonical_allowlist(get_env(H4_INSTRUMENTS_ENV, required=True))  # fail-closed; H4 allowlist is decoupled from base canonical set
     client = seam._real_canonical_redis_client(config)
     writer = cp.SerializingCandleCanonicalWriter(config=config, redis_client=client)
     # Governed forward-history writer: default DISABLED (own gates), so attaching it changes nothing unless
