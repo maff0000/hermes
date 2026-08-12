@@ -69,6 +69,7 @@ from utils.hermes_publisher_runtime_v1 import (
 from utils.candle_d1_hydration_v1 import warmstart_d1_from_env as _warmstart_d1
 # WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001 — H4 H1 warm-start hydration (gated; default cold-start no-op).
 from utils.candle_h4_hydration_v1 import warmstart_h4_from_env as _warmstart_h4
+from utils.candle_history_warmstart_v1 import build_warmstart_from_env as _build_candle_history_warmstart
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -1324,6 +1325,38 @@ async def lifespan(app: FastAPI):
         state.d1_warmstart_report = {"attempted": True, "succeeded": False, "reason": "WARMSTART_FAULT_SAFE",
                                      "error": repr(_d1_ws_exc), "buffer_length": 0, "d1_remains_gated_amber": True}
         logger.error("[D1_WARMSTART_BOOT_FAIL] safe cold-start fallback: %r", _d1_ws_exc)
+
+    # WO-HELM-HERMES-DEV-MULTI-INSTRUMENT-CANDLE-HISTORY-WARMSTART-0001 — bounded MariaDB->Redis base
+    # candle-history warm-start (M1/M5/M15/H1). DISABLED by default. When enabled+authorised it seeds a recent
+    # bounded window (HERMES_CANDLE_HISTORY_WARMSTART_HOURS) from the durable candle tables into the EXISTING
+    # governed Redis history contract for the enabled instruments, so a consumer has an immediate recent lookback
+    # (e.g. XAG 12h) without waiting for forward accumulation. Idempotent; per-instrument isolation; never blocks
+    # boot; H4/D1 untouched; no new OANDA calls. Forward accumulation continues normally after the seed.
+    try:
+        _hist_ws = _build_candle_history_warmstart()
+        if getattr(_hist_ws, "enabled", False):
+            import pymysql as _pymysql
+            from env_config import get_db_config as _ws_db_cfg, get_env as _ws_ge, get_env_bool as _ws_gb, get_env_int as _ws_gi
+            from utils import candle_runtime_seam_v1 as _ws_seam
+            _ws_redis = _ws_seam._real_canonical_redis_client(
+                _ws_seam._canonical_config_from_env(_ws_ge, _ws_gb, _ws_gi))
+            _c = _ws_db_cfg()
+            _ws_conn = _pymysql.connect(host=_c["host"], port=_c["port"], user=_c["user"],
+                                        password=_c["password"], database=_c["database"])
+            try:
+                state.candle_history_warmstart_report = _hist_ws.run(redis_client=_ws_redis, db_conn=_ws_conn)
+            finally:
+                _ws_conn.close()
+            _r = state.candle_history_warmstart_report
+            _tot = sum(n for tfs in _r.get("seeded", {}).values() for n in tfs.values())
+            logger.info("[CANDLE_HISTORY_WARMSTART_BOOT] seeded_candles=%d instruments=%d hours=%s timeframes=%s errors=%d",
+                        _tot, len(_r.get("seeded", {})), _r.get("hours"), _r.get("timeframes"), len(_r.get("errors", [])))
+            if _r.get("errors"):
+                logger.warning("[CANDLE_HISTORY_WARMSTART_ERRORS] %s", _r["errors"][:5])
+        else:
+            logger.info("[CANDLE_HISTORY_WARMSTART_BOOT] disabled")
+    except Exception as _hist_ws_exc:  # noqa: BLE001 - warm-start never blocks boot
+        logger.warning("[CANDLE_HISTORY_WARMSTART_SKIP] safe: %r", _hist_ws_exc)
 
     # WO-HELM-HERMES-DURABLE-PUBLISHER-WIRING-MAINPY-0001 — durable in-process publisher supervisor.
     # DISABLED by default (DisabledPublisherSupervisor no-op). ENABLED-without-AUTHORISED -> SystemExit(101)
