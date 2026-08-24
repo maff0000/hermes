@@ -687,8 +687,13 @@ async def oanda_stream_task():
     while True:
         try:
             logger.info("OANDA stream task starting...")
-            retry_count = 0  # Reset on successful connection
-            current_delay = retry_initial
+            # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+            # backoff state is NOT reset here. The old unconditional reset ran on
+            # every loop pass — including straight after a FAILED reconnect — so
+            # the delay never compounded and reconnects hammered at the initial
+            # cadence (proven live 2026-08-24: constant 5s cycles). The reset now
+            # happens only on PROVEN recovery: the first real tick of a cycle
+            # (below), matching the documented exponential-backoff intent.
 
             # WO-HERMES-STREAM-WATCHDOG-0001: Watchdog handles state promotion
             # on first tick receipt via record_tick() -> _promote_to_flowing()
@@ -809,6 +814,14 @@ async def oanda_stream_task():
 
                 # Record tick for healthcheck metrics
                 record_tick()
+
+                # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+                # PROVEN recovery — a real tick flowed. Reset the governed backoff
+                # state here (never at loop top, where a failed reconnect would
+                # wrongly zero it and defeat the exponential schedule).
+                if retry_count or current_delay != retry_initial:
+                    retry_count = 0
+                    current_delay = retry_initial
 
                 # WO-HERMES-STREAM-WATCHDOG-0001 + WO-0010: Notify watchdog of fresh tick (per-instrument)
                 if state.watchdog:
