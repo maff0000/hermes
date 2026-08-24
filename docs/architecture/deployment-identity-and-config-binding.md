@@ -68,3 +68,30 @@ deployed_sha=unknown` while `/buildinfo` and `/readiness` were correct.
 | `HOST_HOSTNAME_PATH` | where the deployment mounts host `/etc/hostname` (default `/etc/host-hostname`) |
 
 Existing canonical keys reused: `ENVIRONMENT`, `RUN_ENV`, `SOURCE_SHA` (baked).
+
+## Identity vocabulary — deployment tooling reconciliation
+
+**WO:** `WO-HELM-HERMES-PROD-IDENTITY-PROMOTION-PRECHECK-AND-RUNENV-SCHEMA-RECONCILIATION-0001`
+(R2D2 PROD-only finding: the deployment schema admitted `ENVIRONMENT=STAGING` and
+`RUN_ENV=PROD` while rejecting the real purge-gate value `PRODUCTION`).
+
+- `ENVIRONMENT` ∈ {`DEV`, `PROD`} — only.
+- `RUN_ENV` ∈ {`STAGING`, `PRODUCTION`} — only.
+- Valid pairs: `DEV/STAGING`, `PROD/PRODUCTION`. Any other pair **fails closed**
+  (`CFG-RUNENV-PAIR` in deployment preflight, `IDENT-RUNENV-PAIR-MISMATCH` at runtime).
+- The deployment schema **imports** this vocabulary from
+  `utils/hermes_runtime_identity_v1` — one authority, no hand-copied second
+  universe. `RUN_ENV` has no default: its only legal value is pair-determined.
+
+### Danger-gate consequence of `RUN_ENV=PRODUCTION`
+
+`RUN_ENV=PRODUCTION` opens the FIRST condition of governed destructive/
+authoritative mechanisms that gate on production identity (the out-of-band purge
+engine `ops/purge.py`; backfill recovery). Therefore any promotion that sets
+`RUN_ENV=PRODUCTION` requires these explicit feature gates verified **OFF** in
+the effective target config beforehand, unless separately authorised:
+
+- `HERMES_PURGE_ENABLED` — OFF/absent
+- `HERMES_BACKFILL_RECOVERY_ENABLED` — OFF/absent (`!= 'TRUE'` ⇒ inert)
+
+This verification is a hard promotion prerequisite, recorded per deploy.
