@@ -161,6 +161,12 @@ class ServiceState:
     # WO-HERMES-STREAM-WATCHDOG-0001: Runtime watchdog
     watchdog: HermesWatchdog = None
 
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # startup-only lifecycle marker (STARTING/WAITING_FOR_DB/CONNECTING_OANDA/
+    # STARTED), surfaced on /health. Post-startup runtime truth stays with the
+    # watchdog stream/health state — this is never a second stream-truth surface.
+    startup_phase: str = None
+
 
 state = ServiceState()
 
@@ -1044,6 +1050,14 @@ async def level_update_task():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle"""
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # explicit startup phase, surfaced on /health. Startup-only marker; post-startup
+    # runtime truth stays with the watchdog (single truth surface).
+    from utils.hermes_startup_gate_v1 import (
+        StartupPhase, StartupGateConfig, wait_for_db_ready,
+    )
+    state.startup_phase = StartupPhase.STARTING
+
     # WO-0030: Structured service startup logging (GOV-LOG-002)
     logger.info("HERMES service starting", extra={
         'service': 'hermes',
@@ -1095,6 +1109,15 @@ async def lifespan(app: FastAPI):
         'redis_port': state.config.redis.port,
         'use_mock': state.config.oanda.use_mock
     })
+
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # bounded, observable wait-for-DB gate BEFORE any lifespan DB access. The
+    # 2026-08-20 reboot proved this path: the app raced MariaDB and the first
+    # unprotected DB read aborted startup. On budget exhaustion DbStartupTimeout
+    # propagates and the process exits VISIBLY — never healthy without a database.
+    state.startup_phase = StartupPhase.WAITING_FOR_DB
+    from env_config import get_db_config as _gate_db_cfg
+    await wait_for_db_ready(_gate_db_cfg(), StartupGateConfig.from_env(), logger)
 
     # Initialize Redis publisher
     state.redis_publisher = RedisPublisher()
@@ -1384,6 +1407,15 @@ async def lifespan(app: FastAPI):
         logger.error("[PUB_RUNTIME_BOOT_FAIL] durable publisher supervisor not started: %r", _pub_runtime_exc)
 
     # Connect to OANDA
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # the initial connect is no longer one-shot-fatal for streaming. On failure the
+    # stream state becomes the first-class NEVER_CONNECTED and the SAME governed
+    # recovery loop inside oanda_stream_task() (RECOVERING / bounded backoff /
+    # proof window / exhaustion) owns reconnection — one recovery mechanism for
+    # both never-connected startup and previously-connected stream loss. The
+    # 2026-08-20 Dell reboot proved the old path: one transient DNS failure left
+    # the service permanently alive-but-dead with recovery never armed.
+    state.startup_phase = StartupPhase.CONNECTING_OANDA
     if await state.oanda_adapter.connect():
         # WO-0030: Structured connection logging (GOV-LOG-002)
         logger.info("OANDA stream connected", extra={
@@ -1406,16 +1438,23 @@ async def lifespan(app: FastAPI):
         if state.watchdog:
             state.watchdog.set_stream_state(StreamState.CONNECTED_UNPROVEN)
             state.watchdog.enter_proof_window()
-
-        # Start streaming task
-        state.adapter_tasks['oanda'] = asyncio.create_task(oanda_stream_task())
-        logger.info("OANDA streaming task started")
-
-        # EPIC-D027: Start level update task
-        state.adapter_tasks['level_update'] = asyncio.create_task(level_update_task())
-        logger.info("Level update task started")
     else:
-        logger.error("Failed to connect to OANDA - service will start without streaming")
+        logger.error(
+            "OANDA initial connect failed — stream NEVER_CONNECTED; governed recovery armed",
+            extra={'never_connected': True, 'recovery_armed': True},
+        )
+        if state.watchdog:
+            state.watchdog.set_stream_state(StreamState.NEVER_CONNECTED)
+
+    # Start streaming task in BOTH branches: oanda_stream_task() owns the governed
+    # reconnect discipline (bounded exponential backoff via STREAM_RETRY_*), so a
+    # failed initial connect retries automatically instead of settling streamless.
+    state.adapter_tasks['oanda'] = asyncio.create_task(oanda_stream_task())
+    logger.info("OANDA streaming task started")
+
+    # EPIC-D027: Start level update task
+    state.adapter_tasks['level_update'] = asyncio.create_task(level_update_task())
+    logger.info("Level update task started")
 
     # IRIS disabled — table tradingReport.iris_messages does not exist
     # TODO: Re-enable when IRIS is rebuilt
@@ -1423,6 +1462,10 @@ async def lifespan(app: FastAPI):
     # state.healthcheck_reporter.start()
     # logger.info("Healthcheck reporter started (reporting to IRIS)")
     logger.info("Healthcheck reporter DISABLED (IRIS offline)")
+
+    # Startup complete. "STARTED" means the startup sequence finished — stream
+    # truth (NEVER_CONNECTED/RECOVERING/FLOWING) remains with the watchdog.
+    state.startup_phase = StartupPhase.STARTED
 
     # WO-0030: Structured service ready logging (GOV-LOG-002)
     logger.info("HERMES service ready", extra={
@@ -1495,14 +1538,21 @@ async def health():
     Authoritative health truth — WO-HERMES-STREAM-WATCHDOG-0001.
     Reports real runtime state from watchdog. Never lies.
     """
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # surface the startup phase so a boot blocked on dependencies is VISIBLY
+    # degraded (WAITING_FOR_DB / CONNECTING_OANDA), never silently "initializing".
+    startup_phase = getattr(state, "startup_phase", None)
+
     if not state.watchdog:
         # Service still starting up
         return JSONResponse(
             status_code=503,
-            content={"health_state": "RED", "error": "Service initializing — watchdog not yet started"}
+            content={"health_state": "RED", "startup_phase": startup_phase,
+                     "error": "Service initializing — watchdog not yet started"}
         )
 
     snapshot = state.watchdog.get_health_snapshot()
+    snapshot["startup_phase"] = startup_phase
     health = snapshot.get("health_state", "RED")
 
     # HTTP status reflects health truth
@@ -1591,10 +1641,19 @@ class _ProductionReadinessSources:
         return self._snap_cache
 
     def core_snapshot(self):
+        # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+        # db_ok/redis_ok were previously a COPY of the health colour (not-RED ==
+        # both OK, RED == both FAILED) — after the 2026-08-20 halt readiness
+        # claimed DB/Redis FAILED while live probes succeeded. They are now real
+        # CURRENT-truth probes: bounded, per-request, fail-closed; a recovered
+        # dependency reads OK again on the next evaluation, and a genuinely dead
+        # one reads FAILED regardless of the health colour.
         snap = self._snapshot()
         core = snap.get("health_state", "AMBER") if snap else "AMBER"
-        ok = bool(snap) and core != "RED"
-        return core, ok, ok
+        from env_config import get_db_config as _ready_db_cfg
+        db_ok = _readiness_obs.probe_db_connectivity(_ready_db_cfg())
+        redis_ok = _readiness_obs.probe_redis_connectivity(self._redis())
+        return core, db_ok, redis_ok
 
     def stream_handles(self):
         # Observe the SINGLE authoritative pricing stream through the watchdog health snapshot — the same runtime

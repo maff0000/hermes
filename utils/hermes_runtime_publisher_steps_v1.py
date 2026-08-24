@@ -89,6 +89,32 @@ def _freshness(client, tf):
     return "FRESH" if st == "OK" else st
 
 
+def derive_publisher_status(freshness_map):
+    """WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001.
+
+    Pure top-level publisher status from the per-timeframe latest-key freshness map,
+    in the governed OK/WARN/FAIL vocabulary (GOV-HERMES-CP-020/040):
+
+        every timeframe FRESH            -> "OK"
+        some FRESH, some not             -> "WARN"
+        no timeframe FRESH (or no map)   -> "FAIL"
+
+    During the 2026-08-20..24 DEV halt the heartbeat published status=OK with every
+    timeframe UNKNOWN — stale market data must NEVER produce an OK top-level
+    publisher state. This changes ONLY operational-status truthfulness; no market
+    calculation is touched.
+    """
+    vals = [str(v).strip().upper() for v in (freshness_map or {}).values()]
+    if not vals:
+        return "FAIL"
+    fresh = sum(1 for v in vals if v == "FRESH")
+    if fresh == len(vals):
+        return "OK"
+    if fresh == 0:
+        return "FAIL"
+    return "WARN"
+
+
 # --------------------------------------------------------------------------- D1-derived surfaces (gated dark)
 # WO-HELM-HERMES-D1-INDICATORS-FEATURES-LEVELS-0002 — D1 indicators/candle_features/daily-levels are DERIVED from the
 # governed D1 candle HISTORY series (hermes:candles:XAU_USD:D1:history:v1) ONLY — never SQL, never market_map, never
@@ -277,8 +303,12 @@ def control_plane_step(client):
         cp.validate_manifest(manifest)
 
     lp_fresh = {tf: _freshness(client, tf) for tf in LATEST_TFS}
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001: the
+    # top-level heartbeat status is DERIVED from the per-timeframe freshness truth
+    # (OK only when every timeframe is FRESH), never hardcoded OK.
+    pub_status = derive_publisher_status(lp_fresh)
     heartbeat = b.heartbeat(updated_at_utc=now, generated_at_utc=now, service_identity="hermes-signal",
-                            deployed_sha=sha, run_env=run_env, redis_target=target, status="OK",
+                            deployed_sha=sha, run_env=run_env, redis_target=target, status=pub_status,
                             enabled_publishers=["canonical_seam", "h4_producer", "forward_history", "d1_producer",
                                                 "control_plane", "indicator_publisher", "candle_feature_publisher",
                                                 "sessions_levels_publisher"],
@@ -301,7 +331,11 @@ def control_plane_step(client):
     if d1_latest_ok and d1_hist_ok and d1_fwd_ok:
         d1e["notes"] = None                             # no more "armed/awaiting/blocked" caveat once fully live+truthful
     cp.validate_candle_catalog(catalog)                 # re-validate with the relaxed D1 latest/history rules
-    health = b.health(generated_at_utc=now, control_plane_active=True, indicators_built=bool(ind_live),
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # hermes:health:v1 overall_status follows the same derived freshness truth as
+    # the heartbeat — stale market data can never publish an OK health summary.
+    health = b.health(generated_at_utc=now, overall_status=pub_status,
+                      control_plane_active=True, indicators_built=bool(ind_live),
                       candle_features_built=bool(feat_live), candle_features_active=feat_active)
     if ind_active:
         health["per_family_health"]["indicators"] = cp.STATUS_ACTIVE

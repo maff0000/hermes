@@ -54,7 +54,10 @@ def _truthy(v):
 # last real tick is fresh). Read-only; holds no connection; performs no I/O.
 _STREAM_FLOWING_STATES = ("FLOWING", "PARTIAL_FLOWING")
 _STREAM_RECONNECTING_STATES = ("CONNECTED_UNPROVEN", "RECOVERING")
-_STREAM_DOWN_STATES = ("DISCONNECTED", "STALE")
+# WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+# NEVER_CONNECTED (initial OANDA connect failed; governed recovery armed) is a
+# DETERMINATE down state — readiness must read not-ready, not indeterminate.
+_STREAM_DOWN_STATES = ("DISCONNECTED", "STALE", "NEVER_CONNECTED", "FAILED")
 
 
 class _ProjectedStreamHealth:
@@ -95,7 +98,8 @@ def project_watchdog_stream(snapshot):
     Maps the governed watchdog stream_state to adapter-lifecycle vocabulary WITHOUT relaxing any threshold:
       FLOWING / PARTIAL_FLOWING           -> "connected"     (real ticks flowing)
       CONNECTED_UNPROVEN / RECOVERING     -> "reconnecting"  (not yet active)
-      DISCONNECTED / STALE                -> "disconnected"  (down / no fresh flow, e.g. market-closed weekend)
+      DISCONNECTED / STALE /
+      NEVER_CONNECTED / FAILED            -> "disconnected"  (down / no fresh flow / boot never flowed)
       anything else / absent              -> None            (indeterminate -> fail-closed)
     last_tick_at is the watchdog's authoritative last REAL tick (never a heartbeat/candle/wall-clock value); the
     unchanged _classify_one_stream still applies the freshness gate, so a stale FLOWING can never read ACTIVE."""
@@ -252,3 +256,46 @@ def observe_inactive_publication(*, inactive_instruments, redis_client, indicato
         return {"published_count": 0, "published_instruments": [], "checks": checks, "observed_ok": False}
     return {"published_count": len(published), "published_instruments": sorted(published),
             "checks": checks, "observed_ok": True}
+
+
+# ---------------------------------------------------------------------------
+# WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+# CURRENT-truth connectivity probes for /readiness. The previous readiness
+# surface reported database/redis connectivity as a copy of the health colour
+# ("not RED" == both OK, RED == both FAILED) — after the 2026-08-20 halt it
+# claimed DB/Redis FAILED while live probes succeeded. These probes make the
+# connectivity fields real: bounded, per-request, fail-closed, no cached
+# startup-only result and no historical failure poisoning a recovered runtime.
+# ---------------------------------------------------------------------------
+
+def probe_db_connectivity(db_config, connect_fn=None, timeout_seconds=2.0):
+    """Bounded live DB probe: connect + SELECT 1. True only on a successful
+    round-trip NOW. Any exception (refused, auth, timeout) -> False. Never raises."""
+    try:
+        if connect_fn is None:
+            import pymysql
+            connect_fn = pymysql.connect
+        conn = connect_fn(host=db_config["host"], port=db_config["port"],
+                          user=db_config["user"], password=db_config["password"],
+                          database=db_config["database"], connect_timeout=timeout_seconds)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
+        return True
+    except Exception:  # noqa: BLE001 — unobservable/broken -> fail-closed
+        return False
+
+
+def probe_redis_connectivity(redis_client):
+    """Bounded live Redis probe: PING on the existing runtime client. True only on
+    a successful PING NOW. No client / any exception -> False. Never raises."""
+    if redis_client is None:
+        return False
+    try:
+        return bool(redis_client.ping())
+    except Exception:  # noqa: BLE001 — unobservable/broken -> fail-closed
+        return False

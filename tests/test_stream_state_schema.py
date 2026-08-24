@@ -74,8 +74,16 @@ class TestMigration013(unittest.TestCase):
         self.code_values = _streamstate_code_values()
 
     def test_all_code_states_fit_enum(self):
-        """Every StreamState value the runtime can write must be in the enum."""
-        missing = sorted(self.code_values - set(self.enum013))
+        """Every StreamState value the runtime can write must be admitted by the
+        CURRENT (widest) stream_state migration. Migration 013 pinned this at
+        PARTIAL_FLOWING; WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-
+        HEALTH-TRUTHFIX-0001 added NEVER_CONNECTED via append-only migration 026,
+        so the live-parity assertion now targets 026 (013 keeps its own
+        append-only/ordinal pins below, unchanged)."""
+        migration_026 = BASE_DIR / 'migrations' / '026_stream_state_never_connected.sql'
+        self.assertTrue(migration_026.exists(), "migration 026 missing")
+        enum_current = _stream_state_enum_values(migration_026.read_text())
+        missing = sorted(self.code_values - set(enum_current))
         self.assertEqual(missing, [], f"enum does not admit emitted states: {missing}")
 
     def test_partial_flowing_present(self):

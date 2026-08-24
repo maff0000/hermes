@@ -51,3 +51,19 @@ enabled set), fail-closed (no default fan-out). **H4/D1 remain XAU_USD only** on
 `UNSUPPORTED_BY_CONTRACT_PENDING_SESSION_ANCHOR_RULING` (applying gold's daily boundary to FX/index/oil could
 create false daily market truth). XAU additionally exposes richer specialist surfaces (features, levels,
 sessions, gaps, quote/tick, D1). Instrument enablement authority = `INSTRUMENTS` config; consumers select subsets.
+
+## Startup dependency gate + startup/recovery resilience
+WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001 (root cause: 2026-08-20 Dell reboot).
+Full semantics: `docs/architecture/startup-recovery-resilience.md`.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `DB_STARTUP_WAIT_TIMEOUT_SECONDS` | 180 | Total budget for the bounded wait-for-DB gate at lifespan start. Exhaustion ⇒ visible `DbStartupTimeout` exit (restart policy owns the next boot). |
+| `DB_STARTUP_RETRY_INITIAL_DELAY` | 1 | First DB retry delay (seconds). |
+| `DB_STARTUP_RETRY_MAX_DELAY` | 15 | DB retry backoff ceiling (seconds). |
+| `DB_STARTUP_RETRY_BACKOFF_MULTIPLIER` | 2 | DB retry exponential multiplier. |
+
+One shared schema: identical keys in DEV and PROD; only externally supplied VALUES may differ. The initial OANDA
+connect is governed by the EXISTING `STREAM_RETRY_*` keys — a failed initial connect enters the same
+`oanda_stream_task` reconnect loop (bounded exponential backoff, watchdog `NEVER_CONNECTED` → `RECOVERING` →
+`CONNECTED_UNPROVEN` → `FLOWING`), never a second reconnect mechanism and never a silent streamless start.
