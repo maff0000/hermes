@@ -38,6 +38,7 @@ sys.path.insert(0, str(BASE_DIR))
 from env_config import get_db_config, get_redis_config, ENV
 from utils.discord_alerts import send_health_report, send_stale_alert, AlertLevel
 from utils.trading_hours import is_market_open, get_current_session, should_expect_data
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 # Configuration (environment-aware via GOV-ENV-001)
 _db = get_db_config()
@@ -124,7 +125,7 @@ class SignalHealthChecker:
             self.db = None
 
         try:
-            self.redis = redis.Redis(**REDIS_CONFIG, decode_responses=True)
+            self.redis = redis.Redis(**REDIS_CONFIG, decode_responses=True, **redis_auth_kwargs())
             self.redis.ping()
         except Exception as e:
             print(f"[ERROR] Redis connection failed: {e}")

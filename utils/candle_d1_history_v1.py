@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 
 from utils import candle_contract_v1 as cc
 from utils import candle_history_v1 as chv     # reuse contract version + provenance schema (uniform history surface)
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 CANONICAL_INSTRUMENT = "XAU_USD"
 _ALIAS_DENY = ("XAUUSD",)
@@ -266,7 +267,7 @@ def _default_canonical_redis_client():
     from env_config import get_env, get_env_int
     return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
                        port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
-                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5, **redis_auth_kwargs())
 
 
 def build_d1_history_writer_from_env(*, redis_client=None, redis_client_factory=None):

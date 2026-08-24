@@ -26,6 +26,7 @@ BASE_DIR = UTILS_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from env_config import get_redis_config
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +65,15 @@ class RedisPublisher:
     def connect(self) -> bool:
         """Establish Redis connection"""
         try:
+            # WO-HELM-HERMES-DEV-REDIS-CONSUMER-INTEGRITY-READONLY-BOUNDARY-0001:
+            # dedicated writer authority when configured (REDIS_USERNAME/-PASSWORD,
+            # fail-loud if incomplete). Overrides the legacy bare password.
+            _auth = redis_auth_kwargs()
             self._client = redis.Redis(
                 host=self.host,
                 port=self.port,
-                password=self.password,
+                password=_auth.get("password", self.password),
+                username=_auth.get("username"),
                 db=self.db,
                 decode_responses=True,
                 socket_timeout=5,

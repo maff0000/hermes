@@ -86,6 +86,11 @@ services:
       DEV_DB_PORT: ${DB_PORT:-3306}
       DEV_REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
       DEV_REDIS_PORT: ${REDIS_PORT:-6379}
+      # WO-HELM-HERMES-DEV-REDIS-CONSUMER-INTEGRITY-READONLY-BOUNDARY-0001: writer
+      # authority passthrough. Empty = legacy open model; set = REQUIRED pair
+      # (fail-loud in utils/hermes_redis_auth_v1 if incomplete).
+      DEV_REDIS_USERNAME: ${REDIS_USERNAME:-}
+      DEV_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       RUN_ENV: ${RUN_ENV:-STAGING}
       SIGNAL_PORT: ${SIGNAL_PORT:-8211}
       # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:

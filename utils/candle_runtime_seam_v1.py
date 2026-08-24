@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 
 from utils import candle_publisher_v1 as cp
 from utils import candle_contract_v1 as cc
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 # Failure visibility: emit faults were previously swallowed into in-process counters only. Log them
 # (rate-limited) so a future silent failure is observable in the journal (stdlib WARNING -> stderr).
@@ -226,7 +227,7 @@ def _real_shadow_redis_client(config):
     shadow sink is enabled). NEVER called by tests (which inject a fake)."""
     import redis  # lazy; only on the shadow path
     return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
-                       socket_timeout=5)
+                       socket_timeout=5, **redis_auth_kwargs())
 
 
 class CanonicalCandleForwardSeam:
@@ -376,7 +377,7 @@ def _real_canonical_redis_client(config):
     canonical sink is enabled). NEVER called by tests (which inject a fake)."""
     import redis  # lazy; only on the canonical path
     return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
-                       socket_timeout=5)
+                       socket_timeout=5, **redis_auth_kwargs())
 
 
 def build_candle_forward_seam_from_env(shadow_key_prefix=None):

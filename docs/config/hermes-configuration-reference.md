@@ -81,3 +81,14 @@ Canonical identity: `ENVIRONMENT` (DEV|PROD) paired with governed `RUN_ENV` (DEV
 build identity from baked `SOURCE_SHA` (== OCI revision == `/buildinfo`). Redis manifest/heartbeat identity
 derives from these same sources — the retired `HERMES_ENVIRONMENT`/`HERMES_RUN_ENV`/`HERMES_DEPLOYED_SHA`
 fallbacks must not be reintroduced.
+
+## Redis writer authority + consumer boundary
+WO-HELM-HERMES-DEV-REDIS-CONSUMER-INTEGRITY-READONLY-BOUNDARY-0001. Doctrine:
+`docs/architecture/redis-consumer-integrity-boundary.md`.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `REDIS_USERNAME` | *(empty = legacy open model)* | Dedicated ACL writer user for ALL HERMES runtime redis clients (single seam `utils/hermes_redis_auth_v1`). |
+| `REDIS_PASSWORD` | *(existing key)* | Writer secret when `REDIS_USERNAME` is set — REQUIRED then (fail-loud, no silent fallback to default authority). Secret lives only in the environment-owned 0600 env file. |
+
+Consumers need no credentials where the deployment applies the read-only consumer ruleset to the Redis `default` user; consumer authority is `~hermes:* &hermes:* +@read +@connection +subscribe +psubscribe -@dangerous +info`.

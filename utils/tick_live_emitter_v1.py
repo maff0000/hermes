@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from utils import tick_contract_v1 as tc
 from utils import hermes_advanced_v1_publication_gate_v1 as _pubgate   # central master/scope publication-eligibility gate
 from utils.tick_runtime_shadow_adapter_v1 import tick_to_raw_tick   # reuse the proven SignalTick -> raw adapter
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 # WO-HELM-HERMES-ADVANCED-V1-XAU-MODULE-ADOPTION-0001: instrument selection is the canonical registry
 # (via the selection seam), NOT a hard-coded XAU authority constant. `_ALIAS_DENY` remains a format guard.
@@ -207,7 +208,7 @@ def _default_canonical_redis_client():
     from env_config import get_env, get_env_int
     return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
                        port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
-                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5, **redis_auth_kwargs())
 
 
 def tick_live_gate_enabled():
