@@ -24,6 +24,8 @@ Field record keys:
 """
 from __future__ import annotations
 
+from utils import hermes_runtime_identity_v1 as _ident  # single identity-vocabulary authority
+
 # classification tokens for non-recordable values
 PRESENT_BY_SECRET_REFERENCE = "PRESENT_BY_SECRET_REFERENCE"
 EXTERNAL_REQUIRED = "EXTERNAL_REQUIRED"
@@ -113,10 +115,18 @@ FIELDS = [
        consequence="H4 derivation scope (kept XAU_USD; non-XAU H4/D1 held pending session-anchor ruling)"),
 
     # ---------- runtime context ----------
-    _f("ENVIRONMENT", type="enum", required=True, enum=["DEV", "STAGING", "PROD"], xau_parity_critical=True,
+    # WO-HELM-HERMES-PROD-IDENTITY-PROMOTION-PRECHECK-AND-RUNENV-SCHEMA-RECONCILIATION-0001:
+    # identity vocabulary is imported from the SINGLE runtime authority
+    # (utils/hermes_runtime_identity_v1) so deployment tooling can never define a
+    # second semantic universe again (the old enums admitted ENVIRONMENT=STAGING
+    # and RUN_ENV=PROD while rejecting the real purge-gate value PRODUCTION).
+    # RUN_ENV has NO default: its only legal value is pair-determined
+    # (DEV->STAGING, PROD->PRODUCTION, enforced fail-closed in the preflight).
+    _f("ENVIRONMENT", type="enum", required=True, enum=list(_ident.CANONICAL_ENVIRONMENTS), xau_parity_critical=True,
        feature_group="runtime", current_effective="DEV", consequence="wrong env prefix resolution (DEV_* mapping)"),
-    _f("RUN_ENV", type="enum", required=True, enum=["STAGING", "PROD"], default="STAGING", xau_parity_critical=True,
-       feature_group="runtime", current_effective="STAGING", consequence="purge/backfill inertness changes"),
+    _f("RUN_ENV", type="enum", required=True, enum=sorted(set(_ident.RUN_ENV_BY_ENVIRONMENT.values())),
+       xau_parity_critical=True, feature_group="runtime", current_effective="STAGING",
+       consequence="purge/backfill danger-gate eligibility changes (PRODUCTION opens their first condition)"),
     _f("SIGNAL_PORT", type="int", required=True, min=1, max=65535, default="8211", feature_group="runtime",
        current_effective="8211", consequence="HTTP surface unreachable / healthcheck fail"),
     _f("SIGNAL_HOST", type="string", required=False, default="0.0.0.0", feature_group="runtime", current_effective="0.0.0.0"),

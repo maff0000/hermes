@@ -142,6 +142,16 @@ def validate_runtime_config(env, *, compose_files=None, environment="DEV", requi
         if missing:
             faults.append(f"CFG-PARITY-INCOMPLETE: parity-critical fields unset by tracked bundle: {sorted(missing)}")
 
+    # WO-HELM-HERMES-PROD-IDENTITY-PROMOTION-PRECHECK-AND-RUNENV-SCHEMA-RECONCILIATION-0001:
+    # governed identity pair (single authority: utils/hermes_runtime_identity_v1).
+    # DEV->STAGING, PROD->PRODUCTION. A contradictory pair is a wrong-environment
+    # config and must never pass deployment validation. Enum membership is already
+    # checked per-field above; this enforces the PAIRING fail-closed.
+    from utils.hermes_runtime_identity_v1 import RUN_ENV_BY_ENVIRONMENT as _pair
+    _envv, _runv = str(env.get("ENVIRONMENT") or ""), str(env.get("RUN_ENV") or "")
+    if _envv in _pair and _runv and _runv != _pair[_envv]:
+        faults.append(f"CFG-RUNENV-PAIR: ENVIRONMENT={_envv} requires RUN_ENV={_pair[_envv]} got {_runv!r}")
+
     # ---- rollback inputs ----
     if require_rollback and not env.get("HERMES_ROLLBACK_IMAGE_REF"):
         faults.append("CFG-ROLLBACK-MISSING: HERMES_ROLLBACK_IMAGE_REF (previous immutable digest) required")

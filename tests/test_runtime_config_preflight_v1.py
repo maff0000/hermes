@@ -87,3 +87,61 @@ def test_safe_summary_has_no_secret_value():
     blob = json.dumps(safe).lower()
     assert "hunter2" not in blob and "topsecret" not in blob
     assert safe["canonical_redis"]["activation"] == "<PRESENT>"
+
+
+# ---------------------------------------------------------------------------
+# WO-HELM-HERMES-PROD-IDENTITY-PROMOTION-PRECHECK-AND-RUNENV-SCHEMA-RECONCILIATION-0001:
+# deployment-schema identity vocabulary must match the single runtime authority
+# (utils/hermes_runtime_identity_v1). The old enums admitted ENVIRONMENT=STAGING
+# and RUN_ENV=PROD while rejecting the real purge-gate value PRODUCTION — a
+# PROD-only promotion trap found by R2D2. These tests exercise the ACTUAL
+# deployment tooling (validate_runtime_config), not the runtime resolver.
+# ---------------------------------------------------------------------------
+
+def _fault_codes(faults):
+    return [f.split(":")[0] for f in faults]
+
+
+@pytest.mark.parametrize("over,frag", [
+    ({"ENVIRONMENT": "STAGING"}, "CFG-ENUM-ENVIRONMENT"),
+    ({"ENVIRONMENT": "PRODUCTION"}, "CFG-ENUM-ENVIRONMENT"),
+    ({"ENVIRONMENT": "dev"}, "CFG-ENUM-ENVIRONMENT"),
+    ({"ENVIRONMENT": "prod"}, "CFG-ENUM-ENVIRONMENT"),
+    ({"RUN_ENV": "PROD"}, "CFG-ENUM-RUN_ENV"),
+    ({"RUN_ENV": "DEV"}, "CFG-ENUM-RUN_ENV"),
+    ({"RUN_ENV": "PRODUCTION"}, "CFG-RUNENV-PAIR"),                    # DEV + PRODUCTION
+    ({"ENVIRONMENT": "PROD", "RUN_ENV": "STAGING"}, "CFG-RUNENV-PAIR"),  # PROD + STAGING
+])
+def test_identity_vocabulary_rejections(over, frag):
+    ok, faults, _ = _run(good(**over))
+    assert not ok
+    assert any(frag in f for f in faults), (frag, faults)
+
+
+def test_dev_staging_pair_accepted():
+    ok, faults, _ = _run()      # good() is DEV + STAGING
+    assert ok, faults
+    assert not any("CFG-RUNENV-PAIR" in f or "CFG-ENUM-ENVIRONMENT" in f or "CFG-ENUM-RUN_ENV" in f
+                   for f in faults)
+
+
+def test_prod_production_pair_accepted_by_vocabulary():
+    """PROD + PRODUCTION must pass the identity vocabulary and pair rules. Other
+    DEV-contract invariants (e.g. the 3307 DB-port pin) may still fault for a
+    PROD-shaped env — those belong to the promotion WO's PROD contract, so this
+    asserts specifically that NO vocabulary/pair fault fires."""
+    ok, faults, _ = _run(good(ENVIRONMENT="PROD", RUN_ENV="PRODUCTION"))
+    assert not any("CFG-ENUM-ENVIRONMENT" in f or "CFG-ENUM-RUN_ENV" in f or "CFG-RUNENV-PAIR" in f
+                   for f in faults), faults
+
+
+def test_schema_vocabulary_is_single_authority():
+    """The deployment schema's enums must BE the runtime identity vocabulary —
+    imported, not hand-copied — so they can never drift apart again."""
+    from deploy.advanced_v1 import runtime_config_schema_v1 as schema
+    from utils import hermes_runtime_identity_v1 as ident
+    assert schema.BY_NAME["ENVIRONMENT"]["enum"] == list(ident.CANONICAL_ENVIRONMENTS)
+    assert schema.BY_NAME["RUN_ENV"]["enum"] == sorted(set(ident.RUN_ENV_BY_ENVIRONMENT.values()))
+    assert schema.BY_NAME["RUN_ENV"]["default"] is None, "RUN_ENV default must be pair-determined, not STAGING"
+    src = (_ROOT / "deploy/advanced_v1/runtime_config_schema_v1.py").read_text()
+    assert "hermes_runtime_identity_v1" in src, "schema must import the identity authority"
