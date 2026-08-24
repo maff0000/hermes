@@ -167,6 +167,12 @@ class ServiceState:
     # watchdog stream/health state — this is never a second stream-truth surface.
     startup_phase: str = None
 
+    # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+    # canonical validated runtime identity (environment/run_env/source_sha/host),
+    # resolved fail-closed before any external connection. All public identity
+    # surfaces derive from this one object.
+    runtime_identity = None
+
 
 state = ServiceState()
 
@@ -1078,6 +1084,25 @@ async def lifespan(app: FastAPI):
         'version': '1.2.1'
     })
 
+    # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+    # canonical deployment identity + host/config binding — FIRST, before any
+    # external connection or config-dependent init. A DEV config on the PROD
+    # host (or vice versa), a missing/aliased environment, a missing expected
+    # hostname, or an invalid build identity FAILS CLOSED here, visibly.
+    from utils.hermes_runtime_identity_v1 import (
+        cached_runtime_identity, DeploymentIdentityError,
+    )
+    try:
+        # cached: the SAME resolved identity object serves every publisher.
+        state.runtime_identity = cached_runtime_identity()
+    except DeploymentIdentityError as _ident_err:
+        logger.critical("[DEPLOYMENT_IDENTITY] FAIL-CLOSED %s", _ident_err)
+        raise
+    logger.info(
+        "[DEPLOYMENT_IDENTITY] PASS environment=%s run_env=%s source_sha=%s host=%s",
+        state.runtime_identity.environment, state.runtime_identity.run_env,
+        state.runtime_identity.source_sha[:12], state.runtime_identity.actual_hostname)
+
     # Load configuration
     state.config = load_config()
     state.started_at = datetime.now(timezone.utc)
@@ -1566,6 +1591,17 @@ async def health():
 
     snapshot = state.watchdog.get_health_snapshot()
     snapshot["startup_phase"] = startup_phase
+    # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+    # the validated canonical identity, surfaced on /health so every identity
+    # surface (Redis manifest/heartbeat, /buildinfo, /readiness, /health)
+    # observably derives from the same source.
+    _ident = getattr(state, "runtime_identity", None)
+    if _ident is not None:
+        snapshot["deployment_identity"] = {
+            "environment": _ident.environment, "run_env": _ident.run_env,
+            "source_sha": _ident.source_sha, "host_binding": "PASS",
+            "hostname": _ident.actual_hostname,
+        }
     health = snapshot.get("health_state", "RED")
 
     # HTTP status reflects health truth

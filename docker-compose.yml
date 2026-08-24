@@ -127,6 +127,11 @@ services:
 
     volumes:
       - hermes_archive:/data/signal_history
+      # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+      # HOST truth for the startup host/config binding — the host machine's
+      # /etc/hostname mounted read-only. The environment-owned env file declares
+      # EXPECTED_HOSTNAME; a mismatch (wrong env file on this host) FAILS CLOSED.
+      - /etc/hostname:/etc/host-hostname:ro
 
     # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
     # container health = APPLICATION health, not a bare TCP listener. This compose
