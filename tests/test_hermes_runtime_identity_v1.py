@@ -192,6 +192,17 @@ class TestWiringPins(unittest.TestCase):
         self.assertIn("/etc/hostname:/etc/host-hostname:ro", text,
                       "deployment must mount the HOST /etc/hostname read-only for host truth")
 
+    def test_compose_passes_binding_env_through_with_no_expected_default(self):
+        """The 2026-08-24 first-deploy lesson: the DEV compose passes container env
+        via an explicit environment: mapping, so schema keys must be wired through
+        there. EXPECTED_HOSTNAME must have NO default (omitted => fail closed)."""
+        text = COMPOSE.read_text()
+        self.assertIn("EXPECTED_HOSTNAME: ${EXPECTED_HOSTNAME:-}", text)
+        self.assertIn("HOST_HOSTNAME_PATH: ${HOST_HOSTNAME_PATH:-/etc/host-hostname}", text)
+        for k in ("DB_STARTUP_WAIT_TIMEOUT_SECONDS", "DB_STARTUP_RETRY_INITIAL_DELAY",
+                  "DB_STARTUP_RETRY_MAX_DELAY", "DB_STARTUP_RETRY_BACKOFF_MULTIPLIER"):
+            self.assertIn(k + ": ${" + k, text, k + " must pass through compose")
+
 
 if __name__ == "__main__":
     unittest.main()
