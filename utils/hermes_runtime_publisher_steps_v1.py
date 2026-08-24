@@ -53,13 +53,23 @@ def _now():
 
 
 def _deployed_sha():
-    from env_config import get_env
-    return get_env("HERMES_DEPLOYED_SHA", default="unknown") or "unknown"
+    # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+    # deployed_sha derives from the CANONICAL build truth (the same source
+    # /buildinfo reports) via the validated runtime identity. The old separate
+    # deployed-SHA env variable silently defaulted and let the Redis contract
+    # contradict the real deployment — that class is retired: an unresolvable
+    # identity raises (fail loud), it never publishes a sentinel value.
+    from utils.hermes_runtime_identity_v1 import cached_runtime_identity
+    return cached_runtime_identity().source_sha
 
 
 def _run_env():
-    from env_config import get_env
-    return (get_env("HERMES_RUN_ENV", default="STAGING") or "STAGING"), (get_env("HERMES_ENVIRONMENT", default="dev") or "dev")
+    # Canonical environment identity (ENVIRONMENT + its governed RUN_ENV pair),
+    # resolved and host-bound at startup. The old separately-defaulted run-env /
+    # environment variables could silently mislabel PROD as dev/staging — retired.
+    from utils.hermes_runtime_identity_v1 import cached_runtime_identity
+    ident = cached_runtime_identity()
+    return ident.run_env, ident.environment
 
 
 def _redis_target(client):
@@ -259,6 +269,29 @@ def control_plane_step(client):
     now = _now()
     run_env, environment = _run_env()
     sha, target = _deployed_sha(), _redis_target(client)
+
+    # WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001 (§9
+    # identity-consistency invariant): before overwriting, compare the identity
+    # a consumer could currently read against the canonical runtime identity. A
+    # material mismatch (stale keys from an older/foreign writer) is surfaced
+    # LOUDLY (ERROR log + heartbeat fault counter) and then corrected by this
+    # very cycle's truthful publish — never silently left contradictory.
+    identity_faults = []
+    try:
+        from utils.hermes_runtime_identity_v1 import cached_runtime_identity, check_identity_consistency
+        _ident = cached_runtime_identity()
+        for _key in (cp.KEY_CONTRACT_MANIFEST, cp.KEY_PUBLISHER_HEARTBEAT):
+            _raw = client.get(_key)
+            if _raw:
+                identity_faults += ["%s:%s" % (_key.split(":")[-2], f)
+                                    for f in check_identity_consistency(_ident, json.loads(_raw))]
+    except Exception:  # noqa: BLE001 — a broken pre-read must not block the truthful publish
+        pass
+    if identity_faults:
+        import logging
+        logging.getLogger("hermes.control_plane").error(
+            "[DEPLOYMENT_IDENTITY_MISMATCH] published identity contradicted runtime "
+            "identity and is being corrected this cycle: %s", identity_faults)
     # M1-H4 liveness (health completeness is M1-H4-based, unchanged). WO-HELM-HERMES-D1-MANIFEST-TRUTH-0001: D1 derived
     # families are reflected ACTIVE in the manifest ONLY when their D1 gate is true AND their D1 key is live (else they
     # stay in gated_families — no overclaim). LATEST_TFS is never modified, so M1-H4 manifest behaviour is unchanged.
@@ -314,7 +347,10 @@ def control_plane_step(client):
                                                 "sessions_levels_publisher"],
                             active_timeframes=list(LATEST_TFS), last_publish_utc={}, latest_key_freshness=lp_fresh,
                             history_forward_state="ACTIVE", d1_state=_d1_state(client),
-                            fault_counters_summary={}, skip_counters_summary={})
+                            fault_counters_summary=(
+                                {"deployment_identity_mismatch": len(identity_faults)}
+                                if identity_faults else {}),
+                            skip_counters_summary={})
     catalog = b.candle_catalog(generated_at_utc=now)
     # WO-HELM-HERMES-D1-CATALOG-CANDLES-TRUTH-0001 — reflect live D1 candle truth in catalog:candles. The builder is pure
     # (defaults D1 latest=PENDING / history+forward=BLOCKED); override to ACTIVE ONLY from validated runtime truth

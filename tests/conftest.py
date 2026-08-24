@@ -72,3 +72,24 @@ def db_config():
         "password": os.getenv("DB_PASSWORD", ""),
         "database": os.getenv("DB_NAME", "tradingSignals")
     }
+
+
+# ---------------------------------------------------------------------------
+# WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001:
+# publishers now derive Redis identity metadata from the SINGLE canonical
+# runtime identity (resolved fail-closed at startup). Tests exercising the
+# publisher steps run with a deterministic seeded identity instead of the
+# host-bound resolution (which would correctly fail closed in a test
+# environment). Autouse + reset: no test can leak identity into another,
+# and identity-resolution tests construct their own resolver inputs.
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _seed_runtime_identity_for_tests():
+    from utils import hermes_runtime_identity_v1 as _ident
+    _ident._CACHED = _ident.RuntimeIdentity(
+        environment="DEV", run_env="STAGING",
+        source_sha="0" * 40,
+        expected_hostname="test-host", actual_hostname="test-host",
+    )
+    yield
+    _ident._reset_cached_identity_for_tests()

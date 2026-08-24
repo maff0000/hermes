@@ -67,3 +67,17 @@ One shared schema: identical keys in DEV and PROD; only externally supplied VALU
 connect is governed by the EXISTING `STREAM_RETRY_*` keys — a failed initial connect enters the same
 `oanda_stream_task` reconnect loop (bounded exponential backoff, watchdog `NEVER_CONNECTED` → `RECOVERING` →
 `CONNECTED_UNPROVEN` → `FLOWING`), never a second reconnect mechanism and never a silent streamless start.
+
+## Deployment identity + host/config binding
+WO-HELM-HERMES-DEV-DEPLOYMENT-IDENTITY-AND-HOST-CONFIG-BINDING-0001. Full doctrine:
+`docs/architecture/deployment-identity-and-config-binding.md`.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `EXPECTED_HOSTNAME` | *(required)* | Environment-owned declared host. Must equal the host machine's `/etc/hostname`; mismatch/missing ⇒ startup FAILS CLOSED (`IDENT-*`). |
+| `HOST_HOSTNAME_PATH` | `/etc/host-hostname` | Where the deployment mounts the host's `/etc/hostname` (read-only). |
+
+Canonical identity: `ENVIRONMENT` (DEV|PROD) paired with governed `RUN_ENV` (DEV→STAGING, PROD→PRODUCTION);
+build identity from baked `SOURCE_SHA` (== OCI revision == `/buildinfo`). Redis manifest/heartbeat identity
+derives from these same sources — the retired `HERMES_ENVIRONMENT`/`HERMES_RUN_ENV`/`HERMES_DEPLOYED_SHA`
+fallbacks must not be reintroduced.
