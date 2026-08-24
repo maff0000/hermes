@@ -24,6 +24,7 @@ from utils import candle_contract_v1 as cc
 from utils import hermes_gaps_v1 as gaps     # primary input surface + shared timeframes/depth/retention (NOT instrument)
 from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (backfill-status instruments + keys)
 from utils import hermes_advanced_v1_publication_gate_v1 as pgate   # central master/scope publication-eligibility gate
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 SCHEMA_VERSION = "v1"
 PUBLISHER = "HERMES"
@@ -319,4 +320,4 @@ def _default_redis_client():
     from env_config import get_env, get_env_int
     return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
                        port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
-                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5, **redis_auth_kwargs())

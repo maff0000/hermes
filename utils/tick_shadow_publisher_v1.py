@@ -24,6 +24,7 @@ from datetime import datetime
 
 from utils import tick_contract_v1 as tc
 from utils import tick_publisher_v1 as tp
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 WRITE_MODE_SHADOW = "SHADOW_NO_LIVE"
 WRITE_MODE_LIVE = "LIVE"            # named only to be rejected; live is a separate authorised WO
@@ -116,7 +117,7 @@ def connect_shadow_redis(config):
         raise ValueError("GOV-PUB-SHADOW-CONN-001: explicit ShadowPublisherConfig required (no inferred target)")
     import redis  # lazy; explicit dependency only on the shadow path
     return redis.Redis(host=config.redis_host, port=config.redis_port, db=config.redis_db,
-                       socket_connect_timeout=0.5, socket_timeout=0.5)  # §20: bounded — never block the async tick loop
+                       socket_connect_timeout=0.5, socket_timeout=0.5, **redis_auth_kwargs())  # §20: bounded — never block the async tick loop
 
 
 # --------------------------------------------------------------------------- shadow plan + publish

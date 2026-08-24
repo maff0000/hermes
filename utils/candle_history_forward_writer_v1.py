@@ -23,6 +23,7 @@ import json
 from utils import candle_contract_v1 as cc
 from utils import candle_history_v1 as chv
 from utils import candle_runtime_seam_v1 as seam   # canonical_instrument + canonical redis target
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 # ----- governed env controls (explicit, no hidden defaults) -----
 ENABLED_ENV = "HERMES_CANDLE_HISTORY_FORWARD_ENABLED"
@@ -226,7 +227,7 @@ def _redis_client_from_env(get_env, get_env_int):
     import redis  # lazy; only on the enabled path
     return redis.Redis(host=get_env(REDIS_HOST_ENV, required=True),
                        port=get_env_int(REDIS_PORT_ENV, required=True),
-                       db=get_env_int(REDIS_DB_ENV, required=True), socket_timeout=5)
+                       db=get_env_int(REDIS_DB_ENV, required=True), socket_timeout=5, **redis_auth_kwargs())
 
 
 def build_history_forward_writer_from_env():

@@ -15,6 +15,7 @@ gates are preserved). A step is a no-op when its family gate is disabled.
 """
 from __future__ import annotations
 import threading
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 ENABLED_ENV = "HERMES_PUBLISHER_RUNTIME_ENABLED"
 AUTHORISED_ENV = "HERMES_PUBLISHER_RUNTIME_AUTHORISED"
@@ -140,7 +141,7 @@ def _default_redis_client():
     from env_config import get_env, get_env_int
     return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
                        port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
-                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5, **redis_auth_kwargs())
 
 
 def default_runner_specs():

@@ -29,6 +29,7 @@ sys.path.insert(0, ".")
 from utils import tick_contract_v1 as tc                    # noqa: E402
 from utils import tick_shadow_publisher_v1 as sh            # noqa: E402
 from utils import tick_shadow_activation_v1 as act          # noqa: E402
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 SHADOW_ACTIVATION_SOURCE = "SHADOW_ACTIVATION_SYNTHETIC"     # marks input as test/shadow-activation
 
@@ -104,7 +105,7 @@ def main(argv=None):
     p.add_argument("--test-only", dest="test_only", action="store_true")
     args = p.parse_args(argv)
     import redis  # real client, lazy
-    client = redis.Redis(host=args.host, port=args.port, db=args.db, socket_timeout=5)
+    client = redis.Redis(host=args.host, port=args.port, db=args.db, socket_timeout=5, **redis_auth_kwargs())
     out = run(args, client)
     print(json.dumps(out, indent=2))
     return 0

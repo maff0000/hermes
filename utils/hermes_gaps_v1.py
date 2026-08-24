@@ -24,6 +24,7 @@ from utils import candle_d1_history_v1 as d1h     # reuse: assert_sealed_complet
 from utils import hermes_advanced_v1_selection_v1 as sel   # registry selection seam (gap-capability instruments + generic keys)
 from utils import hermes_market_hours_policy_v1 as mhp      # reusable market-hours policy authority (selected by registry key)
 from utils import hermes_advanced_v1_publication_gate_v1 as pgate   # central master/scope publication-eligibility gate
+from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
 UTC = timezone.utc
 # Instrument authority is the canonical registry (selection seam), NOT a per-module literal. XAUUSD is a rejected
@@ -450,4 +451,4 @@ def _default_redis_client():
     from env_config import get_env, get_env_int
     return redis.Redis(host=get_env("HERMES_CANDLE_CANONICAL_REDIS_HOST", required=True),
                        port=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_PORT", required=True),
-                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5)
+                       db=get_env_int("HERMES_CANDLE_CANONICAL_REDIS_DB", required=True), socket_timeout=5, **redis_auth_kwargs())
