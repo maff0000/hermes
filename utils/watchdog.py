@@ -65,6 +65,14 @@ class StreamState:
     STALE = "STALE"
     RECOVERING = "RECOVERING"
     FAILED = "FAILED"
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # First-class "no successful stream connection has EVER been established this
+    # process lifetime" state. Set by the lifespan when the initial OANDA connect
+    # fails; the governed recovery loop then drives NEVER_CONNECTED -> RECOVERING
+    # -> CONNECTED_UNPROVEN -> FLOWING. Distinct from DISCONNECTED (which also
+    # covers post-connection loss) so consumers can see a boot that never flowed.
+    # DB enum widened by migrations/026_stream_state_never_connected.sql.
+    NEVER_CONNECTED = "NEVER_CONNECTED"
 
 
 # WO-HERMES-PER-INSTRUMENT-RECOVERY-CONFIG-PROMOTION-0001 (supersedes RESUBSCRIBE-REPAIR-0001):

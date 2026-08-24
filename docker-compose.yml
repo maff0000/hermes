@@ -128,9 +128,16 @@ services:
     volumes:
       - hermes_archive:/data/signal_history
 
+    # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
+    # container health = APPLICATION health, not a bare TCP listener. This compose
+    # entry previously overrode the Dockerfile HEALTHCHECK with a socket-connect
+    # test, so a permanently streamless process (2026-08-20 Dell reboot: DNS-failed
+    # one-shot OANDA connect) reported "healthy" for four days. It now runs the
+    # SAME governed probe as the Dockerfile (utils/hermes_healthcheck_probe_v1):
+    # GET /health -> GREEN/AMBER healthy, RED/no-contract/refused unhealthy.
     healthcheck:
       test: ["CMD", "python", "-c",
-             "import os,socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(0 if s.connect_ex(('127.0.0.1', int(os.getenv('SIGNAL_PORT','8211'))))==0 else 1)"]
+             "import sys; from utils.hermes_healthcheck_probe_v1 import run_probe; sys.exit(run_probe())"]
       interval: 30s
       timeout: 5s
       retries: 3
