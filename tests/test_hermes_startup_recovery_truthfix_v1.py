@@ -162,6 +162,35 @@ class TestNeverConnectedState(unittest.TestCase):
         self.assertIn("NEVER_CONNECTED", orelse_src,
                       "failed initial connect must set StreamState.NEVER_CONNECTED")
 
+    def test_reconnect_backoff_compounds_across_failed_cycles(self):
+        """AST pin: oanda_stream_task must NOT reset the governed backoff at loop
+        top (the pre-existing unconditional reset ran after every FAILED
+        reconnect too, so the delay never compounded — proven live 2026-08-24 as
+        constant 5s reconnect hammering). The only reset sits on the PROVEN
+        recovery path: the first real tick of a cycle."""
+        tree = ast.parse(MAIN_PY.read_text())
+        fn = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "oanda_stream_task":
+                fn = node
+                break
+        self.assertIsNotNone(fn, "oanda_stream_task not found")
+        outer_while = next(n for n in fn.body if isinstance(n, ast.While))
+        try_node = next(n for n in outer_while.body if isinstance(n, ast.Try))
+
+        def resets_delay(stmt):
+            return (isinstance(stmt, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "current_delay" for t in stmt.targets)
+                    and isinstance(stmt.value, ast.Name) and stmt.value.id == "retry_initial")
+
+        # No unconditional reset as a DIRECT statement of the try body (loop top).
+        self.assertFalse(any(resets_delay(s) for s in try_node.body),
+                         "backoff reset must not run unconditionally at loop top")
+        # The guarded reset exists somewhere deeper (the tick path).
+        guarded = [n for n in ast.walk(try_node) if isinstance(n, ast.If)
+                   and any(resets_delay(s) for s in n.body)]
+        self.assertTrue(guarded, "proven-recovery backoff reset (tick path) missing")
+
     def test_lifespan_gates_on_db_before_redis_publisher(self):
         """AST pin: wait_for_db_ready is awaited in lifespan BEFORE the
         RedisPublisher is constructed (i.e. before any DB-dependent init)."""
