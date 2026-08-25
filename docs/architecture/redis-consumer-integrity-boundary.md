@@ -92,3 +92,28 @@ with zero consumer ceremony.
 New consumers connect from an authorised IP and read `hermes:*` — no per-app
 Redis users, no redesign. If a consumer genuinely needs a command outside the
 ruleset, it is added to the governed ruleset here, with justification.
+
+## Enabled-write-target completeness guard (delta, R2D2 AMBER correction)
+
+**WO:** `WO-HELM-HERMES-DEV-SHADOW-REDIS-WRITER-AUTH-COMPLETION-0001`.
+The boundary rollout missed the second active DEV write target (shadow Redis
+`:6380`) — the shadow emitter auth-failed continuously (~499k suppressed
+emits). Permanent invariant:
+
+> Every Redis target enabled for HERMES write publication must have usable
+> writer authority before HERMES is considered ready.
+
+At startup `utils/hermes_write_target_auth_guard_v1` probes every ENABLED
+write target (connect+auth+PING) through the same writer-authority seam;
+failures log CRITICAL and surface on `/health` as `write_targets` (named
+statuses: OK / AUTH_FAILED / UNREACHABLE / AUTH_CONFIG_INVALID / DISABLED).
+Disabled targets are INERT — no connection, no credential requirement (PROD
+shadow stays credential-free while disabled). No path falls back to default
+authority.
+
+The HERMES writer identity (`hermes-writer`, same bounded ruleset, same
+externally-supplied secret) is provisioned independently on EVERY enabled
+write target — one service identity, not per-target credential hierarchies.
+Every Redis/ACL config change is validated against a disposable
+matching-version Redis before touching a live instance
+(`redis_config_syntax_validation_before_restart`, R2D2-recorded).

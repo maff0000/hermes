@@ -72,6 +72,12 @@ _FALSE_TOKENS = frozenset({"false", "0", "no", "off", ""})
 # into — no own client, no independent enablement). Both are truthful at their granularity; the registry is
 # kept at 14 module entries so the static-inventory test covers every redis-client-bearing module.
 REDIS_WRITER_REGISTRY = {
+    # WO-HELM-HERMES-DEV-SHADOW-REDIS-WRITER-AUTH-COMPLETION-0001: startup guard
+    # probing enabled write targets (read-only PING probe; writes nothing).
+    "utils/hermes_write_target_auth_guard_v1.py": {
+        "role": "write_target_auth_probe", "enable_flag": None,
+        "target": "every ENABLED write target (main REDIS_* + shadow HERMES_*_REDIS_*)",
+        "default_enabled": True, "shadow_policy": "probe_only_no_publication"},
     "utils/redis_publisher.py": {
         "role": "primary_publisher", "enable_flag": None, "target": "config.redis (REDIS_HOST/PORT)",
         "default_enabled": True, "shadow_policy": "primary_manifest_validated"},

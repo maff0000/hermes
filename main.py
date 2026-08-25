@@ -173,6 +173,10 @@ class ServiceState:
     # surfaces derive from this one object.
     runtime_identity = None
 
+    # WO-HELM-HERMES-DEV-SHADOW-REDIS-WRITER-AUTH-COMPLETION-0001: startup
+    # write-target guard reports ([WriteTargetReport]), surfaced on /health.
+    write_target_guard = None
+
 
 state = ServiceState()
 
@@ -1157,6 +1161,24 @@ async def lifespan(app: FastAPI):
     from env_config import get_db_config as _gate_db_cfg
     await wait_for_db_ready(_gate_db_cfg(), StartupGateConfig.from_env(), logger)
 
+    # WO-HELM-HERMES-DEV-SHADOW-REDIS-WRITER-AUTH-COMPLETION-0001: every Redis
+    # target ENABLED for HERMES write publication must have USABLE writer
+    # authority (R2D2 finding: the DEV shadow target was missed and the emitter
+    # auth-failed ~499k times with no startup-visible surface). Disabled targets
+    # are INERT (no probe, no credential requirement). Failures are LOUD
+    # (CRITICAL log + /health `write_targets` surface) and never fall back to
+    # default authority.
+    from utils.hermes_write_target_auth_guard_v1 import verify_enabled_write_targets
+    state.write_target_guard = verify_enabled_write_targets()
+    for _wt in state.write_target_guard:
+        if _wt.enabled and _wt.status != "OK":
+            logger.critical(
+                "[WRITE_TARGET_GUARD] %s target=%s endpoint=%s — %s",
+                _wt.status, _wt.name, _wt.endpoint, _wt.detail)
+        else:
+            logger.info("[WRITE_TARGET_GUARD] %s target=%s endpoint=%s",
+                        _wt.status, _wt.name, _wt.endpoint)
+
     # Initialize Redis publisher
     state.redis_publisher = RedisPublisher()
     if state.redis_publisher.connect():
@@ -1601,6 +1623,17 @@ async def health():
             "environment": _ident.environment, "run_env": _ident.run_env,
             "source_sha": _ident.source_sha, "host_binding": "PASS",
             "hostname": _ident.actual_hostname,
+        }
+    # WO-HELM-HERMES-DEV-SHADOW-REDIS-WRITER-AUTH-COMPLETION-0001: per-target
+    # writer-authority truth from the startup guard — an enabled target with
+    # unusable writer authority is VISIBLY degraded here, never a silent
+    # background error stream. Health colour remains owned by market truth.
+    _wtg = getattr(state, "write_target_guard", None)
+    if _wtg is not None:
+        snapshot["write_targets"] = {
+            r.name: {"enabled": r.enabled, "endpoint": r.endpoint,
+                     "status": r.status, "detail": r.detail}
+            for r in _wtg
         }
     health = snapshot.get("health_state", "RED")
 
