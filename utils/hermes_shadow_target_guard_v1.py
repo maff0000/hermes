@@ -136,6 +136,13 @@ REDIS_WRITER_REGISTRY = {
         "role": "manual_script", "enable_flag": "--apply (CLI flag, not env var; dry-run without it)",
         "target": "HERMES_CANDLE_CANONICAL_REDIS_* (history index ZSETs only)",
         "default_enabled": False, "shadow_policy": "out_of_startup_path"},
+    # WO-HELM-HERMES-DEV-PRE-PROD-RECOVERY-GATE-CLOSURE-0001: host-side detection-only tripwire,
+    # not part of the HERMES application container's startup path. Read-only Redis INFO; the only
+    # writes anywhere in this module are to the existing hermes_incidents table via HealthPersistence.
+    "utils/hermes_operational_tripwires_v1.py": {
+        "role": "manual_script", "enable_flag": "governed host-side systemd timer (see ops/systemd/)",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_* (INFO only, read-only)",
+        "default_enabled": False, "shadow_policy": "out_of_startup_path"},
 }
 
 # Canonical-Redis secondary writers that must be DISABLED in SHADOW (each defaults false; any truthy -> fail).

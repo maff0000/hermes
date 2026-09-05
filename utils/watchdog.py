@@ -45,7 +45,17 @@ class FaultCode:
     INSTRUMENT_TICK_STALE = "HERMES_INSTRUMENT_TICK_STALE"
     INSTRUMENT_M1_STALE = "HERMES_INSTRUMENT_M1_STALE"
     INSTRUMENT_HEALTHY = "HERMES_INSTRUMENT_HEALTHY"
-    MARKET_CLOSED = "MARKET_CLOSED" 
+    MARKET_CLOSED = "MARKET_CLOSED"
+
+    # WO-HELM-HERMES-DEV-PRE-PROD-RECOVERY-GATE-CLOSURE-0001: operational tripwires.
+    # Detection-only fault codes -- nothing that raises these ever restarts/repairs anything.
+    REDIS_CAPACITY_WARNING = "HERMES_REDIS_CAPACITY_WARNING"     # >=70% of effective ceiling
+    REDIS_CAPACITY_CRITICAL = "HERMES_REDIS_CAPACITY_CRITICAL"   # >=80%
+    REDIS_CAPACITY_FATAL = "HERMES_REDIS_CAPACITY_FATAL"         # >=90%
+    REDIS_UNAVAILABLE = "HERMES_REDIS_UNAVAILABLE"               # connection/INFO failed outright
+    CONTAINER_RESTART_STORM = "HERMES_CONTAINER_RESTART_STORM"   # restart count jumped since last check
+    CONTAINER_UNHEALTHY_PROLONGED = "HERMES_CONTAINER_UNHEALTHY_PROLONGED"  # restarting/unhealthy at check time
+    HOST_IDENTITY_DRIFT = "HERMES_HOST_IDENTITY_DRIFT"           # persisted hostname != expected identity
 
 
 # ============================================================
