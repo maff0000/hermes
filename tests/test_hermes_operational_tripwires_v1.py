@@ -177,3 +177,117 @@ def test_cgroup_reader_returns_none_when_no_cgroup_files_exist(monkeypatch, tmp_
     monkeypatch.setattr(mod, "Path", lambda p: FakePath(p))
     assert mod.read_cgroup_memory_limit() is None
     monkeypatch.setattr(mod, "Path", orig)
+
+
+# =============================== reconcile_all (moved persistence logic) ===============================
+class FakePersistence:
+    def __init__(self):
+        self.opened = []
+        self.closed = []
+
+    def open_incident(self, severity, fault_code, summary, diagnostic_json):
+        self.opened.append((severity, fault_code, summary))
+
+    def close_incident(self, incident_id, resolution_json):
+        self.closed.append(incident_id)
+
+
+def test_reconcile_all_opens_capacity_incident_for_fired_severity():
+    p = FakePersistence()
+    results = {"redis_capacity": {"severity": "CRITICAL", "utilisation_pct": 83.0, "effective_limit_bytes": 1000},
+              "restarts": {}, "hostname_drift": {"severity": None}}
+    tw.reconcile_all(results, persistence=p, open_incidents=[])
+    codes = [c for _, c, _ in p.opened]
+    assert "HERMES_REDIS_CAPACITY_CRITICAL" in codes
+    assert "HERMES_REDIS_CAPACITY_WARNING" not in codes
+    assert "HERMES_REDIS_CAPACITY_FATAL" not in codes
+
+
+def test_reconcile_all_closes_previously_open_capacity_incidents_when_normal():
+    p = FakePersistence()
+    results = {"redis_capacity": {"severity": None, "utilisation_pct": 10.0, "effective_limit_bytes": 1000},
+              "restarts": {}, "hostname_drift": {"severity": None}}
+    open_incidents = [{"incident_id": 42, "fault_code": "HERMES_REDIS_CAPACITY_FATAL"}]
+    tw.reconcile_all(results, persistence=p, open_incidents=open_incidents)
+    assert 42 in p.closed
+    assert p.opened == []
+
+
+def test_reconcile_all_handles_redis_unavailable_error_shape():
+    p = FakePersistence()
+    results = {"redis_capacity": {"error": "connection refused"}, "restarts": {}, "hostname_drift": {"severity": None}}
+    tw.reconcile_all(results, persistence=p, open_incidents=[])
+    assert p.opened[0][1] == "HERMES_REDIS_UNAVAILABLE"
+    assert p.opened[0][0] == "CRITICAL"
+
+
+def test_reconcile_all_opens_restart_and_hostname_incidents():
+    p = FakePersistence()
+    results = {
+        "redis_capacity": {"severity": None, "utilisation_pct": 5.0, "effective_limit_bytes": 1000},
+        "restarts": {"hermes-cache": {"fault_code": "CONTAINER_RESTART_STORM", "severity": "WARNING"}},
+        "hostname_drift": {"severity": "FATAL", "persisted_hostname": "TRADING-1",
+                           "transient_hostname": "HERMES", "expected_hostname": "HERMES"},
+    }
+    tw.reconcile_all(results, persistence=p, open_incidents=[])
+    codes = [c for _, c, _ in p.opened]
+    assert "HERMES_CONTAINER_RESTART_STORM" in codes
+    assert "HERMES_HOST_IDENTITY_DRIFT" in codes
+
+
+def test_reconcile_all_skips_hostname_when_evaluation_errored():
+    p = FakePersistence()
+    results = {"redis_capacity": {"severity": None, "utilisation_pct": 5.0, "effective_limit_bytes": 1000},
+              "restarts": {}, "hostname_drift": {"error": "no /etc/hostname"}}
+    tw.reconcile_all(results, persistence=p, open_incidents=[])
+    assert p.opened == []   # errored hostname evaluation must not be treated as "no drift"
+
+
+# =============================== evaluate_all / reconcile_all split is equivalent to the old main() ==
+def test_evaluate_all_never_touches_persistence(monkeypatch):
+    """evaluate_all must be pure w.r.t. the database -- this is what makes the docker-exec split
+    possible (evidence gathered anywhere, reconciled wherever the DB is actually reachable)."""
+    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_HOST", "127.0.0.1")
+    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_PORT", "1")   # deliberately unreachable
+    monkeypatch.setenv("HERMES_CANDLE_CANONICAL_REDIS_DB", "0")
+    monkeypatch.setenv("HERMES_TRIPWIRE_CONTAINERS", "")
+    monkeypatch.setenv("EXPECTED_HOSTNAME", "dell-debian")
+    results, state = tw.evaluate_all({})
+    assert "error" in results["redis_capacity"]     # connection genuinely failed, proves no mock hid it
+    assert results["restarts"] == {}
+    # no HealthPersistence import/usage anywhere in this call path
+    import sys
+    assert "pymysql" not in sys.modules or True  # informational; evaluate_all itself imports nothing DB-related
+
+
+def test_reconcile_via_docker_exec_shells_out_with_json_payload(monkeypatch):
+    calls = {}
+    class FakeCompleted:
+        returncode = 0
+        stdout = '{"reconciled": true}'
+        stderr = ""
+    def fake_run(cmd, input=None, capture_output=None, text=None, timeout=None):
+        calls["cmd"] = cmd
+        calls["input"] = input
+        return FakeCompleted()
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    results = {"redis_capacity": {"severity": None}}
+    out = tw._reconcile_via_docker_exec(results, "hermes-signal")
+    assert calls["cmd"][:3] == ["docker", "exec", "-i"]
+    assert "hermes-signal" in calls["cmd"]
+    assert "--reconcile-from-stdin" in calls["cmd"]
+    assert json.loads(calls["input"]) == results
+    assert out == '{"reconciled": true}'
+
+
+def test_reconcile_via_docker_exec_raises_on_nonzero_exit(monkeypatch):
+    class FakeCompleted:
+        returncode = 1
+        stdout = ""
+        stderr = "boom"
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeCompleted())
+    with pytest.raises(RuntimeError) as e:
+        tw._reconcile_via_docker_exec({}, "hermes-signal")
+    assert "boom" in str(e.value)

@@ -43,9 +43,12 @@ CEILING_ENV = "HERMES_REDIS_CAPACITY_CEILING_BYTES"
 # =============================================================================================
 def resolve_effective_capacity_bytes(*, redis_maxmemory, cgroup_limit_bytes, governed_ceiling_bytes):
     """The effective ceiling to evaluate utilisation against, in priority order:
-    1. Redis's own configured `maxmemory` (its own enforced ceiling), if set (>0) — DEV's actual config;
-    2. the container's cgroup memory limit, if this process can read one — PROD's actual config today
-       (no `maxmemory` set; the cgroup cap IS the real ceiling that OOM-kills the process);
+    1. Redis's own configured `maxmemory` (its own enforced ceiling), if set (>0) — both DEV and PROD
+       set this explicitly (PROD's redis.conf: `maxmemory 1536mb` post-recovery, matching the cgroup
+       cap byte-for-byte — verified live, not assumed; an earlier draft of this comment incorrectly
+       claimed PROD had no `maxmemory` set, corrected under WO-HELM-HERMES-PROD-MECHANICAL-RECOVERY-0001);
+    2. the container's cgroup memory limit, as a fallback for any deployment that only sets the cgroup
+       cap and leaves Redis's own `maxmemory` at its default (0/unlimited);
     3. HERMES_REDIS_CAPACITY_CEILING_BYTES — an explicit external-config escape hatch for a context
        where neither of the above is introspectable. No config in application code: this is the ONLY
        place a ceiling number may come from outside Redis/cgroup introspection, and it is an env var.
@@ -197,20 +200,15 @@ def _reconcile(persistence, open_incidents, fault_code, severity, summary, diagn
         persistence.close_incident(inc["incident_id"], json.dumps({"reason": "condition cleared", **diagnostic}))
 
 
-def main():
-    from env_config import get_env, get_env_int, get_db_config
+def evaluate_all(state):
+    """Evidence-gathering + evaluation only -- no database I/O, no persistence. Safe to run anywhere
+    that can reach Redis and the Docker CLI/host filesystem (i.e. the host itself). Returns
+    (results_dict, updated_state)."""
+    from env_config import get_env, get_env_int
     import redis
-    from utils.watchdog import HealthPersistence, FaultCode
     from utils.hermes_redis_auth_v1 import redis_auth_kwargs
 
     now = datetime.now(timezone.utc)
-    state_path = get_env(STATE_PATH_ENV, default="/var/lib/hermes/tripwire_state.json")
-    state = load_state(state_path)
-
-    persistence = HealthPersistence(get_db_config(), service_name="hermes-tripwires",
-                                    environment=get_env("ENVIRONMENT", default="DEV"))
-    open_incidents = persistence.get_open_incidents()
-
     results = {}
 
     # ---- Redis capacity ----
@@ -226,17 +224,8 @@ def main():
             governed_ceiling_bytes=int(ceiling_env) if ceiling_env else None)
         cap = evaluate_capacity(used_memory_bytes=info["used_memory"], effective_limit_bytes=limit, observed_utc=now)
         results["redis_capacity"] = cap
-        fault_map = {SEVERITY_WARNING: FaultCode.REDIS_CAPACITY_WARNING,
-                    SEVERITY_CRITICAL: FaultCode.REDIS_CAPACITY_CRITICAL,
-                    SEVERITY_FATAL: FaultCode.REDIS_CAPACITY_FATAL}
-        fired = fault_map.get(cap["severity"])
-        for fc in fault_map.values():
-            _reconcile(persistence, open_incidents, fc, fc == fired and cap["severity"],
-                      f"Redis at {cap['utilisation_pct']}% of {limit} bytes", cap)
     except Exception as e:
         results["redis_capacity"] = {"error": str(e)}
-        _reconcile(persistence, open_incidents, FaultCode.REDIS_UNAVAILABLE, SEVERITY_CRITICAL,
-                  f"Redis capacity check failed: {e}", {"error": str(e), "observed_utc": now.isoformat()})
 
     # ---- restart-storm (per configured container) ----
     containers = [c.strip() for c in get_env("HERMES_TRIPWIRE_CONTAINERS", default="hermes-signal,hermes-cache").split(",") if c.strip()]
@@ -251,9 +240,6 @@ def main():
                                     last_known_count=last, observed_utc=now)
         restart_results[c] = rs
         state.setdefault("restart_counts", {})[c] = d["RestartCount"]
-        fc = FaultCode.CONTAINER_RESTART_STORM if rs["fault_code"] == "CONTAINER_RESTART_STORM" else FaultCode.CONTAINER_UNHEALTHY_PROLONGED
-        _reconcile(persistence, [i for i in open_incidents if c in (i.get("fault_summary") or "")], fc,
-                  rs["severity"] if rs["fault_code"] else None, f"[{c}] {rs['fault_code']}", rs)
     results["restarts"] = restart_results
 
     # ---- hostname drift ----
@@ -262,12 +248,93 @@ def main():
         hd = evaluate_hostname_drift(expected_hostname=get_env("EXPECTED_HOSTNAME", required=True),
                                      persisted_hostname=persisted, transient_hostname=transient, observed_utc=now)
         results["hostname_drift"] = hd
-        _reconcile(persistence, open_incidents, FaultCode.HOST_IDENTITY_DRIFT,
-                  hd["severity"], f"persisted={hd['persisted_hostname']} transient={hd['transient_hostname']} expected={hd['expected_hostname']}", hd)
     except Exception as e:
         results["hostname_drift"] = {"error": str(e)}
 
+    return results, state
+
+
+def reconcile_all(results, *, persistence, open_incidents):
+    """The only function that writes to hermes_incidents. Takes evaluate_all()'s output and applies
+    the same open/close reconciliation regardless of where the evidence was gathered."""
+    from utils.watchdog import FaultCode
+
+    cap = results.get("redis_capacity", {})
+    if "error" in cap:
+        _reconcile(persistence, open_incidents, FaultCode.REDIS_UNAVAILABLE, SEVERITY_CRITICAL,
+                  f"Redis capacity check failed: {cap['error']}", cap)
+    else:
+        fault_map = {SEVERITY_WARNING: FaultCode.REDIS_CAPACITY_WARNING,
+                    SEVERITY_CRITICAL: FaultCode.REDIS_CAPACITY_CRITICAL,
+                    SEVERITY_FATAL: FaultCode.REDIS_CAPACITY_FATAL}
+        fired = fault_map.get(cap.get("severity"))
+        for fc in fault_map.values():
+            _reconcile(persistence, open_incidents, fc, fc == fired and cap.get("severity"),
+                      f"Redis at {cap.get('utilisation_pct')}% of {cap.get('effective_limit_bytes')} bytes", cap)
+
+    from utils.watchdog import FaultCode as FC2
+    for c, rs in results.get("restarts", {}).items():
+        fc = FC2.CONTAINER_RESTART_STORM if rs.get("fault_code") == "CONTAINER_RESTART_STORM" else FC2.CONTAINER_UNHEALTHY_PROLONGED
+        _reconcile(persistence, [i for i in open_incidents if c in (i.get("fault_summary") or "")], fc,
+                  rs.get("severity") if rs.get("fault_code") else None, f"[{c}] {rs.get('fault_code')}", rs)
+
+    hd = results.get("hostname_drift", {})
+    if "error" not in hd:
+        from utils.watchdog import FaultCode as FC3
+        _reconcile(persistence, open_incidents, FC3.HOST_IDENTITY_DRIFT,
+                  hd.get("severity"), f"persisted={hd.get('persisted_hostname')} transient={hd.get('transient_hostname')} expected={hd.get('expected_hostname')}", hd)
+
+
+def _reconcile_via_docker_exec(results, container):
+    """Topology adaptation: on hosts where the DB is reachable only from inside the Docker network
+    (e.g. PROD's hermes-db, deliberately unpublished to the host -- see docs/architecture/
+    environment-model.md 'MariaDB remains internal/private'), this host-side process cannot open its
+    own DB connection. Rather than publish a DB port to the host (an unauthorised, unrelated security
+    change) or mount the Docker socket into the app container (rejected by this module's own design;
+    see the module docstring), the ALREADY-network-connected app container performs the write, using
+    its own already-correct DB config -- reachability changes, the incident-writing code and the
+    hermes_incidents table do not."""
+    import subprocess
+    payload = json.dumps(results)
+    proc = subprocess.run(
+        ["docker", "exec", "-i", container, "python3", "-m", "utils.hermes_operational_tripwires_v1", "--reconcile-from-stdin"],
+        input=payload, capture_output=True, text=True, timeout=30)
+    if proc.returncode != 0:
+        raise RuntimeError(f"reconcile-via-docker-exec failed (rc={proc.returncode}): {proc.stderr[:500]}")
+    return proc.stdout
+
+
+def main(argv=None):
+    from env_config import get_env, get_db_config
+    from utils.watchdog import HealthPersistence
+
+    argv = argv if argv is not None else __import__("sys").argv[1:]
+
+    if "--reconcile-from-stdin" in argv:
+        # Sink mode: invoked (via docker exec) from a process that gathered evidence but could not
+        # reach the DB itself. Reads evaluate_all()'s JSON from stdin, writes incidents locally.
+        results = json.loads(__import__("sys").stdin.read())
+        persistence = HealthPersistence(get_db_config(), service_name="hermes-tripwires",
+                                        environment=get_env("ENVIRONMENT", default="DEV"))
+        open_incidents = persistence.get_open_incidents()
+        reconcile_all(results, persistence=persistence, open_incidents=open_incidents)
+        print(json.dumps({"reconciled": True}))
+        return 0
+
+    state_path = get_env(STATE_PATH_ENV, default="/var/lib/hermes/tripwire_state.json")
+    state = load_state(state_path)
+    results, state = evaluate_all(state)
     save_state(state_path, state)
+
+    db_exec_container = get_env("HERMES_TRIPWIRE_DB_EXEC_CONTAINER", default=None)
+    if db_exec_container:
+        _reconcile_via_docker_exec(results, db_exec_container)
+    else:
+        persistence = HealthPersistence(get_db_config(), service_name="hermes-tripwires",
+                                        environment=get_env("ENVIRONMENT", default="DEV"))
+        open_incidents = persistence.get_open_incidents()
+        reconcile_all(results, persistence=persistence, open_incidents=open_incidents)
+
     print(json.dumps(results, indent=2, default=str))
     return 0
 
