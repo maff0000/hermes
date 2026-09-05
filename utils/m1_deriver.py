@@ -133,16 +133,45 @@ def get_m1_buckets_for_tf(bucket_start: datetime, timeframe: str) -> Tuple[datet
 # M1 Derivation Engine
 # ============================================================
 
+SUPPORTED_SOURCE_TABLES = {
+    # source_table -> source_timestamp_column. Internal allowlist only, never built from
+    # external input — prevents SQL injection via the f-string table/column interpolation below.
+    'canonical_m1': 'minute_bucket_utc',
+    'candles_M1': 'timestamp',
+}
+
+
 class M1DerivationEngine:
     """
     Derives higher timeframe candles from canonical M1 truth.
 
     Per-instrument. Independent. Deterministic.
-    Reads from canonical_m1 table. Does NOT write to live candle tables.
+    Reads from canonical_m1 by default. Does NOT write to live candle tables.
+
+    source_table is configurable (WO-HELM-HERMES-DEV-DETERMINISTIC-CANDLE-GAP-RECONSTRUCTION-0001):
+    canonical_m1 has been stale since 2026-06-17 (no live writer since EPIC-HERMES-SIGNAL-SOURCE-
+    RESILIENCE-001 wound down) — repairing a recent gap must derive from the live-truth candles_M1
+    table instead. Default is unchanged (canonical_m1) so every existing caller is byte-for-byte
+    unaffected.
     """
 
-    def __init__(self, db_config: dict):
+    def __init__(self, db_config: dict, source_table: str = 'canonical_m1',
+                source_timestamp_column: Optional[str] = None):
+        """source_timestamp_column is normally left None — it is looked up from the
+        SUPPORTED_SOURCE_TABLES allowlist for the two governed source tables. Passing it explicitly
+        is an escape hatch for a caller that also owns and names its own (e.g. disposable proof)
+        table, and both values are then trusted exactly like target_table already is throughout
+        recovery_executor.py / backfill_candles_h4_m30.py — this is internal code, never external
+        input, so no new injection surface is introduced."""
+        if source_timestamp_column is None:
+            if source_table not in SUPPORTED_SOURCE_TABLES:
+                raise ValueError(f"GOV-M1-DERIVE-001: unsupported source_table={source_table!r} "
+                                 f"(allowed: {sorted(SUPPORTED_SOURCE_TABLES)}; pass "
+                                 f"source_timestamp_column explicitly for any other table)")
+            source_timestamp_column = SUPPORTED_SOURCE_TABLES[source_table]
         self._db_config = db_config
+        self._source_table = source_table
+        self._source_ts_col = source_timestamp_column
 
     def _get_conn(self):
         return pymysql.connect(**self._db_config, autocommit=True, connect_timeout=5)
@@ -171,17 +200,18 @@ class M1DerivationEngine:
             m1_end = bucket_start + timedelta(seconds=tf_seconds)
             expected = tf_seconds // 60
 
-        # Fetch canonical M1 candles for this bucket
+        # Fetch source M1 candles for this bucket (source_table/_source_ts_col are drawn only from
+        # the internal SUPPORTED_SOURCE_TABLES allowlist checked in __init__ — never external input).
         conn = self._get_conn()
         try:
             with conn.cursor(pymysql.cursors.DictCursor) as cur:
                 cur.execute(
-                    """SELECT minute_bucket_utc, open, high, low, close, volume
-                    FROM canonical_m1
+                    f"""SELECT open, high, low, close, volume
+                    FROM {self._source_table}
                     WHERE instrument = %s
-                      AND minute_bucket_utc >= %s
-                      AND minute_bucket_utc < %s
-                    ORDER BY minute_bucket_utc""",
+                      AND {self._source_ts_col} >= %s
+                      AND {self._source_ts_col} < %s
+                    ORDER BY {self._source_ts_col}""",
                     (instrument, m1_start, m1_end)
                 )
                 rows = cur.fetchall()
