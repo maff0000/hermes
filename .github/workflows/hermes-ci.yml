@@ -103,7 +103,7 @@ jobs:
   # Covers WO deliverables (c) configuration/schema tests and (d) all other unit
   # tests that do NOT require external infrastructure. Runs the ENTIRE suite and
   # explicitly excludes ONLY the classified non-green items:
-  #   * --ignore  the 4 files that fail at COLLECTION/IMPORT time
+  #   * --ignore  the 5 files that fail at COLLECTION/IMPORT time
   #   * --deselect the 51 node IDs that fail at RUN time
   # Nothing else is excluded; if a new test is added it is automatically gated.
   # Every exclusion below carries its classification (env / test-config / dep).
@@ -131,6 +131,7 @@ jobs:
             --ignore=tests/test_api.py                `# MISSING_OPTIONAL_DEPENDENCY: httpx for starlette TestClient (in requirements.txt); also needs live app/DB` \
             --ignore=tests/test_canonical_engine.py   `# ENVIRONMENT_DEFICIENCY: module-level get_db_config() requires DB_HOST at import` \
             --ignore=tests/test_m1_deriver.py         `# ENVIRONMENT_DEFICIENCY: module-level get_db_config() requires DB_HOST at import` \
+            --ignore=tests/test_hermes_m1_gap_peer_replay_v1.py `# ENVIRONMENT_DEFICIENCY: module-level get_db_config() requires DB_HOST at import` \
             --ignore=tests/test_redis_publisher.py    `# ENVIRONMENT_DEFICIENCY: module-level RedisPublisher() requires REDIS_DB at import` \
             `# ---- DESELECTED NODES: ENVIRONMENT_DEFICIENCY (need DB/OANDA env or real .env) ----` \
             --deselect "tests/test_collection_contract.py::test_source_policy_reader" \
