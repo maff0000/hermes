@@ -2,7 +2,14 @@
 WO-HELM-HERMES-GOLD-MTF-FORWARD-HISTORY-WRITER-0001.
 
 Appends CLOSED canonical candles to the governed Redis history keyspace as they are produced, so history
-stays continuous instead of decaying under the 35-day TTL after a one-time snapshot backfill.
+stays continuous instead of decaying under the configured retention TTL after a one-time snapshot backfill.
+
+Also prunes the ordered ZSET index on every write (WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD-
+INCIDENT-RECOVERY-DESIGN-0001): the per-candle key already expires via Redis TTL, but nothing previously
+removed its now-stale index entry, so the index grew forever regardless of retention — the confirmed root
+cause of PROD's unbounded Redis growth. Pruning here keeps the fix on the same hot path as the write it
+protects, touches only the one index just written to, and removes at most the handful of members that
+crossed the cutoff since the last write — cheap and non-blocking by construction.
 
 It does NOT derive or query anything: it SNAPSHOTS an already-built, already-validated canonical candle
 envelope (the exact payload written to `:latest:v1`) into its immutable history key, adding only a `history`
@@ -130,7 +137,8 @@ class CandleHistoryForwardWriter:
         self.enabled = True
         self.metrics = {"history_written": 0, "history_idempotent_duplicate": 0,
                         "history_skipped_forming": 0, "history_skipped_status": 0,
-                        "history_skipped_tf": 0, "history_skipped_instrument": 0}
+                        "history_skipped_tf": 0, "history_skipped_instrument": 0,
+                        "history_index_pruned": 0, "history_index_prune_errors": 0}
 
     # ---- public trigger hooks (called by a later runtime-integrate WO) ----
     def on_canonical_close(self, envelope, *, inserted_at_utc):
@@ -197,9 +205,29 @@ class CandleHistoryForwardWriter:
             self.metrics["history_idempotent_duplicate"] += 1
         else:
             self.metrics["history_written"] += 1
+
+        # GOV-CANDLE-HIST-FWD-021 (capacity fix): the per-candle key expires on its own TTL, but nothing
+        # removed its index entry — the confirmed cause of unbounded Redis growth. Prune members that have
+        # already crossed the same retention cutoff the TTL uses, so index and live data stay bounded
+        # together. Best-effort: a pruning failure never invalidates the write that already succeeded above,
+        # so it is caught and counted rather than raised.
+        #
+        # Cutoff is anchored to `inserted_at_utc` (the caller's declared "as of" time for this write) rather
+        # than a hidden `datetime.now()` read: deterministic, replay-safe, and correct even when this writer
+        # processes candles whose wall-clock insertion time differs from their own timestamp (e.g. a bounded
+        # catch-up after a pause) — the cutoff always means "N days before this write believes it is
+        # happening", never "N days before whatever moment this line of code happens to execute".
+        pruned = 0
+        try:
+            cutoff = chv.history_retention_cutoff_epoch(cc.normalise_utc(inserted_at_utc))
+            pruned = self.redis_client.zremrangebyscore(plan["index_key"], "-inf", cutoff)
+            self.metrics["history_index_pruned"] += pruned
+        except Exception:
+            self.metrics["history_index_prune_errors"] += 1
+
         return {"wrote": True, "key": plan["key"], "index_key": plan["index_key"], "timeframe": tf,
                 "instrument": inst, "open_epoch": plan["index_score"], "ttl": plan["ttl_seconds"],
-                "idempotent_duplicate": idempotent, "status": "OK"}
+                "idempotent_duplicate": idempotent, "status": "OK", "index_pruned": pruned}
 
     def status(self):
         return {"enabled": True, "timeframes": list(self.timeframes),

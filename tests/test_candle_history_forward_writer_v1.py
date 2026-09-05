@@ -41,6 +41,26 @@ class FakeRedis:
     def zcard(self, name):
         return len(self.zsets.get(name, {}))
 
+    def zcount(self, name, min_score, max_score):
+        lo = float("-inf") if min_score == "-inf" else float(min_score)
+        hi = float("inf") if max_score == "+inf" else float(max_score)
+        return sum(1 for s in self.zsets.get(name, {}).values() if lo <= s <= hi)
+
+    def zremrangebyscore(self, name, min_score, max_score):
+        lo = float("-inf") if min_score == "-inf" else float(min_score)
+        hi = float("inf") if max_score == "+inf" else float(max_score)
+        z = self.zsets.get(name, {})
+        stale = [m for m, s in z.items() if lo <= s <= hi]
+        for m in stale:
+            del z[m]
+        return len(stale)
+
+
+class ExplodingZremRedis(FakeRedis):
+    """FakeRedis whose zremrangebyscore always raises — proves pruning failure never blocks the write."""
+    def zremrangebyscore(self, *a, **k):
+        raise RuntimeError("simulated Redis error during pruning")
+
 
 def _direct(tf, ts=_TS, o=2000.0, h=2008.0, low=1998.0, c=2004.0, v=10, instrument="XAU_USD"):
     """A closed, status-OK DIRECT canonical candle envelope (the shape written to :latest for M1/M5/M15/H1)."""
@@ -188,7 +208,10 @@ def test_xauusd_alias_never_emits_alias_key():
 
 # ============================ history target shape ============================
 @pytest.mark.parametrize("tf", ["M1", "M5", "M15", "H1"])
-def test_direct_closed_candle_written_to_history_shape(tf):
+def test_direct_closed_candle_written_to_history_shape(tf, monkeypatch):
+    # _TS -> INSERTED spans 26 days; use a retention window wide enough that this fixture's own candle
+    # isn't itself past the cutoff (that self-prune case is covered separately, deliberately, below).
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "30")
     r = FakeRedis(); w = _writer(r)
     res = w.on_canonical_close(_direct(tf), inserted_at_utc=INSERTED)
     open_epoch = int(_TS.timestamp())
@@ -204,7 +227,7 @@ def test_direct_closed_candle_written_to_history_shape(tf):
     assert chv.assert_history_target(res["key"]) is True
     assert ":latest:" not in res["key"]
     # TTL applied + index score==member==open_epoch
-    assert ex == chv.HISTORY_TTL_SECONDS
+    assert ex == chv.history_ttl_seconds()
     assert r.zsets[res["index_key"]] == {str(open_epoch): open_epoch}
 
 
@@ -274,7 +297,8 @@ def test_no_regime_tokens_in_module_or_payload():
 
 
 # ============================ idempotency ============================
-def test_idempotent_rewrite_same_candle_safe():
+def test_idempotent_rewrite_same_candle_safe(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "30")   # see comment on the shape test above
     r = FakeRedis(); w = _writer(r)
     first = w.on_canonical_close(_direct("M1"), inserted_at_utc=INSERTED)
     assert first["idempotent_duplicate"] is False
@@ -300,3 +324,79 @@ def test_latest_envelope_not_mutated_by_writer():
     w.on_canonical_close(env, inserted_at_utc=INSERTED)
     assert json.dumps(env, sort_keys=True) == before        # deep-copied; caller's latest envelope untouched
     assert "history" not in env                              # history block only on the written copy
+
+
+# ============================ index pruning (WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD- ======
+# ============================ INCIDENT-RECOVERY-DESIGN-0001: confirmed root cause of unbounded growth) ==
+def test_write_prunes_stale_index_members_past_retention(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "14")
+    r = FakeRedis(); w = _writer(r, tfs=("M1",))
+    anchor = int(INSERTED.timestamp())                          # pruning is anchored to inserted_at_utc, not real now
+    stale_epoch = anchor - 20 * 86400                           # 20 days before insertion -> past 14d cutoff
+    fresh_epoch = anchor - 1 * 86400                            # 1 day before -> still inside the window
+    idx = chv.history_index_key("XAU_USD", "M1")
+    r.zadd(idx, {str(stale_epoch): stale_epoch, str(fresh_epoch): fresh_epoch})
+    assert r.zcard(idx) == 2
+
+    ts_near_insertion = INSERTED - timedelta(minutes=1)         # the written candle itself must not be stale
+    res = w.on_canonical_close(_direct("M1", ts=ts_near_insertion), inserted_at_utc=INSERTED)
+
+    assert res["index_pruned"] == 1                     # only the stale pre-existing member removed
+    assert r.zcard(idx) == 2                             # fresh pre-existing member + the just-written one
+    remaining = set(r.zsets[idx])
+    assert str(stale_epoch) not in remaining
+    assert str(fresh_epoch) in remaining
+    assert str(int(ts_near_insertion.timestamp())) in remaining
+    assert w.metrics["history_index_pruned"] == 1
+    assert w.metrics["history_index_prune_errors"] == 0
+
+
+def test_write_prune_nothing_stale_is_a_noop():
+    r = FakeRedis(); w = _writer(r, tfs=("M1",))
+    ts_near_insertion = INSERTED - timedelta(minutes=1)         # well within any sane retention window
+    res = w.on_canonical_close(_direct("M1", ts=ts_near_insertion), inserted_at_utc=INSERTED)
+    assert res["index_pruned"] == 0
+    assert w.metrics["history_index_pruned"] == 0
+
+
+def test_prune_failure_does_not_block_the_write():
+    """Best-effort: a pruning error must never lose the underlying candle write."""
+    r = ExplodingZremRedis(); w = _writer(r, tfs=("M1",))
+    ts_near_insertion = INSERTED - timedelta(minutes=1)
+    res = w.on_canonical_close(_direct("M1", ts=ts_near_insertion), inserted_at_utc=INSERTED)
+    assert res["wrote"] is True                          # SET + ZADD still happened
+    open_epoch = int(ts_near_insertion.timestamp())
+    assert r.store[res["key"]][0]                        # value actually present
+    assert r.zsets[res["index_key"]] == {str(open_epoch): open_epoch}
+    assert w.metrics["history_index_prune_errors"] == 1
+    assert w.metrics["history_written"] == 1              # write metric unaffected by the prune failure
+
+
+def test_backfilled_candle_already_past_retention_is_pruned_from_index_immediately():
+    """Edge case, explicit by design: if a candle is written whose own open time already precedes the
+    retention cutoff (e.g. a delayed/backfilled insert), its index entry is correctly pruned on the very
+    write that created it — the index never carries an entry for data outside the governed window, even
+    momentarily. The value key's own TTL still governs the value itself."""
+    r = FakeRedis(); w = _writer(r, tfs=("M1",))    # default conftest retention: 14 days
+    res = w.on_canonical_close(_direct("M1"), inserted_at_utc=INSERTED)   # _TS is 26 days before INSERTED
+    assert res["wrote"] is True
+    assert res["index_pruned"] == 1
+    assert r.zcard(res["index_key"]) == 0
+
+
+def test_prune_cutoff_matches_configured_retention(monkeypatch):
+    """The cutoff pruning uses must be the SAME one the TTL uses — no second, drifting notion of retention."""
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "7")
+    r = FakeRedis(); w = _writer(r, tfs=("M1",))
+    idx = chv.history_index_key("XAU_USD", "M1")
+    anchor = int(INSERTED.timestamp())
+    just_outside = anchor - 7 * 86400 - 1
+    just_inside = anchor - 7 * 86400 + 1
+    r.zadd(idx, {str(just_outside): just_outside, str(just_inside): just_inside})
+
+    ts_near_insertion = INSERTED - timedelta(minutes=1)
+    w.on_canonical_close(_direct("M1", ts=ts_near_insertion), inserted_at_utc=INSERTED)
+
+    remaining = set(r.zsets[idx])
+    assert str(just_outside) not in remaining
+    assert str(just_inside) in remaining

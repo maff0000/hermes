@@ -33,11 +33,38 @@ HISTORY_INSTRUMENTS = ("XAU_USD",)
 HISTORY_TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4")
 _ALIAS_DENY = ("XAUUSD",)
 
-# Retention: EXPLICIT bounded policy for dev canonical history — 35 days (4 weeks + operational buffer).
-# Never implicit. Per-candle keys carry this TTL; the index is trimmed by score to the same cutoff by the
-# (separate) backfill writer. NO deletes happen in this module.
-HISTORY_RETENTION_DAYS = 35
-HISTORY_TTL_SECONDS = HISTORY_RETENTION_DAYS * 86400      # 3_024_000
+# Retention: EXPLICIT bounded policy for canonical history, sourced from external config — never a
+# hardcoded number in application logic (WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD-INCIDENT-
+# RECOVERY-DESIGN-0001, evidence-based DEV ruling: 14 days). Per-candle keys carry this TTL; the index is
+# trimmed by score to the same cutoff by the forward writer on every write (see
+# candle_history_forward_writer_v1.CandleHistoryForwardWriter.write_closed_envelope). NO deletes happen in
+# this module — it only computes the shared retention value both the TTL and the index cutoff derive from.
+RETENTION_DAYS_ENV = "HERMES_REDIS_HISTORY_RETENTION_DAYS"
+
+
+def history_retention_days():
+    """The single source of truth for history retention, read from external config every call (cheap; no
+    caching so a config change takes effect on next write without a code change). Fail-loud, no hidden
+    default: an unset or non-positive value is a deployment error, not a silent fallback to some number
+    baked into source."""
+    from env_config import get_env  # lazy: keeps this module Redis/env free at import time
+    raw = get_env(RETENTION_DAYS_ENV, default=None)
+    if raw is None or not str(raw).strip():
+        raise ValueError(f"GOV-CANDLE-HIST-RET-003: {RETENTION_DAYS_ENV} is required and non-empty "
+                         "(no hidden default — retention is a deployment decision, not an application constant)")
+    try:
+        days = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"GOV-CANDLE-HIST-RET-001: {RETENTION_DAYS_ENV}={raw!r} is not an integer")
+    if days <= 0:
+        raise ValueError(f"GOV-CANDLE-HIST-RET-002: {RETENTION_DAYS_ENV}={days} must be a positive number of days")
+    return days
+
+
+def history_ttl_seconds():
+    """Retention window in seconds, derived from `history_retention_days()` — the only place the
+    days->seconds conversion happens, so TTL and index-pruning cutoff can never drift apart."""
+    return history_retention_days() * 86400
 
 WRITE_MODE_HISTORY_INERT = "HISTORY_INERT_NO_WRITE"
 # History provenance field names — deliberately free of any forbidden interpretive token.
@@ -146,16 +173,16 @@ def build_history_write_plan(envelope):
     assert_history_target(key)
     assert_history_target(idx)
     return {
-        "operation": "SET", "key": key, "value": envelope, "ttl_seconds": HISTORY_TTL_SECONDS,
+        "operation": "SET", "key": key, "value": envelope, "ttl_seconds": history_ttl_seconds(),
         "index_key": idx, "index_score": open_epoch, "index_member": str(open_epoch),
         "idempotent": True, "write_mode": WRITE_MODE_HISTORY_INERT,
     }
 
 
 def history_retention_cutoff_epoch(now_utc):
-    """Epoch-seconds cutoff for retention trimming (now - 35 days). The backfill writer uses this for
-    ZREMRANGEBYSCORE on the index; NO delete happens here."""
-    return int(cc.normalise_utc(now_utc).timestamp()) - HISTORY_TTL_SECONDS
+    """Epoch-seconds cutoff for retention trimming (now - configured retention window). The forward writer
+    uses this for ZREMRANGEBYSCORE on the index on every write; NO delete happens in this module."""
+    return int(cc.normalise_utc(now_utc).timestamp()) - history_ttl_seconds()
 
 
 # --------------------------------------------------------------------------- dry-run gap profile

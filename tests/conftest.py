@@ -93,3 +93,16 @@ def _seed_runtime_identity_for_tests():
     )
     yield
     _ident._reset_cached_identity_for_tests()
+
+
+# ---------------------------------------------------------------------------
+# WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD-INCIDENT-RECOVERY-
+# DESIGN-0001: history retention is now REQUIRED external config (no hidden
+# default in application logic — see candle_history_v1.history_retention_days).
+# Autouse so every test gets a deterministic value without needing a local
+# .env (which is gitignored and not present in CI); tests that specifically
+# exercise the missing/invalid-config error paths delete/override it themselves.
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _seed_history_retention_days_for_tests(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "14")
