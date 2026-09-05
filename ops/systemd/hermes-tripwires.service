@@ -1,0 +1,12 @@
+[Unit]
+Description=HERMES operational tripwires (Redis capacity, restart-storm, hostname drift) — detection only
+Documentation=https://github.com/maff0000/hermes/blob/main/utils/hermes_operational_tripwires_v1.py
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=__HERMES_CHECKOUT_DIR__
+EnvironmentFile=__HERMES_CHECKOUT_DIR__/.env
+ExecStart=/usr/bin/python3 -m utils.hermes_operational_tripwires_v1
+# Detection only: this unit never restarts/reloads any other unit. No repair action lives here.
