@@ -148,7 +148,7 @@ def test_closed_candle_calls_writer_and_writes_history(tf):
     assert hkey in r.store                                            # history written
     assert f"hermes:candles:XAU_USD:{tf}:latest:v1" in r.store        # latest also written
     assert chv.assert_history_target(hkey) is True and ":latest:" not in hkey
-    assert r.store[hkey][1] == chv.HISTORY_TTL_SECONDS               # TTL applied
+    assert r.store[hkey][1] == chv.history_ttl_seconds()               # TTL applied
     assert sh.status()["history_forward_written"] == 1
 
 
