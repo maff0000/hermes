@@ -1,5 +1,6 @@
-"""HERMES M1 gap peer-replay engine v1 — deterministic, idempotent SQL candle-history repair.
-WO-HELM-HERMES-DEV-DETERMINISTIC-CANDLE-GAP-RECONSTRUCTION-0001.
+"""HERMES M1/M5 gap peer-replay engine v1 — deterministic, idempotent SQL candle-history repair.
+WO-HELM-HERMES-DEV-DETERMINISTIC-CANDLE-GAP-RECONSTRUCTION-0001,
+WO-HELM-HERMES-DEV-M5-GAP-REPAIR-AND-SIGNAL-COLLAPSE-RCA-0001.
 
 Repairs a bounded, explicit window of missing SQL candle history for ONE instrument by:
   1. Copying missing M1 rows from a peer HERMES source database's candles_M1 into the target
@@ -36,6 +37,25 @@ Guarantees:
   - Bounded: every read/write is scoped to the explicit [window_start_utc, window_end_utc) the
     caller supplies. No unbounded scans.
   - UTC only.
+
+M5 (added WO-HELM-HERMES-DEV-M5-GAP-REPAIR-AND-SIGNAL-COLLAPSE-RCA-0001): plan_m5_replay() /
+execute_m5_replay() are a SEPARATE, manifest-driven pair — NOT a generalisation of plan_replay()'s
+full-window scan. M5's real PROD gap is Swiss-cheese (~150-190 missing timestamps per instrument out
+of ~840 in a representative 3-day window), unlike M1's total target-absence across its entire gap.
+Scanning a whole M5 window and comparing source-vs-target the way plan_replay() does would compare
+DEV against PROD's own already-present, never-intended-to-be-touched rows for the overwhelming
+majority of timestamps — and this WO proved that comparison is NOT a proxy for "same data, different
+copy": DEV and PROD are two independent LIVE OANDA streaming connections to the same account
+(001-004-20020670-001, environment=live on both), and even on a normal control day only 1.8%-17% of
+overlapping M5 rows match byte-exact (FX pairs sub-pip and mostly exact; metals/index show a real
+tail up to ~$1.43/~0.5pts on fast ticks; volume differs on most rows by a small amount). A
+full-window scan would therefore misclassify nearly every untouched row as CONFLICT and permanently
+block execution. plan_m5_replay() instead classifies EXACTLY the caller-supplied missing-timestamp
+manifest (Section 8: no date-range bulk copy) — those rows are expected to be target-absent by
+construction, so MATCH/CONFLICT there only ever fires on a genuine surprise (stale manifest or a
+race), never on ordinary inter-stream noise on rows nobody asked to repair. There is no M5-derived
+higher-timeframe step: M5 is confirmed a fully independent primary write path (Section-9 evidence),
+not M1-derived, so plan_m5_replay()/execute_m5_replay() never touch M15/H1/D1.
 """
 from __future__ import annotations
 
@@ -56,9 +76,13 @@ from utils.m1_deriver import (
 SOURCE_MARKER = 'M1_GAP_REPLAY_V1'  # <=20 chars — candles_D1.source is varchar(20), the tightest of the four target tables
 FLOAT_TOL = 0.00001  # tighter than m1_deriver's compare_with_legacy (0.001) — this is same-broker-stream comparison, not cross-derivation-method comparison.
 M1_TABLE = 'candles_M1'
-DERIVED_TIMEFRAMES = ('M15', 'H1', 'D1')  # M5 excluded: PROD confirmed continuous/ungapped. M30/H4
-                                           # excluded: SQL sinks confirmed dead (no writer) since
-                                           # 2026-06-15, unrelated to this incident (see WO evidence).
+DERIVED_TIMEFRAMES = ('M15', 'H1', 'D1')  # M5 excluded from M1-derivation: it is its own independent
+                                           # primary write path, not M1-derived (see plan_m5_replay
+                                           # below for its Swiss-cheese PROD gap and separate,
+                                           # manifest-driven repair path — NOT "ungapped", corrects a
+                                           # prior WO's mistaken assumption). M30/H4 excluded: SQL
+                                           # sinks confirmed dead (no writer) since 2026-06-15,
+                                           # unrelated to this incident (see WO evidence).
 TARGET_TABLES = {'M1': M1_TABLE, 'M15': 'candles_M15', 'H1': 'candles_H1', 'D1': 'candles_D1'}
 
 NEW = 'NEW'
@@ -403,5 +427,116 @@ def execute_replay(*, target_db_config: dict, plan: ReplayPlan,
         conn.close()
     if race_conflicts:
         raise ValueError(f"GOV-M1-REPLAY-RACE: {len(race_conflicts)} row(s) were written by another "
+                         f"process between plan and execute — re-plan required: {race_conflicts[:5]}")
+    return {'written': written, 'plan_fingerprint': plan.fingerprint()}
+
+
+M5_TABLE = 'candles_M5'
+
+
+@dataclass
+class M5ReplayPlan:
+    """Manifest-driven plan for M5 repair — see plan_m5_replay for why this deliberately does NOT
+    reuse plan_replay's full-window scan."""
+    instrument: str
+    missing_timestamps: List[datetime]
+    now_utc: datetime
+    classifications: List[RowClassification] = field(default_factory=list)
+
+    def by_status(self, status: str) -> List[RowClassification]:
+        return [c for c in self.classifications if c.status == status]
+
+    def counts(self) -> Dict[str, int]:
+        return {s: len(self.by_status(s)) for s in (NEW, MATCH, CONFLICT, SOURCE_DATA_MISSING)}
+
+    def has_conflicts(self) -> bool:
+        return any(c.status == CONFLICT for c in self.classifications)
+
+    def fingerprint(self) -> str:
+        payload = json.dumps(
+            sorted((c.timestamp.isoformat(), c.status) for c in self.classifications),
+            separators=(',', ':'),
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def plan_m5_replay(*, source_db_config: dict, target_db_config: dict, instrument: str,
+                   missing_timestamps: List[datetime], target_table: Optional[str] = None) -> M5ReplayPlan:
+    """Read-only. Never writes. Classifies EXACTLY the caller-supplied missing_timestamps — an
+    explicit manifest, not a date-range scan (Section 8: 'no date-range bulk copy').
+
+    This is deliberately NOT plan_replay()'s full-window-scan shape. M1's real gap was total
+    target-absence across its entire window, so scanning every minute and comparing source-vs-target
+    was safe (a present target row only ever meant "context outside the repair scope", never "an
+    already-covered row we must not misjudge"). M5's real gap is Swiss-cheese: the overwhelming
+    majority of timestamps in any realistic window already carry a PROD-native row, and — proven
+    during this WO on a normal, non-incident control day (2026-08-25) — that PROD-native row
+    legitimately disagrees with DEV's row a large fraction of the time on at least one field, because
+    DEV and PROD are TWO INDEPENDENT LIVE OANDA STREAMING CONNECTIONS to the SAME account
+    (001-004-20020670-001, environment=live on both), not mirrors: FX pairs diverge by at most
+    ~0.6-0.8 pip (negligible), but metals/index (XAU_USD, SPX500_USD, and by the same live-feed
+    architecture presumably XAG/XPT/XCU/WTICO) show a real tail up to ~$1.43 / ~0.5pts during
+    fast-moving ticks, and volume differs on most rows by a small absolute amount. A full-window scan
+    would therefore misclassify the vast majority of already-present, never-intended-to-be-touched
+    rows as CONFLICT and permanently block execute_m5_replay via has_conflicts() — a repair that can
+    never run is not a safe repair, it is a dead tool. Restricting classification to the explicit
+    missing-timestamp manifest sidesteps this entirely: those rows are, by construction, expected to
+    be absent from target, so the MATCH/CONFLICT/SOURCE_DATA_MISSING branches below only ever fire on
+    genuine surprises (a stale manifest or a concurrent write) — exactly the cases Section 7 requires
+    to be caught, never silently absorbed."""
+    table = target_table or M5_TABLE
+    # recorded on the plan for provenance only, never used to gate M5 classification (M5 has no
+    # closed-bucket/derivation concept) —
+    # UTC_AUDIT_METADATA_OK: deliberately naive, matching plan_replay's now_utc convention above.
+    now_utc = datetime.utcnow()
+    plan = M5ReplayPlan(instrument=instrument, missing_timestamps=list(missing_timestamps), now_utc=now_utc)
+    if not missing_timestamps:
+        return plan
+    lo, hi = min(missing_timestamps), max(missing_timestamps) + timedelta(minutes=5)
+    src = pymysql.connect(**source_db_config, autocommit=True, connect_timeout=5)
+    tgt = pymysql.connect(**target_db_config, autocommit=True, connect_timeout=5)
+    try:
+        source_rows = _fetch_rows(src, M5_TABLE, instrument, lo, hi)
+        target_rows = _fetch_rows(tgt, table, instrument, lo, hi)
+        for ts in sorted(set(missing_timestamps)):
+            s, t = source_rows.get(ts), target_rows.get(ts)
+            if t is not None and s is not None:
+                status = MATCH if _ohlcv_match(s, t) else CONFLICT
+            elif t is not None and s is None:
+                status = CONFLICT  # manifest said "missing" but target already has an unexplained row
+            elif s is not None and t is None:
+                status = NEW
+            else:
+                status = SOURCE_DATA_MISSING
+            plan.classifications.append(RowClassification('M5', ts, status, s, t))
+    finally:
+        src.close()
+        tgt.close()
+    return plan
+
+
+def execute_m5_replay(*, target_db_config: dict, plan: M5ReplayPlan,
+                      target_table: Optional[str] = None) -> dict:
+    """The only write path for M5. Same fail-loud contract as execute_replay(): refuses to execute a
+    plan with any CONFLICT, INSERTs only (never ON DUPLICATE KEY UPDATE), and treats a concurrent
+    insert race as a fresh error rather than silently absorbing it."""
+    if plan.has_conflicts():
+        conflicts = plan.by_status(CONFLICT)
+        raise ValueError(
+            f"GOV-M5-REPLAY-CONFLICT: {len(conflicts)} conflicting row(s) for {plan.instrument} — "
+            "refusing to execute; requires architect review, never auto-resolved."
+        )
+    table = target_table or M5_TABLE
+    written = 0
+    race_conflicts = []
+    conn = pymysql.connect(**target_db_config, autocommit=True, connect_timeout=5)
+    try:
+        for c in plan.by_status(NEW):
+            written += _insert_row(conn, table, plan.instrument, c.timestamp, c.source_row,
+                                    race_conflicts, 'M5')
+    finally:
+        conn.close()
+    if race_conflicts:
+        raise ValueError(f"GOV-M5-REPLAY-RACE: {len(race_conflicts)} row(s) were written by another "
                          f"process between plan and execute — re-plan required: {race_conflicts[:5]}")
     return {'written': written, 'plan_fingerprint': plan.fingerprint()}
