@@ -101,6 +101,23 @@ def test_idempotent_second_run_removes_nothing_more():
     assert second[0]["removed"] == 0
 
 
+def test_d1_index_matches_scan_but_is_skipped_not_pruned():
+    """D1 is owned by candle_d1_history_v1's own 120-day policy, not HERMES_REDIS_HISTORY_RETENTION_DAYS.
+    It matches the SCAN pattern (real key shape) but must never be touched by this tool -- confirmed live
+    against real DEV Redis during WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD-INCIDENT-RECOVERY-
+    DESIGN-0001's deploy: an un-scoped run raised GOV-CANDLE-HIST-TGT-006 instead of skipping."""
+    r = FakeRedis()
+    d1_idx = "hermes:candles:XAU_USD:D1:history:v1:index"
+    old_d1_member = int(NOW.timestamp()) - 200 * 86400   # far older than even D1's own 120-day policy
+    r.zadd(d1_idx, {str(old_d1_member): old_d1_member})
+    m1_idx = _seed(r, "XAU_USD", "M1", [int(NOW.timestamp()) - 20 * 86400])
+
+    results = prune_tool.prune_all_indexes(r, apply=True, now_utc=NOW)
+
+    assert [x["index_key"] for x in results] == [m1_idx]     # D1 never appears in results at all
+    assert r.zcard(d1_idx) == 1                               # D1 member untouched, regardless of age
+
+
 def test_multiple_instruments_and_timeframes_scoped_independently():
     r = FakeRedis()
     stale = int(NOW.timestamp()) - 20 * 86400
