@@ -14,7 +14,9 @@ Scope, by construction (never broadened):
   * the only write operation used is ZREMRANGEBYSCORE on those keys — no DEL, no other pattern;
   * the cutoff is the same `candle_history_v1.history_retention_cutoff_epoch()` the live write path
     uses, so a manual run can never diverge from the governed retention window;
-  * dry-run by default; `--apply` is required to actually prune.
+  * dry-run by default; `--apply` is required to actually prune;
+  * D1 is explicitly OUT OF SCOPE — it matches the SCAN pattern but is owned by
+    candle_d1_history_v1's separate 120-day retention policy, not this one; skipped, never pruned here.
 
 Usage:
     python3 tools/hermes_history_index_prune_v1.py            # report only, no writes
@@ -46,15 +48,24 @@ def _redis_client():
 
 def prune_all_indexes(client, *, apply: bool, now_utc=None):
     """Scan every governed history index and report/apply pruning to the shared retention cutoff.
-    Returns a list of per-index result dicts. Never touches any key outside INDEX_PATTERN."""
+    Returns a list of per-index result dicts. Never touches any key outside INDEX_PATTERN.
+
+    D1 matches the SCAN pattern (`hermes:candles:XAU_USD:D1:history:v1:index` is a real key) but is
+    deliberately OUT OF SCOPE here: D1 history is owned by candle_d1_history_v1's own 120-day retention
+    policy, a different value from HERMES_REDIS_HISTORY_RETENTION_DAYS, and candle_history_v1's own grid
+    (HISTORY_TIMEFRAMES) excludes D1 for exactly this reason. Using the general cutoff against the D1
+    index would prune valid D1 history far too aggressively. `assert_history_target` is what enforces
+    that boundary -- skip (not crash on) anything it rejects, rather than widening this tool's scope to
+    cover a retention policy it was never given the right cutoff for."""
     cutoff = chv.history_retention_cutoff_epoch(now_utc or datetime.now(timezone.utc))
     results = []
     for key in client.scan_iter(match=INDEX_PATTERN, count=1000):
-        # belt-and-braces: refuse anything that isn't a governed history index, even though the SCAN
-        # pattern already restricts this — never trust a pattern match alone for a write operation.
-        chv.assert_history_target(key)
         if not key.endswith(":index"):
             continue
+        try:
+            chv.assert_history_target(key)
+        except ValueError:
+            continue   # out of this tool's governed grid (e.g. D1) -- not this tool's retention to enforce
         before = client.zcard(key)
         stale = client.zcount(key, "-inf", cutoff)
         removed = 0
