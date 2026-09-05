@@ -82,7 +82,10 @@ def heartbeat_ttl_policy():
 
 # --------------------------------------------------------------------------- governance facts
 _LATEST_TFS = ("M1", "M5", "M15", "H1", "H4")
-HISTORY_TTL_SECONDS = 3024000      # 35 days (mirrors candle_history_v1; declared, not imported, to avoid coupling)
+# Retention TTL/days are no longer duplicated here as a hardcoded constant (WO-HELM-HERMES-DEV-REDIS-
+# CAPACITY-RETENTION-AND-PROD-INCIDENT-RECOVERY-DESIGN-0001) -- a second, independently-declared copy of
+# the retention window is exactly the kind of drift this WO exists to remove. `_catalog_entry` reads the
+# single governed value from candle_history_v1 at call time instead.
 
 SOURCE_POLICIES = {
     "h4": "H4_FROM_H1",                        # H4 derives from H1
@@ -291,6 +294,8 @@ _CATALOG_TF = {
 
 
 def _catalog_entry(tf):
+    from utils import candle_history_v1 as chv   # lazy: keeps this module decoupled at import time
+    retention_days = chv.history_retention_days()
     meta = _CATALOG_TF[tf]
     latest_status = STATUS_PENDING_FIRST_DAILY_SEAL if tf == "D1" else STATUS_ACTIVE
     history_status = STATUS_BLOCKED_UNTIL_D1_LATEST_GREEN if tf == "D1" else STATUS_ACTIVE
@@ -309,8 +314,8 @@ def _catalog_entry(tf):
         "derivation_policy": meta["policy"],
         "expected_source_count": meta["exp"],
         "anchor": meta["anchor"],
-        "ttl_seconds_history": HISTORY_TTL_SECONDS,
-        "retention_days_history": 35,
+        "ttl_seconds_history": retention_days * 86400,
+        "retention_days_history": retention_days,
         "freshness_policy": "latest valid for one timeframe period; consumers freshness-gate on valid_until_utc",
         "forward_history_status": fwd_status,
         "contract_version": "v1",

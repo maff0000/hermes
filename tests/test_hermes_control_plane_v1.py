@@ -143,7 +143,7 @@ def test_catalog_latest_history_patterns_and_policies():
         assert tfs[tf]["latest_key"] == f"hermes:candles:XAU_USD:{tf}:latest:v1"
         assert tfs[tf]["history_key_pattern"] == f"hermes:candles:XAU_USD:{tf}:history:v1:{{open_epoch}}"
         assert tfs[tf]["history_index_key"] == f"hermes:candles:XAU_USD:{tf}:history:v1:index"
-        assert tfs[tf]["ttl_seconds_history"] == 3024000
+        assert tfs[tf]["ttl_seconds_history"] == 14 * 86400   # conftest seeds 14-day retention
     assert tfs["H4"]["source_timeframe"] == "H1" and tfs["H4"]["derivation_policy"] == "DERIVED_H4_FROM_H1"
     assert tfs["D1"]["source_timeframe"] == "H4" and tfs["D1"]["expected_source_count"] == 6
 

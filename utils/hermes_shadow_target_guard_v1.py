@@ -128,6 +128,14 @@ REDIS_WRITER_REGISTRY = {
     "scripts/shadow_activate_publish.py": {
         "role": "manual_script", "enable_flag": None, "target": "manual ops script",
         "default_enabled": False, "shadow_policy": "out_of_startup_path"},
+    # WO-HELM-HERMES-DEV-REDIS-CAPACITY-RETENTION-AND-PROD-INCIDENT-RECOVERY-DESIGN-0001: one-shot/periodic
+    # maintenance tool, not part of the startup/runtime path. Dry-run by default; writes only when invoked
+    # with --apply, and even then the only write is ZREMRANGEBYSCORE on hermes:candles:*:history:v1:index
+    # (never a candle value key, never a shadow target).
+    "tools/hermes_history_index_prune_v1.py": {
+        "role": "manual_script", "enable_flag": "--apply (CLI flag, not env var; dry-run without it)",
+        "target": "HERMES_CANDLE_CANONICAL_REDIS_* (history index ZSETs only)",
+        "default_enabled": False, "shadow_policy": "out_of_startup_path"},
 }
 
 # Canonical-Redis secondary writers that must be DISABLED in SHADOW (each defaults false; any truthy -> fail).

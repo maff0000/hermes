@@ -158,7 +158,7 @@ def test_write_plan_ttl_index_and_target():
     plan = h.build_history_write_plan(env)
     epoch = int(_TS.timestamp())
     assert plan["key"] == f"hermes:candles:XAU_USD:M15:history:v1:{epoch}"
-    assert plan["ttl_seconds"] == h.HISTORY_TTL_SECONDS == 35 * 86400
+    assert plan["ttl_seconds"] == h.history_ttl_seconds() == 14 * 86400   # conftest seeds 14 days
     assert plan["index_key"] == "hermes:candles:XAU_USD:M15:history:v1:index"
     assert plan["index_score"] == epoch and plan["index_member"] == str(epoch)
     assert plan["write_mode"] == "HISTORY_INERT_NO_WRITE" and plan["idempotent"] is True
@@ -174,7 +174,7 @@ def test_idempotent_same_candle_same_key_and_member():
 
 def test_retention_cutoff_epoch():
     now = datetime(2026, 6, 26, 0, 0, tzinfo=timezone.utc)
-    assert h.history_retention_cutoff_epoch(now) == int(now.timestamp()) - 35 * 86400
+    assert h.history_retention_cutoff_epoch(now) == int(now.timestamp()) - 14 * 86400   # conftest seeds 14 days
 
 
 # --------------------------------------------------------------- dry-run gap profile
@@ -211,3 +211,50 @@ def test_gap_profile_partial_weekday_investigate():
 def test_expected_counts_per_tf():
     day = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
     assert [len(h.expected_opens_for_day(tf, day)) for tf in ("M1", "M5", "M15", "H1")] == [1440, 288, 96, 24]
+
+
+# --------------------------------------------------------------- retention config (WO-HELM-HERMES-DEV-
+# REDIS-CAPACITY-RETENTION-AND-PROD-INCIDENT-RECOVERY-DESIGN-0001)
+def test_retention_days_reads_external_config(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "7")
+    assert h.history_retention_days() == 7
+    assert h.history_ttl_seconds() == 7 * 86400
+
+
+def test_retention_days_missing_fails_loud(monkeypatch):
+    monkeypatch.delenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", raising=False)
+    monkeypatch.delenv("DEV_HERMES_REDIS_HISTORY_RETENTION_DAYS", raising=False)
+    monkeypatch.delenv("PROD_HERMES_REDIS_HISTORY_RETENTION_DAYS", raising=False)
+    try:
+        h.history_retention_days(); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-RET" in str(e)
+
+
+def test_retention_days_non_integer_fails_loud(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "not-a-number")
+    try:
+        h.history_retention_days(); assert False
+    except ValueError as e:
+        assert "GOV-CANDLE-HIST-RET-001" in str(e)
+
+
+def test_retention_days_zero_or_negative_fails_loud(monkeypatch):
+    for bad in ("0", "-1", "-14"):
+        monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", bad)
+        try:
+            h.history_retention_days(); assert False
+        except ValueError as e:
+            assert "GOV-CANDLE-HIST-RET-002" in str(e)
+
+
+def test_retention_cutoff_derives_from_configured_days(monkeypatch):
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "14")
+    now = datetime(2026, 9, 5, 0, 0, tzinfo=timezone.utc)
+    cutoff = h.history_retention_cutoff_epoch(now)
+    assert cutoff == int(now.timestamp()) - 14 * 86400
+
+    monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "30")
+    cutoff_30 = h.history_retention_cutoff_epoch(now)
+    assert cutoff_30 == int(now.timestamp()) - 30 * 86400
+    assert cutoff_30 < cutoff        # a longer window reaches further into the past
