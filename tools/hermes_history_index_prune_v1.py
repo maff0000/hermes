@@ -56,7 +56,14 @@ def prune_all_indexes(client, *, apply: bool, now_utc=None):
     (HISTORY_TIMEFRAMES) excludes D1 for exactly this reason. Using the general cutoff against the D1
     index would prune valid D1 history far too aggressively. `assert_history_target` is what enforces
     that boundary -- skip (not crash on) anything it rejects, rather than widening this tool's scope to
-    cover a retention policy it was never given the right cutoff for."""
+    cover a retention policy it was never given the right cutoff for.
+
+    H4 is likewise OUT OF SCOPE here as of WO-HELM-HERMES-H4-CANONICAL-HISTORICAL-BOOTSTRAP-0001: it now
+    has its own COUNT-based retention (chv.h4_history_retention_trim_plan / H4_HISTORY_RETAIN_COUNT),
+    enforced on the forward writer's own write path. Applying this tool's generic TIME-based cutoff to H4
+    would silently destroy the bootstrapped/derived EMA-200 warm-up depth the count-based policy exists to
+    protect. H4 still matches HISTORY_TIMEFRAMES (so `assert_history_target` accepts the key structurally)
+    -- it is skipped by an explicit timeframe check here, the same way D1 is skipped by grid exclusion."""
     cutoff = chv.history_retention_cutoff_epoch(now_utc or datetime.now(timezone.utc))
     results = []
     for key in client.scan_iter(match=INDEX_PATTERN, count=1000):
@@ -66,6 +73,8 @@ def prune_all_indexes(client, *, apply: bool, now_utc=None):
             chv.assert_history_target(key)
         except ValueError:
             continue   # out of this tool's governed grid (e.g. D1) -- not this tool's retention to enforce
+        if key.split(":")[3] == "H4":
+            continue   # H4 owns its own count-based retention now -- not this tool's cutoff to enforce
         before = client.zcard(key)
         stale = client.zcount(key, "-inf", cutoff)
         removed = 0

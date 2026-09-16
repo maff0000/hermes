@@ -194,9 +194,14 @@ class CanonicalH4Producer:
     def hydrate(self, children, *, now, instrument="XAU_USD"):
         """WARM-START the in-memory H1 buffer for the CURRENT (unsealed) H4 block from already-existing H1
         children, so a restart mid-H4-bucket no longer loses the bucket's already-closed H1 children (the trap
-        that sealed the 2026-07-01 06:00 H4 at 2/4). PURE: seeds memory only — NO Redis I/O, NO publication (the
-        current bucket is sealed ONLY by a later LIVE roll-over via on_h1_close, never here). Deterministic +
-        IDEMPOTENT: REPLACES the current block buffer. Bounded by the 4-child block. Returns an R2D2 report."""
+        that sealed the 2026-07-01 06:00 H4 at 2/4). PURE: seeds memory only — NO Redis I/O, NO publication;
+        hydration itself never seals or publishes anything. What happens next (WO-HELM-HERMES-H4-COMPLETION-
+        DRIVEN-SEAL-0001): a subsequent LIVE H1 child may immediately seal the hydrated bucket the moment it
+        completes the genuine 4/4 set — no roll-over needed. Roll-over remains the fallback ONLY for a
+        bucket that never reaches 4/4 (a genuine gap): it still seals then, honestly incomplete. If hydration
+        alone already delivered the full 4/4, the bucket seals as soon as the next bucket's roll-over is
+        observed (the same existing roll-over path, since hydration never triggers a seal itself). Deterministic
+        + IDEMPOTENT: REPLACES the current block buffer. Bounded by the 4-child block. Returns an R2D2 report."""
         self.metrics["h4_warmstart_attempts"] += 1
         inst = seam.canonical_instrument(instrument)
         if inst not in self.allowed_instruments:

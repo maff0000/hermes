@@ -208,19 +208,30 @@ class CandleHistoryForwardWriter:
 
         # GOV-CANDLE-HIST-FWD-021 (capacity fix): the per-candle key expires on its own TTL, but nothing
         # removed its index entry — the confirmed cause of unbounded Redis growth. Prune members that have
-        # already crossed the same retention cutoff the TTL uses, so index and live data stay bounded
-        # together. Best-effort: a pruning failure never invalidates the write that already succeeded above,
-        # so it is caught and counted rather than raised.
+        # already crossed the retention boundary, so index and live data stay bounded together. Best-effort:
+        # a pruning failure never invalidates the write that already succeeded above, so it is caught and
+        # counted rather than raised.
         #
-        # Cutoff is anchored to `inserted_at_utc` (the caller's declared "as of" time for this write) rather
-        # than a hidden `datetime.now()` read: deterministic, replay-safe, and correct even when this writer
-        # processes candles whose wall-clock insertion time differs from their own timestamp (e.g. a bounded
-        # catch-up after a pause) — the cutoff always means "N days before this write believes it is
-        # happening", never "N days before whatever moment this line of code happens to execute".
+        # WO-HELM-HERMES-H4-CANONICAL-HISTORICAL-BOOTSTRAP-0001: H4 prunes by COUNT (chv.H4_HISTORY_RETAIN_
+        # COUNT), not by the generic time-based cutoff — H4 depth is a bootstrapped/derived asset that feeds
+        # indicator EMA-200 warm-up, not a rolling recent-lookback window, so the M1/M5/M15/H1 days-based
+        # policy would silently destroy it. M1/M5/M15/H1 pruning below is BYTE-UNCHANGED.
+        #
+        # For the time-based path, the cutoff is anchored to `inserted_at_utc` (the caller's declared "as
+        # of" time for this write) rather than a hidden `datetime.now()` read: deterministic, replay-safe,
+        # and correct even when this writer processes candles whose wall-clock insertion time differs from
+        # their own timestamp (e.g. a bounded catch-up after a pause) — the cutoff always means "N days
+        # before this write believes it is happening", never "N days before whatever moment this line of
+        # code happens to execute".
         pruned = 0
         try:
-            cutoff = chv.history_retention_cutoff_epoch(cc.normalise_utc(inserted_at_utc))
-            pruned = self.redis_client.zremrangebyscore(plan["index_key"], "-inf", cutoff)
+            if tf == "H4":
+                trim = chv.h4_history_retention_trim_plan(self.redis_client.zcard(plan["index_key"]))
+                if trim["would_trim"] > 0:
+                    pruned = self.redis_client.zremrangebyrank(plan["index_key"], 0, trim["would_trim"] - 1)
+            else:
+                cutoff = chv.history_retention_cutoff_epoch(cc.normalise_utc(inserted_at_utc))
+                pruned = self.redis_client.zremrangebyscore(plan["index_key"], "-inf", cutoff)
             self.metrics["history_index_pruned"] += pruned
         except Exception:
             self.metrics["history_index_prune_errors"] += 1
