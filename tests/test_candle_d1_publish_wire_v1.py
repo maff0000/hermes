@@ -12,6 +12,7 @@ import utils.candle_publisher_v1 as cp
 import utils.candle_history_v1 as chv
 import utils.candle_runtime_seam_v1 as seam
 import utils.candle_contract_v1 as cc
+import utils.candle_durable_sql_writer_v1 as dsw
 
 UTC = timezone.utc
 _D1O = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)        # a D1 open (22:00Z)
@@ -42,9 +43,28 @@ def _cfg():
                                     redis_host="192.168.11.10", redis_port=6379, redis_db=0)
 
 
-def _producer(client=None, allowed=("XAU_USD",), source_timeframe="H4"):
+def _producer(client=None, allowed=("XAU_USD",), source_timeframe="H4", durable_sql_writer=None):
     w = cp.SerializingCandleCanonicalWriter(config=_cfg(), redis_client=client or FakeRedis())
-    return wire.CanonicalD1Producer(w, allowed_instruments=allowed, source_timeframe=source_timeframe)
+    return wire.CanonicalD1Producer(w, allowed_instruments=allowed, source_timeframe=source_timeframe,
+                                    durable_sql_writer=durable_sql_writer)
+
+
+class _SpyDurableSqlWriter:
+    enabled = True
+
+    def __init__(self):
+        self.offered = []
+
+    def on_sealed(self, env):
+        self.offered.append(env)
+        return {"attempted": True, "wrote": True, "status": "inserted", "table": "canonical_candles_d1"}
+
+
+class _FailingDurableSqlWriter:
+    enabled = True
+
+    def on_sealed(self, env):
+        raise RuntimeError("simulated durable SQL fault")
 
 
 def _six_h4(d1_open=_D1O, instrument="XAU_USD"):
@@ -249,3 +269,32 @@ def test_published_payload_no_forbidden_fields():
     blob = json.dumps(r.store).lower()
     for tok in ("regime", "structure", "choch", "order_block", "shadow"):
         assert tok not in blob
+
+
+# ---------------- WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001: durable SQL hook ----------------
+def test_durable_sql_writer_offered_only_on_published_complete_d1():
+    r = FakeRedis(); spy = _SpyDurableSqlWriter(); p = _producer(r, durable_sql_writer=spy)
+    _feed(p, _six_h4())
+    assert len(spy.offered) == 1
+    assert spy.offered[0]["status"] == "OK"
+    assert spy.offered[0]["data"]["timeframe"] == "D1"
+
+
+def test_durable_sql_writer_not_offered_for_incomplete_day():
+    r = FakeRedis(); spy = _SpyDurableSqlWriter(); p = _producer(r, durable_sql_writer=spy)
+    short = _six_h4()[:5]                                    # only 5/6 -> never published, never durable
+    _feed(p, short)
+    assert spy.offered == []
+
+
+def test_durable_sql_fault_never_breaks_d1_latest_publish():
+    r = FakeRedis(); p = _producer(r, durable_sql_writer=_FailingDurableSqlWriter())
+    res = _feed(p, _six_h4())
+    assert res["published"] is True and res["status"] == "OK"
+    assert res["durable_sql"]["reason"] == "DURABLE_SQL_UNEXPECTED_FAIL"
+    assert "hermes:candles:XAU_USD:D1:latest:v1" in r.store
+
+
+def test_default_durable_sql_writer_is_disabled_noop():
+    p = _producer()
+    assert p.durable_sql_writer.enabled is False

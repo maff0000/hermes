@@ -131,7 +131,7 @@ class CanonicalD1Producer:
     Publishes ONLY a complete 6/6 status-OK D1; a sealed <6 bucket is honestly skipped, never published."""
 
     def __init__(self, writer, allowed_instruments, source_timeframe=D1_REQUIRED_SOURCE_TIMEFRAME,
-                 d1_history_writer=None):
+                 d1_history_writer=None, durable_sql_writer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-D1-WIRE-001: CanonicalD1Producer requires a SerializingCandleCanonicalWriter")
         allowed = frozenset(allowed_instruments or ())
@@ -146,6 +146,14 @@ class CanonicalD1Producer:
         # is a no-op with no client). Additive-only: it snapshots the sealed 6/6 D1 latest AFTER a successful
         # publish and can NEVER affect the D1 latest seal/publish path (fault-isolated in on_d1_sealed).
         self._d1_history_writer = d1_history_writer or d1h.DisabledD1HistoryWriter()
+        # WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001 — optional governed durable
+        # SQL writer, DARK by default (DisabledDurableSqlWriter). When attached + enabled, EACH complete
+        # sealed D1 (status OK, the only kind ever published) is persisted into the durable
+        # canonical_candles_d1 table the historical backfill writes — closes the backfill/live seam.
+        if durable_sql_writer is None:
+            from utils import candle_durable_sql_writer_v1 as dsw
+            durable_sql_writer = dsw.DisabledDurableSqlWriter()
+        self.durable_sql_writer = durable_sql_writer
         self.allowed_instruments = allowed
         self.source_timeframe = source_timeframe
         self.enabled = True
@@ -288,12 +296,28 @@ class CanonicalD1Producer:
         # series. DARK by default (no-op writer) so deploy without the D1-history gate does NOT auto-activate it;
         # fault-isolated (on_d1_sealed never raises) so a history fault can never disrupt the D1 latest above.
         self._d1_history_writer.on_d1_sealed(env)
+        durable = self._forward_durable_sql(env)   # env["status"]=="OK" guaranteed at this point (checked above)
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
-                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch}
+                "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch, "durable_sql": durable}
+
+    def _forward_durable_sql(self, env):
+        """Persist a sealed complete D1 into the durable canonical_candles_d1 table — the LIVE half of the
+        backfill/live continuity guarantee. No-op unless an enabled writer is attached. Fault-isolated:
+        NEVER raises, never blocks/undoes the D1 latest publish already completed above."""
+        dsw = self.durable_sql_writer
+        if dsw is None or not getattr(dsw, "enabled", False):
+            return {"attempted": False, "reason": "DURABLE_SQL_PERSIST_DISABLED"}
+        try:
+            return dsw.on_sealed(env)
+        except Exception as exc:  # noqa: BLE001 - belt-and-braces; DurableSqlWriter itself never raises
+            return {"attempted": True, "wrote": False, "reason": "DURABLE_SQL_UNEXPECTED_FAIL", "error": repr(exc)}
 
     def status(self):
-        return {"enabled": True, "source_timeframe": self.source_timeframe, **self.metrics}
+        dsw = self.durable_sql_writer
+        return {"enabled": True, "source_timeframe": self.source_timeframe,
+                "durable_sql_enabled": bool(dsw is not None and getattr(dsw, "enabled", False)),
+                **self.metrics}
 
 
 class DisabledD1Producer:
@@ -333,5 +357,9 @@ def build_d1_producer_from_env():
     # WO-…-D1-CANDLE-HISTORY-SERIES-0001 — build the D1 history writer DARK by default (own HERMES_CANDLE_D1_HISTORY_*
     # gate). D1 latest live + D1-history gate unset => DisabledD1HistoryWriter (no-op) => D1 history stays dark.
     d1_history_writer = d1h.build_d1_history_writer_from_env(redis_client=client)
+    # Governed durable SQL writer: default DISABLED (own gate HERMES_CANDLE_D1_DURABLE_SQL_PERSIST_*).
+    # WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001 — closes the backfill/live seam.
+    from utils import candle_durable_sql_writer_v1 as dsw   # lazy; only on the D1 canonical path
+    durable_sql_writer = dsw.build_d1_durable_sql_writer_from_env()
     return CanonicalD1Producer(writer, allowed_instruments=allowed, source_timeframe=source_tf,
-                               d1_history_writer=d1_history_writer)
+                               d1_history_writer=d1_history_writer, durable_sql_writer=durable_sql_writer)
