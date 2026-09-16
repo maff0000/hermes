@@ -151,30 +151,49 @@ def test_build_d1_writer_enabled_without_authorised_fails_loud(monkeypatch):
         dsw.build_d1_durable_sql_writer_from_env()
 
 
-# ---------------- Architect review correction: D1 durable must never get ahead of durable H4 truth ----------------
-def test_source_guard_refusal_never_writes_never_raises_no_h4_gate():
+# ---------------- Architect review correction (round 2): D1 durable must be PROVABLY DERIVED from durable
+# H4 truth, not merely co-located with 6 present rows — tri-state guard contract:
+# None -> allowed, "source_incomplete" -> routine refusal, "source_conflict" -> lineage integrity refusal.
+def test_source_guard_incomplete_refusal_never_writes_never_raises():
     store = {}
     guard_calls = []
 
-    def _refusing_guard(cursor, row):
+    def _incomplete_guard(cursor, row):
         guard_calls.append(row["open_time"])
-        return False
+        return "source_incomplete"
 
     w = dsw.DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker="LIVE", conn_factory=lambda: _FakeConn(store),
-                             source_guard=_refusing_guard)
+                             source_guard=_incomplete_guard)
     env = _genuine_h4_env()   # shape doesn't matter here — the guard refuses before any real derivation check
     res = w.on_sealed(env)
     assert res == {"attempted": True, "wrote": False, "status": "refused", "reason": "DURABLE_SOURCE_INCOMPLETE"}
     assert store == {}                                    # absolutely no write when the guard refuses
     assert w.metrics["source_incomplete_refused"] == 1
+    assert w.metrics["source_lineage_conflict"] == 0
     assert w.metrics["written"] == 0
     assert len(guard_calls) == 1
 
 
-def test_source_guard_allows_write_when_true():
+def test_source_guard_lineage_conflict_refusal_never_writes_never_raises():
+    """THE critical round-2 case: the guard sees a full source set but detects it does not genuinely
+    support the offered candidate -> must refuse distinctly (never silently allowed, never conflated with
+    the routine incomplete case)."""
     store = {}
     w = dsw.DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker="LIVE", conn_factory=lambda: _FakeConn(store),
-                             source_guard=lambda cursor, row: True)
+                             source_guard=lambda cursor, row: "source_conflict")
+    env = _genuine_h4_env()
+    res = w.on_sealed(env)
+    assert res == {"attempted": True, "wrote": False, "status": "refused", "reason": "DURABLE_SOURCE_CONFLICT"}
+    assert store == {}
+    assert w.metrics["source_lineage_conflict"] == 1
+    assert w.metrics["source_incomplete_refused"] == 0
+    assert w.metrics["written"] == 0
+
+
+def test_source_guard_allows_write_when_none():
+    store = {}
+    w = dsw.DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker="LIVE", conn_factory=lambda: _FakeConn(store),
+                             source_guard=lambda cursor, row: None)
     env = _genuine_h4_env()
     res = w.on_sealed(env)
     assert res["wrote"] is True and res["status"] == "inserted"

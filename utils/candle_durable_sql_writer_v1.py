@@ -57,16 +57,21 @@ class DurableSqlWriter:
         self.table = table
         self.run_id_marker = run_id_marker
         self.conn_factory = conn_factory
-        # Architect review correction: optional `(cursor, row) -> bool` guard, checked BEFORE any write,
-        # on the SAME connection/cursor as the write itself (so the check and the write are atomic w.r.t.
-        # any concurrent writer). None (default, used for H4 — it has no durable prerequisite) -> always
-        # allowed. D1's writer is built with a guard that verifies its 6 canonical durable H4 children
-        # genuinely exist as status-OK rows FIRST — durable D1 must never get ahead of durable H4 truth.
+        # Architect review correction (round 2): optional `(cursor, row) -> str | None` guard, checked
+        # BEFORE any write, on the SAME connection/cursor as the write itself (atomic w.r.t. any concurrent
+        # writer). Returns None -> allowed to proceed; "source_incomplete" -> the routine, expected case
+        # (fewer than the full durable source set exists yet — never a fault); "source_conflict" -> the
+        # durable source set is fully present but does NOT agree with what is being offered (a genuine
+        # lineage integrity problem — the offered candidate is not provably derived from durable truth).
+        # None (default, used for H4 — it has no durable prerequisite) -> always allowed. D1's writer is
+        # built with a guard that verifies its 6 canonical durable H4 children genuinely exist AND that
+        # re-deriving D1 from THEM (via the existing derive_d1()) matches what is being offered — durable
+        # D1 must be PROVABLY DERIVED from durable H4 truth, not merely co-located with 6 present rows.
         self.source_guard = source_guard
         self.enabled = True
         self.metrics = {"attempted": 0, "written": 0, "match_skip": 0, "conflict_detected": 0,
                         "connect_fail": 0, "write_fail": 0, "not_ok_skipped": 0,
-                        "source_incomplete_refused": 0}
+                        "source_incomplete_refused": 0, "source_lineage_conflict": 0}
 
     def on_sealed(self, env):
         """Offer a freshly-sealed candle envelope. Returns a report dict; NEVER raises."""
@@ -85,13 +90,13 @@ class DurableSqlWriter:
             self.metrics["connect_fail"] += 1
             return {"attempted": True, "wrote": False, "reason": "DB_CONNECT_FAIL", "error": repr(exc)[:200]}
         status = None
-        refused = False
+        refusal = None
         try:
             cur = conn.cursor()
             try:
-                if self.source_guard is not None and not self.source_guard(cur, row):
-                    refused = True
-                else:
+                if self.source_guard is not None:
+                    refusal = self.source_guard(cur, row)   # None | "source_incomplete" | "source_conflict"
+                if refusal is None:
                     status = sqlc.upsert_new_only(cur, self.table, row)   # 'new' | 'match' | 'conflict'
                     if status == "new":
                         conn.commit()
@@ -109,10 +114,14 @@ class DurableSqlWriter:
                 conn.close()
             except Exception:  # noqa: BLE001
                 pass
-        if refused:
+        if refusal == "source_incomplete":
             self.metrics["source_incomplete_refused"] += 1
             return {"attempted": True, "wrote": False, "status": "refused",
                     "reason": "DURABLE_SOURCE_INCOMPLETE"}
+        if refusal == "source_conflict":
+            self.metrics["source_lineage_conflict"] += 1
+            return {"attempted": True, "wrote": False, "status": "refused",
+                    "reason": "DURABLE_SOURCE_CONFLICT"}
         if status == "new":
             self.metrics["written"] += 1
             return {"attempted": True, "wrote": True, "status": "inserted", "table": self.table}
@@ -163,7 +172,12 @@ def build_d1_durable_sql_writer_from_env():
 
 
 def _d1_source_guard(cursor, row):
-    """Architect review correction: D1 durable persistence must never get ahead of durable H4 truth.
-    Reuses `candle_durable_sql_contract_v1.d1_durable_h4_source_complete` — the ONE 'are this D1's 6 H4
-    children durably present' rule, never duplicated."""
-    return sqlc.d1_durable_h4_source_complete(cursor, row["instrument"], row["open_time"])
+    """Architect review correction (round 2): D1 durable persistence must be PROVABLY DERIVED from durable
+    H4 truth, not merely co-located with 6 present rows. Reuses
+    `candle_durable_sql_contract_v1.d1_durable_source_lineage_status` — the ONE 'does this D1 genuinely
+    derive from durable H4 truth' rule, never duplicated — and translates its 3-way result into this
+    writer's `None | "source_incomplete" | "source_conflict"` guard contract."""
+    result = sqlc.d1_durable_source_lineage_status(cursor, row["instrument"], row["open_time"], row)
+    if result == sqlc._D1_SOURCE_VERIFIED:
+        return None
+    return result   # "source_incomplete" | "source_conflict"

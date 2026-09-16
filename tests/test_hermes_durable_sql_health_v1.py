@@ -9,7 +9,8 @@ import utils.hermes_durable_sql_health_v1 as dsh
 
 def _status(**overrides):
     base = {"enabled": True, "attempted": 0, "written": 0, "match_skip": 0, "conflict_detected": 0,
-           "connect_fail": 0, "write_fail": 0, "not_ok_skipped": 0, "source_incomplete_refused": 0}
+           "connect_fail": 0, "write_fail": 0, "not_ok_skipped": 0, "source_incomplete_refused": 0,
+           "source_lineage_conflict": 0}
     base.update(overrides)
     return base
 
@@ -39,8 +40,16 @@ def test_conflict_is_amber():
     assert dsh.durable_sql_writer_health(_status(conflict_detected=1)) == "AMBER"
 
 
+def test_source_lineage_conflict_is_amber():
+    """Round-2 Architect review correction: a source-lineage conflict is a real data-integrity anomaly
+    (the offered D1 does not provably derive from durable H4 truth) — same severity as conflict_detected,
+    never silently GREEN, and never confused with the routine source_incomplete_refused case."""
+    assert dsh.durable_sql_writer_health(_status(source_lineage_conflict=1)) == "AMBER"
+
+
 def test_red_beats_amber_on_same_writer():
     assert dsh.durable_sql_writer_health(_status(conflict_detected=1, write_fail=1)) == "RED"
+    assert dsh.durable_sql_writer_health(_status(source_lineage_conflict=1, write_fail=1)) == "RED"
 
 
 def test_combined_takes_the_worse_of_h4_and_d1():

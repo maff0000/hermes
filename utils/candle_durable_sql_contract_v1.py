@@ -22,7 +22,7 @@ existing Redis-history-backfill precedent (candle_h4_history_seed_backfill_v1.ex
 from __future__ import annotations
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 TABLE_H4 = "canonical_candles_h4"
@@ -171,25 +171,57 @@ def upsert_new_only(cursor, table, row):
     return status
 
 
-def d1_durable_h4_source_complete(cursor, instrument, d1_open_time):
-    """Architect review correction (WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001):
-    verify all 6 expected canonical durable H4 children genuinely exist as status-OK rows in
-    `canonical_candles_h4` for the D1 bucket opening at `d1_open_time`, BEFORE a D1 row is allowed to enter
-    `canonical_candles_d1`. Reuses the EXISTING governed D1 child-open selector
-    (`candle_d1_derivation_v1.d1_child_h4_opens`) — never a second 'what counts as this D1's children' rule.
-    A live D1 seal can otherwise be offered a freshly-derived (transient) H4 envelope and durably persist
-    D1 truth before — or even if — the corresponding H4 durable row never lands (a durable-SQL fault,
-    conflict, or simple race). This guard closes that: durable D1 must never get ahead of durable H4 truth.
+_D1_SOURCE_INCOMPLETE = "source_incomplete"
+_D1_SOURCE_CONFLICT = "source_conflict"
+_D1_SOURCE_VERIFIED = "source_verified"
+
+
+def d1_durable_source_lineage_status(cursor, instrument, d1_open_time, candidate_row):
+    """Architect review correction, round 2 (WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-
+    AUTHORITY-0001): PRESENCE of 6 durable H4 rows is not enough — durable D1 must be PROVABLY DERIVED from
+    the durable canonical H4 truth it claims as source, not merely co-located with 6 rows that happen to
+    exist at the right identities. Without this, a durable H4 row A can sit in `canonical_candles_h4`
+    while a live D1 seal is built from a DIFFERENT transient H4 fact B (e.g. a later live H4 re-seal that
+    itself conflicted and never overwrote A) — the old presence-only guard would see 6/6 timestamps and
+    wave the D1 through, even though the D1 being persisted does not actually agree with durable H4 truth.
+
+    Loads the exact 6 expected durable H4 rows (by the EXISTING governed selector
+    `candle_d1_derivation_v1.d1_child_h4_opens`), requiring `status='OK'` AND the current governed
+    `derivation_policy`/`source_policy_epoch` (an H4 row present under an incompatible/legacy policy is
+    correctly excluded — never a valid source, however genuinely it exists). If fewer than 6 durable H4
+    rows satisfy that -> `'source_incomplete'` (the routine, expected case; never a fault). If all 6 are
+    present, reconstructs a D1 envelope from THOSE EXACT durable rows using the EXISTING
+    `candle_d1_derivation_v1.derive_d1()` (never a second D1 construction algorithm) and compares its
+    canonical content fingerprint against `candidate_row` (the D1 actually being offered for persistence,
+    already built from whatever the live pipeline had in memory). Fingerprints agree -> `'source_verified'`
+    (durable D1 may proceed). Fingerprints disagree -> `'source_conflict'` — the offered D1 does NOT
+    genuinely derive from durable H4 truth; durable persistence must refuse, visibly, without touching
+    either the offered candidate or the existing durable H4 rows.
+
     `d1_open_time` may be naive or aware UTC (matches the DB's naive convention either way)."""
     from utils import candle_d1_derivation_v1 as d1d
+    from utils import candle_h4_derivation_v1 as h4d
     from utils import candle_contract_v1 as cc
     aware = d1_open_time if getattr(d1_open_time, "tzinfo", None) is not None \
         else d1_open_time.replace(tzinfo=timezone.utc)
     expected_opens = [cc.normalise_utc(o).replace(tzinfo=None) for o in d1d.d1_child_h4_opens(aware)]
     placeholders = ",".join(["%s"] * len(expected_opens))
     cursor.execute(
-        f"SELECT COUNT(*) FROM {TABLE_H4} WHERE instrument=%s AND timeframe='H4' AND status='OK' "
-        f"AND open_time IN ({placeholders})",
-        (instrument, *expected_opens))
-    (count,) = cursor.fetchone()
-    return count == d1d.D1_EXPECTED_CHILDREN
+        f"SELECT open_time, open, high, low, close, volume FROM {TABLE_H4} "
+        f"WHERE instrument=%s AND timeframe='H4' AND status='OK' "
+        f"AND derivation_policy=%s AND source_policy_epoch=%s "
+        f"AND open_time IN ({placeholders}) ORDER BY open_time ASC",
+        (instrument, cc.DERIVATION_POLICY_H4_FROM_H1, h4d.SOURCE_POLICY_EPOCH, *expected_opens))
+    rows = cursor.fetchall()
+    if len(rows) != d1d.D1_EXPECTED_CHILDREN:
+        return _D1_SOURCE_INCOMPLETE
+    h4_children = [{"timestamp": r[0].replace(tzinfo=timezone.utc) if r[0].tzinfo is None else r[0],
+                    "open": float(r[1]), "high": float(r[2]), "low": float(r[3]), "close": float(r[4]),
+                    "volume": int(r[5] or 0)} for r in rows]
+    env, _meta = d1d.derive_d1(instrument=instrument, d1_open=aware, h4_children=h4_children,
+                               generated_at_utc=aware + timedelta(seconds=d1d.D1_SECONDS), is_closed=True)
+    if env["status"] != "OK":
+        return _D1_SOURCE_INCOMPLETE   # defence-in-depth; unreachable given 6 already-OK durable children
+    durable_source_row = row_from_envelope(env, derivation_run_id="DURABLE_SOURCE_LINEAGE_CHECK")
+    return _D1_SOURCE_VERIFIED if fingerprint_row(durable_source_row) == fingerprint_row(candidate_row) \
+        else _D1_SOURCE_CONFLICT

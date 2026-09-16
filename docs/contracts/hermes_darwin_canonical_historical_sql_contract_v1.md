@@ -92,14 +92,28 @@ anywhere in this contract.
 - A row enters `canonical_candles_h4`/`canonical_candles_d1` **only** when its full expected child set
   (4/4 H1 for H4; 6/6 H4 for D1) is genuinely present and status `OK`. A short/gapped window is counted and
   reported by the backfill tooling but **never stored, never fabricated, never interpolated**.
-- **Durable D1 can never get ahead of durable H4.** Before any row is written to `canonical_candles_d1`,
-  `candle_durable_sql_contract_v1.d1_durable_h4_source_complete()` verifies all 6 of its expected H4
-  children already exist as status-`OK` rows in `canonical_candles_h4` (reusing the existing governed
-  `candle_d1_derivation_v1.d1_child_h4_opens()` selector). A D1 candidate whose durable H4 source set is
-  not yet complete — including if an individual H4 durable write is still pending, failed, or conflicted —
-  is refused (`status: "refused"`, `reason: "DURABLE_SOURCE_INCOMPLETE"`), never persisted early. This
-  applies to the live writer only; the D1 historical backfill reads its source directly from
-  `canonical_candles_h4` and is unaffected (its source is, by construction, already fully backfilled).
+- **Durable D1 must be PROVABLY DERIVED from durable H4 truth — not merely co-located with 6 present
+  rows.** Before any row is written to `canonical_candles_d1`,
+  `candle_durable_sql_contract_v1.d1_durable_source_lineage_status()`:
+  1. loads the exact 6 expected H4 rows (reusing the existing governed
+     `candle_d1_derivation_v1.d1_child_h4_opens()` selector), requiring `status='OK'` **and** the current
+     governed `derivation_policy`/`source_policy_epoch` — an H4 row present under an incompatible/legacy
+     policy is correctly excluded, never a valid source however genuinely it exists;
+  2. if fewer than 6 satisfy that → `source_incomplete` (the routine, expected case; never a fault) —
+     covers both a genuinely missing bucket and an individual H4 durable write still pending, failed, or
+     conflicted;
+  3. if all 6 are present, **reconstructs a D1 envelope from those exact durable rows** using the existing
+     `candle_d1_derivation_v1.derive_d1()` (never a second D1 construction algorithm) and compares its
+     canonical content fingerprint against the D1 candidate actually being offered for persistence;
+  4. agreement → `source_verified`, durable persistence proceeds; disagreement →
+     `source_conflict` (`status: "refused"`, `reason: "DURABLE_SOURCE_CONFLICT"`) — the offered D1 does
+     **not** genuinely derive from durable H4 truth (e.g. a live H4 re-seal produced a different transient
+     fact than what durable SQL holds, perhaps because the H4 durable write itself failed or conflicted) —
+     refused visibly, never silently allowed through on presence alone.
+
+  This applies to the live writer only; the D1 historical backfill reads its source directly from
+  `canonical_candles_h4` and is unaffected (its source is, by construction, already fully backfilled and
+  internally consistent).
 - Historical backfill: `utils/candle_h4_durable_sql_backfill_v1.py` (H4, full trustworthy H1 range, no
   arbitrary depth cap) and `utils/candle_d1_durable_sql_backfill_v1.py` (D1, full range the canonical H4
   table supports). Both dark/dry-run-by-default, idempotent (`match` on identical re-run), fail-loud on a
@@ -194,7 +208,9 @@ A durable-SQL persistence fault must never break HERMES's live market-data/candl
 isolation is unconditional — see `utils/candle_durable_sql_writer_v1.py`), but it must not go silent
 either. HERMES's `/health` (this repository, not part of DARWIN's own contract) surfaces a `durable_sql`
 block with the H4 and D1 durable writers' live status (`enabled`, `attempted`, `written`, `match_skip`,
-`conflict_detected`, `connect_fail`, `write_fail`, `source_incomplete_refused`). A connect/write fault
-downgrades `health_state` to `RED` (the durable authority has stopped advancing); a genuine content
-conflict downgrades to `AMBER` (one bucket needs a human repair WO, the authority is still advancing); a
-routine `source_incomplete_refused` (the D1 guard above, working as designed) never downgrades health.
+`conflict_detected`, `connect_fail`, `write_fail`, `source_incomplete_refused`, `source_lineage_conflict`).
+A connect/write fault downgrades `health_state` to `RED` (the durable authority has stopped advancing); a
+genuine content conflict OR a source-lineage conflict (the offered D1 does not provably derive from durable
+H4 truth — see §7) downgrades to `AMBER` (one bucket needs a human repair WO, the authority is still
+advancing); a routine `source_incomplete_refused` (the D1 guard above, working as designed) never
+downgrades health.

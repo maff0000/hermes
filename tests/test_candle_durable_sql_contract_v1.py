@@ -200,44 +200,107 @@ def test_fingerprint_still_matches_on_run_id_and_generated_at_difference_only():
     assert sqlc.classify_against_existing(other_run, row) == "match"
 
 
-# ---------------- Architect review correction: D1 durable must never get ahead of durable H4 truth ----------------
-class _H4SourceCursor:
-    """Minimal fake cursor for d1_durable_h4_source_complete: only answers the COUNT(*) ... IN (...) query
-    this function issues, against a caller-supplied set of (instrument, open_time) rows already 'present'."""
-    def __init__(self, present_open_times):
-        self.present = set(present_open_times)   # naive-UTC datetimes considered present+OK
+# ---------------- Architect review correction (round 2): D1 durable must be PROVABLY DERIVED from durable
+# H4 truth, not merely co-located with 6 present rows ----------------
+class _H4SourceRowsCursor:
+    """Fake cursor for d1_durable_source_lineage_status: answers the SELECT open_time,open,high,low,close,
+    volume ... IN (...) query against a caller-supplied {naive_utc_open_time: (open,high,low,close,volume)}
+    map of durable H4 rows considered present+OK. `present_policies` optionally overrides one or more
+    entries' (derivation_policy, source_policy_epoch) away from the governed pair the query passes — this
+    simulates the real WHERE derivation_policy=%s AND source_policy_epoch=%s clause correctly EXCLUDING a
+    durable row that exists under an incompatible/legacy policy (Architect review correction round 2,
+    requirement E)."""
+    def __init__(self, present_rows, present_policies=None):
+        self.present = dict(present_rows)
+        self.policies = present_policies or {}
         self._result = None
 
     def execute(self, sql, params):
-        assert sql.strip().startswith("SELECT COUNT(*)")
+        assert sql.strip().startswith("SELECT open_time, open, high, low, close, volume")
         assert "canonical_candles_h4" in sql
         assert "status='OK'" in sql
-        instrument, *open_times = params
+        assert "derivation_policy=%s" in sql and "source_policy_epoch=%s" in sql
+        instrument, policy, epoch, *open_times = params
         assert instrument == INST
-        self._result = (sum(1 for t in open_times if t in self.present),)
+        rows = []
+        for t in sorted(t for t in open_times if t in self.present):
+            row_policy, row_epoch = self.policies.get(t, (policy, epoch))   # default: correctly-policied
+            if (row_policy, row_epoch) != (policy, epoch):
+                continue   # excluded, exactly like the real SQL WHERE clause would exclude it
+            o, h, lo, c, v = self.present[t]
+            rows.append((t, o, h, lo, c, v))
+        self._result = rows
 
-    def fetchone(self):
+    def fetchall(self):
         return self._result
 
 
-def test_d1_durable_h4_source_complete_true_only_when_all_six_present():
+def _six_h4_children_and_candidate_row(d1_open):
+    """Build 6 genuine H4 children for `d1_open`, derive the D1 candidate row a live seal would offer
+    (via the SAME derive_d1() the guard itself uses), and the {open_time: ohlcv} durable-presence map that,
+    fed back through the guard unchanged, must reconstruct that EXACT same D1."""
+    aware_opens = d1d.d1_child_h4_opens(d1_open)
+    naive_opens = [t.replace(tzinfo=None) for t in aware_opens]
+    specs = [(2000.0, 2010.0, 1990.0, 2005.0, 100), (2005.0, 2030.0, 1995.0, 2020.0, 110),
+             (2020.0, 2080.0, 2010.0, 2050.0, 120), (2050.0, 2060.0, 2000.0, 2030.0, 130),
+             (2030.0, 2040.0, 1900.0, 1950.0, 140), (1950.0, 1975.0, 1940.0, 1970.0, 150)]
+    h4_children = [{"timestamp": aware_opens[i], "open": specs[i][0], "high": specs[i][1], "low": specs[i][2],
+                    "close": specs[i][3], "volume": specs[i][4]} for i in range(6)]
+    env, _meta = d1d.derive_d1(instrument=INST, d1_open=d1_open, h4_children=h4_children,
+                               generated_at_utc=d1_open + timedelta(hours=24), is_closed=True)
+    candidate_row = sqlc.row_from_envelope(env, derivation_run_id="LIVE_CANDIDATE")
+    present_rows = {naive_opens[i]: specs[i] for i in range(6)}
+    return naive_opens, present_rows, candidate_row
+
+
+def test_d1_source_lineage_verified_when_durable_h4_exactly_matches_candidate():
     d1_open = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
-    expected = [t.replace(tzinfo=None) for t in d1d.d1_child_h4_opens(d1_open)]
-    assert len(expected) == 6
-
-    all_present = _H4SourceCursor(expected)
-    assert sqlc.d1_durable_h4_source_complete(all_present, INST, d1_open) is True
-
-    five_present = _H4SourceCursor(expected[:5])
-    assert sqlc.d1_durable_h4_source_complete(five_present, INST, d1_open) is False
-
-    none_present = _H4SourceCursor([])
-    assert sqlc.d1_durable_h4_source_complete(none_present, INST, d1_open) is False
+    _opens, present_rows, candidate_row = _six_h4_children_and_candidate_row(d1_open)
+    cur = _H4SourceRowsCursor(present_rows)
+    assert sqlc.d1_durable_source_lineage_status(cur, INST, d1_open, candidate_row) == sqlc._D1_SOURCE_VERIFIED
 
 
-def test_d1_durable_h4_source_complete_accepts_naive_or_aware_d1_open():
+def test_d1_source_lineage_incomplete_when_fewer_than_six_present():
+    d1_open = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
+    opens, present_rows, candidate_row = _six_h4_children_and_candidate_row(d1_open)
+    del present_rows[opens[-1]]
+    cur = _H4SourceRowsCursor(present_rows)
+    assert sqlc.d1_durable_source_lineage_status(cur, INST, d1_open, candidate_row) == sqlc._D1_SOURCE_INCOMPLETE
+
+    cur_none = _H4SourceRowsCursor({})
+    assert sqlc.d1_durable_source_lineage_status(cur_none, INST, d1_open, candidate_row) == sqlc._D1_SOURCE_INCOMPLETE
+
+
+def test_d1_source_lineage_conflict_when_one_durable_h4_disagrees_with_candidate():
+    """THE critical case the round-2 Architect review flagged: 6/6 durable H4 rows present at the expected
+    identities, but ONE durably-stored child DIFFERS from the H4 fact the live candidate D1 was actually
+    built from -> the old presence-only guard would have allowed this through; this one MUST refuse."""
+    d1_open = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
+    opens, present_rows, candidate_row = _six_h4_children_and_candidate_row(d1_open)
+    tampered = dict(present_rows)
+    o, h, lo, c, v = tampered[opens[-1]]
+    # a small, internally-consistent tamper (still within this child's own high/low bounds) — enough to
+    # change the fingerprint without producing an invalid OHLC that the contract validator itself rejects
+    tampered[opens[-1]] = (o, h, lo, c + 2.0, v)   # durable H4 differs from what candidate was built from
+    cur = _H4SourceRowsCursor(tampered)
+    assert sqlc.d1_durable_source_lineage_status(cur, INST, d1_open, candidate_row) == sqlc._D1_SOURCE_CONFLICT
+
+
+def test_d1_source_lineage_accepts_naive_or_aware_d1_open():
     d1_open_aware = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
     d1_open_naive = datetime(2026, 6, 25, 22, 0)
-    expected = [t.replace(tzinfo=None) for t in d1d.d1_child_h4_opens(d1_open_aware)]
-    cur = _H4SourceCursor(expected)
-    assert sqlc.d1_durable_h4_source_complete(cur, INST, d1_open_naive) is True
+    _opens, present_rows, candidate_row = _six_h4_children_and_candidate_row(d1_open_aware)
+    cur = _H4SourceRowsCursor(present_rows)
+    assert sqlc.d1_durable_source_lineage_status(cur, INST, d1_open_naive, candidate_row) \
+        == sqlc._D1_SOURCE_VERIFIED
+
+
+def test_d1_source_lineage_incomplete_when_one_durable_h4_has_incompatible_policy():
+    """Requirement E: a durable H4 row present at the right identity with the right OHLCV but under an
+    INCOMPATIBLE governed policy/epoch must never establish false lineage — it is correctly excluded by the
+    same governed-policy filter that requirement C's completeness check already relies on, so it degrades
+    to the ordinary 'source_incomplete' case (5/6 valid), never a silent VERIFIED."""
+    d1_open = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
+    opens, present_rows, candidate_row = _six_h4_children_and_candidate_row(d1_open)
+    cur = _H4SourceRowsCursor(present_rows, present_policies={opens[-1]: ("LEGACY_POLICY_V0", "OLD_EPOCH")})
+    assert sqlc.d1_durable_source_lineage_status(cur, INST, d1_open, candidate_row) == sqlc._D1_SOURCE_INCOMPLETE
