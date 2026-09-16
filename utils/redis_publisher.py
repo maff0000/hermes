@@ -105,6 +105,17 @@ class RedisPublisher:
         """Build channel name with prefix"""
         return f"{self.prefix}{''.join(parts)}"
 
+    def get_raw(self, key: str):
+        """Read a raw string key from the same Redis target ticks/candles publish to (e.g. the governed
+        publisher heartbeat). WO-HELM-HERMES-INCIDENT-CANONICAL-PIPELINE-CONFIG-AND-READINESS-TRUTH-0001.
+        Read-only; never raises into a caller such as a health check — returns None on any fault."""
+        if not self.is_connected and not self.connect():
+            return None
+        try:
+            return self._client.get(key)
+        except Exception:
+            return None
+
     def publish_tick(self, tick_data: dict) -> int:
         """
         Publish tick to Redis channel.

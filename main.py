@@ -42,6 +42,10 @@ from adapters.base import AdapterState, AdapterHealth
 from adapters.oanda import OANDAAdapter
 from utils.redis_publisher import RedisPublisher
 from utils.healthcheck import init_healthcheck, record_tick, record_candle, record_signal
+from utils import hermes_control_plane_v1 as cp
+from utils.hermes_canonical_publisher_health_v1 import (
+    canonical_publisher_health, worse_of as canon_worse_of,
+)
 try:
     from utils.iris_client import send_alert, send_audit
 except ImportError:
@@ -1635,7 +1639,17 @@ async def health():
                      "status": r.status, "detail": r.detail}
             for r in _wtg
         }
-    health = snapshot.get("health_state", "RED")
+    # WO-HELM-HERMES-INCIDENT-CANONICAL-PIPELINE-CONFIG-AND-READINESS-TRUTH-0001: the watchdog-derived
+    # health_state above tracks the legacy tick/M1 path ONLY — it stayed GREEN through the 2026-09-05
+    # canonical-publish outage because that path was unaffected. READINESS additionally requires the
+    # canonical publisher itself to be fresh (hermes:publisher:heartbeat:v1, already written every
+    # control-plane cycle); a FAIL/missing heartbeat downgrades health_state so /health mechanically
+    # returns 503 — the same NOT_READY signal downstream systems already treat as "refuse this data".
+    _hb_raw = state.redis_publisher.get_raw(cp.KEY_PUBLISHER_HEARTBEAT) if state.redis_publisher else None
+    _cp_block, _cp_downgrade = canonical_publisher_health(_hb_raw)
+    snapshot["canonical_publisher"] = _cp_block
+    health = canon_worse_of(snapshot.get("health_state", "RED"), _cp_downgrade)
+    snapshot["health_state"] = health
 
     # HTTP status reflects health truth
     if health == "RED":

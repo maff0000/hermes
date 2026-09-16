@@ -105,8 +105,25 @@ def _freshness(client, tf):
     raw = client.get(f"hermes:candles:{INST}:{tf}:latest:v1")
     if not raw:
         return "UNKNOWN"
-    st = json.loads(raw).get("status")
-    return "FRESH" if st == "OK" else st
+    env = json.loads(raw)
+    st = env.get("status")
+    if st != "OK":
+        return st
+    # WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-AND-HEALTH-FRESHNESS-TRUTH-0001: a stored status=OK does not
+    # by itself mean the candle is still within its own governed validity window — the incident this WO
+    # closes was exactly that (an H4 candle sitting well past its own valid_until_utc while every consumer
+    # kept reading its status field as "OK"/"FRESH"). Compare the existing valid_until_utc (already emitted
+    # by every candle envelope; no new field) against wall-clock now. No invented grace period: this IS the
+    # contract's own governed validity boundary.
+    vu = env.get("valid_until_utc")
+    if vu:
+        try:
+            vu_dt = datetime.datetime.strptime(vu[:-1], cc._UTC_MS).replace(tzinfo=UTC)
+        except (ValueError, TypeError):
+            return "FRESH"                      # unparseable valid_until_utc is not this check's concern
+        if _now() > vu_dt:
+            return "STALE_EXPIRED"
+    return "FRESH"
 
 
 def derive_publisher_status(freshness_map):

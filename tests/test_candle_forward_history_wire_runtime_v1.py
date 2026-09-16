@@ -169,11 +169,12 @@ def test_closed_candle_calls_spy_once():
 
 
 # ====================== H4 seal -> writer called only for complete 4/4 ======================
+# WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: seals on the 4th genuine child, not the next bucket's roll.
 def test_h4_complete_seal_calls_writer_and_writes_history():
     r = FakeRedis(); hw = _real_hw(r); p = _h4_producer(r, history_writer=hw)
-    for hh in range(4):
+    for hh in range(3):
         p.on_h1_close(_H1(_TS + timedelta(hours=hh)))
-    res = p.on_h1_close(_H1(_TS + timedelta(hours=4)))               # seals 02:00 with 4 children
+    res = p.on_h1_close(_H1(_TS + timedelta(hours=3)))                # 4th child -> seals 02:00 now
     assert res["published"] is True and res["status"] == "OK"
     assert res["history_forward"]["wrote"] is True
     hkey = f"hermes:candles:XAU_USD:H4:history:v1:{int(_TS.timestamp())}"
@@ -195,7 +196,7 @@ def test_h4_partial_seal_does_not_write_ok():
 
 def test_h4_warmup_no_seal_no_history():
     r = FakeRedis(); hw = _real_hw(r); p = _h4_producer(r, history_writer=hw)
-    for hh in range(4):
+    for hh in range(3):                                               # genuinely incomplete (3/4)
         assert p.on_h1_close(_H1(_TS + timedelta(hours=hh)))["published"] is False   # buffering, no seal yet
     assert r.history_keys() == []                                    # nothing sealed -> nothing in history
 
@@ -212,9 +213,9 @@ def test_history_fault_does_not_break_latest():
 
 def test_h4_history_fault_does_not_break_latest():
     r = FakeRedis(); p = _h4_producer(r, history_writer=RaisingHistoryWriter())
-    for hh in range(4):
+    for hh in range(3):
         p.on_h1_close(_H1(_TS + timedelta(hours=hh)))
-    res = p.on_h1_close(_H1(_TS + timedelta(hours=4)))
+    res = p.on_h1_close(_H1(_TS + timedelta(hours=3)))                # 4th child -> seals now
     assert res["published"] is True                                  # H4 latest STILL published
     assert res["history_forward"]["reason"] == "H4_HISTORY_FORWARD_FAIL"
     assert p.status()["h4_history_forward_fail"] == 1
