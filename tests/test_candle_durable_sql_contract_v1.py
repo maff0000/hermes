@@ -13,6 +13,7 @@ import pytest
 
 import utils.candle_durable_sql_contract_v1 as sqlc
 import utils.candle_h4_derivation_v1 as h4d
+import utils.candle_d1_derivation_v1 as d1d
 
 UTC = timezone.utc
 INST = "XAU_USD"
@@ -171,3 +172,72 @@ def test_upsert_new_only_never_issues_an_update_and_never_overwrites():
 
     assert "UPDATE" not in sqlc.insert_sql(sqlc.TABLE_H4).upper()
     assert "UPDATE" not in sqlc.select_existing_sql(sqlc.TABLE_H4).upper()
+
+
+# ---------------- Architect review correction: fingerprint MUST include governed semantic policy ----------------
+def test_fingerprint_conflicts_on_different_derivation_policy_same_ohlcv():
+    env = _genuine_h4_env()
+    row = sqlc.row_from_envelope(env, derivation_run_id="R1")
+    same_ohlcv_different_policy = dict(row)
+    same_ohlcv_different_policy["derivation_policy"] = "SOME_OTHER_POLICY_V2"
+    assert sqlc.classify_against_existing(same_ohlcv_different_policy, row) == "conflict"
+
+
+def test_fingerprint_conflicts_on_different_source_policy_epoch_same_ohlcv():
+    env = _genuine_h4_env()
+    row = sqlc.row_from_envelope(env, derivation_run_id="R1")
+    same_ohlcv_different_epoch = dict(row)
+    same_ohlcv_different_epoch["source_policy_epoch"] = "H4_FROM_H1_NY1700_V2"
+    assert sqlc.classify_against_existing(same_ohlcv_different_epoch, row) == "conflict"
+
+
+def test_fingerprint_still_matches_on_run_id_and_generated_at_difference_only():
+    env = _genuine_h4_env()
+    row = sqlc.row_from_envelope(env, derivation_run_id="RUN_A")
+    other_run = dict(row)
+    other_run["derivation_run_id"] = "RUN_B_DIFFERENT_PROCESS"
+    other_run["derivation_generated_at_utc"] = row["derivation_generated_at_utc"] + timedelta(days=90)
+    assert sqlc.classify_against_existing(other_run, row) == "match"
+
+
+# ---------------- Architect review correction: D1 durable must never get ahead of durable H4 truth ----------------
+class _H4SourceCursor:
+    """Minimal fake cursor for d1_durable_h4_source_complete: only answers the COUNT(*) ... IN (...) query
+    this function issues, against a caller-supplied set of (instrument, open_time) rows already 'present'."""
+    def __init__(self, present_open_times):
+        self.present = set(present_open_times)   # naive-UTC datetimes considered present+OK
+        self._result = None
+
+    def execute(self, sql, params):
+        assert sql.strip().startswith("SELECT COUNT(*)")
+        assert "canonical_candles_h4" in sql
+        assert "status='OK'" in sql
+        instrument, *open_times = params
+        assert instrument == INST
+        self._result = (sum(1 for t in open_times if t in self.present),)
+
+    def fetchone(self):
+        return self._result
+
+
+def test_d1_durable_h4_source_complete_true_only_when_all_six_present():
+    d1_open = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
+    expected = [t.replace(tzinfo=None) for t in d1d.d1_child_h4_opens(d1_open)]
+    assert len(expected) == 6
+
+    all_present = _H4SourceCursor(expected)
+    assert sqlc.d1_durable_h4_source_complete(all_present, INST, d1_open) is True
+
+    five_present = _H4SourceCursor(expected[:5])
+    assert sqlc.d1_durable_h4_source_complete(five_present, INST, d1_open) is False
+
+    none_present = _H4SourceCursor([])
+    assert sqlc.d1_durable_h4_source_complete(none_present, INST, d1_open) is False
+
+
+def test_d1_durable_h4_source_complete_accepts_naive_or_aware_d1_open():
+    d1_open_aware = datetime(2026, 6, 25, 22, 0, tzinfo=UTC)
+    d1_open_naive = datetime(2026, 6, 25, 22, 0)
+    expected = [t.replace(tzinfo=None) for t in d1d.d1_child_h4_opens(d1_open_aware)]
+    cur = _H4SourceCursor(expected)
+    assert sqlc.d1_durable_h4_source_complete(cur, INST, d1_open_naive) is True

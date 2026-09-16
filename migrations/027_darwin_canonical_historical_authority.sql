@@ -155,10 +155,12 @@ SELECT
   1 AS source_count, 1 AS expected_source_count, 1.0000 AS source_coverage,
   'NONE' COLLATE utf8mb4_unicode_ci AS gap_state,
   CONCAT('DIRECT_M15:', id) COLLATE utf8mb4_unicode_ci AS derivation_run_id,
-  -- candles_M15 has no created_at column (unlike M1/M5/H1) — the candle's own open time is the best
-  -- available honest marker here; documented in the SQL contract doc as an M15-specific column note.
-  CAST(`timestamp` AS DATETIME(3)) AS derivation_generated_at_utc,
-  `timestamp` AS created_at
+  -- Architect review correction: candles_M15 has no created_at column (unlike M1/M5/H1) — HERMES
+  -- genuinely does not know when this row was generated/inserted, so this is honestly NULL, never
+  -- fabricated from the candle's own market-open timestamp (a market fact is not a provenance fact).
+  -- Documented explicitly in the SQL contract doc as an M15-specific column note.
+  CAST(NULL AS DATETIME(3)) AS derivation_generated_at_utc,
+  CAST(NULL AS DATETIME) AS created_at
 FROM candles_M15
 WHERE instrument = 'XAU_USD' AND complete = 1;
 

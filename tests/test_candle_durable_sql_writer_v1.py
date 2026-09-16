@@ -149,3 +149,56 @@ def test_build_d1_writer_enabled_without_authorised_fails_loud(monkeypatch):
     monkeypatch.delenv("HERMES_CANDLE_D1_DURABLE_SQL_PERSIST_AUTHORISED", raising=False)
     with pytest.raises(ValueError):
         dsw.build_d1_durable_sql_writer_from_env()
+
+
+# ---------------- Architect review correction: D1 durable must never get ahead of durable H4 truth ----------------
+def test_source_guard_refusal_never_writes_never_raises_no_h4_gate():
+    store = {}
+    guard_calls = []
+
+    def _refusing_guard(cursor, row):
+        guard_calls.append(row["open_time"])
+        return False
+
+    w = dsw.DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker="LIVE", conn_factory=lambda: _FakeConn(store),
+                             source_guard=_refusing_guard)
+    env = _genuine_h4_env()   # shape doesn't matter here — the guard refuses before any real derivation check
+    res = w.on_sealed(env)
+    assert res == {"attempted": True, "wrote": False, "status": "refused", "reason": "DURABLE_SOURCE_INCOMPLETE"}
+    assert store == {}                                    # absolutely no write when the guard refuses
+    assert w.metrics["source_incomplete_refused"] == 1
+    assert w.metrics["written"] == 0
+    assert len(guard_calls) == 1
+
+
+def test_source_guard_allows_write_when_true():
+    store = {}
+    w = dsw.DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker="LIVE", conn_factory=lambda: _FakeConn(store),
+                             source_guard=lambda cursor, row: True)
+    env = _genuine_h4_env()
+    res = w.on_sealed(env)
+    assert res["wrote"] is True and res["status"] == "inserted"
+    assert len(store) == 1
+
+
+def test_h4_writer_has_no_source_guard_by_default():
+    w = dsw.build_h4_durable_sql_writer_from_env()   # disabled by default (no env set) -> DisabledDurableSqlWriter
+    assert isinstance(w, dsw.DisabledDurableSqlWriter)
+
+
+def test_d1_boot_factory_wires_the_h4_source_guard(monkeypatch):
+    monkeypatch.setenv("HERMES_CANDLE_D1_DURABLE_SQL_PERSIST_ENABLED", "true")
+    monkeypatch.setenv("HERMES_CANDLE_D1_DURABLE_SQL_PERSIST_AUTHORISED", "true")
+    w = dsw.build_d1_durable_sql_writer_from_env()
+    assert isinstance(w, dsw.DurableSqlWriter)
+    assert w.table == sqlc.TABLE_D1
+    assert w.source_guard is dsw._d1_source_guard
+
+
+def test_h4_boot_factory_never_wires_a_source_guard(monkeypatch):
+    monkeypatch.setenv("HERMES_CANDLE_H4_DURABLE_SQL_PERSIST_ENABLED", "true")
+    monkeypatch.setenv("HERMES_CANDLE_H4_DURABLE_SQL_PERSIST_AUTHORISED", "true")
+    w = dsw.build_h4_durable_sql_writer_from_env()
+    assert isinstance(w, dsw.DurableSqlWriter)
+    assert w.table == sqlc.TABLE_H4
+    assert w.source_guard is None

@@ -293,8 +293,13 @@ class CanonicalH4Producer:
             history = self._forward_history(env)            # ONLY complete 4/4 enters history
         else:
             self.metrics["h4_published_incomplete"] += 1    # honest SOURCE_INCOMPLETE (never OK)
-        d1 = self._offer_to_d1(env)                         # EACH sealed H4 offered to the D1 producer
+        # Architect review correction: H4's OWN durable-SQL persistence is attempted BEFORE this H4 is
+        # offered to the D1 producer. Durable D1 must never get ahead of durable H4 truth — ordering this
+        # H4's durable write first (on top of D1's own explicit source-completeness guard in
+        # candle_durable_sql_writer_v1._d1_source_guard, which is the real closer of the race) means that
+        # by the time D1 looks, this H4's durable attempt has already happened.
         durable = self._forward_durable_sql(env)            # ONLY complete OK enters the durable SQL authority
+        d1 = self._offer_to_d1(env)                         # EACH sealed H4 offered to the D1 producer
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
                 "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch,

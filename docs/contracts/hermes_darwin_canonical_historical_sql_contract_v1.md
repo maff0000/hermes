@@ -62,8 +62,8 @@ the governed derivation (see §7) via both a one-time historical backfill and th
 | `source_coverage` | DECIMAL(5,4) | Always `1.0000` for every exposed row (an incomplete window is never exposed) |
 | `gap_state` | VARCHAR(24) | Always `NONE` for every exposed row |
 | `derivation_run_id` | VARCHAR(64) | Provenance only (which process/run produced the row) — **never part of identity or the idempotency fingerprint** |
-| `derivation_generated_at_utc` | DATETIME(3) | When the row was produced (best-available marker for the direct M1/M5/H1 views: the source row's own `created_at`; **`candles_M15` has no `created_at` column**, so this view uses the candle's own `open_time` instead — the honest best-available marker, documented here rather than silently defaulted) |
-| `created_at` | TIMESTAMP / DATETIME(3) | Row creation marker (same M15 caveat as above) |
+| `derivation_generated_at_utc` | DATETIME(3), nullable | When the row was produced (the direct M1/M5/H1 views use the source row's own `created_at`; **`candles_M15` has no `created_at` column**, so this field is honestly `NULL` for every M15 row — HERMES genuinely does not know when that row was generated/inserted, and this is never fabricated from the candle's own market-open time, which is a different fact) |
+| `created_at` | TIMESTAMP / DATETIME(3), nullable | Row creation marker (same M15 caveat as above — `NULL` for every M15 row) |
 
 `id` (the per-table surrogate key) is available on each individual per-timeframe object but is **intentionally
 omitted from the unified `canonical_candles` view** — it is table-local, not globally unique across the
@@ -92,6 +92,14 @@ anywhere in this contract.
 - A row enters `canonical_candles_h4`/`canonical_candles_d1` **only** when its full expected child set
   (4/4 H1 for H4; 6/6 H4 for D1) is genuinely present and status `OK`. A short/gapped window is counted and
   reported by the backfill tooling but **never stored, never fabricated, never interpolated**.
+- **Durable D1 can never get ahead of durable H4.** Before any row is written to `canonical_candles_d1`,
+  `candle_durable_sql_contract_v1.d1_durable_h4_source_complete()` verifies all 6 of its expected H4
+  children already exist as status-`OK` rows in `canonical_candles_h4` (reusing the existing governed
+  `candle_d1_derivation_v1.d1_child_h4_opens()` selector). A D1 candidate whose durable H4 source set is
+  not yet complete — including if an individual H4 durable write is still pending, failed, or conflicted —
+  is refused (`status: "refused"`, `reason: "DURABLE_SOURCE_INCOMPLETE"`), never persisted early. This
+  applies to the live writer only; the D1 historical backfill reads its source directly from
+  `canonical_candles_h4` and is unaffected (its source is, by construction, already fully backfilled).
 - Historical backfill: `utils/candle_h4_durable_sql_backfill_v1.py` (H4, full trustworthy H1 range, no
   arbitrary depth cap) and `utils/candle_d1_durable_sql_backfill_v1.py` (D1, full range the canonical H4
   table supports). Both dark/dry-run-by-default, idempotent (`match` on identical re-run), fail-loud on a
@@ -179,3 +187,14 @@ the grant template (credential itself is a runtime secret, never committed).
 This is contract **v1**. A future breaking change (column rename/removal, identity change, semantic change)
 requires a new versioned object set (e.g. `canonical_candles_v2`) — this document's existing objects are
 never silently redefined out from under a consumer once published.
+
+## 15. Operational visibility (HERMES `/health`)
+
+A durable-SQL persistence fault must never break HERMES's live market-data/candle publication (fault
+isolation is unconditional — see `utils/candle_durable_sql_writer_v1.py`), but it must not go silent
+either. HERMES's `/health` (this repository, not part of DARWIN's own contract) surfaces a `durable_sql`
+block with the H4 and D1 durable writers' live status (`enabled`, `attempted`, `written`, `match_skip`,
+`conflict_detected`, `connect_fail`, `write_fail`, `source_incomplete_refused`). A connect/write fault
+downgrades `health_state` to `RED` (the durable authority has stopped advancing); a genuine content
+conflict downgrades to `AMBER` (one bucket needs a human repair WO, the authority is still advancing); a
+routine `source_incomplete_refused` (the D1 guard above, working as designed) never downgrades health.

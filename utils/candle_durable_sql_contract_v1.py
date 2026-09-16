@@ -38,13 +38,18 @@ INSERT_COLUMNS = (
     "derivation_generated_at_utc",
 )
 
-# Fields that define genuine data identity/content. `derivation_run_id` and `derivation_generated_at_utc`
-# are PROVENANCE (which run/process produced the row) and are intentionally EXCLUDED: re-running a backfill
-# after the live writer already persisted the same candle (or vice versa) must be recognised as the SAME
-# genuine candle (match/skip), never a false conflict, provided the actual market data agrees.
+# Fields that define genuine data identity/content — INCLUDING the governed semantics under which the
+# candle was produced (`derivation_policy`, `source_policy_epoch`): a row with the same OHLCV but a
+# DIFFERENT derivation policy or source policy epoch is NOT the same canonical fact and must be a
+# `conflict`, never a silent `match` (Architect review correction, WO-HELM-HERMES-DEV-DARWIN-DURABLE-
+# CANONICAL-HISTORICAL-AUTHORITY-0001). `derivation_run_id` and `derivation_generated_at_utc` are true
+# EXECUTION PROVENANCE (which run/process produced the row, and when) and remain intentionally EXCLUDED:
+# re-running a backfill after the live writer already persisted the same candle under the SAME policy (or
+# vice versa) must still be recognised as the SAME genuine candle (match/skip), never a false conflict.
 _FINGERPRINT_FIELDS = (
     "instrument", "timeframe", "open_time", "open", "high", "low", "close", "volume", "is_closed",
-    "status", "source_timeframe", "source_count", "expected_source_count", "source_coverage", "gap_state",
+    "status", "source_timeframe", "derivation_policy", "source_policy_epoch",
+    "source_count", "expected_source_count", "source_coverage", "gap_state",
 )
 
 _UTC_MS = "%Y-%m-%dT%H:%M:%S.%f"
@@ -155,11 +160,36 @@ def insert_row(cursor, table, row):
 
 
 def upsert_new_only(cursor, table, row):
-    """Returns 'inserted' | 'match' | 'conflict'. NEVER overwrites an existing row (no UPDATE statement
-    exists anywhere in this module). A 'conflict' performs no write and leaves the existing row untouched;
-    whether that classification raises or is fault-isolated is entirely the caller's responsibility."""
+    """Returns 'new' (freshly inserted) | 'match' | 'conflict'. NEVER overwrites an existing row (no
+    UPDATE statement exists anywhere in this module). A 'conflict' performs no write and leaves the
+    existing row untouched; whether that classification raises or is fault-isolated is entirely the
+    caller's responsibility."""
     existing = fetch_existing(cursor, table, row["instrument"], row["timeframe"], row["open_time"])
     status = classify_against_existing(existing, row)
     if status == "new":
         insert_row(cursor, table, row)
     return status
+
+
+def d1_durable_h4_source_complete(cursor, instrument, d1_open_time):
+    """Architect review correction (WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001):
+    verify all 6 expected canonical durable H4 children genuinely exist as status-OK rows in
+    `canonical_candles_h4` for the D1 bucket opening at `d1_open_time`, BEFORE a D1 row is allowed to enter
+    `canonical_candles_d1`. Reuses the EXISTING governed D1 child-open selector
+    (`candle_d1_derivation_v1.d1_child_h4_opens`) — never a second 'what counts as this D1's children' rule.
+    A live D1 seal can otherwise be offered a freshly-derived (transient) H4 envelope and durably persist
+    D1 truth before — or even if — the corresponding H4 durable row never lands (a durable-SQL fault,
+    conflict, or simple race). This guard closes that: durable D1 must never get ahead of durable H4 truth.
+    `d1_open_time` may be naive or aware UTC (matches the DB's naive convention either way)."""
+    from utils import candle_d1_derivation_v1 as d1d
+    from utils import candle_contract_v1 as cc
+    aware = d1_open_time if getattr(d1_open_time, "tzinfo", None) is not None \
+        else d1_open_time.replace(tzinfo=timezone.utc)
+    expected_opens = [cc.normalise_utc(o).replace(tzinfo=None) for o in d1d.d1_child_h4_opens(aware)]
+    placeholders = ",".join(["%s"] * len(expected_opens))
+    cursor.execute(
+        f"SELECT COUNT(*) FROM {TABLE_H4} WHERE instrument=%s AND timeframe='H4' AND status='OK' "
+        f"AND open_time IN ({placeholders})",
+        (instrument, *expected_opens))
+    (count,) = cursor.fetchone()
+    return count == d1d.D1_EXPECTED_CHILDREN

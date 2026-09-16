@@ -52,14 +52,21 @@ class DurableSqlWriter:
     """Live durable-SQL persistence for ONE governed timeframe (H4 or D1). `conn_factory` is a no-arg
     callable returning a new DB-API connection (injectable for tests; defaults to the real MariaDB)."""
 
-    def __init__(self, *, table, run_id_marker, conn_factory=_real_conn_factory):
+    def __init__(self, *, table, run_id_marker, conn_factory=_real_conn_factory, source_guard=None):
         sqlc.assert_known_table(table)
         self.table = table
         self.run_id_marker = run_id_marker
         self.conn_factory = conn_factory
+        # Architect review correction: optional `(cursor, row) -> bool` guard, checked BEFORE any write,
+        # on the SAME connection/cursor as the write itself (so the check and the write are atomic w.r.t.
+        # any concurrent writer). None (default, used for H4 — it has no durable prerequisite) -> always
+        # allowed. D1's writer is built with a guard that verifies its 6 canonical durable H4 children
+        # genuinely exist as status-OK rows FIRST — durable D1 must never get ahead of durable H4 truth.
+        self.source_guard = source_guard
         self.enabled = True
         self.metrics = {"attempted": 0, "written": 0, "match_skip": 0, "conflict_detected": 0,
-                        "connect_fail": 0, "write_fail": 0, "not_ok_skipped": 0}
+                        "connect_fail": 0, "write_fail": 0, "not_ok_skipped": 0,
+                        "source_incomplete_refused": 0}
 
     def on_sealed(self, env):
         """Offer a freshly-sealed candle envelope. Returns a report dict; NEVER raises."""
@@ -78,12 +85,16 @@ class DurableSqlWriter:
             self.metrics["connect_fail"] += 1
             return {"attempted": True, "wrote": False, "reason": "DB_CONNECT_FAIL", "error": repr(exc)[:200]}
         status = None
+        refused = False
         try:
             cur = conn.cursor()
             try:
-                status = sqlc.upsert_new_only(cur, self.table, row)   # 'new' | 'match' | 'conflict'
-                if status == "new":
-                    conn.commit()
+                if self.source_guard is not None and not self.source_guard(cur, row):
+                    refused = True
+                else:
+                    status = sqlc.upsert_new_only(cur, self.table, row)   # 'new' | 'match' | 'conflict'
+                    if status == "new":
+                        conn.commit()
             finally:
                 cur.close()
         except Exception as exc:  # noqa: BLE001 - write fault visible via metrics, never raised
@@ -98,6 +109,10 @@ class DurableSqlWriter:
                 conn.close()
             except Exception:  # noqa: BLE001
                 pass
+        if refused:
+            self.metrics["source_incomplete_refused"] += 1
+            return {"attempted": True, "wrote": False, "status": "refused",
+                    "reason": "DURABLE_SOURCE_INCOMPLETE"}
         if status == "new":
             self.metrics["written"] += 1
             return {"attempted": True, "wrote": True, "status": "inserted", "table": self.table}
@@ -144,4 +159,11 @@ def build_d1_durable_sql_writer_from_env():
     if not get_env_bool(D1_PERSIST_AUTHORISED_ENV, False):
         raise ValueError(f"GOV-CANDLE-DURABLE-SQL-011: {D1_PERSIST_ENABLED_ENV}=true requires "
                          f"{D1_PERSIST_AUTHORISED_ENV}=true (refusing durable persistence without authorisation)")
-    return DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker=D1_RUN_MARKER)
+    return DurableSqlWriter(table=sqlc.TABLE_D1, run_id_marker=D1_RUN_MARKER, source_guard=_d1_source_guard)
+
+
+def _d1_source_guard(cursor, row):
+    """Architect review correction: D1 durable persistence must never get ahead of durable H4 truth.
+    Reuses `candle_durable_sql_contract_v1.d1_durable_h4_source_complete` — the ONE 'are this D1's 6 H4
+    children durably present' rule, never duplicated."""
+    return sqlc.d1_durable_h4_source_complete(cursor, row["instrument"], row["open_time"])
