@@ -45,6 +45,16 @@ ADX_PERIOD = 14
 ADX_MIN_DEPTH = 2 * ADX_PERIOD + 1                   # 29
 BOLLINGER_PERIOD = 20
 EMA_LONG_PERIOD = 50
+# WO-HELM-HERMES-FAST-TRACK-HELIOS-INDICATOR-CONTRACT-COMPLETION-0001: HELIOS canonical indicator surface adds
+# ema_9 / ema_21 (fit within the existing INDICATOR_WINDOW=60 read, same as ema_12/26/50) and ema_200, which does
+# not. EMA_TREND_WINDOW follows the SAME period+10 convergence-buffer convention already used for EMA_LONG_PERIOD
+# (50 -> 60). The deeper read is a strict superset of INDICATOR_WINDOW candles (same newest-first source), so the
+# last INDICATOR_WINDOW closes sliced from it are byte-identical to the existing 60-candle read — ema_12/26/50,
+# rsi_14, atr_14, bollinger, adx are computed from that identical slice and are UNCHANGED.
+EMA_SHORT_FAST_PERIOD = 9
+EMA_SHORT_SLOW_PERIOD = 21
+EMA_TREND_PERIOD = 200
+EMA_TREND_WINDOW = 210
 SESSION_PRIORITY = ("overlap_ldn_ny", "london", "newyork", "asia", "off_hours")
 
 
@@ -95,8 +105,25 @@ def _freshness(client, tf):
     raw = client.get(f"hermes:candles:{INST}:{tf}:latest:v1")
     if not raw:
         return "UNKNOWN"
-    st = json.loads(raw).get("status")
-    return "FRESH" if st == "OK" else st
+    env = json.loads(raw)
+    st = env.get("status")
+    if st != "OK":
+        return st
+    # WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-AND-HEALTH-FRESHNESS-TRUTH-0001: a stored status=OK does not
+    # by itself mean the candle is still within its own governed validity window — the incident this WO
+    # closes was exactly that (an H4 candle sitting well past its own valid_until_utc while every consumer
+    # kept reading its status field as "OK"/"FRESH"). Compare the existing valid_until_utc (already emitted
+    # by every candle envelope; no new field) against wall-clock now. No invented grace period: this IS the
+    # contract's own governed validity boundary.
+    vu = env.get("valid_until_utc")
+    if vu:
+        try:
+            vu_dt = datetime.datetime.strptime(vu[:-1], cc._UTC_MS).replace(tzinfo=UTC)
+        except (ValueError, TypeError):
+            return "FRESH"                      # unparseable valid_until_utc is not this check's concern
+        if _now() > vu_dt:
+            return "STALE_EXPIRED"
+    return "FRESH"
 
 
 def derive_publisher_status(freshness_map):
@@ -394,8 +421,14 @@ def control_plane_step(client):
 
 
 # =========================================================================== indicators
-def _compute_indicators(candles):
+def _compute_indicators(all_candles):
+    """`all_candles` may carry MORE than INDICATOR_WINDOW candles (to source EMA-200's deeper warm-up). Every
+    existing indicator is computed from the tail-sliced last INDICATOR_WINDOW candles ONLY — the identical
+    candle set a bare INDICATOR_WINDOW read would have produced — so their outputs are byte-for-byte unchanged
+    regardless of how much extra history the caller supplied. ema_200 alone reads the full supplied depth."""
+    candles = all_candles[-INDICATOR_WINDOW:]
     closes = [c["close"] for c in candles]
+    deep_closes = [c["close"] for c in all_candles]
     out = {}
     # ---- existing indicators (behaviour PRESERVED exactly) ----
     if len(closes) >= 12:
@@ -409,6 +442,12 @@ def _compute_indicators(candles):
     # ---- WO-...-INDICATOR-PUBLICATION-WIRING-0001: EMA50 + Bollinger(20,2) + ADX(+DI/-DI) ----
     # Extends the existing EMA calc set; reuses utils.indicators; explicit null when depth insufficient (never fabricated).
     out["ema_50"] = round(ind_compute.calculate_ema(closes, EMA_LONG_PERIOD), 6) if len(closes) >= EMA_LONG_PERIOD else None
+    # ---- WO-HELM-HERMES-FAST-TRACK-HELIOS-INDICATOR-CONTRACT-COMPLETION-0001: ema_9 / ema_21 / ema_200 ----
+    # ema_9 / ema_21 fit within the standard INDICATOR_WINDOW slice above (same convention as ema_12/26/50).
+    # ema_200 requires the deeper `all_candles` supply; explicit null (never fabricated) below EMA_TREND_PERIOD.
+    out["ema_9"] = round(ind_compute.calculate_ema(closes, EMA_SHORT_FAST_PERIOD), 6) if len(closes) >= EMA_SHORT_FAST_PERIOD else None
+    out["ema_21"] = round(ind_compute.calculate_ema(closes, EMA_SHORT_SLOW_PERIOD), 6) if len(closes) >= EMA_SHORT_SLOW_PERIOD else None
+    out["ema_200"] = round(ind_compute.calculate_ema(deep_closes, EMA_TREND_PERIOD), 6) if len(deep_closes) >= EMA_TREND_PERIOD else None
     # Bollinger Bands (20, 2) — reuse calculate_bollinger_bands; guard its current-price fabrication branch (< period).
     if len(closes) >= BOLLINGER_PERIOD:
         bb = ind_compute.calculate_bollinger_bands(closes, BOLLINGER_PERIOD, 2.0)
@@ -439,8 +478,10 @@ def indicator_step(client):
     if not pgate.decide(INST, "indicator", now=now).permitted:   # pilot preserved; expansion fail-closed
         return {"published": 0}
     for tf in LATEST_TFS + _d1_tf_if_ready(pub, client):   # D1 appended ONLY when authorised + depth>=min (dark default)
-        candles = _read_d1_history_validated(client, INDICATOR_WINDOW) if tf == D1_TF \
-            else _read_history(client, tf, INDICATOR_WINDOW)
+        # Read EMA_TREND_WINDOW (a strict superset of INDICATOR_WINDOW) so ema_200 can source its deeper warm-up;
+        # _compute_indicators tail-slices the standard family back down to INDICATOR_WINDOW candles (unchanged).
+        candles = _read_d1_history_validated(client, EMA_TREND_WINDOW) if tf == D1_TF \
+            else _read_history(client, tf, EMA_TREND_WINDOW)
         if len(candles) < 15:
             continue
         inds = _compute_indicators(candles)

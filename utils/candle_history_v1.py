@@ -66,6 +66,36 @@ def history_ttl_seconds():
     days->seconds conversion happens, so TTL and index-pruning cutoff can never drift apart."""
     return history_retention_days() * 86400
 
+
+# H4-specific COUNT-based retention (WO-HELM-HERMES-H4-CANONICAL-HISTORICAL-BOOTSTRAP-0001), mirroring the
+# precedent D1 already set (candle_d1_history_v1.D1_HISTORY_RETAIN_COUNT): H4 feeds indicator EMA-200
+# warm-up (EMA_TREND_WINDOW=210 in hermes_runtime_publisher_steps_v1), so the generic M1/M5/M15/H1
+# TIME-based retention (14 days ~= 84 H4 candles) would destroy bootstrapped/backfilled depth within about
+# a week. H4 gets its OWN count-based bound here; M1/M5/M15/H1 retention (history_ttl_seconds/
+# history_retention_cutoff_epoch above) is completely unchanged — this does not touch the generic policy.
+H4_HISTORY_RETAIN_COUNT = 250            # 210 (EMA-200 read window) + margin for restart/backfill safety
+H4_HISTORY_TTL_SECONDS = 120 * 86400     # generous per-candle TTL cap (same 120d convention as D1) — the
+                                          # COUNT-based index trim below is the real bound, not this TTL
+
+
+def history_ttl_seconds_for(timeframe):
+    """Per-timeframe history TTL. H4 uses its own generous count-retention-safe bound; every other
+    timeframe in the grid is UNCHANGED (returns the shared time-based history_ttl_seconds())."""
+    if timeframe == "H4":
+        return H4_HISTORY_TTL_SECONDS
+    return history_ttl_seconds()
+
+
+def h4_history_retention_trim_plan(index_member_count, keep=H4_HISTORY_RETAIN_COUNT):
+    """INERT count-based retention PLAN for the H4 index (H4 is bootstrapped/derived, not a simple rolling
+    window -> trim by COUNT, keep newest `keep`). Mirrors d1_history_retention_trim_plan's exact shape.
+    Returns the number of oldest members that WOULD be trimmed (ZREMRANGEBYRANK 0, n-1). No delete happens
+    here — the forward writer applies it on its own write path."""
+    n = max(0, int(index_member_count) - int(keep))
+    return {"operation": "ZREMRANGEBYRANK", "index_stub": "0..%d" % (n - 1) if n else "none",
+            "would_trim": n, "keep_newest": int(keep)}
+
+
 WRITE_MODE_HISTORY_INERT = "HISTORY_INERT_NO_WRITE"
 # History provenance field names — deliberately free of any forbidden interpretive token.
 _HISTORY_FIELDS = ("history_contract_version", "backfill_run_id", "backfill_inserted_at_utc",
@@ -173,7 +203,7 @@ def build_history_write_plan(envelope):
     assert_history_target(key)
     assert_history_target(idx)
     return {
-        "operation": "SET", "key": key, "value": envelope, "ttl_seconds": history_ttl_seconds(),
+        "operation": "SET", "key": key, "value": envelope, "ttl_seconds": history_ttl_seconds_for(tf),
         "index_key": idx, "index_score": open_epoch, "index_member": str(open_epoch),
         "idempotent": True, "write_mode": WRITE_MODE_HISTORY_INERT,
     }

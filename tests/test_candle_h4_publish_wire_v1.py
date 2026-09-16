@@ -55,11 +55,16 @@ def test_assert_canonical_key_rejects_xauusd_legacyD_unversioned_h4():
 
 
 # ---------------- producer: derive from 4 H1 children, publish H4 latest ----------------
+# WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: the H4 candle now seals the MOMENT its 4th genuine H1
+# child arrives — it must not wait for the next bucket's first H1 (the ~1h-later "rollover" this WO
+# replaces as the ONLY trigger). test_producer_publishes_complete_h4_on_roll below is updated in place
+# (same name kept — same product invariant: "4 real children -> exactly one OK publish" — the WHEN moved
+# from a 5th roll-over call to the 4th child itself).
 def test_producer_publishes_complete_h4_on_roll():
     r = FakeRedis(); p = _producer(r)
-    for hh in range(4):                                  # 02,03,04,05 -> bucket 02:00
+    for hh in range(3):                                  # 02,03,04 -> still incomplete (3/4)
         assert p.on_h1_close(_H1(_BO + timedelta(hours=hh)))["published"] is False
-    res = p.on_h1_close(_H1(_BO + timedelta(hours=4)))   # 06:00 opens next bucket -> seals 02:00
+    res = p.on_h1_close(_H1(_BO + timedelta(hours=3)))   # 05:00 -> the 4th genuine child completes the set
     assert res["published"] is True and res["status"] == "OK"
     assert res["key"] == "hermes:candles:XAU_USD:H4:latest:v1"
     assert res["source_count"] == 4 and res["source_coverage"] == 1.0
@@ -71,13 +76,18 @@ def test_producer_publishes_complete_h4_on_roll():
     assert env["provenance"]["source_timeframe"] == "H1"
     assert d["derivation_policy"] == cc.DERIVATION_POLICY_H4_FROM_H1
     assert p.metrics["h4_published_ok"] == 1
+    # the SAME bucket's rollover (next bucket's first H1) must not re-derive/re-publish/duplicate
+    r.sets.clear()
+    res2 = p.on_h1_close(_H1(_BO + timedelta(hours=4)))  # 06:00 opens the NEXT bucket
+    assert res2["reason"] == "ALREADY_SEALED"
+    assert r.sets == []                                  # no second write for the already-sealed bucket
+    assert p.metrics["h4_published_ok"] == 1             # unchanged — still exactly one OK publish
 
 
 def test_published_h4_anchor_is_ny5pm():
     r = FakeRedis(); p = _producer(r)
-    for hh in range(4):
+    for hh in range(4):                                  # the 4th call (hh=3) completes and seals
         p.on_h1_close(_H1(_BO + timedelta(hours=hh)))
-    p.on_h1_close(_H1(_BO + timedelta(hours=4)))
     env = json.loads(r.store["hermes:candles:XAU_USD:H4:latest:v1"][0])
     # data.timestamp_utc open hour must be one of the ratified anchors
     hour = int(env["data"]["timestamp_utc"][11:13])
@@ -94,11 +104,14 @@ def test_incomplete_3of4_published_never_ok():
     assert p.metrics["h4_published_incomplete"] == 1
 
 
-def test_no_publish_until_bucket_rolls():
+def test_no_publish_until_4of4_complete():
+    # WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: replaces the old "nothing until rollover" invariant —
+    # the real invariant was always "nothing until the bucket is genuinely complete"; rollover was just the
+    # only trigger the old code checked for it. 1/4, 2/4, 3/4 must all still publish nothing.
     r = FakeRedis(); p = _producer(r)
-    for hh in range(4):
+    for hh in range(3):
         assert p.on_h1_close(_H1(_BO + timedelta(hours=hh)))["published"] is False
-    assert r.sets == []                                  # nothing written until the next bucket starts
+    assert r.sets == []                                  # nothing written while genuinely incomplete
 
 
 # ---------------- guards / scope ----------------
@@ -119,9 +132,8 @@ def test_non_allowlisted_instrument_skipped():
 
 def test_xauusd_alias_canonicalised_publishes_xau_key():
     r = FakeRedis(); p = _producer(r, allowed=("XAU_USD",))
-    for hh in range(4):
-        p.on_h1_close(_H1(_BO + timedelta(hours=hh), instrument="XAUUSD"))
-    res = p.on_h1_close(_H1(_BO + timedelta(hours=4), instrument="XAUUSD"))
+    results = [p.on_h1_close(_H1(_BO + timedelta(hours=hh), instrument="XAUUSD")) for hh in range(4)]
+    res = results[-1]                                    # the 4th child completes and seals
     assert res["published"] is True and res["key"] == "hermes:candles:XAU_USD:H4:latest:v1"
     assert all("XAUUSD" not in k for k in r.store)
 

@@ -195,19 +195,23 @@ def test_fixed_h4_grid_no_dst():
 
 # ============================ RESTART-SPANNING scenario (test 13) ============================
 def test_restart_spanning_h4_then_live_rollover_seals_complete_and_feeds_d1():
-    # boot mid-bucket after 2 H1 already exist -> hydrate 2/4; live next two H1 close -> 4/4;
-    # next bucket's first H1 triggers a GENUINE live rollover seal -> complete OK H4 offered to D1.
+    # WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: the H4 candle now seals the moment its 4th genuine
+    # H1 child arrives, not on the next bucket's rollover — boot mid-bucket after 2 H1 already exist ->
+    # hydrate 2/4; the live 4th child (05:00) completes and seals immediately, no rollover needed.
     d1 = _StubD1()
     client = FakeRedis()
     p = _producer(client=client, d1_producer=d1)
     hr = p.hydrate([_H1(_H4O), _H1(_H4O + timedelta(hours=1))], now=_NOW)   # 02:00, 03:00
     assert hr["buffer_length"] == 2 and not client.sets                     # hydration wrote NOTHING
-    p.on_h1_close(_H1(_H4O + timedelta(hours=2)))                           # live 04:00
-    p.on_h1_close(_H1(_H4O + timedelta(hours=3)))                           # live 05:00
-    res = p.on_h1_close(_H1(_H4O + timedelta(hours=4)))                     # 06:00 -> next bucket -> seal 02:00
+    p.on_h1_close(_H1(_H4O + timedelta(hours=2)))                           # live 04:00 -> 3/4, still buffered
+    res = p.on_h1_close(_H1(_H4O + timedelta(hours=3)))                     # live 05:00 -> 4/4 -> seals NOW
     assert res["published"] is True and res["status"] == "OK" and res["source_count"] == 4
-    assert len(client.sets) == 1                                            # the live seal is the ONLY write
+    assert len(client.sets) == 1                                            # the completion seal is the ONLY write
     assert d1.received and d1.received[-1] == {"status": "OK", "source_count": 4}   # complete OK H4 -> D1
+    # the next bucket's rollover (the OLD sole trigger) must be a safe no-op now, never a second publish
+    res2 = p.on_h1_close(_H1(_H4O + timedelta(hours=4)))                    # 06:00 -> next bucket
+    assert res2["reason"] == "ALREADY_SEALED"
+    assert len(client.sets) == 1                                            # still exactly one write
 
 
 # ============================ warmstart_h4_from_env — gate + source ============================

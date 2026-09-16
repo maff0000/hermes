@@ -122,8 +122,15 @@ class _SealedH4View:
 
 
 class CanonicalH4Producer:
-    """Live derived-H4 producer. Feed it completed H1 candles via `on_h1_close`; it seals a bucket when
-    the next bucket's first H1 arrives (so the published H4 is always the most recently CLOSED bucket)."""
+    """Live derived-H4 producer. Feed it completed H1 candles via `on_h1_close`; it seals a bucket the
+    moment its 4th genuine H1 child arrives (WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001 — a completed
+    H4 candle must be publishable as soon as its data is genuinely complete, not ~1h later when the next
+    bucket's first H1 happens to arrive). The rollover check is PRESERVED as a fallback: if a bucket never
+    reaches 4/4 (a genuine gap) it still seals — honestly incomplete — the moment the next bucket starts,
+    exactly as before. `_sealed_bucket_epoch` guards both paths against re-deriving/re-publishing the same
+    bucket twice in one process lifetime (duplicate H1 close, or a rollover check arriving after completion
+    already sealed it) — without it, re-deriving from an already-emptied buffer would silently downgrade an
+    already-published complete candle to a bogus empty one."""
 
     def __init__(self, writer, allowed_instruments, history_forward_writer=None, d1_producer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
@@ -152,9 +159,17 @@ class CanonicalH4Producer:
                         "h4_warmstart_children_rejected": 0}
         self._buf = {}        # instrument -> {bucket_open_epoch: [h1_candle, ...]}
         self._current = {}    # instrument -> current (open) bucket_open_epoch
+        self._sealed_bucket_epoch = {}   # instrument -> most recently sealed bucket_epoch (idempotency guard)
 
     def on_h1_close(self, h1_candle, **_):
-        """Process a completed H1 candle. Returns a dict describing whether a prior bucket was published."""
+        """Process a completed H1 candle. Returns a dict describing whether a bucket was published.
+        WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: seals the bucket the H1 candle belongs to
+        IMMEDIATELY once that bucket holds its full 4/4 expected children — it no longer waits for the
+        next bucket's first H1 to arrive to discover completeness. The rollover check below is PRESERVED
+        unchanged as the fallback for a bucket that never reaches 4/4 (a genuine gap): it still seals,
+        honestly incomplete, the moment the next bucket starts. `_seal_and_publish` is idempotent per
+        bucket_epoch, so whichever path reaches a bucket first is authoritative and the other becomes a
+        safe no-op."""
         if h1_candle is None:
             return {"published": False, "reason": "NO_CANDLE"}
         if _tf_name(h1_candle) != h4d.H1_TIMEFRAME:        # only H1 drives H4
@@ -169,16 +184,24 @@ class CanonicalH4Producer:
         result = {"published": False, "reason": "BUFFERED", "bucket_open_epoch": bo_ep}
         if prev is not None and prev != bo_ep:
             result = self._seal_and_publish(inst, prev)     # a new bucket started -> seal+publish the previous
-        self._buf.setdefault(inst, {}).setdefault(bo_ep, []).append(h1_candle)
+        bucket = self._buf.setdefault(inst, {}).setdefault(bo_ep, [])
+        bucket.append(h1_candle)
         self._current[inst] = bo_ep
+        if len(bucket) >= h4d.H4_EXPECTED_CHILDREN:
+            result = self._seal_and_publish(inst, bo_ep)    # complete -> seal now, don't wait for rollover
         return result
 
     def hydrate(self, children, *, now, instrument="XAU_USD"):
         """WARM-START the in-memory H1 buffer for the CURRENT (unsealed) H4 block from already-existing H1
         children, so a restart mid-H4-bucket no longer loses the bucket's already-closed H1 children (the trap
-        that sealed the 2026-07-01 06:00 H4 at 2/4). PURE: seeds memory only — NO Redis I/O, NO publication (the
-        current bucket is sealed ONLY by a later LIVE roll-over via on_h1_close, never here). Deterministic +
-        IDEMPOTENT: REPLACES the current block buffer. Bounded by the 4-child block. Returns an R2D2 report."""
+        that sealed the 2026-07-01 06:00 H4 at 2/4). PURE: seeds memory only — NO Redis I/O, NO publication;
+        hydration itself never seals or publishes anything. What happens next (WO-HELM-HERMES-H4-COMPLETION-
+        DRIVEN-SEAL-0001): a subsequent LIVE H1 child may immediately seal the hydrated bucket the moment it
+        completes the genuine 4/4 set — no roll-over needed. Roll-over remains the fallback ONLY for a
+        bucket that never reaches 4/4 (a genuine gap): it still seals then, honestly incomplete. If hydration
+        alone already delivered the full 4/4, the bucket seals as soon as the next bucket's roll-over is
+        observed (the same existing roll-over path, since hydration never triggers a seal itself). Deterministic
+        + IDEMPOTENT: REPLACES the current block buffer. Bounded by the 4-child block. Returns an R2D2 report."""
         self.metrics["h4_warmstart_attempts"] += 1
         inst = seam.canonical_instrument(instrument)
         if inst not in self.allowed_instruments:
@@ -232,6 +255,14 @@ class CanonicalH4Producer:
         }
 
     def _seal_and_publish(self, instrument, bucket_epoch):
+        # WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001: idempotency guard. A bucket can now be reached
+        # twice in one process lifetime — completion-driven sealing on the 4th child, then a later rollover
+        # check for the same (now-emptied) bucket, or a duplicate/replayed H1 close. Without this guard the
+        # second call would pop an EMPTY buffer, derive a bogus 0-child envelope, and overwrite the genuine
+        # already-published candle. Once a bucket_epoch has been sealed (any status), it is never re-derived
+        # or re-published again by this producer instance.
+        if self._sealed_bucket_epoch.get(instrument) == bucket_epoch:
+            return {"published": False, "reason": "ALREADY_SEALED", "bucket_open_epoch": bucket_epoch}
         children = self._buf.get(instrument, {}).pop(bucket_epoch, [])
         self.metrics["h4_buckets_sealed"] += 1
         bo = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
@@ -244,6 +275,7 @@ class CanonicalH4Producer:
             self.metrics["h4_emit_fail"] += 1
             return {"published": False, "reason": "H4_EMIT_FAIL", "error": repr(exc),
                     "bucket_open_epoch": bucket_epoch}
+        self._sealed_bucket_epoch[instrument] = bucket_epoch
         d = env["data"]
         history = {"attempted": False, "reason": "H4_INCOMPLETE_NOT_HISTORY"}
         if env["status"] == "OK":

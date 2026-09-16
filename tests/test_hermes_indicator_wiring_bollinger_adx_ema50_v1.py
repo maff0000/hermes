@@ -124,8 +124,11 @@ def test_existing_indicators_unchanged():
 
 
 def test_no_forbidden_indicators_emitted():
+    # ema_200 was excluded here as out-of-scope for THIS wiring WO; it is now an in-scope HELIOS-required field
+    # wired by WO-HELM-HERMES-FAST-TRACK-HELIOS-INDICATOR-CONTRACT-COMPLETION-0001 — see
+    # tests/test_hermes_indicator_wiring_ema9_ema21_ema200_v1.py for its dedicated coverage.
     out = steps._compute_indicators(_candles(60))
-    for banned in ("ema_200", "macd", "vwap", "sweep"):
+    for banned in ("macd", "vwap", "sweep"):
         assert not any(banned in k for k in out), f"{banned} must not be emitted"
 
 
