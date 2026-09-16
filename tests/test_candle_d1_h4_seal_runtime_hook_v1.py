@@ -64,11 +64,17 @@ def _h4_producer(client, d1_producer=None, allowed=("XAU_USD",)):
 
 
 def _seal_one_h4(h4p, base=_D1O, instrument="XAU_USD"):
-    """Feed 4 H1 in the `base` H4 bucket + 1 H1 in the next bucket -> seals the `base` H4."""
-    last = None
-    for i in range(5):                      # 22,23,00,01 (base bucket) + 02 (next bucket triggers seal)
-        last = h4p.on_h1_close(_H1(base + timedelta(hours=i), instrument=instrument))
-    return last
+    """Feed 4 H1 in the `base` H4 bucket -> the 4th genuine child completes and seals the `base` H4
+    immediately (WO-HELM-HERMES-H4-COMPLETION-DRIVEN-SEAL-0001). A 5th H1 in the next bucket is still fed
+    afterward, exercising the (now no-op, idempotency-guarded) rollover path against the already-sealed
+    bucket — callers that only look at the returned result see the seal's own outcome, as before."""
+    seal_result = None
+    for i in range(4):                      # 22,23,00,01 -> the 4th (i=3) completes and seals
+        res = h4p.on_h1_close(_H1(base + timedelta(hours=i), instrument=instrument))
+        if i == 3:
+            seal_result = res
+    h4p.on_h1_close(_H1(base + timedelta(hours=4), instrument=instrument))   # next bucket -> no-op rollover
+    return seal_result
 
 
 def _feed_h1_hours(h4p, start, n, instrument="XAU_USD"):
