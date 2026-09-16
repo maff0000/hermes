@@ -46,6 +46,7 @@ from utils import hermes_control_plane_v1 as cp
 from utils.hermes_canonical_publisher_health_v1 import (
     canonical_publisher_health, worse_of as canon_worse_of,
 )
+from utils.hermes_durable_sql_health_v1 import durable_sql_health
 try:
     from utils.iris_client import send_alert, send_audit
 except ImportError:
@@ -1649,6 +1650,21 @@ async def health():
     _cp_block, _cp_downgrade = canonical_publisher_health(_hb_raw)
     snapshot["canonical_publisher"] = _cp_block
     health = canon_worse_of(snapshot.get("health_state", "RED"), _cp_downgrade)
+
+    # WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001 (Architect review correction):
+    # the durable canonical H4/D1 SQL authority is the LIVE half of the historical+live continuity
+    # guarantee — a connect/write failure there must be visibly degraded here, never silently GREEN while
+    # the durable historical surface has actually stopped advancing. A genuine conflict degrades to AMBER
+    # (needs repair, not an outage); disabled (dark-by-default) never downgrades.
+    _h4p = getattr(state, "candle_h4_producer", None)
+    _h4_dsw = getattr(_h4p, "durable_sql_writer", None) if _h4p is not None else None
+    _h4_durable_status = _h4_dsw.status() if _h4_dsw is not None else None
+    _d1p = getattr(_h4p, "d1_producer", None) if _h4p is not None else None
+    _d1_dsw = getattr(_d1p, "durable_sql_writer", None) if _d1p is not None else None
+    _d1_durable_status = _d1_dsw.status() if _d1_dsw is not None else None
+    _ds_block, _ds_downgrade = durable_sql_health(_h4_durable_status, _d1_durable_status)
+    snapshot["durable_sql"] = _ds_block
+    health = canon_worse_of(health, _ds_downgrade)
     snapshot["health_state"] = health
 
     # HTTP status reflects health truth

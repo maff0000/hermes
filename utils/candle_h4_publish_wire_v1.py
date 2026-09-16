@@ -132,7 +132,8 @@ class CanonicalH4Producer:
     already sealed it) — without it, re-deriving from an already-emptied buffer would silently downgrade an
     already-published complete candle to a bogus empty one."""
 
-    def __init__(self, writer, allowed_instruments, history_forward_writer=None, d1_producer=None):
+    def __init__(self, writer, allowed_instruments, history_forward_writer=None, d1_producer=None,
+                 durable_sql_writer=None):
         if not isinstance(writer, cp.SerializingCandleCanonicalWriter):
             raise ValueError("GOV-CANDLE-H4-WIRE-001: CanonicalH4Producer requires a SerializingCandleCanonicalWriter")
         allowed = frozenset(allowed_instruments or ())
@@ -148,6 +149,15 @@ class CanonicalH4Producer:
         # offered to it (it publishes a D1 latest only when a full 6xH4 day exists). A D1 fault is surfaced
         # and never breaks the H4 latest publish (already done) — H4 is authoritative.
         self.d1_producer = d1_producer
+        # WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001 — optional governed durable
+        # SQL writer. None (default) -> DisabledDurableSqlWriter is substituted (no-op, own gate). When
+        # attached + enabled, EACH complete sealed H4 (status OK) is persisted into the SAME durable
+        # canonical_candles_h4 table the historical backfill writes, closing the backfill/live seam for
+        # DARWIN. A durable-SQL fault is surfaced via its own metrics and NEVER breaks the H4 latest publish.
+        if durable_sql_writer is None:
+            from utils import candle_durable_sql_writer_v1 as dsw
+            durable_sql_writer = dsw.DisabledDurableSqlWriter()
+        self.durable_sql_writer = durable_sql_writer
         self.enabled = True
         self.metrics = {"h4_published_ok": 0, "h4_published_incomplete": 0, "h4_skipped_not_allowlisted": 0,
                         "h4_skipped_non_h1": 0, "h4_emit_fail": 0, "h4_buckets_sealed": 0,
@@ -283,11 +293,17 @@ class CanonicalH4Producer:
             history = self._forward_history(env)            # ONLY complete 4/4 enters history
         else:
             self.metrics["h4_published_incomplete"] += 1    # honest SOURCE_INCOMPLETE (never OK)
+        # Architect review correction: H4's OWN durable-SQL persistence is attempted BEFORE this H4 is
+        # offered to the D1 producer. Durable D1 must never get ahead of durable H4 truth — ordering this
+        # H4's durable write first (on top of D1's own explicit source-completeness guard in
+        # candle_durable_sql_writer_v1._d1_source_guard, which is the real closer of the race) means that
+        # by the time D1 looks, this H4's durable attempt has already happened.
+        durable = self._forward_durable_sql(env)            # ONLY complete OK enters the durable SQL authority
         d1 = self._offer_to_d1(env)                         # EACH sealed H4 offered to the D1 producer
         return {"published": True, "key": res["key"], "status": env["status"],
                 "source_count": d["source_count"], "source_coverage": d["source_coverage"],
                 "gap_state": d["gap_state"], "bucket_open_epoch": bucket_epoch,
-                "history_forward": history, "d1_hook": d1}
+                "history_forward": history, "d1_hook": d1, "durable_sql": durable}
 
     def _offer_to_d1(self, env):
         """Offer a freshly SEALED+published H4 to the governed D1 producer (each sealed H4 is offered; the D1
@@ -327,12 +343,29 @@ class CanonicalH4Producer:
             self.metrics["h4_history_forward_skipped"] += 1
         return {"attempted": True, **res}
 
+    def _forward_durable_sql(self, env):
+        """Persist a sealed complete H4 (status OK only) into the durable canonical_candles_h4 table —
+        the LIVE half of the backfill/live continuity guarantee. No-op unless an enabled writer is attached
+        (its own gate). Fault-isolated: NEVER raises, never blocks/undoes the H4 latest publish already
+        completed above."""
+        if env.get("status") != "OK":
+            return {"attempted": False, "reason": "H4_INCOMPLETE_NOT_DURABLE"}
+        dsw = self.durable_sql_writer
+        if dsw is None or not getattr(dsw, "enabled", False):
+            return {"attempted": False, "reason": "DURABLE_SQL_PERSIST_DISABLED"}
+        try:
+            return dsw.on_sealed(env)
+        except Exception as exc:  # noqa: BLE001 - belt-and-braces; DurableSqlWriter itself never raises
+            return {"attempted": True, "wrote": False, "reason": "DURABLE_SQL_UNEXPECTED_FAIL", "error": repr(exc)}
+
     def status(self):
         hw = self.history_forward_writer
         dp = self.d1_producer
+        dsw = self.durable_sql_writer
         return {"enabled": True,
                 "history_forward_enabled": bool(hw is not None and getattr(hw, "enabled", False)),
                 "d1_hook_enabled": bool(dp is not None and getattr(dp, "enabled", False)),
+                "durable_sql_enabled": bool(dsw is not None and getattr(dsw, "enabled", False)),
                 **self.metrics}
 
 
@@ -373,5 +406,9 @@ def build_h4_producer_from_env():
     # Enabling D1 without authorisation / allowlist / source=H4 FAILS LOUD via build_d1_producer_from_env.
     from utils import candle_d1_publish_wire_v1 as d1w   # lazy; only on the H4 canonical path
     d1_producer = d1w.build_d1_producer_from_env()
+    # Governed durable SQL writer: default DISABLED (own gate HERMES_CANDLE_H4_DURABLE_SQL_PERSIST_*).
+    # WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001 — closes the backfill/live seam.
+    from utils import candle_durable_sql_writer_v1 as dsw   # lazy; only on the H4 canonical path
+    durable_sql_writer = dsw.build_h4_durable_sql_writer_from_env()
     return CanonicalH4Producer(writer, allowed_instruments=allowed, history_forward_writer=history_writer,
-                               d1_producer=d1_producer)
+                               d1_producer=d1_producer, durable_sql_writer=durable_sql_writer)

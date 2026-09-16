@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import utils.candle_h4_publish_wire_v1 as wire
 import utils.candle_publisher_v1 as cp
 import utils.candle_contract_v1 as cc
+import utils.candle_durable_sql_writer_v1 as dsw
 
 UTC = timezone.utc
 _BO = datetime(2026, 6, 2, 2, 0, tzinfo=UTC)        # an H4 bucket open (02:00 UTC)
@@ -30,9 +31,28 @@ def _cfg():
                                     redis_host="192.168.11.10", redis_port=6379, redis_db=0)
 
 
-def _producer(client=None, allowed=("XAU_USD",)):
+def _producer(client=None, allowed=("XAU_USD",), durable_sql_writer=None):
     w = cp.SerializingCandleCanonicalWriter(config=_cfg(), redis_client=client or FakeRedis())
-    return wire.CanonicalH4Producer(w, allowed_instruments=allowed)
+    return wire.CanonicalH4Producer(w, allowed_instruments=allowed, durable_sql_writer=durable_sql_writer)
+
+
+class _SpyDurableSqlWriter:
+    """Records every on_sealed offer; never touches a real DB."""
+    enabled = True
+
+    def __init__(self):
+        self.offered = []
+
+    def on_sealed(self, env):
+        self.offered.append(env)
+        return {"attempted": True, "wrote": True, "status": "inserted", "table": "canonical_candles_h4"}
+
+
+class _FailingDurableSqlWriter:
+    enabled = True
+
+    def on_sealed(self, env):
+        raise RuntimeError("simulated durable SQL fault")
 
 
 # ---------------- writer key grid: H4 accepted, forbidden rejected ----------------
@@ -163,6 +183,38 @@ def test_from_env_disabled_when_h4_flag_off(monkeypatch):
     monkeypatch.setenv("HERMES_CANDLE_FORWARD_SINK", "canonical")
     monkeypatch.delenv("HERMES_CANDLE_H4_PUBLISH_ENABLED", raising=False)   # H4 flag off
     assert isinstance(wire.build_h4_producer_from_env(), wire.DisabledH4Producer)
+
+
+# ---------------- WO-HELM-HERMES-DEV-DARWIN-DURABLE-CANONICAL-HISTORICAL-AUTHORITY-0001: durable SQL hook ----------------
+def test_durable_sql_writer_offered_only_on_complete_ok_seal():
+    r = FakeRedis(); spy = _SpyDurableSqlWriter(); p = _producer(r, durable_sql_writer=spy)
+    for hh in range(4):
+        p.on_h1_close(_H1(_BO + timedelta(hours=hh)))       # 4th child completes and seals OK
+    assert len(spy.offered) == 1
+    assert spy.offered[0]["status"] == "OK"
+    assert spy.offered[0]["data"]["timeframe"] == "H4"
+
+
+def test_durable_sql_writer_not_offered_for_incomplete_seal():
+    r = FakeRedis(); spy = _SpyDurableSqlWriter(); p = _producer(r, durable_sql_writer=spy)
+    for hh in range(3):
+        p.on_h1_close(_H1(_BO + timedelta(hours=hh)))
+    p.on_h1_close(_H1(_BO + timedelta(hours=4)))            # seals the 3/4 bucket as SOURCE_INCOMPLETE
+    assert spy.offered == []                                # incomplete windows never enter the durable authority
+
+
+def test_durable_sql_fault_never_breaks_h4_latest_publish():
+    r = FakeRedis(); p = _producer(r, durable_sql_writer=_FailingDurableSqlWriter())
+    for hh in range(4):
+        res = p.on_h1_close(_H1(_BO + timedelta(hours=hh)))
+    assert res["published"] is True and res["status"] == "OK"     # H4 latest publish unaffected
+    assert res["durable_sql"]["reason"] == "DURABLE_SQL_UNEXPECTED_FAIL"
+    assert "hermes:candles:XAU_USD:H4:latest:v1" in r.store         # the Redis write genuinely happened
+
+
+def test_default_durable_sql_writer_is_disabled_noop():
+    p = _producer()      # no durable_sql_writer passed -> DisabledDurableSqlWriter substituted
+    assert p.durable_sql_writer.enabled is False
 
 
 def test_no_sql_no_stale_table_no_m15_no_regime_in_code():
