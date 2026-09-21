@@ -34,3 +34,13 @@ pytz==2025.2
 # byte-for-byte artifact determinism, empirically verified across separate process invocations
 # with different PYTHONHASHSEED values). Not consumed by any other module in this repository.
 pyarrow==17.0.0
+
+# HMT-2B (Governed GC MBP-1 Historical Research Corpus — provider foundation): the Databento
+# Python SDK, consumed by exactly one module, market_truth/acquisition/providers/
+# databento_historical.py (statically enforced — tests/hmt2/test_no_network_guard.py), for
+# free/metadata-only calls ONLY (symbology.resolve, metadata.get_cost/get_record_count/
+# get_billable_size). No bulk historical-data download and no live-streaming client are
+# implemented anywhere in this repository — see that module's docstring. Zero-spend: installing
+# this package makes zero API calls; it is only ever invoked with a real credential outside CI.
+databento==0.42.0
+
