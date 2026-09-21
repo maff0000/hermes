@@ -279,3 +279,93 @@ rather than redrawable candidates.
 | Manifest schema | `hmt2-corpus-selection-manifest-v1` |
 | Corpus | `hmt2-corpus-v1` |
 | Base SHA this checkpoint was built from | `03d700a463ada61d472c64ad52265d09d82c60ea` |
+| Scheduled-event snapshot (checkpoint HMT-2B.1) | `hmt2-scheduled-macro-event-snapshot-v2` |
+
+## 9. Addendum — HMT-2B.1: scheduled-macro-event snapshot v2 (coverage completion)
+
+**Status: zero real market-data acquisition, zero spend, zero live provider API calls in
+this checkpoint either.** This addendum records completion of the scheduled-macro-event
+reference snapshot's honestly-disclosed partial coverage from §3 above. The v1 file
+(`research/hmt2/scheduled-macro-event-snapshot-v1.json`) is untouched and remains frozen,
+immutable evidence — it is not edited, superseded in place, or deleted. A new file,
+`research/hmt2/scheduled-macro-event-snapshot-v2.json`, extends it.
+
+### 9.1 What changed
+
+File: `research/hmt2/scheduled-macro-event-snapshot-v2.json`
+Version: `hmt2-scheduled-macro-event-snapshot-v2`
+Event taxonomy version: `hmt2-event-taxonomy-v1` (unchanged — the per-record schema shape is
+identical to v1; only the data coverage changed, so the taxonomy version was not bumped)
+
+Every one of v1's 125 records is carried forward into v2 **byte-identical** (verified
+programmatically — see `tests/hmt2/test_event_snapshot_v2.py::test_v2_carries_forward_every_v1_record_unchanged`).
+The following dates were added, each sourced and retrieved as stated (retrieval timestamp
+`2026-09-21T00:00:00Z` used as a representative batch timestamp for all additions below):
+
+| Event class | Added | v1 count | v2 total | New source |
+|---|---|---|---|---|
+| `FOMC_DECISION` | 6 (2026: Jan 28, Mar 18, Apr 29, Jun 17, Jul 29, Sep 16) | 69 | **75** | federalreserve.gov/monetarypolicy/fomccalendars.htm |
+| `CPI_RELEASE` | 84 (2017-2023, 12/year) | 23 | **107** | bls.gov/schedule/{year}/home.htm |
+| `EMPLOYMENT_SITUATION_NFP` | 84 (2017-2023, 12/year) | 23 | **107** | bls.gov/schedule/{year}/home.htm |
+| `PCE_RELEASE` | 104 (95 for 2017-2024 + 9 partial-2026) | 10 | **114** | bea.gov release-page headers (2017-2018), BEA annual SCB News Release Schedule spot-checked against individual release pages (2019-2024), BEA schedule-update announcements (2026 partial) |
+| **Grand total** | **278 added** | **125** | **403** | |
+
+`corpus_cutoff` in the v2 file's metadata is extended from v1's `2025-12-31` to `2026-09-18`
+to accommodate the new 2026-partial FOMC and PCE dates. `corpus_start` is unchanged at
+`2017-05-21`.
+
+### 9.2 Coverage, honestly disclosed per class (v2)
+
+- **`FOMC_DECISION`**: now **FULL** 2017-05-21 through 2026-09-18 (75 dates). No remaining
+  gap within the eligible universe; 2026-09-16 is the final regularly-scheduled meeting on
+  or before the cutoff.
+- **`CPI_RELEASE`**: now **FULL** 2017-01-01 through 2025-12-31 (107 dates). 2026 CPI dates
+  are intentionally out of scope for this snapshot — not attempted, not a disclosed gap
+  within the 2017-2025 target universe this checkpoint closes.
+- **`EMPLOYMENT_SITUATION_NFP`**: now **FULL** 2017-01-01 through 2025-12-31 (107 dates).
+  Same 2026-out-of-scope note as CPI.
+- **`PCE_RELEASE`**: now **FULL** 2017-01-01 through 2026-09-18 (114 dates), including 9
+  partial-2026 dates. The Aug-2026-reference-month release (2026-09-30) correctly falls
+  after the 2026-09-18 cutoff and is deliberately excluded.
+
+**No remaining gap for any of the four classes within each class's own eligible universe.**
+
+**Additional real-world anomaly disclosed in the v2 metadata:** beyond the Oct-Nov 2025
+shutdown effects already disclosed in v1, two further anomalies are recorded: (1) the same
+Oct-Nov 2025 shutdown pushed several 2026 PCE releases onto a compressed, roughly
+one-month-delayed cadence (the combined Oct+Nov 2025 PCE data were released 2026-01-22, and
+each subsequent 2026 release through the cutoff carries a `coverage_note` naming which
+reference-month's data it actually contains); (2) the earlier Dec-2018/Jan-2019 U.S. federal
+government shutdown caused BEA to combine the Dec-2018 and Jan-2019 reference-month PCE
+releases into a single release on 2019-03-01 (hence 2019 has 11 PCE dates rather than the
+normal 12).
+
+### 9.3 A judgment call on the eligible date-range floor — stated plainly
+
+The HMT-2B.1 verified-data brief for this checkpoint described the file's "eligible range"
+for testing purposes as `2017-05-21` (the trading corpus_start) through `2026-09-18`. Taken
+literally as a floor on every individual event-record date, this would be inconsistent with
+the same brief's own mandatory data: several of the newly-added 2017 CPI/NFP/PCE dates (e.g.
+`2017-01-06` NFP, `2017-01-18` CPI, `2017-01-30` PCE) fall before `2017-05-21`, and the brief
+separately mandates spot-check tests asserting exactly those dates are present. CPI/NFP/PCE
+are monthly-recurring macro releases unrelated to when the GC trading-session universe
+begins, so there is no principled reason to gate raw event-record dates at the trading
+corpus's start date. This checkpoint resolves the tension by keeping `corpus_start` in the
+v2 metadata unchanged at `2017-05-21` (it still describes the trading session universe, as
+in v1) while enforcing a separate, looser sanity floor of `2017-01-01` on individual
+event-record dates in both the generator script and its tests — the upper bound
+(`2026-09-18`) is enforced exactly as given. This is a disclosed engineering judgment call,
+not a silent deviation.
+
+### 9.4 Reproducibility
+
+`research/hmt2/generate_event_snapshot_v2.py` deterministically (re)produces the v2 file: it
+reads v1's records verbatim for carry-forward (removing any risk of a hand-transcription
+error) and combines them with the newly-verified dates above, then writes canonical
+`indent=2, sort_keys=True` JSON with a trailing newline, hashed the same way
+`market_truth/acquisition/corpus_manifest.py` hashes the HMT-2A selection manifest (SHA-256
+over `canonical_json({"metadata": <metadata without the hash field>, "records": [...]})`).
+Running it twice from the same repository state produces byte-identical output — verified
+directly in this checkpoint (`diff` of two consecutive runs) and exercised as a standing
+regression test
+(`tests/hmt2/test_event_snapshot_v2.py::test_generator_is_byte_reproducible`).
