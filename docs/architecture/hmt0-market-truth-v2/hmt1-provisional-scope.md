@@ -23,8 +23,11 @@ work order to actually build:
 - The provider adapter for the eventually-chosen GC data source (per `provider-abstraction.md`), behind
   the canonical-event boundary.
 - The canonical `MarketQuoteEvent` / `MarketTradeEvent` / `TopOfBookEvent` shapes (per
-  `canonical-market-events.md`) as real, concrete schema/code — contingent on the TBBO-vs-MBP-1 decision
-  being resolved first (`PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`).
+  `canonical-market-events.md`) as real, concrete schema/code, built against the now-ruled GC P0 native
+  source corpus — **MBP-1** (per `canonical-market-events.md` §3): `TopOfBookEvent` means a genuine
+  top-of-book state transition, which MBP-1 preserves and TBBO does not; empirical HMT-0 measurement
+  (`gc-data-volume-and-cost-study.md`) found MBP-1 storage/cost manageable; MBO remains out of scope. This
+  decision now being resolved does not itself authorise this work — see §3 below.
 - The GC actual-contract-identity representation (per `gc-futures-identity-and-roll.md`) — at minimum the
   raw/canonical identity discipline; continuous-series/roll derivation may be a later, separate lane
   within or after HMT-1.
@@ -63,7 +66,8 @@ as, that authorisation.
 
 Does not write a single line of implementation-relevant detail (no schema DDL, no code, no config). Does
 not commit to a start date, an assignee, or a work-order number for HMT-1. Does not resolve any of the
-`PENDING_EVIDENCE`/`PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`/
-`PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` markers elsewhere in this pack — HMT-1 authorisation and
-resolving those markers are related but distinct gates, and clearing one does not imply the other has
-been cleared.
+`PENDING_EVIDENCE`/`PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` markers elsewhere in this pack — HMT-1
+authorisation and resolving those markers are related but distinct gates, and clearing one does not imply
+the other has been cleared. (The GC P0 native-corpus choice — MBP-1, per `canonical-market-events.md` §3
+— is now resolved and is no longer one of these pending markers, but that resolution is itself a separate
+matter from HMT-1's own authorisation gate, addressed in §3 above.)
