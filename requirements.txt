@@ -28,3 +28,9 @@ requests==2.32.5
 oandapyV20==0.7.2
 pandas==2.1.4
 pytz==2025.2
+
+# HMT-1 (Market Truth v2 — Canonical Market Event & Replay Foundation): market_truth.partition's
+# pinned Parquet+Zstd research-partition writer/reader (WO §10/§12 — exact pin required for
+# byte-for-byte artifact determinism, empirically verified across separate process invocations
+# with different PYTHONHASHSEED values). Not consumed by any other module in this repository.
+pyarrow==17.0.0
