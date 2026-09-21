@@ -1,0 +1,21 @@
+{
+  "__synthetic__": true,
+  "__note__": "SYNTHETIC TEST EVIDENCE — HMT-1 governed contract mapping fixture. Not a real Databento/CME symbology table.",
+  "version": "hmt1-gc-contract-mapping-v1",
+  "mappings": [
+    {
+      "provider_symbol": "GCZ26",
+      "venue": "COMEX",
+      "product_root": "GC",
+      "delivery_year": 2026,
+      "delivery_month": 12
+    },
+    {
+      "provider_symbol": "GCM26",
+      "venue": "COMEX",
+      "product_root": "GC",
+      "delivery_year": 2026,
+      "delivery_month": 6
+    }
+  ]
+}
