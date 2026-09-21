@@ -34,11 +34,11 @@ established by `gc-futures-identity-and-roll.md`'s actual-contract identity), wi
 provenance sitting alongside it (not instead of it — the catalogue is metadata, the object store holds the
 actual columnar research data).
 
-This tier exists specifically because the P0 microstructure fact classes and the native GC corpus (TBBO
-or MBP-1, per the still-pending decision in `canonical-market-events.md` §3) represent a materially larger
-and differently-shaped dataset than anything the existing operational MariaDB/Redis tier was designed to
-hold at research-horizon depth. It is where deterministic replay (`deterministic-replay-and-evidence.md`)
-reads its inputs from for anything beyond the operational tier's live-state window.
+This tier exists specifically because the P0 microstructure fact classes and the native GC corpus — MBP-1
+(per `canonical-market-events.md` §3) — represent a materially larger and differently-shaped dataset than
+anything the existing operational MariaDB/Redis tier was designed to hold at research-horizon depth. It is
+where deterministic replay (`deterministic-replay-and-evidence.md`) reads its inputs from for anything
+beyond the operational tier's live-state window.
 
 ### 1.3 EVIDENCE VAULT
 

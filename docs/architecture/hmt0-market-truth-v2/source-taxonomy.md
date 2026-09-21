@@ -91,9 +91,12 @@ rather than silently resolved.
   cannot claim the strongest era's guarantee if any contributing input came from a weaker era.
 - **Provider:** Databento is the presumed acquisition channel referenced throughout this pack for GC P0
   data (per this pack's brief). No integration work, connection, or credential handling has been performed
-  by this pack — see `licensing-and-security.md` and `gc-data-volume-and-cost-study.md` for the explicit
-  `PENDING_EVIDENCE`/`PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` gates that must clear before any real
-  acquisition begins.
+  by this pack. HERMES's engineering capability to acquire this data is not licensing-gated — per Central
+  Architecture's ruling, licensing/commercial correspondence is external programme administration, not an
+  HMT-0 engineering/closure gate (see `licensing-and-security.md`). Actual acquisition remains subject to
+  whatever commercial arrangements the programme separately administers, and to HMT-1's own separate
+  implementation-authorisation gate (`hmt1-provisional-scope.md`), neither of which this taxonomy document
+  itself resolves.
 
 ## §2 — Exclusion, stated explicitly
 

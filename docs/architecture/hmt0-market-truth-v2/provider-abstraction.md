@@ -29,11 +29,10 @@ one.
 The key generalisation this document adds over the existing single-provider precedent: the existing
 OANDA adapter has never needed to prove it is swappable, because HERMES has only ever had one price
 provider. The GC programme's provider-abstraction boundary must be designed **assuming** a provider swap
-or a second concurrent provider is a real, foreseeable event (not a hypothetical) — because the
-licensing and cost gates in `licensing-and-security.md` and `gc-data-volume-and-cost-study.md` are
-themselves still open (`PENDING_EVIDENCE`/`PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION`), and an
-architecture that could not tolerate a provider decision changing later would be a genuine risk given
-that open-ness.
+or a second concurrent provider is a real, foreseeable event (not a hypothetical) — a provider change
+(commercial terms shifting, a better-suited vendor emerging, a service being discontinued) is a normal
+risk for any single-vendor market-data dependency, and an architecture that could not tolerate that
+decision changing later would be a genuine risk on that basis alone.
 
 ## §3 — What crosses the boundary, and what does not
 

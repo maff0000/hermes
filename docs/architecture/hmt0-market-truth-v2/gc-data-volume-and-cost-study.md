@@ -10,23 +10,26 @@ Databento measurement data could be dropped directly into the tables below witho
 document. That measurement has now landed (produced by Helm, delivered via Fabric, independently
 cross-validated by Rogue against the directive) and is populated below. Per this pack's binding evidence
 discipline, the original template rule still governs anything genuinely unmeasured: where real
-measurement data does not exist, this document uses the literal marker `PENDING_EVIDENCE` rather than an
-invented, plausible-sounding number. No number in this document beyond what is explicitly reported below
-should be read as a real estimate — several cells remain genuinely unmeasured and stay marked as such.
+measurement data does not exist, this document uses a marker rather than an invented, plausible-sounding
+number — either `PENDING_EVIDENCE` (a genuinely open question) or `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0`
+(a cell that was never required for HMT-0's own ruling, see §2.1/§2.2/§2.4 below). No number in this
+document beyond what is explicitly reported below should be read as a real estimate.
 
 ## §1 — What needed to be measured, and why (now measured)
 
 The single open decision this study existed to support was the TBBO-vs-MBP-1 native-corpus choice
 previously deferred in `canonical-market-events.md` §3 as `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`.
 That measurement now exists (§2 below) and Central Architecture has ruled on it: **the P0 native corpus
-is MBP-1** (see `canonical-market-events.md` §3 for the ruling and its rationale). That decision, in turn,
-is gated by the build-v-rent hybrid ruling (`licensing-and-security.md` §1): permanent retention of the
-native GC P0 source corpus requires empirical size/cost to genuinely support it, **in addition to**
-written licensing permission. This document supplies the size/cost half of that gate — the licensing half
-remains open (`licensing-and-security.md` §2, `PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`), and
-nothing in this document clears it.
+is MBP-1** (see `canonical-market-events.md` §3 for the ruling and its rationale). That decision was
+informed by the build-v-rent hybrid ruling (`licensing-and-security.md` §1): empirical size/cost
+genuinely supporting permanent retention was the engineering-relevant condition this document exists to
+supply evidence for, and it is now satisfied (§2 below). Per Central Architecture's separate ruling,
+licensing/commercial correspondence is external programme administration and does not gate HERMES's
+engineering capability — see `licensing-and-security.md` for the full restatement of that boundary. This
+document supplies the empirical size/cost evidence only; it does not, and need not, address licensing.
 
-## §2 — Measurement matrix (real data below; cells still genuinely unmeasured remain `PENDING_EVIDENCE`)
+## §2 — Measurement matrix (real data below; cells still genuinely unmeasured remain `PENDING_EVIDENCE`
+or, where non-gating, `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0`)
 
 **Measurement scope (applies to every populated cell in this section):** 120 verified GC outright futures
 contracts only (spreads excluded; methodology: `symbology.resolve` per-bucket outright/spread split,
@@ -39,28 +42,32 @@ The prior spread-inclusive full-history figures are retained, clearly labelled a
 
 | Feed level | 1 day (GC, all sessions) | 1 month | 1 year | Full available history (per era, §2.3) |
 |---|---|---|---|---|
-| Trades | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` |
-| TBBO | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | **422,689,297 records / 33,815,143,760 bytes (~33.815 GB)** — outright-only, measured, full interval above |
-| MBP-1 | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` | **4,324,008,111 records / 345,920,648,880 bytes (~345.921 GB)** — outright-only, measured, full interval above |
+| Trades | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` |
+| TBBO | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | **422,689,297 records / 33,815,143,760 bytes (~33.815 GB)** — outright-only, measured, full interval above |
+| MBP-1 | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | **4,324,008,111 records / 345,920,648,880 bytes (~345.921 GB)** — outright-only, measured, full interval above |
 
 Trades-level volume, and the 1-day/1-month/1-year horizons for every feed level, were not part of this
-measurement exercise and remain `PENDING_EVIDENCE` — do not infer them from the full-history figures
-above by division or any other estimation.
+measurement exercise. They are marked `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` rather than `PENDING_EVIDENCE`
+because they are planning-granularity data superseded by the full-history MBP-1 measurement that actually
+grounds the P0 corpus ruling — none of these cells were ever required for that ruling, only nice-to-have
+granularity. Do not infer them from the full-history figures above by division or any other estimation.
 
 ### 2.2 Acquisition cost, by feed level and horizon
 
 | Feed level | One-time historical backfill cost | Ongoing live-subscription cost (monthly) |
 |---|---|---|
-| Trades | `PENDING_EVIDENCE` | `PENDING_EVIDENCE` |
-| TBBO | **$881.798589** — outright-only, full interval above, quoted cost | `PENDING_EVIDENCE` |
-| MBP-1 | **$579.894677** — outright-only, full interval above, quoted cost | `PENDING_EVIDENCE` |
+| Trades | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` |
+| TBBO | **$881.798589** — outright-only, full interval above, quoted cost | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` |
+| MBP-1 | **$579.894677** — outright-only, full interval above, quoted cost | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` |
 
 Reconfirmed at outright-only precision: MBP-1 remains **cheaper in dollars** than TBBO ($579.89 vs
 $881.80) despite ~10.2x more records (4,324,008,111 vs 422,689,297 records). This cost-model quirk was
 also observed in the earlier, spread-inclusive study (§2.5) and is robust to the outright/spread
 distinction — it is not a spread-inclusion artifact. This document states the measured fact only and does
 not speculate about Databento's pricing mechanics beyond it. Ongoing live-subscription monthly cost was
-not part of this measurement and remains `PENDING_EVIDENCE`.
+not part of this measurement; it is marked `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` because it is
+planning-granularity data not required for the P0 corpus ruling, which rests on the one-time historical
+acquisition cost already measured above.
 
 ### 2.3 Volume/cost by historical provenance era
 
@@ -80,11 +87,12 @@ assumed uniform. Figures are outright-only; era sums equal the §2.1/§2.2 total
 statement):** the `MDP3_FROM_2017_05_21` era boundary is independently corroborated by Databento's own
 `mbo`/`cmbp-1`/`cbbo-*` schema-availability boundary (those schemas only exist from 2017-05-21 onward).
 The `PRE_2015_11_20_LEGACY` / `2015_11_20_TO_2017_05_20_LEGACY` boundary (2015-11-20) is **not**
-independently corroborated by any Databento-native quality flag observed in this study — it was taken as
-given per this program's own prior architecture ruling, not verified against Databento's own metadata.
-This volume/cost measurement does not itself confirm or deny per-record timestamp/provenance quality for
-any era — that is a separate, still-open question (`time-order-sequence-model.md` §3's
-`PRE_2015_11_20_LEGACY` `PENDING_EVIDENCE` cell, not resolved by this document).
+independently corroborated by any Databento-native schema-availability flag observed in this study — it
+corresponds instead to CME's own nanosecond-resolution timestamp introduction on that date (a
+resolution change, not a schema-availability change). This volume/cost measurement does not itself
+confirm or deny per-record timestamp/provenance quality for any era — that is a separate question, now
+resolved in `time-order-sequence-model.md` §3 (per Databento's official CME GLBX.MDP3 documentation), not
+re-derived by this document.
 
 ### 2.4 Storage-tier cost implications
 
@@ -93,9 +101,9 @@ infrastructure cost of holding the volumes in §2.1:
 
 | Tier | Storage medium (proposed) | Estimated cost | Status |
 |---|---|---|---|
-| OPERATIONAL TRUTH | existing MariaDB/Redis (bounded depth) | `PENDING_EVIDENCE` | unaffected by this measurement — bounded depth, not the full raw corpus |
-| MARKET RESEARCH STORE | object/file storage, Parquet/Zstd-partitioned | `PENDING_EVIDENCE` | raw corpus **volume** is now known (MBP-1 outright-only full history ≈ 345.9 GB, §2.1) but the storage-medium **$/GB infrastructure rate** was not part of this measurement and remains `PENDING_EVIDENCE` — this is distinct from, and must not be conflated with, the Databento acquisition cost in §2.2 |
-| EVIDENCE VAULT | immutable promoted subset only (small relative to §1.2) | `PENDING_EVIDENCE` | unaffected by this measurement — depends on volume of *promoted* facts, not raw corpus |
+| OPERATIONAL TRUTH | existing MariaDB/Redis (bounded depth) | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | not required for HMT-0 closure — this tier holds bounded live/current depth, not the full raw corpus this study measured, so its cost depends on future operational sizing decisions, not this document's evidence |
+| MARKET RESEARCH STORE | object/file storage, Parquet/Zstd-partitioned | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | raw corpus **volume** is now known (MBP-1 outright-only full history ≈ 345.9 GB, §2.1) but the storage-medium **$/GB infrastructure rate** was not part of this measurement and is not required for the P0 corpus ruling — this is distinct from, and must not be conflated with, the Databento acquisition cost in §2.2 |
+| EVIDENCE VAULT | immutable promoted subset only (small relative to §1.2) | `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` | not required for HMT-0 closure — depends on the volume of *promoted* facts, a future quantity unrelated to the raw corpus this study measured |
 
 ### 2.5 Outright-only vs. spread-inclusive comparison (prior figures — superseded, retained as historical/conservative evidence)
 
@@ -116,26 +124,31 @@ modest (not severe) overstatement of the true outright-only P0 corpus size/cost.
 ## §3 — Decision criteria (ruled — restated here for context, not re-derived)
 
 Per `licensing-and-security.md` §1 (Central Architecture's hybrid build-v-rent ruling, restated in full
-there, not re-litigated here): permanent retention of the native GC P0 source corpus requires **both**
-(1) empirical size/cost from this document actually supporting permanent retention, **and** (2) written
-licensing explicitly permitting it. **Condition (1) is now satisfied** — the measurement in §2 above
+there, not re-litigated here): permanent retention of the native GC P0 source corpus requires empirical
+size/cost to genuinely support it. **That condition is now satisfied** — the measurement in §2 above
 supports permanent retention (manageable ~345.9 GB storage; acquisition cost for MBP-1 is actually below
 TBBO's for the same complete history) — and Central Architecture's ruling in `canonical-market-events.md`
-§3 reflects that. **Condition (2) remains open** — see `licensing-and-security.md` §2
-(`PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`). This document supplies evidence only for condition
-(1); it does not, and cannot, satisfy condition (2).
+§3 reflects that. Per Central Architecture's separate ruling on licensing, licensing/commercial
+correspondence is external programme administration — it does not gate HERMES's engineering capability
+and is not a condition this document, or any engineering-closure document in this pack, needs to satisfy
+(see `licensing-and-security.md` for the full restatement). This document supplies the empirical
+size/cost evidence that grounds the engineering ruling; it says nothing about, and need not address,
+separately-administered commercial/licensing arrangements.
 
 ## §4 — What this document does not do
 
-Does not estimate, guess, or interpolate a number for any `PENDING_EVIDENCE` cell remaining above, under
-any circumstance — including by analogy to other instruments' typical tick-data volumes, other vendors'
-published pricing, back-of-envelope reasoning from message-rate assumptions, or extrapolation/division
-from the full-history figures now populated in §2 (e.g. no invented "per day" or "per month" figure, no
-invented storage-tier $/GB rate, no invented live-subscription monthly cost, no invented Trades-level
-volume/cost). That kind of plausible-sounding invented number is explicitly named in this pack's binding
-brief as worse than an honest gap, because it could be mistaken for real evidence by a future HMT-1
-author. Does not itself choose a feed level — the ruling was made in `canonical-market-events.md` §3,
-informed by, but stated in, that document, not this one. Does not resolve the licensing gate
-(`licensing-and-security.md` §2) or the `PRE_2015_11_20_LEGACY` per-record timestamp/provenance question
-(`time-order-sequence-model.md` §3) — both are different questions from the volume/cost evidence supplied
-here.
+Does not estimate, guess, or interpolate a number for any `PENDING_EVIDENCE` or
+`NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` cell above, under any circumstance — including by analogy to
+other instruments' typical tick-data volumes, other vendors' published pricing, back-of-envelope
+reasoning from message-rate assumptions, or extrapolation/division from the full-history figures now
+populated in §2 (e.g. no invented "per day" or "per month" figure, no invented storage-tier $/GB rate, no
+invented live-subscription monthly cost, no invented Trades-level volume/cost). That kind of
+plausible-sounding invented number is explicitly named in this pack's binding brief as worse than an
+honest gap, because it could be mistaken for real evidence by a future HMT-1 author. Does not itself
+choose a feed level — the ruling was made in `canonical-market-events.md` §3, informed by, but stated in,
+that document, not this one. Does not address separately-administered licensing/commercial
+correspondence (`licensing-and-security.md`) — that is external programme administration, not an
+engineering question this document, or this pack, gates on. The `PRE_2015_11_20_LEGACY` per-record
+timestamp/provenance question is resolved in `time-order-sequence-model.md` §3 (per Databento's official
+CME GLBX.MDP3 documentation) — a different question from, and not settled by, the volume/cost evidence
+supplied here.

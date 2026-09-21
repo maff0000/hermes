@@ -62,26 +62,40 @@ GC programme's sequencing needs.** Concretely:
 ## §3 — Historical provenance eras and quality propagation
 
 As established in `source-taxonomy.md` §1.3, GC provenance quality is not uniform across history. Three
-eras, and their timestamp/provenance quality implications for this document specifically:
+eras are recognised. The table below states each era's final, resolved timestamp/provenance semantics.
+The legacy-era facts below are attributed explicitly to source documentation, not to this pack's own
+measurement or inference:
 
-| Era | Timestamp quality | Provider capture time available? |
-|---|---|---|
-| `PRE_2015_11_20_LEGACY` | Legacy CME historical records, **millisecond** precision | Not established here — treat as `PENDING_EVIDENCE` per-record unless the provider explicitly confirms |
-| `2015_11_20_TO_2017_05_20_LEGACY` | Legacy FIX/FAST-era history | **No genuine provider capture timestamp exists for this era** — item 2 in §1 is honestly absent for every record in this window, never backfilled from event time |
-| `MDP3_FROM_2017_05_21` | Modern MDP 3.0 provenance | Genuine provider capture time available (subject to per-record confirmation once real ingestion begins) |
+| Era | Timestamp resolution | Genuine provider capture time? | `ts_recv` semantics | Quality flag |
+|---|---|---|---|---|
+| `PRE_2015_11_20_LEGACY` | Millisecond | **No** — legacy MDP2/FIX flat-file provenance (pre-2017-05-21) | Synthetically equated to `ts_event`; **never** an independent capture-time measurement | `F_BAD_TS_RECV` (per Databento's official CME GLBX.MDP3 documentation) |
+| `2015_11_20_TO_2017_05_20_LEGACY` | Nanosecond (from CME's 2015-11-20 nanosecond-resolution introduction) | **No** — still pre-2017-05-21 legacy MDP2/FIX flat-file provenance; the 2015-11-20 boundary improves timestamp *resolution* only, not capture-time genuineness | Synthetically equated to `ts_event`, same as the prior era; **never** an independent capture-time measurement | `F_BAD_TS_RECV` (per Databento's official CME GLBX.MDP3 documentation) — still propagates |
+| `MDP3_FROM_2017_05_21` | Nanosecond | **Yes** — modern MDP3 capture provenance, available subject to per-record quality flags confirmed at real-ingestion time (not asserted in advance for records not yet ingested) | Genuine, independent of `ts_event` | Per-record, confirmed at ingestion |
 
-**Era-boundary corroboration (new, from the empirical volume/cost measurement in
-`gc-data-volume-and-cost-study.md` §2.3 — a different question from the timestamp-quality cell above, and
-does not resolve it):** that measurement's cross-validation work found the `MDP3_FROM_2017_05_21` boundary
-is independently corroborated by Databento's own `mbo`/`cmbp-1`/`cbbo-*` schema-availability boundary —
-those schemas only exist from 2017-05-21 onward, meaning genuine modern full-book capture begins exactly
-there. By contrast, the `PRE_2015_11_20_LEGACY` / `2015_11_20_TO_2017_05_20_LEGACY` boundary (2015-11-20)
-is **not** independently corroborated by any Databento-native quality flag observed in that study — it was
-taken as given per this program's own prior architecture ruling, not verified against Databento's own
-metadata. These two boundaries do not carry equal empirical grounding, and this document does not imply
-otherwise. This corroboration finding is about the *boundary itself* being schema-evidenced, not about
-per-record timestamp/provenance confirmation for individual rows — the `PRE_2015_11_20_LEGACY` row's
-`PENDING_EVIDENCE` cell above is a distinct, still-open question and is not resolved by this note.
+**Item 2 of §1 above** ("provider receive/capture time... never fabricated or backfilled from another
+timestamp if the provider does not actually supply it") applies with full force to both legacy eras: per
+Databento's official CME GLBX.MDP3 documentation, `ts_recv` is set for records from both legacy eras to
+the same underlying legacy time basis as `ts_event` — this is a **synthetic equation, not an independent
+capture-time measurement**, and must never be read or presented as one downstream, in any derived fact or
+canonical record. The `F_BAD_TS_RECV` quality flag that Databento's official CME GLBX.MDP3 documentation
+attaches to records from both legacy eras must propagate as this era's quality/condition flag into every
+derived fact that consumes it, per this document's own quality-propagation rule below.
+
+This resolves the `PRE_2015_11_20_LEGACY` timestamp/provenance cell that in a prior revision of this
+table read `PENDING_EVIDENCE` — the source for the resolution above is Databento's own official CME
+GLBX.MDP3 documentation, cited explicitly here rather than inferred or estimated by this pack, and no
+stronger precision claim is made than what that documentation states.
+
+**Era-boundary corroboration:** the `MDP3_FROM_2017_05_21` era boundary is independently corroborated by
+Databento's own `mbo`/`cmbp-1`/`cbbo-*` schema-availability boundary (those schemas only exist from
+2017-05-21 onward), consistent with genuine modern full-book capture beginning exactly there — this is the
+same boundary at which genuine, independent provider capture time first becomes available (table above).
+The `2015-11-20` boundary, by contrast, is a timestamp-*resolution* improvement only (millisecond →
+nanosecond, per CME's own nanosecond-resolution introduction on that date) and does **not** correspond to
+any change in capture-time genuineness — both legacy eras share the same synthetic `ts_recv`-equated-to-
+`ts_event` semantic and the same `F_BAD_TS_RECV` quality flag. This document does not conflate a
+resolution improvement with genuine capture-time availability: only the 2017-05-21 MDP3 boundary carries
+the latter.
 
 A quality/condition flag carrying this era classification must propagate from the raw event into every
 derived fact that consumes it (cross-referenced from `derived-fact-taxonomy-and-ownership.md`'s

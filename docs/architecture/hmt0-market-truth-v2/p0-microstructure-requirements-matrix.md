@@ -89,5 +89,7 @@ ruled the native corpus is **MBP-1**, on the empirical basis measured in `gc-dat
 — see `canonical-market-events.md` §3 for the ruling and its rationale. As anticipated when this matrix
 was first written, the fact-class-to-minimum-level mapping above did not need to be restructured by this
 resolution — only the "final choice" pointer resolved. Note this does not authorise HMT-1 implementation
-(still `NOT AUTHORISED`, see `hmt1-provisional-scope.md`) and does not clear the separate licensing gate
-on permanent retention of the corpus (`licensing-and-security.md` §2, still open).
+(still `NOT AUTHORISED`, see `hmt1-provisional-scope.md`). Licensing/commercial correspondence for the
+corpus is a separate matter: per Central Architecture's ruling, it is external programme administration,
+non-gating for HMT-0 engineering closure (see `licensing-and-security.md`) — this matrix's own fact-class
+mapping is unaffected either way.

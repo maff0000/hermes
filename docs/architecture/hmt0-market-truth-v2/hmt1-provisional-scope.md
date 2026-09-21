@@ -45,9 +45,13 @@ work order to actually build:
 - **No market research store or evidence vault build-out** beyond whatever minimum is needed to prove
   replay (§1) — the full three-tier storage architecture (`data-lifecycle-and-storage.md`) is a larger
   build than HMT-1's foundation scope.
-- **No permanent native-corpus acquisition** — that remains gated behind both the empirical cost study
-  (`gc-data-volume-and-cost-study.md`) and written licensing confirmation
-  (`licensing-and-security.md` §2), neither of which HMT-1 authorisation would itself satisfy.
+- **No permanent native-corpus acquisition under HMT-1 itself.** HERMES's engineering capability for
+  native-corpus acquisition/retention is not licensing-gated — per Central Architecture's ruling that
+  licensing/commercial correspondence is external programme administration, not an engineering gate (see
+  `licensing-and-security.md`). What HMT-1 authorisation does **not** itself satisfy is *implementation
+  authorisation* — HMT-1 remains **NOT AUTHORISED** regardless of this licensing de-gating. These are two
+  completely separate and unrelated gates: correcting the licensing framing does not authorise HMT-1, and
+  does not authorise any native-corpus acquisition under it.
 - **No DARWIN or ATHENA work of any kind.** DARWIN remains frozen (per this pack's own binding
   authority-and-scope constraints) and is explicitly out of scope for this entire pack, including for
   HMT-1's eventual scope. HMT-1 shares no implementation, table, or code path with anything DARWIN-named.
@@ -65,9 +69,12 @@ as, that authorisation.
 ## §4 — What this document does not do
 
 Does not write a single line of implementation-relevant detail (no schema DDL, no code, no config). Does
-not commit to a start date, an assignee, or a work-order number for HMT-1. Does not resolve any of the
-`PENDING_EVIDENCE`/`PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` markers elsewhere in this pack — HMT-1
-authorisation and resolving those markers are related but distinct gates, and clearing one does not imply
-the other has been cleared. (The GC P0 native-corpus choice — MBP-1, per `canonical-market-events.md` §3
-— is now resolved and is no longer one of these pending markers, but that resolution is itself a separate
-matter from HMT-1's own authorisation gate, addressed in §3 above.)
+not commit to a start date, an assignee, or a work-order number for HMT-1. Does not resolve any remaining
+`PENDING_EVIDENCE`-class markers elsewhere in this pack (see `hmt0-closure-report.md`'s collected-markers
+list) — HMT-1 authorisation and resolving those markers are related but distinct gates, and clearing one
+does not imply the other has been cleared. Licensing/commercial correspondence is no longer one of these
+markers at all, per Central Architecture's ruling that it is external, non-gating programme administration
+(`licensing-and-security.md`) — but that de-gating is itself separate from, and does not touch, HMT-1's
+own authorisation gate in §3 above. (The GC P0 native-corpus choice — MBP-1, per
+`canonical-market-events.md` §3 — is resolved and is no longer one of these pending markers either, but
+that resolution is itself a separate matter from HMT-1's own authorisation gate, addressed in §3 above.)

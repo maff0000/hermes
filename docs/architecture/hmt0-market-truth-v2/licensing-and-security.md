@@ -5,9 +5,12 @@
 
 ## Purpose
 
-This document states, literally and without softening, the licensing gate this entire programme's
-permanent-retention ambition sits behind, and the standing evidentiary rule for how that gate may ever be
-cleared.
+This document restates Central Architecture's binding build-v-rent ownership ruling for this programme's
+GC P0 native corpus, and Central Architecture's separate, later ruling that licensing/commercial
+correspondence is external programme administration — not an HMT-0 engineering or closure gate. It
+preserves the useful commercial/licensing context (Databento's terms, and the standing caution against
+inferring permission from marketing material) so that institutional knowledge is not lost, while making
+explicit that none of it alters HERMES's engineering capability or gates this pack's closure.
 
 ## §1 — Build-v-rent: the binding hybrid ruling (Central Architecture, `C — HYBRID`)
 
@@ -28,48 +31,57 @@ HERMES **permanently owns**:
 **The native GC P0 source corpus itself** — now that Central Architecture has ruled the P0 native corpus
 is **MBP-1** (see `canonical-market-events.md` §3, decided on the empirical measurement in
 `gc-data-volume-and-cost-study.md`; previously this document referred to "whichever of TBBO/MBP-1 is
-chosen" — that ambiguity is now resolved) — distinct from HERMES's own derived canonical records above,
-**may be permanently retained ONLY if**:
+chosen" — that ambiguity is now resolved) — is distinct from HERMES's own derived canonical records above,
+and HERMES's engineering architecture is **fully capable** of acquiring, permanently retaining,
+canonicalising, replaying, storing, and researching it. That engineering capability rests on empirical
+size/cost genuinely supporting it (per `gc-data-volume-and-cost-study.md`), and **that condition is
+satisfied**: the measurement in `gc-data-volume-and-cost-study.md` §2 shows the complete outright-only
+native MBP-1 historical corpus is approximately **345.9 GB** (uncompressed/billable representation as
+quoted by Databento) for the full measured ~16-year interval (`2010-06-06T00:00:00Z` →
+`2026-09-19T00:00:00Z`), at an acquisition cost ($579.894677) below TBBO's cost for the same complete
+history ($881.798589). This is sufficiently bounded that storage capacity does not by itself justify
+discarding the P0 native corpus as a permanent-retention candidate.
 
-1. Empirical size/cost (per `gc-data-volume-and-cost-study.md`) genuinely supports permanent retention,
-   **AND**
-2. Written licensing explicitly permits it.
+**Licensing/commercial correspondence is a separate matter.** Per Central Architecture's later, binding
+ruling on this point:
 
-**Both conditions, not either.** A favourable cost study does not, by itself, authorise permanent
-retention if licensing has not separately and explicitly confirmed it in writing. Written licensing
-permission does not, by itself, authorise permanent retention if the cost/volume is genuinely
-prohibitive. This document does not treat either condition as a formality that the other can substitute
-for.
+> Licensing/commercial matters are external programme administration. They do not alter HERMES technical
+> capability, contracts, canonical semantics or HMT phase engineering acceptance.
 
-**Condition (1) is now satisfied.** The empirical measurement in `gc-data-volume-and-cost-study.md` §2
-shows the complete outright-only native MBP-1 historical corpus is approximately **345.9 GB**
-(uncompressed/billable representation as quoted by Databento) for the full measured ~16-year interval
-(`2010-06-06T00:00:00Z` → `2026-09-19T00:00:00Z`). This is sufficiently bounded that storage capacity does
-not by itself justify discarding the P0 native corpus as a permanent-retention candidate; historical
-acquisition cost for MBP-1 ($579.894677) is also below TBBO's cost for the same complete history
-($881.798589). **This favourable measurement does NOT clear condition (2).** Licensing remains open — see
-§2 below — and permanent retention is not authorised until it is.
+HERMES's engineering architecture's capability to acquire/retain/canonicalise/replay/store/research the
+native MBP-1 corpus is **not** conditioned on licensing correspondence — this document no longer treats
+written licensing confirmation as a precondition for that engineering capability. **Actual
+organisational/commercial use of that capability** — i.e., whether and when the programme actually
+exercises this capability against a live, paid Databento (or other provider) account — **remains subject
+to whatever commercial arrangements the programme separately administers.** That administration is
+external to HERMES's technical semantics and to HMT-0 engineering closure; it is recorded here for
+institutional memory, not as a condition this pack, or any future engineering-closure document, needs to
+satisfy.
 
-## §2 — The literal marker, stated exactly as required by this pack's binding brief
+## §2 — Commercial/licensing context (recorded, non-gating)
 
-> `PERMANENT_NATIVE_CORPUS_RETENTION = PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION`
->
-> Equivalently, and also stated literally so a future grep for either string finds the same open
-> conclusion: `PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`
+This section preserves the commercial/licensing context useful to a future reader, explicitly reframed
+per the ruling in §1 above as **non-gating**:
 
-This marker remains in force **until written evidence exists** — a specific, retrievable communication
-from Databento (or whichever provider is ultimately used) explicitly confirming that permanent retention
-of the licensed data is permitted under the terms actually purchased. No inference from public marketing
-material, a general sales page, a typical-industry-practice assumption, or a verbal/informal confirmation
-satisfies this requirement. This is stated here as a **standing rule for this document and for any future
-revision of it** — a future editor of this document may update the marker's value once real written
-confirmation exists, but may not relax the *standard* of evidence required to do so.
+- No specific written confirmation from Databento (or any other provider) about permanent-retention terms
+  has been sought or obtained by this pack. That remains true, and is recorded here as a factual
+  statement about the current state of commercial correspondence — **not** as an engineering blocker.
+- The general caution this document has always carried still applies as sound commercial practice: no
+  inference from public marketing material, a general sales page, a typical-industry-practice assumption,
+  or a verbal/informal confirmation should be treated as a substitute for whatever actual commercial
+  agreement the programme separately enters into with a provider. This is good discipline for whoever
+  administers that commercial relationship — it is simply no longer framed, in this document, as a
+  condition on HERMES's engineering architecture or on HMT-0 closure.
+- Whoever administers the programme's actual commercial relationship with Databento (or any other GC data
+  provider) may document that administration wherever the programme keeps its commercial/legal records —
+  that is explicitly outside this architecture pack's scope, per §1 above.
 
-**This gate is not cleared by the favourable empirical measurement now available** (§1 above,
-`gc-data-volume-and-cost-study.md`). The P0 native corpus is now known to be MBP-1, its full outright-only
-history is known to be ~345.9 GB at an acceptable acquisition cost, and empirical support (condition 1)
-is satisfied — but licensing (condition 2) is a wholly independent requirement, still open, and remains
-so until the specific written confirmation described above exists.
+**This document previously stated a literal marker** —
+`PERMANENT_NATIVE_CORPUS_RETENTION = PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION`, with a synonym
+`PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION` — gating engineering closure on written licensing
+confirmation. **Per Central Architecture's ruling in §1 above, that marker is retired.**
+Licensing/commercial correspondence does not gate HMT-0 engineering closure, and no new engineering gate
+replaces it.
 
 ## §3 — Narrowing: this hybrid model does not broaden to other data classes
 

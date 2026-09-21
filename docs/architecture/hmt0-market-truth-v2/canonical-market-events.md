@@ -80,17 +80,24 @@ Full detail, including the era breakdown and the outright-vs-spread-inclusive co
 `gc-data-volume-and-cost-study.md` §2 — this document only records the resulting semantic ruling, not
 the underlying measurement.
 
-This resolves the P0 native-corpus choice but does **not** resolve the separate licensing gate on
-*permanent retention* of that corpus — see `licensing-and-security.md` §2, which remains open
-(`PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`). Consequently:
+This resolves the P0 native-corpus choice. Licensing/commercial correspondence for the provider of this
+corpus is a separate matter and, per Central Architecture's later ruling, is **external programme
+administration** — it does not alter HERMES's technical capability, contracts, canonical semantics, or
+HMT phase engineering acceptance (see `licensing-and-security.md` for the full restatement of this
+boundary). **MBP-1 is the ruled P0 native corpus, full stop:** HERMES's engineering capability to
+acquire/retain/canonicalise/replay/store/research it is not conditioned on licensing correspondence.
+Consequently:
 
 - The canonical event model (this document) was always defined at the semantic level (what a
   `TopOfBookEvent` *means*) independent of which feed supplies it; that semantic definition is unchanged
   by this ruling — only the "which feed" question resolves.
 - Any HMT-1 implementation work (see `hmt1-provisional-scope.md`) remains **NOT AUTHORISED** regardless
-  of this ruling — resolving the native-corpus choice does not authorise implementation.
-- MBP-1 being the ruled native corpus means HERMES can, in principle, honestly produce a genuine
-  `TopOfBookEvent` stream from it — subject to the licensing gate above being cleared first.
+  of this ruling — resolving the native-corpus choice does not authorise implementation, and that
+  authorisation gate is completely separate from, and unaffected by, the licensing de-gating above.
+- MBP-1 being the ruled native corpus means HERMES's engineering architecture is fully capable of
+  honestly producing a genuine `TopOfBookEvent` stream from it. Actual organisational use of that
+  capability remains subject to whatever commercial arrangements the programme separately administers —
+  external to HERMES technical semantics and to HMT-0 closure.
 
 ## §4 — Relationship to the requirements matrix
 
