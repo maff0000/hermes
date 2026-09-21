@@ -72,6 +72,16 @@ A research-acquisition-sequencing roadmap for the eventual native GC corpus now 
 document, `hmt2-provisional-acquisition-roadmap.md` (RECORDED / NOT AUTHORISED) — HMT-1's own scope and
 authorisation status in this document are unaffected by, and unrelated to, that roadmap's existence.
 
+That document's §11 ("HMT-1 boundary") also states, from HMT-1's own side, the fixture doctrine that
+governs HMT-1's data use: HMT-1, if and when separately authorised, uses synthetic governed fixtures by
+default. A minimal real fixture is an exceptional, narrowly-scoped case only — it requires explicit prior
+approval from **Central PO / Chief Architect** (the only approval authority for this exception; no
+implicit approval, and no self-authorisation of it by any other party), it is validation evidence for
+proving the HMT-1 replay chain only, and it can never become HMT-2 research-corpus acquisition or
+authorise broader historical acquisition. See `hmt2-provisional-acquisition-roadmap.md` §11 for the full
+doctrine and its seven governing conditions. This is a clarification of the fixture mechanism only — it
+does not expand HMT-1's scope as described in §1 above.
+
 Does not write a single line of implementation-relevant detail (no schema DDL, no code, no config). Does
 not commit to a start date, an assignee, or a work-order number for HMT-1. Does not resolve any remaining
 `PENDING_EVIDENCE`-class markers elsewhere in this pack (see `hmt0-closure-report.md`'s collected-markers

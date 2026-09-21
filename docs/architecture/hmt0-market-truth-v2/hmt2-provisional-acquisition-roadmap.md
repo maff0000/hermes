@@ -176,15 +176,35 @@ This is the sharpest boundary in this document, and it is stated plainly:
 
 HMT-1 remains `CANONICAL MARKET EVENT & REPLAY FOUNDATION` (per `hmt1-provisional-scope.md`), and the
 ~$125 / HMT-2 stratified-research-corpus budget in §1 is **explicitly NOT authorised for use during
-HMT-1**. HMT-1, if and when separately authorised, uses **synthetic governed fixtures by default** — or,
-only if explicitly separately approved, an exceptionally tiny real fixture strictly necessary to prove
-source-bytes → canonical-events → persisted-partition → deterministic-replay → identical
-identities/counts/hashes. HMT-1 does **not** become historical-data acquisition, under any circumstance,
-and this document does not create, imply, or authorise any path by which it could.
+HMT-1**. HMT-1, if and when separately authorised, uses **synthetic governed fixtures by default**. If,
+and only if, synthetic fixtures cannot adequately prove a required source-format/canonicalisation/replay
+property, Central PO / Chief Architect may explicitly authorise acquisition/use of the minimum
+technically sufficient real fixture solely for HMT-1 validation. Such a fixture is test evidence, not a
+research corpus, and does not begin HMT-2 or authorise broader historical acquisition.
 
-This HMT-2 roadmap document does **not** itself authorise HMT-1. HMT-1's own non-authorisation, exactly as
-stated in `hmt1-provisional-scope.md`, is completely unaffected and unaltered by anything in this
-document — the two gates are separate, and clearing or discussing one has no bearing on the other.
+This exception is deliberately narrow. It applies only where ALL of the following hold simultaneously:
+
+1. Synthetic input cannot adequately prove a required source-format/canonicalisation/replay property.
+2. The fixture is the minimum technically sufficient sample.
+3. Its sole purpose is proving the HMT-1 measuring instrument (the source-bytes → canonical-events →
+   persisted-partition → deterministic-replay → identical-identities/counts/hashes chain).
+4. It is NOT used for market research, feature discovery, regime analysis, strategy analysis, or model
+   development.
+5. It does NOT begin the HMT-2 research corpus.
+6. It does NOT authorise broader historical acquisition.
+7. It receives explicit prior approval from **Central PO / Chief Architect** — this is the ONLY approval
+   authority for this exception. No implicit approval. No Rogue/Helm/FORGE self-authorisation of this
+   exception, ever.
+
+Outside this narrowly-scoped, Architect-approved exception, HMT-1 does **not** become historical-data
+acquisition, and this document does not create, imply, or authorise any path by which it could.
+
+This HMT-2 roadmap document does **not** itself authorise HMT-1, and it does not itself constitute the
+Central PO / Chief Architect approval described above — that approval, if it is ever given, is a separate,
+explicit, future decision, not something this document grants by describing the mechanism for it. HMT-1's
+own non-authorisation, exactly as stated in `hmt1-provisional-scope.md`, is completely unaffected and
+unaltered by anything in this document — the two gates are separate, and clearing or discussing one has no
+bearing on the other.
 
 ## §12 — Expansion rule
 
