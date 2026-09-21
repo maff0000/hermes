@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 import market_truth
-from market_truth.replay import replay_twice, run_pipeline
+from market_truth.replay import ReplayComparison, replay_twice, run_pipeline
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "hmt1"
 MAPPING_PATH = FIXTURES_DIR / "gc_contract_mapping_v1.json"
@@ -56,11 +56,59 @@ def test_replay_twice_matches_on_every_deterministic_dimension(tmp_path):
     assert comparison.event_content_match
     assert comparison.event_set_hash_match
     assert comparison.partition_content_hash_match
+    assert comparison.artifact_hash_match
     assert comparison.manifest_deterministic_match
     assert comparison.reload_reconstruction_match
-    # artifact_hash_match is reported, not asserted — see partition.py / test_partition_roundtrip.py
-    # and the final HMT-1 report for the measured physical-determinism result.
-    print("  artifact_hash_match (physical, reported not asserted):", comparison.artifact_hash_match)
+    # Physical Parquet artifact identity is now enforced, not merely reported: under the governed
+    # pinned HMT-1 writer contract (pyarrow==17.0.0), run A and run B must produce byte-identical
+    # Parquet artifacts. See docs/contracts/hmt1-research-partition-contract-v1.md.
+    print("  artifact_hash_match (physical, enforced):", comparison.artifact_hash_match)
+    # The aggregate acceptance property itself must also be exercised directly, so it can never
+    # silently diverge from the individual checks that feed it.
+    assert comparison.all_match
+
+
+def test_all_match_is_false_when_physical_artifact_hashes_differ():
+    """Fail-closed regression guard for the acceptance GATE itself (not the writer): if physical
+    Parquet artifact identity ever differs between two runs, `ReplayComparison.all_match` must be
+    False. This proves the aggregate property can never silently regress to ignoring artifact
+    determinism again — e.g. if a future edit reverts `all_match` to the old list that excluded
+    `artifact_hash_match`, this test catches it immediately.
+
+    This is deliberately NOT achieved by sabotaging the real Parquet writer to produce genuine
+    nondeterminism (that would conflate "is the writer deterministic" with "does the gate enforce
+    it", and this repo's writer IS deterministic — see test_artifact_byte_determinism_is_enforced
+    in test_partition_roundtrip.py). Instead, a `ReplayComparison` is constructed directly with
+    every other dimension matching and only `artifact_hash_match` set to False, isolating exactly
+    the property under test: the gate's own aggregation logic."""
+    matching_details = {"note": "isolated construction for gate regression test"}
+    comparison = ReplayComparison(
+        event_count_match=True,
+        identity_list_match=True,
+        event_content_match=True,
+        event_set_hash_match=True,
+        partition_content_hash_match=True,
+        artifact_hash_match=False,
+        manifest_deterministic_match=True,
+        reload_reconstruction_match=True,
+        details=matching_details,
+    )
+    assert comparison.all_match is False
+
+    # Sanity check on the other side: with every dimension (including artifact_hash_match) True,
+    # all_match must be True — otherwise the two assertions above would be vacuous.
+    fully_matching = ReplayComparison(
+        event_count_match=True,
+        identity_list_match=True,
+        event_content_match=True,
+        event_set_hash_match=True,
+        partition_content_hash_match=True,
+        artifact_hash_match=True,
+        manifest_deterministic_match=True,
+        reload_reconstruction_match=True,
+        details=matching_details,
+    )
+    assert fully_matching.all_match is True
 
 
 def test_replay_is_unaffected_by_a_third_independent_run(tmp_path):

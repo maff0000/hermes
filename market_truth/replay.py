@@ -151,12 +151,14 @@ class ReplayComparison:
                 self.event_content_match,
                 self.event_set_hash_match,
                 self.partition_content_hash_match,
+                self.artifact_hash_match,
                 self.manifest_deterministic_match,
                 self.reload_reconstruction_match,
-                # artifact_hash_match is intentionally excluded from all_match: WO §12 requires
-                # semantic determinism to remain mandatory even if physical Parquet bytes are not
-                # reproducible for reasons outside this package's control. Callers that need the
-                # physical-artifact result should inspect `artifact_hash_match` directly.
+                # artifact_hash_match is now REQUIRED for all_match: under the governed, pinned
+                # HMT-1 writer contract (pyarrow==17.0.0, zstd-default-level-v1), physical Parquet
+                # artifact identity must reproduce exactly, same as the semantic
+                # `partition_content_sha256`. A mismatch here is a real regression and must make
+                # the aggregate acceptance property false so it is caught, not silently reported.
             ]
         )
 

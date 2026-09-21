@@ -68,11 +68,15 @@ def test_partition_content_hash_is_reproducible_across_two_writes_to_different_r
     assert hashes_a == hashes_b
 
 
-def test_artifact_byte_determinism_is_measured_and_reported(tmp_path):
-    """Physical Parquet artifact determinism (WO §12/§7): measured empirically here. This test
-    asserts nothing about the OUTCOME either way — a mismatch is a legitimate, honestly-reported
-    finding (see the HMT-1 final report), not a test failure. Semantic determinism
-    (`partition_content_sha256`, proven above) remains mandatory regardless of this result."""
+def test_artifact_byte_determinism_is_enforced(tmp_path):
+    """Physical Parquet artifact determinism (WO §12/§7) is now a real, enforced requirement, not
+    merely measured and reported. Under the governed, pinned HMT-1 writer contract
+    (pyarrow==17.0.0, zstd-default-level-v1), two writes of the same events to different roots
+    must produce byte-identical Parquet artifacts. Semantic determinism (`partition_content_sha256`,
+    proven above) remains mandatory in addition to this — this test adds a requirement, it does
+    not trade one off for the other. If a future writer/library/platform change breaks physical
+    byte-determinism, this test fails and the condition requires explicit architecture review (see
+    docs/contracts/hmt1-research-partition-contract-v1.md)."""
     events = _events()
     root_a, root_b = tmp_path / "a", tmp_path / "b"
     results_a = PartitionWriter(root_a).write(events)
@@ -80,7 +84,6 @@ def test_artifact_byte_determinism_is_measured_and_reported(tmp_path):
 
     artifacts_a = {r.relative_path: r.artifact_sha256 for r in results_a}
     artifacts_b = {r.relative_path: r.artifact_sha256 for r in results_b}
-    # Recorded for the report, not asserted: see module docstring above.
     print("artifact_sha256 run A:", artifacts_a)
     print("artifact_sha256 run B:", artifacts_b)
-    print("physical artifact byte-determinism:", artifacts_a == artifacts_b)
+    assert artifacts_a == artifacts_b

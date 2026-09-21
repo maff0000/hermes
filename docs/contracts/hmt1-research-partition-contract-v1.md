@@ -9,7 +9,7 @@ operational MariaDB (per `data-lifecycle-and-storage.md` §1.2/§4).
 | Field | Value |
 |---|---|
 | Library | `pyarrow` |
-| Pinned version | see `requirements.txt` (`pyarrow==<exact version>`) and the HMT-1 final report for the exact version actually used |
+| Pinned version | `pyarrow==17.0.0` (governed exact version, pinned in `requirements.txt`) |
 | Compression | `zstd` |
 | Writer config identity | `zstd-default-level-v1` (`partition.PartitionWriter.WRITER_CONFIG_ID`) |
 
@@ -41,10 +41,16 @@ clock; always `None` for fixture-replayed events — see the market-event-contra
   then source sequence, then event ordinal, then identity hash — never input/iteration order).
   This is the identity that MUST reproduce exactly on every replay, and is asserted equal between
   run A and run B in `test_replay_determinism.py`.
-- **`artifact_sha256`** — PHYSICAL. SHA-256 of the emitted Parquet file's actual bytes. Whether
-  this also reproduces run-to-run depends on the pinned `pyarrow` writer's own byte determinism;
-  the measured result (pass or an honest §12 escalation) is recorded in the HMT-1 final report and
-  is never used to weaken the semantic-hash requirement above either way.
+- **`artifact_sha256`** — PHYSICAL. SHA-256 of the emitted Parquet file's actual bytes. Under the
+  governed HMT-1 writer contract (`pyarrow==17.0.0`, `zstd-default-level-v1`), physical Parquet
+  artifact identity is REQUIRED to reproduce exactly, in addition to (not instead of) the semantic
+  `partition_content_sha256` identity above — both are mandatory. This is asserted equal between
+  run A and run B in `test_replay_determinism.py` (`comparison.artifact_hash_match`, folded into
+  `comparison.all_match`) and in `test_partition_roundtrip.py::test_artifact_byte_determinism_is_enforced`.
+  If a future writer/library/platform change ever breaks this property, these tests fail and
+  HMT-1/HMT-derived replay assurance does not silently remain GREEN — the condition requires
+  explicit architecture review before the writer contract, this document, or the asserting tests
+  are changed again.
 
 ## Reload / reconstruction
 
