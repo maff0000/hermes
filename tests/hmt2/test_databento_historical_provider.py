@@ -282,6 +282,9 @@ def test_get_cost_estimate():
     assert isinstance(est, dbh.CostEstimate)
     assert est.quoted_cost_usd == 12.3456
     assert fake_client.metadata.calls[0][0] == "get_cost"
+    # Default stype_in is the vendor SDK's own default — unchanged behaviour for existing callers.
+    assert est.stype_in == "raw_symbol"
+    assert fake_client.metadata.calls[0][1]["stype_in"] == "raw_symbol"
 
 
 def test_get_record_count_estimate():
@@ -291,6 +294,7 @@ def test_get_record_count_estimate():
     )
     assert isinstance(est, dbh.RecordCountEstimate)
     assert est.record_count == 4200
+    assert est.stype_in == "raw_symbol"
 
 
 def test_get_billable_size_estimate():
@@ -300,6 +304,54 @@ def test_get_billable_size_estimate():
     )
     assert isinstance(est, dbh.BillableSizeEstimate)
     assert est.billable_size_bytes == 999_999
+    assert est.stype_in == "raw_symbol"
+
+
+# ----------------------------------------------------------------------------------------------
+# HMT-2B.1 extension: optional `stype_in` passthrough (continuous / parent symbology quotes)
+# ----------------------------------------------------------------------------------------------
+
+def test_get_cost_estimate_passes_through_continuous_stype_in():
+    provider, fake_client = _make_provider(metadata_kwargs={"cost": 1.23})
+    est = provider.get_cost_estimate(
+        dataset="GLBX.MDP3",
+        schema="ohlcv-1h",
+        symbols=["GC.v.0"],
+        start="2017-05-21",
+        end="2026-09-18",
+        stype_in="continuous",
+    )
+    assert est.stype_in == "continuous"
+    assert fake_client.metadata.calls[0][1]["stype_in"] == "continuous"
+    assert fake_client.metadata.calls[0][1]["symbols"] == ["GC.v.0"]
+
+
+def test_get_record_count_estimate_passes_through_parent_stype_in():
+    provider, fake_client = _make_provider(metadata_kwargs={"record_count": 7})
+    est = provider.get_record_count_estimate(
+        dataset="GLBX.MDP3",
+        schema="definition",
+        symbols=["GC.FUT"],
+        start="2017-05-21",
+        end="2026-09-18",
+        stype_in="parent",
+    )
+    assert est.stype_in == "parent"
+    assert fake_client.metadata.calls[0][1]["stype_in"] == "parent"
+
+
+def test_get_billable_size_estimate_passes_through_parent_stype_in():
+    provider, fake_client = _make_provider(metadata_kwargs={"billable_size": 42})
+    est = provider.get_billable_size_estimate(
+        dataset="GLBX.MDP3",
+        schema="definition",
+        symbols=["GC.FUT"],
+        start="2017-05-21",
+        end="2026-09-18",
+        stype_in="parent",
+    )
+    assert est.stype_in == "parent"
+    assert fake_client.metadata.calls[0][1]["stype_in"] == "parent"
 
 
 def test_metadata_calls_wrap_and_scrub_vendor_errors():

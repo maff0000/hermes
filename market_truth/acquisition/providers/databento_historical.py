@@ -2,6 +2,17 @@
 market_truth.acquisition.providers.databento_historical — Databento historical metadata adapter
 (HMT-2B, zero-spend).
 
+HMT-2B.1 extension (narrow, documented, backward-compatible)
+--------------------------------------------------------------
+`get_cost_estimate()`, `get_record_count_estimate()`, and `get_billable_size_estimate()` each
+gained an optional `stype_in` keyword argument (default `"raw_symbol"`, the vendor SDK's own
+default — every pre-existing call site and test is unaffected). This was genuinely required to
+obtain a correct quote for a non-raw-symbol request: HMT-2B.1 Part 3 quotes the continuous
+contract `GC.v.0` (`stype_in="continuous"`) and Part 4 quotes the parent-symbology definition
+schema for `GC.FUT` (`stype_in="parent"`). Without this, the adapter could only ever quote
+raw-symbol requests. Still free, informational, metadata-only calls — never a billable data
+transfer; no new capability, credential path, or scope boundary is touched.
+
 Scope (WO Part 1, binding)
 --------------------------
 Implemented — all free-tier, informational, metadata-only Databento operations:
@@ -201,6 +212,7 @@ class CostEstimate:
     end: str
     mode: str
     quoted_cost_usd: float
+    stype_in: str = "raw_symbol"
 
 
 @dataclass(frozen=True)
@@ -211,6 +223,7 @@ class RecordCountEstimate:
     start: str
     end: str
     record_count: int
+    stype_in: str = "raw_symbol"
 
 
 @dataclass(frozen=True)
@@ -221,6 +234,7 @@ class BillableSizeEstimate:
     start: str
     end: str
     billable_size_bytes: int
+    stype_in: str = "raw_symbol"
 
 
 ClientFactory = Callable[[str], Any]
@@ -319,11 +333,28 @@ class DatabentoHistoricalProvider:
         start: str,
         end: str,
         mode: str = "historical-streaming",
+        stype_in: str = "raw_symbol",
     ) -> CostEstimate:
+        """Free metadata call (`client.metadata.get_cost`).
+
+        HMT-2B.1 extension (narrow, documented, backward-compatible): adds an optional
+        `stype_in` passthrough, defaulting to the vendor SDK's own default (`"raw_symbol"`) so
+        every existing call site/test is unaffected. This is required for a genuinely correct
+        quote against a non-raw-symbol request — e.g. HMT-2B.1 Part 3's continuous-contract
+        quote (`symbols=["GC.v.0"], stype_in="continuous"`) and Part 4's parent-symbology
+        definition-schema quote (`symbols=["GC.FUT"], stype_in="parent"`). Still a free,
+        informational, metadata-only call — never a billable data transfer.
+        """
         symbol_list = list(symbols)
         quoted = self._call(
             lambda: self._client.metadata.get_cost(
-                dataset=dataset, symbols=symbol_list, schema=schema, start=start, end=end, mode=mode,
+                dataset=dataset,
+                symbols=symbol_list,
+                schema=schema,
+                start=start,
+                end=end,
+                mode=mode,
+                stype_in=stype_in,
             )
         )
         return CostEstimate(
@@ -334,15 +365,25 @@ class DatabentoHistoricalProvider:
             end=str(end),
             mode=mode,
             quoted_cost_usd=float(quoted),
+            stype_in=stype_in,
         )
 
     def get_record_count_estimate(
-        self, *, dataset: str, schema: str, symbols: Sequence[str], start: str, end: str,
+        self,
+        *,
+        dataset: str,
+        schema: str,
+        symbols: Sequence[str],
+        start: str,
+        end: str,
+        stype_in: str = "raw_symbol",
     ) -> RecordCountEstimate:
+        """See `get_cost_estimate` docstring for the HMT-2B.1 `stype_in` extension rationale —
+        identical here. Free metadata call (`client.metadata.get_record_count`)."""
         symbol_list = list(symbols)
         count = self._call(
             lambda: self._client.metadata.get_record_count(
-                dataset=dataset, symbols=symbol_list, schema=schema, start=start, end=end,
+                dataset=dataset, symbols=symbol_list, schema=schema, start=start, end=end, stype_in=stype_in,
             )
         )
         return RecordCountEstimate(
@@ -352,15 +393,25 @@ class DatabentoHistoricalProvider:
             start=str(start),
             end=str(end),
             record_count=int(count),
+            stype_in=stype_in,
         )
 
     def get_billable_size_estimate(
-        self, *, dataset: str, schema: str, symbols: Sequence[str], start: str, end: str,
+        self,
+        *,
+        dataset: str,
+        schema: str,
+        symbols: Sequence[str],
+        start: str,
+        end: str,
+        stype_in: str = "raw_symbol",
     ) -> BillableSizeEstimate:
+        """See `get_cost_estimate` docstring for the HMT-2B.1 `stype_in` extension rationale —
+        identical here. Free metadata call (`client.metadata.get_billable_size`)."""
         symbol_list = list(symbols)
         size = self._call(
             lambda: self._client.metadata.get_billable_size(
-                dataset=dataset, symbols=symbol_list, schema=schema, start=start, end=end,
+                dataset=dataset, symbols=symbol_list, schema=schema, start=start, end=end, stype_in=stype_in,
             )
         )
         return BillableSizeEstimate(
@@ -370,6 +421,7 @@ class DatabentoHistoricalProvider:
             start=str(start),
             end=str(end),
             billable_size_bytes=int(size),
+            stype_in=stype_in,
         )
 
     def download_historical_range(self, *args: Any, **kwargs: Any) -> None:

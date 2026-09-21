@@ -136,3 +136,47 @@ def test_build_session_universe_excludes_weekends_and_holidays_in_a_short_range(
 def test_build_session_universe_rejects_reversed_range():
     with pytest.raises(ValueError):
         build_session_universe(dt.date(2024, 1, 2), dt.date(2024, 1, 1))
+
+
+# --------------------------------------------------------------------------------------------
+# HMT-2B.1 Part 2 — resolved final eligible-universe cutoff (2026 coverage check)
+# --------------------------------------------------------------------------------------------
+# This module needed NO modification to support the HMT-2B.1 resolution: every holiday/
+# early-close rule is a function of `year` (nth_weekday_of_month, easter_sunday/good_friday,
+# _observed_fixed_holiday), not a hardcoded/bounded lookup table, so it already computes
+# correctly for 2026 (and any later year) unmodified. These tests pin that fact and the exact
+# resolved cutoff session recorded in market_truth/acquisition/__init__.py
+# (HMT2B1_RESOLVED_FINAL_CUTOFF_DATE / HMT2B1_CUTOFF_FREEZE_UTC) and in
+# docs/research/hmt2-corpus-selection-methodology-v1.md.
+
+_HMT2B1_FREEZE_UTC = dt.datetime(2026, 9, 21, 15, 11, 9, tzinfo=dt.timezone.utc)
+
+
+def test_session_calendar_computes_2026_sessions_without_any_code_change():
+    """2026 is fully computable by the existing rule-based functions: no bounded table, no
+    KeyError/lookup miss for any month of 2026."""
+    sessions = build_session_universe(dt.date(2026, 1, 1), dt.date(2026, 12, 31))
+    assert len(sessions) > 0
+    # Spot-check a real 2026 rule-based holiday: Good Friday 2026 is 2026-04-03 (Easter Sunday
+    # 2026-04-05, see test_easter_and_good_friday_known_dates), and must be a full closure.
+    is_closed, reason = is_gc_full_closure(dt.date(2026, 4, 3))
+    assert is_closed and reason == "GOOD_FRIDAY"
+
+
+def test_hmt2b1_resolved_cutoff_session_is_the_last_fully_completed_session_at_freeze_time():
+    """Pins the exact HMT-2B.1 Part 2 resolution: at freeze time 2026-09-21T15:11:09Z, the GC
+    session dated 2026-09-18 (a Friday) is the last one whose UTC window had already fully
+    closed, and the next governed session (2026-09-21, the freeze day itself) had NOT yet
+    closed — i.e. was correctly excluded as in-progress/partial, not counted as complete."""
+    last_completed = build_session_record(dt.date(2026, 9, 18))
+    assert last_completed is not None
+    assert last_completed.window_end_utc < _HMT2B1_FREEZE_UTC
+
+    in_progress_at_freeze = build_session_record(dt.date(2026, 9, 21))
+    assert in_progress_at_freeze is not None
+    assert in_progress_at_freeze.window_end_utc > _HMT2B1_FREEZE_UTC
+    assert in_progress_at_freeze.window_start_utc < _HMT2B1_FREEZE_UTC
+
+    # And no valid session strictly between 2026-09-18 and 2026-09-21 was skipped (weekend).
+    universe = build_session_universe(dt.date(2026, 9, 18), dt.date(2026, 9, 21))
+    assert [s.session_date for s in universe] == [dt.date(2026, 9, 18), dt.date(2026, 9, 21)]
