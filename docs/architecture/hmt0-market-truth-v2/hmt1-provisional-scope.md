@@ -68,6 +68,10 @@ as, that authorisation.
 
 ## §4 — What this document does not do
 
+A research-acquisition-sequencing roadmap for the eventual native GC corpus now exists as a separate
+document, `hmt2-provisional-acquisition-roadmap.md` (RECORDED / NOT AUTHORISED) — HMT-1's own scope and
+authorisation status in this document are unaffected by, and unrelated to, that roadmap's existence.
+
 Does not write a single line of implementation-relevant detail (no schema DDL, no code, no config). Does
 not commit to a start date, an assignee, or a work-order number for HMT-1. Does not resolve any remaining
 `PENDING_EVIDENCE`-class markers elsewhere in this pack (see `hmt0-closure-report.md`'s collected-markers

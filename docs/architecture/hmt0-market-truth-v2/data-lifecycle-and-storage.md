@@ -38,7 +38,9 @@ This tier exists specifically because the P0 microstructure fact classes and the
 (per `canonical-market-events.md` §3) — represent a materially larger and differently-shaped dataset than
 anything the existing operational MariaDB/Redis tier was designed to hold at research-horizon depth. It is
 where deterministic replay (`deterministic-replay-and-evidence.md`) reads its inputs from for anything
-beyond the operational tier's live-state window.
+beyond the operational tier's live-state window. What actually gets acquired into this tier, and in what
+sequence, is governed by the research-acquisition roadmap in `hmt2-provisional-acquisition-roadmap.md`
+(RECORDED / NOT AUTHORISED) — this document defines the tier's shape, not its acquisition sequencing.
 
 ### 1.3 EVIDENCE VAULT
 
@@ -74,7 +76,7 @@ database.
 ## §3 — Tier relationships
 
 ```
-raw/canonical GC events (native corpus, level TBD)
+raw/canonical GC events (native GC P0 corpus: MBP-1)
         │
         ├──► OPERATIONAL TRUTH (live/current state; bounded depth; existing HERMES SQL+Redis discipline)
         │

@@ -101,8 +101,8 @@ Consequently:
 
 ## §4 — Relationship to the requirements matrix
 
-`p0-microstructure-requirements-matrix.md` already establishes, independent of this deferred choice, which
-fact classes need TBBO-level aggressor information (delta, CVD, aggression clusters, flow efficiency) and
+`p0-microstructure-requirements-matrix.md` already establishes, independent of the P0 native-corpus choice
+(resolved to MBP-1, per §3), which fact classes need TBBO-level aggressor information (delta, CVD, aggression clusters, flow efficiency) and
 which need genuine MBP-1 continuity (absorption, failed aggression, balance/imbalance, squeeze proxies).
 This document's `TopOfBookEvent` ruling is consistent with that matrix: everything in the matrix that
 required MBP-1 for correctness is exactly the set of facts that depend on genuine `TopOfBookEvent`

@@ -151,4 +151,6 @@ correspondence (`licensing-and-security.md`) — that is external programme admi
 engineering question this document, or this pack, gates on. The `PRE_2015_11_20_LEGACY` per-record
 timestamp/provenance question is resolved in `time-order-sequence-model.md` §3 (per Databento's official
 CME GLBX.MDP3 documentation) — a different question from, and not settled by, the volume/cost evidence
-supplied here.
+supplied here. The empirical full-history figures in this document are also the reference figures cited
+by `hmt2-provisional-acquisition-roadmap.md` for the *complete* corpus that roadmap explicitly defers
+purchasing — this document does not duplicate or restate that roadmap's doctrine.

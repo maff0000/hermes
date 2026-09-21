@@ -6,7 +6,7 @@
 
 ## What this closure pack is
 
-This is a set of 16 new Markdown documents (this one plus the 15 listed below), all under
+This is a set of 17 new Markdown documents (this one plus the 16 listed below), all under
 `docs/architecture/hmt0-market-truth-v2/`, produced as a documentation/architecture closure exercise for
 the HMT-0 ("Market Truth v2") programme. No `.py` file, migration, schema, config, or CI workflow was
 touched to produce this pack. No HMT-1 implementation, market-data integration, or product/runtime
@@ -47,7 +47,10 @@ statement in HMT-1's own scope context). **DARWIN remains FROZEN.**
    basis in `gc-data-volume-and-cost-study.md`; the `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` marker was
    superseded there. Updated in **this** revision: §3's licensing-gate framing is corrected — licensing/
    commercial correspondence is external programme administration, not an engineering gate on MBP-1's
-   status as the ruled P0 native corpus.
+   status as the ruled P0 native corpus. Also in **this** revision: §4's stale "independent of this
+   deferred choice" phrase is corrected to "independent of the P0 native-corpus choice (resolved to
+   MBP-1, per §3)" — the P0 source decision was resolved in §3, and §4's cross-reference to it had been
+   left stale.
 5. **[`time-order-sequence-model.md`](time-order-sequence-model.md)** — six permanently-separate time/
    sequence fields; explicitly forbids reusing HERMES's existing stored-row `ticks.seq` (ratified by
    `docs/hermes_tick_seq_semantic.md`) as an exchange/provider sequence number; forbids fabricated
@@ -71,8 +74,12 @@ statement in HMT-1's own scope context). **DARWIN remains FROZEN.**
 8. **[`data-lifecycle-and-storage.md`](data-lifecycle-and-storage.md)** — OPERATIONAL TRUTH / MARKET
    RESEARCH STORE / EVIDENCE VAULT, kept distinct; explicit rule against deepening dependency on
    deprecated/shared Proteus architecture (grounded in real existing `tradingProteus` references already
-   in this repository). Updated in this revision: §1.2's reference to "the still-pending TBBO-vs-MBP-1
-   decision" is corrected to state plainly that the native GC corpus is MBP-1.
+   in this repository). Updated in a prior revision: §1.2's reference to "the still-pending TBBO-vs-MBP-1
+   decision" is corrected to state plainly that the native GC corpus is MBP-1. Updated in **this**
+   revision: §3's diagram still read "raw/canonical GC events (native corpus, level TBD)" — a stale
+   literal the prior revision's prose fix had missed — corrected to "raw/canonical GC events (native GC
+   P0 corpus: MBP-1)"; §1.2 also gains a one-sentence cross-reference to the new
+   `hmt2-provisional-acquisition-roadmap.md`, which governs acquisition sequencing into this tier.
 9. **[`deterministic-replay-and-evidence.md`](deterministic-replay-and-evidence.md)** — the
    reproducibility guarantee tied to derived-fact identity fields, and the parameter-transmission
    integrity requirement (parameters captured at point of computation, not reconstructed from possibly-
@@ -93,7 +100,9 @@ statement in HMT-1's own scope context). **DARWIN remains FROZEN.**
     condition this document supplies or withholds evidence for; the previously-unmeasured cells (Trades
     level, 1-day/1-month/1-year horizons, live-subscription monthly cost, storage-tier $/GB rate) are
     relabelled `NOT_MEASURED / NOT_REQUIRED_FOR_HMT0` rather than `PENDING_EVIDENCE`, since none were ever
-    required for the MBP-1 ruling itself — no number is invented for any of them.
+    required for the MBP-1 ruling itself — no number is invented for any of them. Also gains a one-sentence
+    cross-reference in §4 to the new `hmt2-provisional-acquisition-roadmap.md`, which cites this document's
+    complete-history figures as the reference for the corpus it explicitly defers purchasing.
 12. **[`licensing-and-security.md`](licensing-and-security.md)** — the binding `C — HYBRID` build-v-rent
     ruling (HERMES permanently owns derived facts/definitions/calendar-roll-history/schema-identity/
     evidence vault; HERMES's engineering architecture is fully capable of acquiring/retaining/
@@ -122,18 +131,27 @@ statement in HMT-1's own scope context). **DARWIN remains FROZEN.**
     permanent native-corpus-acquisition bullet is corrected — the engineering capability is not
     licensing-gated per Central Architecture's de-gating ruling; what HMT-1 authorisation does not itself
     satisfy is *implementation authorisation*, a completely separate and unrelated gate from licensing.
-    **HMT-1 remains NOT AUTHORISED**, unaffected by this correction.
-16. **This document** — the pack index and closure statement.
+    **HMT-1 remains NOT AUTHORISED**, unaffected by this correction. Also gains, in **this** revision, a
+    one-sentence §4 cross-reference to the new `hmt2-provisional-acquisition-roadmap.md`, noting HMT-1's
+    own scope/authorisation status is unaffected by and unrelated to that roadmap's existence.
+16. **[`hmt2-provisional-acquisition-roadmap.md`](hmt2-provisional-acquisition-roadmap.md)** — new in
+    this revision. `HMT-2 — GOVERNED GC HISTORICAL RESEARCH CORPUS`, stated as **RECORDED / NOT
+    AUTHORISED**; a research-acquisition-sequencing roadmap only, covering budget doctrine (~$125
+    experimental ceiling), the six-strata regime-stratified session panel, protected holdout, the
+    nine-step pre-download quotation gate, the HERMES/ARES/DARWIN ownership boundary, and the HMT-1
+    boundary (the HMT-2 budget is not usable during HMT-1). Does not authorise HMT-1, HMT-2, or any
+    market-data acquisition.
+17. **This document** — the pack index and closure statement.
 
 ## Directory structure choice
 
-All 15 content documents (plus this index) live under a new subdirectory,
-`docs/architecture/hmt0-market-truth-v2/`, rather than as 16 flat files directly under
+All 16 content documents (plus this index) live under a new subdirectory,
+`docs/architecture/hmt0-market-truth-v2/`, rather than as 17 flat files directly under
 `docs/architecture/`. Rationale (recorded here per this pack's own reporting requirement): the existing
 `docs/architecture/` directory is small and flat (5 files, no subdirectories) — but `docs/design/` already
 establishes a real, repeated precedent in this same repository for grouping a multi-document initiative
 under its own subdirectory (`fw08/`, `market_hours_health/`, `container_mvp/`, `recovery_planner_wiring/`,
-etc.). A 16-document pack is materially larger than anything currently flat in `docs/architecture/`, and
+etc.). A 17-document pack is materially larger than anything currently flat in `docs/architecture/`, and
 flattening it there would have made that directory harder to navigate and would have obscured which
 documents belong to one coherent initiative versus which are independent, standalone architecture notes
 (as the existing 5 are). This pack therefore follows `docs/design/`'s subdirectory-per-initiative
@@ -182,7 +200,7 @@ pack-wide in this revision's own full scan is either resolved or relabelled non-
 document's own production record for the scan that confirmed this.
 
 A future reader who needs to know "what is this whole programme still waiting on" can read this table
-alone without hunting through all 15 documents: as of this revision, nothing engineering-relevant is.
+alone without hunting through all 16 documents: as of this revision, nothing engineering-relevant is.
 
 ## Status of this revision (empirical evidence + P0 corpus ruling + licensing de-gating + timestamp resolution)
 
@@ -192,6 +210,10 @@ alone without hunting through all 15 documents: as of this revision, nothing eng
 - Empirical sizing/cost: **GREEN** (`gc-data-volume-and-cost-study.md` §2).
 - Outright-only full-history measurement (120 verified GC outright contracts, spreads excluded,
   cross-validated against Databento's own `instrument_class=F` field): **GREEN**.
+- Historical provenance: **GREEN** (this reflects the timestamp-era resolution already landed in a prior
+  revision — `time-order-sequence-model.md` §3: the `PRE_2015_11_20_LEGACY` and
+  `2015_11_20_TO_2017_05_20_LEGACY` eras are resolved per Databento's official CME GLBX.MDP3
+  documentation).
 - Vantage containment: **GREEN** (unchanged by this revision, tracked in Fabric/Helm state, not a
   document in this pack).
 - `darwin_ro`: **GREEN** (unchanged by this revision — see `darwin-ro-provenance-chronology.md`).
@@ -200,33 +222,46 @@ alone without hunting through all 15 documents: as of this revision, nothing eng
   canonical semantics, or HMT phase engineering acceptance. This is **not** "OPEN" and is **not** a
   closure blocker — it is explicitly retired as an engineering/closure gate in this revision
   (`licensing-and-security.md`).
-- **HMT-1: NOT AUTHORISED.** **DARWIN: FROZEN.** Neither statement is weakened by this revision's
-  licensing de-gating or by the P0 corpus ruling — these are completely separate, unrelated gates.
+- HMT-2 acquisition doctrine: **RECORDED / NOT AUTHORISED** (`hmt2-provisional-acquisition-roadmap.md`,
+  new in this revision) — a research-acquisition-sequencing roadmap only; it authorises nothing.
+- **HMT-1: NOT AUTHORISED.** **HMT-2: NOT AUTHORISED.** **DARWIN: FROZEN.** None of these three statements
+  is weakened by this revision's licensing de-gating, the P0 corpus ruling, or the new HMT-2 roadmap
+  document — all remain completely separate, unrelated gates, and none is ever conflated with another.
 
 **Recommended verdict:**
 
-> **HMT-0: GREEN / READY FOR CENTRAL CLOSURE**
+> **HMT-0 GREEN / READY FOR CENTRAL MERGE AUTHORISATION**
 
 This is a recommendation only, made by this revision, subject to this revision's own Git/CI/security
-evidence being confirmed GREEN by independent audit — it does not itself constitute Central Architecture's
-closure of HMT-0. This revision resolves the P0 native-corpus schema question, supplies the empirical
-size/cost evidence, corrects the licensing-gate framing per Central Architecture's ruling, and resolves
-the `PRE_2015_11_20_LEGACY` timestamp-evidence question per Databento's official documentation. No
-engineering/closure gate remains open in this pack as of this revision's own scan (see the
-collected-markers list above).
+evidence being confirmed GREEN by independent audit, **and** subject to Central Architecture's own
+separate merge authorisation — it does not itself constitute, and must never be read as, Central
+Architecture's closure of HMT-0. HMT-0 is recommended GREEN and ready for that authorisation; it is not
+stated or implied anywhere in this pack to be "closed." This revision resolves the P0 native-corpus
+schema question, supplies the empirical size/cost evidence, corrects the licensing-gate framing per
+Central Architecture's ruling, resolves the `PRE_2015_11_20_LEGACY` timestamp-evidence question per
+Databento's official documentation, corrects the two residual stale phrases identified by independent
+audit (`canonical-market-events.md` §4, `data-lifecycle-and-storage.md` §3), and records the new,
+explicitly-not-authorised HMT-2 acquisition-sequencing roadmap. No engineering/closure gate remains open
+in this pack as of this revision's own scan (see the collected-markers list above).
 
 ## What this closure pack authorises
 
-**Nothing beyond itself.** This pack authorises the existence of these 16 documents as a recorded
+**Nothing beyond itself.** This pack authorises the existence of these 17 documents as a recorded
 architecture direction. It does **not** authorise:
 
 - Any HMT-1 implementation (see `hmt1-provisional-scope.md` — explicitly APPROVED IN PRINCIPLE / NOT
   AUTHORISED, gated behind a separate, explicit future authorisation). This gate is completely unrelated
   to, and unaffected by, this revision's licensing de-gating below.
-- Any actual acquisition of GC market data, temporary or permanent, under this pack alone. The P0
-  native-corpus schema choice is resolved (MBP-1), its empirical size/cost support is satisfied, and
-  HERMES's engineering capability to acquire/retain it is not licensing-gated (per Central Architecture's
-  ruling, `licensing-and-security.md`) — but actual acquisition still requires HMT-1 implementation
+- Any HMT-2 acquisition (see `hmt2-provisional-acquisition-roadmap.md` — explicitly RECORDED / NOT
+  AUTHORISED, gated behind a separate, explicit future authorisation). This gate is completely unrelated
+  to, and never conflated with, HMT-1's own separate non-authorisation or with licensing's non-gating
+  status.
+- Any actual acquisition of GC market data, temporary or permanent, under this pack alone — neither the
+  complete corpus referenced in `gc-data-volume-and-cost-study.md` nor any part of the stratified research
+  panel described in `hmt2-provisional-acquisition-roadmap.md`. The P0 native-corpus schema choice is
+  resolved (MBP-1), its empirical size/cost support is satisfied, and HERMES's engineering capability to
+  acquire/retain it is not licensing-gated (per Central Architecture's ruling,
+  `licensing-and-security.md`) — but actual acquisition still requires separate implementation/acquisition
   authorisation (not granted here) and remains subject to whatever commercial arrangements the programme
   separately administers, external to this pack.
 - Any retirement action against legacy `candles_D1` or `market-map-dev.service` (both roadmaps are
@@ -235,7 +270,8 @@ architecture direction. It does **not** authorise:
   remains FROZEN.**
 
 HMT-1 implementation remains separately gated, exactly as `hmt1-provisional-scope.md` §3 states. **HMT-1
-remains NOT AUTHORISED.**
+remains NOT AUTHORISED.** HMT-2 acquisition remains separately gated, exactly as
+`hmt2-provisional-acquisition-roadmap.md` §13 states. **HMT-2 remains NOT AUTHORISED.**
 
 ## Honest disclosure
 
