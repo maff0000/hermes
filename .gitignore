@@ -39,3 +39,11 @@ __pycache__/
 ops/evidence/WO-HERMES-PROOF-H/equivalence_log.jsonl
 ops/evidence/WO-HERMES-PROOF-OF-WORKING-0006/soak/soak_log.jsonl
 ops/evidence/**/*.jsonl
+
+# HMT-2 (real-money checkpoint) — local/disposable native-source-store artefacts
+# (market_truth/acquisition/source_store.py's own documented layout). Real, large
+# (up to ~1GB), immutable retained vendor bytes + evidence JSON. Never committed —
+# local/disposable filesystem storage only, mirrors market_truth/partition.py's own
+# research-partition storage discipline. Evidence of what was retained (hashes, byte
+# sizes, record counts) is committed separately in tracked JSON under research/hmt2/.
+research-source/

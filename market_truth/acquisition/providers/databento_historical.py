@@ -1,6 +1,9 @@
 """
 market_truth.acquisition.providers.databento_historical — Databento historical metadata adapter
-(HMT-2B, zero-spend).
+(HMT-2B foundation: zero-spend; HMT-2 real-money checkpoint: exactly two authorised, hardcoded,
+narrowly-scoped billable acquisitions added on top — see `acquire_reference_series_ohlcv1h()`
+and `acquire_gc_definitions()` below. Every other capability in this module remains free/
+zero-spend, exactly as HMT-2B/2B.1 left it.)
 
 HMT-2B.1 extension (narrow, documented, backward-compatible)
 --------------------------------------------------------------
@@ -33,13 +36,21 @@ Implemented — all free-tier, informational, metadata-only Databento operations
       3-4). None of these ever transfers billable historical data; each is a single small JSON/
       scalar metadata response.
 
-Deliberately NOT implemented (WO Part 1, absolute)
-----------------------------------------------------
-    - Any bulk historical-data-download method (`timeseries.get_range`, or any equivalent, for
-      ANY schema argument — see `download_historical_range()` below for the full reasoning on
-      why even `schema="definition"` is excluded, not only trade/quote schemas).
+Deliberately NOT implemented (WO Part 1, absolute) — UPDATED by the HMT-2 real-money checkpoint
+--------------------------------------------------------------------------------------------------
+    - `download_historical_range()` (the original generic bulk-download stub) remains
+      permanently forbidden/always-raising — see that method's own docstring, unchanged.
     - Any live-streaming client of any kind. This module never imports, references, or
       constructs `databento.Live` (or any live/streaming symbol) anywhere.
+    - Beyond `download_historical_range()`'s permanent prohibition, this module now has EXACTLY
+      two, narrowly-hardcoded, real bulk-download methods — `acquire_reference_series_ohlcv1h()`
+      and `acquire_gc_definitions()` (see their own docstrings) — each Central-PO/Chief-
+      Architect-authorised for exactly one specific, real-money request shape. Neither is a
+      generic "acquire anything" gateway: each hardcodes its own dataset/symbols/stype_in/schema
+      as literal constants at its one `timeseries.get_range` call site (statically verified —
+      tests/hmt2/test_no_network_guard.py + tests/hmt2/test_hardcoded_acquisition_call_sites.py).
+      No other function anywhere in this package may ever call `.get_range` at all, for any
+      schema — MBP-1/TBBO/trades/MBO acquisition remains structurally impossible.
 
 Vendor boundary
 ----------------
@@ -59,6 +70,7 @@ read — it fails closed (`CredentialLoadError`).
 """
 from __future__ import annotations
 
+import datetime as _dt
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -69,7 +81,28 @@ try:
 except ImportError:  # pragma: no cover - exercised only if the optional dependency is absent
     databento = None  # type: ignore[assignment]
 
+from market_truth.acquisition import (  # noqa: E402
+    HMT2B1_ELIGIBLE_RANGE_START,
+    HMT2B1_RESOLVED_FINAL_CUTOFF_DATE,
+)
+
 ADAPTER_VERSION = "hmt2b-databento-historical-adapter-v1"
+
+# ------------------------------------------------------------------------------------------
+# HMT-2 (real-money checkpoint) — the exactly-two-authorised-requests governed range.
+#
+# Both authorised real acquisitions (`acquire_reference_series_ohlcv1h()` and
+# `acquire_gc_definitions()` below) use this SAME governed date range — the resolved HMT2B1
+# eligible range start through the resolved final cutoff date, INCLUSIVE, expressed to the
+# vendor as an EXCLUSIVE `end` one calendar day past the cutoff (empirically confirmed vendor
+# behaviour — see research/hmt2/hmt2b1_reference_and_definition_quotes.py's own comment on
+# this exact point; reproduced here rather than imported, since that script is a standalone
+# reproduction tool, not a library module).
+# ------------------------------------------------------------------------------------------
+GOVERNED_REAL_ACQUISITION_START = HMT2B1_ELIGIBLE_RANGE_START
+GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE = (
+    _dt.date.fromisoformat(HMT2B1_RESOLVED_FINAL_CUTOFF_DATE) + _dt.timedelta(days=1)
+).isoformat()
 
 # Governed external-secret location for this exact credential (see WO Part 1 credential-handling
 # section — placed there by a prior, separate, already-completed WO). Never committed, never
@@ -237,6 +270,34 @@ class BillableSizeEstimate:
     stype_in: str = "raw_symbol"
 
 
+@dataclass(frozen=True)
+class RealBulkAcquisitionResult:
+    """This module's own plain result shape for a REAL, billable bulk acquisition — returned
+    ONLY by `acquire_reference_series_ohlcv1h()` / `acquire_gc_definitions()` below. The vendor's
+    own `databento.DBNStore` object never escapes either method: this dataclass is built from it
+    (`.nbytes`, `.to_df()`) and then the vendor object is discarded, exactly mirroring this
+    module's existing translate-at-the-boundary discipline for the free metadata methods above.
+
+    `object_path` is the local filesystem path the raw vendor DBN(+zstd) bytes were streamed
+    to on disk (via the vendor SDK's own `path=` streaming parameter — this module never holds
+    the full multi-hundred-MB/GB payload in memory as a single Python bytes object). The
+    caller (a separately-authorised acquisition script — never this module) is responsible for
+    hashing that file and recording it as an immutable native-source artefact via
+    `market_truth.acquisition.source_store.NativeSourceStore`.
+    """
+
+    dataset: str
+    schema: str
+    symbols: Tuple[str, ...]
+    stype_in: str
+    start: str
+    end: str
+    object_path: str
+    nbytes: int
+    record_count: int
+    adapter_version: str = ADAPTER_VERSION
+
+
 ClientFactory = Callable[[str], Any]
 
 
@@ -277,6 +338,12 @@ class DatabentoHistoricalProvider:
                 "COST_METADATA_ESTIMATE",
                 "RECORD_COUNT_METADATA_ESTIMATE",
                 "BILLABLE_SIZE_METADATA_ESTIMATE",
+                # HMT-2 real-money checkpoint — two, and only two, narrowly-hardcoded billable
+                # bulk-acquisition capabilities. See acquire_reference_series_ohlcv1h() /
+                # acquire_gc_definitions() below. Neither is a generic "acquire anything"
+                # capability; each is hardcoded to its own single authorised request shape.
+                "REFERENCE_SERIES_GC_V0_OHLCV1H_BULK_ACQUISITION",
+                "GC_FUT_DEFINITIONS_BULK_ACQUISITION",
             }
         )
 
@@ -424,6 +491,113 @@ class DatabentoHistoricalProvider:
             stype_in=stype_in,
         )
 
+    def acquire_reference_series_ohlcv1h(
+        self,
+        *,
+        start: str = GOVERNED_REAL_ACQUISITION_START,
+        end: str = GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE,
+        path: str,
+    ) -> RealBulkAcquisitionResult:
+        """HMT-2 real-money checkpoint — Request 1 of exactly two authorised real acquisitions.
+
+        THE ONLY function in this entire codebase permitted to call the vendor's real bulk
+        `timeseries.get_range` method with `schema="ohlcv-1h"`. `dataset`, `symbols`,
+        `stype_in`, and `schema` are ALL hardcoded literal values at the call site below — never
+        variables, never caller-influenced. The only parameter a caller may vary at all is the
+        date range, and even that is validated against the governed HMT2B1 eligible-range
+        constants (`GOVERNED_REAL_ACQUISITION_START` / `GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE`,
+        derived from `market_truth.acquisition.HMT2B1_ELIGIBLE_RANGE_START` /
+        `HMT2B1_RESOLVED_FINAL_CUTOFF_DATE`) — any other value is rejected fail-closed
+        (`DatabentoScopeError`) before any network call is made.
+
+        PURPOSE BOUNDARY (repeated because it matters): this request is corpus-selection
+        metadata ONLY. It is permanently NOT canonical GC Market Truth v2, NOT the P0 corpus,
+        NOT a derived HERMES microstructure fact, NOT a DARWIN input, NOT a trading
+        feature/signal.
+
+        This is a genuinely billable request (~$0.55 at the governed range, per the free
+        `get_cost_estimate()` quote reconfirmed immediately before every real call) — callers
+        MUST re-confirm the quote via the free metadata methods above immediately before
+        calling this method, exactly once, for the exactly-two-requests this checkpoint
+        authorises. `path` is required: the raw vendor DBN(+zstd) response is streamed straight
+        to that local file (never fully materialised as an in-memory `bytes` object by this
+        module) so the caller can retain it as an immutable native-source artefact via
+        `market_truth.acquisition.source_store.NativeSourceStore`.
+        """
+        _assert_governed_real_acquisition_range(start, end, caller="acquire_reference_series_ohlcv1h")
+        store = self._call(
+            lambda: self._client.timeseries.get_range(
+                dataset="GLBX.MDP3",
+                symbols=["GC.v.0"],
+                stype_in="continuous",
+                schema="ohlcv-1h",
+                start=start,
+                end=end,
+                path=path,
+            )
+        )
+        return _translate_real_bulk_acquisition(
+            store,
+            dataset="GLBX.MDP3",
+            schema="ohlcv-1h",
+            symbols=("GC.v.0",),
+            stype_in="continuous",
+            start=start,
+            end=end,
+            object_path=path,
+        )
+
+    def acquire_gc_definitions(
+        self,
+        *,
+        start: str = GOVERNED_REAL_ACQUISITION_START,
+        end: str = GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE,
+        path: str,
+    ) -> RealBulkAcquisitionResult:
+        """HMT-2 real-money checkpoint — Request 2 of exactly two authorised real acquisitions.
+
+        THE ONLY function in this entire codebase permitted to call the vendor's real bulk
+        `timeseries.get_range` method with `schema="definition"`. `dataset`, `symbols`,
+        `stype_in`, and `schema` are ALL hardcoded literal values at the call site below —
+        never variables, never caller-influenced. Only the date range may vary, and it is
+        validated exactly as in `acquire_reference_series_ohlcv1h()` above (see that method's
+        docstring — identical governed-range rule, same constants).
+
+        PURPOSE: actual GC outright/spread identity verification and contract-mapping evidence
+        (see `market_truth.futures.ContractMappingTable`) — NOT corpus-selection metadata, and
+        NOT MBP-1/TBBO/trades/MBO data (none of which this method, or any other function in
+        this package, ever requests).
+
+        This is a genuinely billable request (~$1.69 at the governed range, per the free
+        `get_cost_estimate()` quote reconfirmed immediately before every real call). `path` is
+        required — see `acquire_reference_series_ohlcv1h()` docstring for the identical
+        streamed-to-disk / immutable-native-artefact rationale (this request's payload is
+        roughly 1GB; it is never fully materialised as a single in-memory `bytes` object by
+        this module).
+        """
+        _assert_governed_real_acquisition_range(start, end, caller="acquire_gc_definitions")
+        store = self._call(
+            lambda: self._client.timeseries.get_range(
+                dataset="GLBX.MDP3",
+                symbols=["GC.FUT"],
+                stype_in="parent",
+                schema="definition",
+                start=start,
+                end=end,
+                path=path,
+            )
+        )
+        return _translate_real_bulk_acquisition(
+            store,
+            dataset="GLBX.MDP3",
+            schema="definition",
+            symbols=("GC.FUT",),
+            stype_in="parent",
+            start=start,
+            end=end,
+            object_path=path,
+        )
+
     def download_historical_range(self, *args: Any, **kwargs: Any) -> None:
         """INTENTIONALLY UNIMPLEMENTED — always raises `DatabentoScopeError`.
 
@@ -444,6 +618,55 @@ class DatabentoHistoricalProvider:
             "download_historical_range (any timeseries.get_range-equivalent bulk call, for any "
             "schema) is deliberately not implemented in HMT-2B — see this method's docstring"
         )
+
+
+def _assert_governed_real_acquisition_range(start: str, end: str, *, caller: str) -> None:
+    """Shared validator for the two real-acquisition methods above. Both use the SAME governed
+    range (see `GOVERNED_REAL_ACQUISITION_START`/`_END_EXCLUSIVE`) — sharing this validator does
+    NOT weaken either method's hardcoding: `dataset`/`symbols`/`stype_in`/`schema` are still
+    literal constants at each call site (this only ever validates the two date-range strings,
+    never anything schema/symbol/stype_in-shaped). Fails closed on any deviation whatsoever —
+    never coerces, rounds, or silently widens/narrows a caller-supplied range."""
+    if start != GOVERNED_REAL_ACQUISITION_START or end != GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE:
+        raise DatabentoScopeError(
+            f"{caller}: start/end must exactly match the governed HMT-2 real-acquisition range "
+            f"({GOVERNED_REAL_ACQUISITION_START!r} .. {GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE!r} "
+            f"exclusive, derived from market_truth.acquisition.HMT2B1_ELIGIBLE_RANGE_START / "
+            f"HMT2B1_RESOLVED_FINAL_CUTOFF_DATE) — got start={start!r} end={end!r}. This method "
+            f"is hardcoded to exactly one authorised request shape and refuses any other range."
+        )
+
+
+def _translate_real_bulk_acquisition(
+    store: Any,
+    *,
+    dataset: str,
+    schema: str,
+    symbols: Tuple[str, ...],
+    stype_in: str,
+    start: str,
+    end: str,
+    object_path: str,
+) -> RealBulkAcquisitionResult:
+    """Translate the vendor `databento.DBNStore` object into this module's own plain
+    `RealBulkAcquisitionResult` at the boundary — the vendor object itself never escapes this
+    function (mirrors `_translate_symbology_response` above). `record_count` is obtained via
+    `len(store.to_df())`; `nbytes` via the vendor object's own `.nbytes` property. Neither
+    requires holding the raw byte payload in memory a second time (it was already streamed to
+    `object_path` on disk by the caller's `path=` argument to `timeseries.get_range`)."""
+    record_count = len(store.to_df())
+    nbytes = int(store.nbytes)
+    return RealBulkAcquisitionResult(
+        dataset=dataset,
+        schema=schema,
+        symbols=tuple(symbols),
+        stype_in=stype_in,
+        start=str(start),
+        end=str(end),
+        object_path=str(object_path),
+        nbytes=nbytes,
+        record_count=record_count,
+    )
 
 
 def _translate_symbology_response(

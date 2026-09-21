@@ -150,6 +150,28 @@ def seeded_random(domain: str) -> random.Random:
     return random.Random(int(digest, 16))
 
 
+def deterministic_shuffled_pool(
+    eligible_dates_sorted: list[_dt.date], excluded_dates: set[_dt.date], domain: str
+) -> list[_dt.date]:
+    """HMT-2 (real-money checkpoint) — additive helper, does NOT change `draw_random_development`/
+    `draw_protected_holdout` above (v1's frozen behaviour is untouched; both continue to produce
+    byte-identical output for the same inputs).
+
+    Returns the FULL deterministically-shuffled candidate pool for one seed domain, rather than
+    just the first `count` entries `draw_random_development`/`draw_protected_holdout` return.
+    Given the EXACT SAME `(eligible_dates_sorted, excluded_dates, domain)` those two functions
+    were called with, `deterministic_shuffled_pool(...)[:count]` reproduces exactly the same set
+    of dates they selected (same `seeded_random(domain)` construction, same pool-then-shuffle
+    order) — this is what lets a later checkpoint (manifest v2) walk PAST the original `count`
+    into the SAME shuffled sequence's next candidates, to backfill any original selection that
+    has since become invalid, without redrawing from scratch and without silently changing any
+    selection that remains valid. See `research/hmt2/generate_selection_manifest_v2.py`."""
+    rng = seeded_random(domain)
+    pool = [d for d in eligible_dates_sorted if d not in excluded_dates]
+    rng.shuffle(pool)
+    return pool
+
+
 @dataclass(frozen=True)
 class EventRecord:
     event_class: str

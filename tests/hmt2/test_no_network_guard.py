@@ -43,6 +43,16 @@ _FORBIDDEN_MODULE_ROOTS = (
 # The ONLY file in this package authorised to import the `databento` vendor SDK (HMT-2B Part 1).
 _DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH = Path("providers") / "databento_historical.py"
 
+# HMT-2 real-money checkpoint: the ONLY two function names, in the ONLY file above, that may
+# ever contain a `.get_range(...)`-shaped attribute access. Each is hardcoded/self-validating
+# to its own single Central-PO/Chief-Architect-authorised real acquisition request — see
+# market_truth/acquisition/providers/databento_historical.py's module docstring and each
+# method's own docstring. No other function, anywhere in this package, may ever call
+# `.get_range` for any reason, on any schema.
+_GET_RANGE_ALLOWED_FUNCTION_NAMES = frozenset(
+    {"acquire_reference_series_ohlcv1h", "acquire_gc_definitions"}
+)
+
 # Files legitimately concerned with the real Databento credential (parameter/variable names,
 # never a hardcoded value — see the stricter check further down) are excluded from the blanket
 # credential-shaped-token scan that still applies to every other file in this package.
@@ -96,9 +106,13 @@ def test_no_forbidden_network_or_provider_imports():
 
 
 def test_no_bulk_download_or_live_streaming_call_sites():
-    """HMT-2B Part 1 absolute scope boundary: no bulk historical-data-download method
-    (`timeseries.get_range` or equivalent, for ANY schema) and no live-streaming client of any
-    kind may ever be CALLED or CONSTRUCTED anywhere in this package.
+    """HMT-2B Part 1 absolute scope boundary, EXTENDED (not weakened) by the HMT-2 real-money
+    checkpoint: no bulk historical-data-download method (`timeseries.get_range` or equivalent,
+    for ANY schema) and no live-streaming client of any kind may ever be CALLED or CONSTRUCTED
+    anywhere in this package — EXCEPT inside the two, named, narrowly-hardcoded real-acquisition
+    methods in the one already-authorised adapter file (see
+    `_GET_RANGE_ALLOWED_FUNCTION_NAMES`/`_DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH` above). `.Live`
+    remains forbidden absolutely everywhere, no exceptions, unchanged from HMT-2B.
 
     This is an AST-based check (not a plain text/substring scan) so that documenting WHY these
     are forbidden — which necessarily requires naming them in docstrings/comments, exactly as
@@ -107,16 +121,38 @@ def test_no_bulk_download_or_live_streaming_call_sites():
     are inspected; string literals (docstrings, comments-as-text) are not `Call`/`Attribute`
     nodes and are structurally invisible to this scan.
 
-    `download_historical_range()` itself is permitted to exist ONLY as a stub whose body
-    unconditionally raises — it contains no `.get_range(...)` call of its own, so it passes this
-    guard trivially; if a future edit ever made it actually call a `get_range`-named method, this
-    test would catch that regression.
+    The exception is scoped by LINE RANGE of the two named `FunctionDef`/`AsyncFunctionDef`
+    nodes (using `end_lineno`, available on every node this AST-parses under this repository's
+    supported Python versions) — an attribute access is only forgiven if (a) it is in the one
+    authorised file AND (b) its line falls within one of those two functions' own line span.
+    Nested lambdas/comprehensions inside those functions are still covered, since their lines
+    fall within the enclosing function's span. A `.get_range` access anywhere else in this same
+    file — including inside `download_historical_range()` itself, which must remain a stub that
+    unconditionally raises — still fails this guard.
     """
     for path in _python_files():
+        relative = path.relative_to(PACKAGE_DIR)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+        allowed_line_ranges = []
+        if relative == _DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH:
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                    node.name in _GET_RANGE_ALLOWED_FUNCTION_NAMES
+                ):
+                    allowed_line_ranges.append((node.lineno, node.end_lineno))
+
+        def _within_an_allowed_function(node: ast.AST) -> bool:
+            return any(start <= node.lineno <= end for start, end in allowed_line_ranges)
+
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
-                assert node.attr != "get_range", f"{path}: forbidden `.get_range(...)`-shaped attribute access"
+                if node.attr == "get_range":
+                    assert _within_an_allowed_function(node), (
+                        f"{path}:{node.lineno}: forbidden `.get_range(...)`-shaped attribute "
+                        f"access outside the two authorised real-acquisition methods "
+                        f"{sorted(_GET_RANGE_ALLOWED_FUNCTION_NAMES)}"
+                    )
                 assert node.attr != "Live", f"{path}: forbidden live-streaming client attribute access (`.Live`)"
 
 

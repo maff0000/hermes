@@ -1,0 +1,229 @@
+{
+  "base_sha": "03d700a463ada61d472c64ad52265d09d82c60ea",
+  "compression": {
+    "allocation_table": [
+      {
+        "candidate_count": 23,
+        "final_allocation": 4,
+        "floor_allocation": 4,
+        "raw_allocation": 4.055415617128464,
+        "remainder": 0.05541561712846388,
+        "year": 2017
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2018
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2019
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2020
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2021
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2022
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2023
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2024
+      },
+      {
+        "candidate_count": 44,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.758186397984887,
+        "remainder": 0.7581863979848871,
+        "year": 2025
+      },
+      {
+        "candidate_count": 33,
+        "final_allocation": 6,
+        "floor_allocation": 5,
+        "raw_allocation": 5.818639798488665,
+        "remainder": 0.8186397984886646,
+        "year": 2026
+      }
+    ],
+    "final_total": 70,
+    "seed_domain": "COMPRESSION_V2",
+    "seed_domain_sha256": "82439c1ce2cdfff38685fac784f35e8a2316e867495b1a09334ec3acd833dd1d",
+    "shortfall": false,
+    "target_total": 70,
+    "total_candidates_in_pool": 397
+  },
+  "high_vol_non_event": {
+    "allocation_table": [
+      {
+        "candidate_count": 23,
+        "final_allocation": 4,
+        "floor_allocation": 4,
+        "raw_allocation": 4.055415617128464,
+        "remainder": 0.05541561712846388,
+        "year": 2017
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2018
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2019
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2020
+      },
+      {
+        "candidate_count": 42,
+        "final_allocation": 7,
+        "floor_allocation": 7,
+        "raw_allocation": 7.405541561712846,
+        "remainder": 0.4055415617128464,
+        "year": 2021
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2022
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2023
+      },
+      {
+        "candidate_count": 43,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.581863979848866,
+        "remainder": 0.5818639798488663,
+        "year": 2024
+      },
+      {
+        "candidate_count": 44,
+        "final_allocation": 8,
+        "floor_allocation": 7,
+        "raw_allocation": 7.758186397984887,
+        "remainder": 0.7581863979848871,
+        "year": 2025
+      },
+      {
+        "candidate_count": 33,
+        "final_allocation": 6,
+        "floor_allocation": 5,
+        "raw_allocation": 5.818639798488665,
+        "remainder": 0.8186397984886646,
+        "year": 2026
+      }
+    ],
+    "final_total": 70,
+    "seed_domain": "HIGH_VOL_NON_EVENT_V2",
+    "seed_domain_sha256": "dad0f041514c643e83356e7a0a4b6fc1b17c143af5095913b197a42d978d35c5",
+    "shortfall": false,
+    "target_total": 70,
+    "total_candidates_in_pool": 397
+  },
+  "manifest_sha256": "962f49c2d607d4aaad6d511314bcc47ee02491f85feb019849fc02390c2a497c",
+  "primary_stratum_counts": {
+    "COMPRESSION": 70,
+    "HIGH_VOL_NON_EVENT": 70,
+    "MATCHED_CONTROL": 79,
+    "PROTECTED_HOLDOUT": 100,
+    "RANDOM_DEVELOPMENT": 50,
+    "SCHEDULED_EVENT": 79
+  },
+  "protected_holdout": {
+    "backfilled": 0,
+    "invalidated": 0,
+    "invalidation_log": [],
+    "kept": 100
+  },
+  "random_development": {
+    "backfilled": 5,
+    "invalidated": 5,
+    "invalidation_log": [
+      {
+        "reason": "NOW_A_FINAL_SELECTED_SCHEDULED_EVENT_SESSION",
+        "session_date": "2018-09-07"
+      },
+      {
+        "reason": "NOW_A_FINAL_SELECTED_SCHEDULED_EVENT_SESSION",
+        "session_date": "2021-07-30"
+      },
+      {
+        "reason": "NOW_A_FINAL_SELECTED_SCHEDULED_EVENT_SESSION",
+        "session_date": "2022-06-03"
+      },
+      {
+        "reason": "NOW_A_FINAL_SELECTED_SCHEDULED_EVENT_SESSION",
+        "session_date": "2023-01-06"
+      },
+      {
+        "reason": "NOW_A_FINAL_SELECTED_SCHEDULED_EVENT_SESSION",
+        "session_date": "2023-07-12"
+      }
+    ],
+    "kept": 45
+  },
+  "secondary_context_tag_count": 14,
+  "total_unique_sessions": 448,
+  "unmatched_event_count": 0,
+  "version": "hmt2-corpus-selection-v2-allocation-evidence-v1"
+}

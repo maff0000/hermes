@@ -147,17 +147,54 @@ class _FakeMetadata:
         return self._billable_size
 
 
+class _FakeDBNStore:
+    """Stands in for `databento.DBNStore` — a plain object exposing only the two members
+    `_translate_real_bulk_acquisition` actually reads (`.nbytes`, `.to_df()`). Never the real
+    vendor class, never touching the network, never touching a real file beyond an optional
+    tiny placeholder write (so a `path=` argument can be exercised end-to-end in a test)."""
+
+    def __init__(self, *, nbytes=0, fake_rows=0):
+        self.nbytes = nbytes
+        self._fake_rows = fake_rows
+
+    def to_df(self):
+        return [None] * self._fake_rows
+
+
+class _FakeTimeseries:
+    def __init__(self, *, nbytes=0, fake_rows=0, raise_error=None):
+        self._nbytes = nbytes
+        self._fake_rows = fake_rows
+        self._raise_error = raise_error
+        self.calls = []
+
+    def get_range(self, **kwargs):
+        self.calls.append(kwargs)
+        if self._raise_error:
+            raise self._raise_error
+        path = kwargs.get("path")
+        if path:
+            with open(path, "wb") as f:
+                f.write(b"__FAKE_DBN_ZST_PLACEHOLDER_NOT_REAL_VENDOR_BYTES__")
+        return _FakeDBNStore(nbytes=self._nbytes, fake_rows=self._fake_rows)
+
+
 class _FakeHistoricalClient:
     """Stands in for `databento.Historical` — a plain object, never the real vendor class, never
     touching the network."""
 
-    def __init__(self, symbology_response=None, metadata_kwargs=None):
+    def __init__(self, symbology_response=None, metadata_kwargs=None, timeseries_kwargs=None):
         self.symbology = _FakeSymbology(symbology_response or {})
         self.metadata = _FakeMetadata(**(metadata_kwargs or {}))
+        self.timeseries = _FakeTimeseries(**(timeseries_kwargs or {}))
 
 
-def _make_provider(*, api_key="test-fixture-only-key", symbology_response=None, metadata_kwargs=None):
-    fake_client = _FakeHistoricalClient(symbology_response=symbology_response, metadata_kwargs=metadata_kwargs)
+def _make_provider(
+    *, api_key="test-fixture-only-key", symbology_response=None, metadata_kwargs=None, timeseries_kwargs=None
+):
+    fake_client = _FakeHistoricalClient(
+        symbology_response=symbology_response, metadata_kwargs=metadata_kwargs, timeseries_kwargs=timeseries_kwargs
+    )
     provider = dbh.DatabentoHistoricalProvider(api_key=api_key, client_factory=lambda _key: fake_client)
     return provider, fake_client
 
@@ -382,3 +419,140 @@ def test_provider_has_no_live_streaming_method_at_all():
     assert not hasattr(provider, "open_live_stream")
     assert not hasattr(provider, "subscribe")
     assert not hasattr(provider, "live")
+
+
+# ----------------------------------------------------------------------------------------------
+# HMT-2 (real-money checkpoint) — acquire_reference_series_ohlcv1h() / acquire_gc_definitions()
+#
+# Every test below uses ONLY `_FakeTimeseries`/`_FakeDBNStore` — never the real `databento`
+# package, never a real network call, never the real governed credential. These prove BOTH
+# halves of the fail-closed guarantee behaviourally (not just by AST inspection, which is
+# covered separately in tests/hmt2/test_hardcoded_acquisition_call_sites.py):
+#   1. calling either method with the governed range genuinely sends the vendor client the
+#      exact hardcoded dataset/schema/symbols/stype_in — proving the hardcoding is real at
+#      runtime, not just present in source text;
+#   2. calling either method with ANY other date range is rejected BEFORE any vendor call is
+#      made (`fake_client.timeseries.calls == []` afterwards) — proving the range validation
+#      is genuinely fail-closed, not merely decorative.
+# ----------------------------------------------------------------------------------------------
+
+_GOVERNED_START = dbh.GOVERNED_REAL_ACQUISITION_START
+_GOVERNED_END = dbh.GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE
+
+
+def test_acquire_reference_series_ohlcv1h_sends_exact_hardcoded_shape_to_the_vendor_client(tmp_path):
+    provider, fake_client = _make_provider(timeseries_kwargs={"nbytes": 3088848, "fake_rows": 55158})
+    out_path = tmp_path / "gc_v0_ohlcv1h.dbn.zst"
+
+    result = provider.acquire_reference_series_ohlcv1h(path=str(out_path))
+
+    assert len(fake_client.timeseries.calls) == 1
+    call = fake_client.timeseries.calls[0]
+    assert call["dataset"] == "GLBX.MDP3"
+    assert call["symbols"] == ["GC.v.0"]
+    assert call["stype_in"] == "continuous"
+    assert call["schema"] == "ohlcv-1h"
+    assert call["start"] == _GOVERNED_START
+    assert call["end"] == _GOVERNED_END
+    assert call["path"] == str(out_path)
+
+    assert isinstance(result, dbh.RealBulkAcquisitionResult)
+    assert type(result) is dbh.RealBulkAcquisitionResult  # never a vendor-typed object
+    assert result.dataset == "GLBX.MDP3"
+    assert result.schema == "ohlcv-1h"
+    assert result.symbols == ("GC.v.0",)
+    assert result.stype_in == "continuous"
+    assert result.nbytes == 3088848
+    assert result.record_count == 55158
+    assert result.object_path == str(out_path)
+    assert out_path.exists()  # the fake actually streamed to disk, mirroring the real path= flow
+
+
+def test_acquire_gc_definitions_sends_exact_hardcoded_shape_to_the_vendor_client(tmp_path):
+    provider, fake_client = _make_provider(timeseries_kwargs={"nbytes": 1069135600, "fake_rows": 2056030})
+    out_path = tmp_path / "gc_fut_definitions.dbn.zst"
+
+    result = provider.acquire_gc_definitions(path=str(out_path))
+
+    assert len(fake_client.timeseries.calls) == 1
+    call = fake_client.timeseries.calls[0]
+    assert call["dataset"] == "GLBX.MDP3"
+    assert call["symbols"] == ["GC.FUT"]
+    assert call["stype_in"] == "parent"
+    assert call["schema"] == "definition"
+    assert call["start"] == _GOVERNED_START
+    assert call["end"] == _GOVERNED_END
+    assert call["path"] == str(out_path)
+
+    assert type(result) is dbh.RealBulkAcquisitionResult
+    assert result.schema == "definition"
+    assert result.symbols == ("GC.FUT",)
+    assert result.stype_in == "parent"
+    assert result.nbytes == 1069135600
+    assert result.record_count == 2056030
+    assert out_path.exists()
+
+
+@pytest.mark.parametrize(
+    "start,end",
+    [
+        ("2017-05-20", _GOVERNED_END),  # one day earlier than governed start
+        (_GOVERNED_START, "2026-09-20"),  # one day later than governed end
+        ("2017-05-21", "2025-12-31"),  # v1's OLD range — must not silently be accepted here
+        ("2017-05-21", "2026-09-18"),  # inclusive-cutoff form, not the exclusive form — rejected
+        ("", ""),
+    ],
+)
+def test_acquire_reference_series_ohlcv1h_rejects_any_non_governed_range_before_any_vendor_call(
+    tmp_path, start, end
+):
+    provider, fake_client = _make_provider()
+    out_path = tmp_path / "should_never_be_written.dbn.zst"
+    with pytest.raises(dbh.DatabentoScopeError):
+        provider.acquire_reference_series_ohlcv1h(start=start, end=end, path=str(out_path))
+    assert fake_client.timeseries.calls == []
+    assert not out_path.exists()
+
+
+@pytest.mark.parametrize(
+    "start,end",
+    [
+        ("2017-05-20", _GOVERNED_END),
+        (_GOVERNED_START, "2026-09-20"),
+        ("2017-05-21", "2025-12-31"),
+        ("", ""),
+    ],
+)
+def test_acquire_gc_definitions_rejects_any_non_governed_range_before_any_vendor_call(tmp_path, start, end):
+    provider, fake_client = _make_provider()
+    out_path = tmp_path / "should_never_be_written.dbn.zst"
+    with pytest.raises(dbh.DatabentoScopeError):
+        provider.acquire_gc_definitions(start=start, end=end, path=str(out_path))
+    assert fake_client.timeseries.calls == []
+    assert not out_path.exists()
+
+
+def test_acquire_methods_default_to_the_governed_range_when_no_override_is_given(tmp_path):
+    provider, fake_client = _make_provider(timeseries_kwargs={"nbytes": 1, "fake_rows": 1})
+    provider.acquire_reference_series_ohlcv1h(path=str(tmp_path / "a.dbn.zst"))
+    provider.acquire_gc_definitions(path=str(tmp_path / "b.dbn.zst"))
+    assert fake_client.timeseries.calls[0]["start"] == _GOVERNED_START
+    assert fake_client.timeseries.calls[0]["end"] == _GOVERNED_END
+    assert fake_client.timeseries.calls[1]["start"] == _GOVERNED_START
+    assert fake_client.timeseries.calls[1]["end"] == _GOVERNED_END
+
+
+def test_acquire_methods_scrub_vendor_errors_and_never_leak_the_key(tmp_path):
+    provider, _ = _make_provider(
+        timeseries_kwargs={"raise_error": RuntimeError("boom containing test-fixture-only-key")}
+    )
+    with pytest.raises(dbh.DatabentoAdapterError) as exc_info:
+        provider.acquire_reference_series_ohlcv1h(path=str(tmp_path / "x.dbn.zst"))
+    assert "test-fixture-only-key" not in str(exc_info.value)
+
+
+def test_governed_real_acquisition_range_constants_match_the_reconfirmed_quote_script_values():
+    """Pins the exact governed range this checkpoint's real spend was authorised against —
+    matches research/hmt2/hmt2b1_reference_and_definition_quotes.py's own START/END exactly."""
+    assert dbh.GOVERNED_REAL_ACQUISITION_START == "2017-05-21"
+    assert dbh.GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE == "2026-09-19"
