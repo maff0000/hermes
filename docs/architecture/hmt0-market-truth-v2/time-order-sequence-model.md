@@ -70,6 +70,19 @@ eras, and their timestamp/provenance quality implications for this document spec
 | `2015_11_20_TO_2017_05_20_LEGACY` | Legacy FIX/FAST-era history | **No genuine provider capture timestamp exists for this era** — item 2 in §1 is honestly absent for every record in this window, never backfilled from event time |
 | `MDP3_FROM_2017_05_21` | Modern MDP 3.0 provenance | Genuine provider capture time available (subject to per-record confirmation once real ingestion begins) |
 
+**Era-boundary corroboration (new, from the empirical volume/cost measurement in
+`gc-data-volume-and-cost-study.md` §2.3 — a different question from the timestamp-quality cell above, and
+does not resolve it):** that measurement's cross-validation work found the `MDP3_FROM_2017_05_21` boundary
+is independently corroborated by Databento's own `mbo`/`cmbp-1`/`cbbo-*` schema-availability boundary —
+those schemas only exist from 2017-05-21 onward, meaning genuine modern full-book capture begins exactly
+there. By contrast, the `PRE_2015_11_20_LEGACY` / `2015_11_20_TO_2017_05_20_LEGACY` boundary (2015-11-20)
+is **not** independently corroborated by any Databento-native quality flag observed in that study — it was
+taken as given per this program's own prior architecture ruling, not verified against Databento's own
+metadata. These two boundaries do not carry equal empirical grounding, and this document does not imply
+otherwise. This corroboration finding is about the *boundary itself* being schema-evidenced, not about
+per-record timestamp/provenance confirmation for individual rows — the `PRE_2015_11_20_LEGACY` row's
+`PENDING_EVIDENCE` cell above is a distinct, still-open question and is not resolved by this note.
+
 A quality/condition flag carrying this era classification must propagate from the raw event into every
 derived fact that consumes it (cross-referenced from `derived-fact-taxonomy-and-ownership.md`'s
 "evidence lineage" field). A derived fact spanning an era boundary (e.g. a rolling statistic that
@@ -98,6 +111,7 @@ to cross-source ordering:
 ## §5 — What this document does not do
 
 Does not specify a concrete schema (column names/types) — that is implementation, gated behind HMT-1
-authorisation (`hmt1-provisional-scope.md`). Does not resolve the TBBO-vs-MBP-1 native-corpus decision
-(`canonical-market-events.md` §3) — that decision affects which sequence domain is actually available,
-but this document's field-separation requirement holds regardless of which level is ultimately chosen.
+authorisation (`hmt1-provisional-scope.md`). The TBBO-vs-MBP-1 native-corpus decision
+(`canonical-market-events.md` §3) is now resolved (MBP-1) — that decision affects which sequence domain
+is actually available in practice, but this document's field-separation requirement was always stated to
+hold regardless of which level was ultimately chosen, and remains unchanged by the resolution.

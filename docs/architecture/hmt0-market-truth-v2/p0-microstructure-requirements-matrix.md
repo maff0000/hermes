@@ -9,10 +9,13 @@ For every P0 microstructure fact class this programme cares about, this document
 Databento feed level** genuinely required to compute it correctly, across four candidate levels: Trades,
 TBBO, MBP-1, MBO. "Minimum" means the lowest level that produces a *correct* fact — not the lowest level
 that produces something plausible-looking. Where a fact genuinely cannot be computed correctly from a
-given level, this document says so plainly. This document does not choose the P0 native corpus level
-(TBBO vs MBP-1) — that choice is explicitly deferred to `canonical-market-events.md` §2 pending real
-Databento measurement, and this document introduces no MBO dependency anywhere (per this pack's binding
-scope: MBO is out of scope for HMT-0/HMT-1 requirements).
+given level, this document says so plainly. The P0 native corpus level choice (TBBO vs MBP-1), previously
+deferred here, is now resolved — Central Architecture has ruled the native corpus is **MBP-1** (see
+`canonical-market-events.md` §3 and `gc-data-volume-and-cost-study.md` for the empirical basis). This
+document's own fact-class-to-minimum-level mapping below is unaffected by that ruling — it was written to
+hold regardless of which level was ultimately chosen; only the two "final choice" pointers below resolve.
+This document introduces no MBO dependency anywhere (per this pack's binding scope: MBO is out of scope
+for HMT-0/HMT-1 requirements).
 
 ## Feed-level primer (as referenced throughout this matrix)
 
@@ -21,8 +24,13 @@ scope: MBO is out of scope for HMT-0/HMT-1 requirements).
 - **TBBO** — trade prints, each one paired with the top-of-book bid/ask **immediately before that trade**.
   Provides trade + surrounding-quote context, but only at trade moments — it is not a continuous
   top-of-book stream (see `canonical-market-events.md` for why this matters to the event model).
-  Databento's TBBO does carry a trade-side condition indicator; whether that indicator reaches
-  full aggressor-side genuineness at the tick level is `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`.
+  Databento's TBBO does carry a trade-side condition indicator; whether that indicator reaches full
+  aggressor-side genuineness at the tick level was never itself directly measured by the empirical study
+  that resolved the P0 native-corpus choice (that study measured volume/cost, not per-tick indicator
+  genuineness) — this specific sub-question is now moot for the native-corpus decision, since the ruled
+  corpus is MBP-1, not TBBO (see `canonical-market-events.md` §3), but it remains an honest, standalone
+  gap in this document's own knowledge about TBBO specifically, not something this update resolves or
+  claims to resolve.
 - **MBP-1** — every top-of-book state change: every trade AND every quote update, with a resulting
   BBO price/quantity/order-count snapshot after each event. A continuous top-of-book stream.
 - **MBO** — full order-by-order book (every add/modify/cancel at every price level, individually
@@ -38,7 +46,7 @@ For each fact class: minimum genuinely-correct level, and the honest caveat for 
 | **POC (point of control)** | Correct — derived directly from volume-at-price | Same | Same | Same | **Trades** |
 | **VAH / VAL (value area high/low)** | Correct — derived from the volume-at-price distribution | Same | Same | Same | **Trades** |
 | **LVN / HVN (low/high volume nodes)** | Correct — same distribution, different read | Same | Same | Same | **Trades** |
-| **Aggressor volume** (which side initiated) | **Cannot be determined correctly** — Trades alone has no reliable BBO-relative side classification; a price-only heuristic (uptick/downtick) is an approximation, not a genuine aggressor determination, and this matrix will not describe it as exact | Correct at trade moments — trade price vs. the immediately-preceding BBO gives a genuine Lee–Ready-style classification | Correct and continuous — same classification, available at every top-of-book update, not just trade moments | Correct, strongest — genuine order-level aggressor identity | **TBBO** (MBP-1 strictly better; final P0 choice `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`) |
+| **Aggressor volume** (which side initiated) | **Cannot be determined correctly** — Trades alone has no reliable BBO-relative side classification; a price-only heuristic (uptick/downtick) is an approximation, not a genuine aggressor determination, and this matrix will not describe it as exact | Correct at trade moments — trade price vs. the immediately-preceding BBO gives a genuine Lee–Ready-style classification | Correct and continuous — same classification, available at every top-of-book update, not just trade moments | Correct, strongest — genuine order-level aggressor identity | **TBBO** (MBP-1 strictly better; ruled P0 native corpus is **MBP-1** — see `canonical-market-events.md` §3 — so the acquired corpus already exceeds this fact class's own minimum) |
 | **Delta** (buy volume − sell volume) | **Cannot be determined correctly** — depends entirely on aggressor volume above | Correct | Correct, continuous | Correct | **TBBO** |
 | **CVD (cumulative volume delta)** | **Cannot be determined correctly** | Correct | Correct, continuous | Correct | **TBBO** |
 | **Trade-size distributions** | Correct — size is a native trade-print field | Same (no additional need) | Same | Same | **Trades** |
@@ -74,9 +82,12 @@ be either (a) not computed at all, or (b) computed as an explicitly labelled `PR
 its limitation stated in its own metadata (see `derived-fact-taxonomy-and-ownership.md`) — never silently
 presented as the exact fact.
 
-## Open item
+## Resolved item
 
-The final choice of P0 native corpus level (TBBO vs. MBP-1) is `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`
-— see `canonical-market-events.md` §2 and `gc-data-volume-and-cost-study.md`. This matrix is written so
-that whichever level is ultimately chosen, the fact-class-to-minimum-level mapping above does not need to
-be restructured — only the "final choice" pointer needs to be resolved.
+The final choice of P0 native corpus level (TBBO vs. MBP-1) is **resolved**: Central Architecture has
+ruled the native corpus is **MBP-1**, on the empirical basis measured in `gc-data-volume-and-cost-study.md`
+— see `canonical-market-events.md` §3 for the ruling and its rationale. As anticipated when this matrix
+was first written, the fact-class-to-minimum-level mapping above did not need to be restructured by this
+resolution — only the "final choice" pointer resolved. Note this does not authorise HMT-1 implementation
+(still `NOT AUTHORISED`, see `hmt1-provisional-scope.md`) and does not clear the separate licensing gate
+on permanent retention of the corpus (`licensing-and-security.md` §2, still open).

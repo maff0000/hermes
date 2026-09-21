@@ -55,25 +55,42 @@ binding rulings). A P0 native corpus choice of TBBO-only would mean HERMES canno
 `TopOfBookEvent` stream — that would need to be stated plainly wherever it matters, never quietly
 papered over by degrading the event's semantics to match the weaker feed.
 
-## §3 — The P0 native corpus decision is deferred, not resolved here
+## §3 — The P0 native corpus decision is now resolved: MBP-1
 
-The final choice between acquiring TBBO or MBP-1 as HERMES's permanent P0 native corpus is:
+The `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` marker that previously stood in this section is
+**superseded**. The empirical measurement it was waiting on has now landed (Helm, cross-validated by
+Rogue against the directive; full figures in `gc-data-volume-and-cost-study.md`), and Central
+Architecture has ruled on it:
 
-> **`PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`**
+> **GC P0 native centralized-exchange source corpus = MBP-1.**
 
-This is deliberately left unresolved by this document and by this entire pack. It depends on real
-Databento metadata (volume, cost, and genuine feed-content verification) that Helm is expected to return
-in a later, separately-scoped measurement exercise (see `gc-data-volume-and-cost-study.md`). This document
-does not guess a plausible-sounding outcome, does not lean toward either choice, and does not introduce
-MBO as a hedge against the ambiguity. Until that measurement lands:
+Rationale, restated here exactly as handed down by the ruling (not reinterpreted or softened):
 
-- The canonical event model (this document) is defined at the semantic level (what a `TopOfBookEvent`
-  *means*) independent of which feed eventually supplies it.
-- Any HMT-1 implementation work (see `hmt1-provisional-scope.md`) that would require this decision to be
-  made is blocked on it, explicitly, not silently assumed to default to one side.
-- If the empirical measurement shows MBP-1's incremental cost/volume over TBBO is prohibitive, the correct
-  next step is a **new, explicit architecture ruling** — documented here or in a superseding document —
-  not a silent runtime fallback to TBBO while still claiming `TopOfBookEvent` semantics.
+1. Canonical `TopOfBookEvent` means a genuine top-of-book state transition.
+2. TBBO provides BBO only at trade time and cannot represent the complete transition stream.
+3. MBP-1 provides the required top-of-book update-space semantics plus trades.
+4. Empirical storage is manageable (~345.9 GB for the full ~16-year outright-only history).
+5. Empirical historical acquisition cost is acceptable and is actually *below* TBBO's cost for the
+   measured complete history ($579.89 vs $881.80).
+
+The measurement that grounds points 4–5 covers 120 verified GC outright futures contracts only
+(spreads excluded) over 2010-06-06T00:00:00Z → 2026-09-19T00:00:00Z: TBBO 422,689,297 records /
+33,815,143,760 bytes / $881.798589; MBP-1 4,324,008,111 records / 345,920,648,880 bytes / $579.894677.
+Full detail, including the era breakdown and the outright-vs-spread-inclusive comparison, lives in
+`gc-data-volume-and-cost-study.md` §2 — this document only records the resulting semantic ruling, not
+the underlying measurement.
+
+This resolves the P0 native-corpus choice but does **not** resolve the separate licensing gate on
+*permanent retention* of that corpus — see `licensing-and-security.md` §2, which remains open
+(`PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`). Consequently:
+
+- The canonical event model (this document) was always defined at the semantic level (what a
+  `TopOfBookEvent` *means*) independent of which feed supplies it; that semantic definition is unchanged
+  by this ruling — only the "which feed" question resolves.
+- Any HMT-1 implementation work (see `hmt1-provisional-scope.md`) remains **NOT AUTHORISED** regardless
+  of this ruling — resolving the native-corpus choice does not authorise implementation.
+- MBP-1 being the ruled native corpus means HERMES can, in principle, honestly produce a genuine
+  `TopOfBookEvent` stream from it — subject to the licensing gate above being cleared first.
 
 ## §4 — Relationship to the requirements matrix
 

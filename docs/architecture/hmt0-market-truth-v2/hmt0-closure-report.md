@@ -33,16 +33,24 @@ statement in HMT-1's own scope context).
    distributions, aggression clusters, flow efficiency, absorption, failed aggression,
    balance/imbalance, acceptance/rejection, failed auctions, squeeze/trapped-flow proxies), the minimum
    feed level (Trades/TBBO/MBP-1; MBO never introduced) that computes it correctly, with honest
-   `PROXY`-vs-`EXACT` labelling discipline where a weaker level is used.
+   `PROXY`-vs-`EXACT` labelling discipline where a weaker level is used. Updated in this revision: the
+   primer note and "Open item" now point at the resolved MBP-1 ruling instead of the pending measurement;
+   the fact-class-to-minimum-level mapping itself is unchanged.
 4. **[`canonical-market-events.md`](canonical-market-events.md)** — `MarketQuoteEvent`/
    `MarketTradeEvent`/`TopOfBookEvent`. Rules that TBBO alone cannot satisfy genuine `TopOfBookEvent`
-   semantics (trade-anchored sampling only); MBP-1 can. Defers the P0 native-corpus level choice to
-   `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`.
+   semantics (trade-anchored sampling only); MBP-1 can. Updated in this revision: §3 now records Central
+   Architecture's ruling on the previously-deferred P0 native-corpus choice — **MBP-1** — on the empirical
+   basis in `gc-data-volume-and-cost-study.md`; the `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` marker is
+   superseded there.
 5. **[`time-order-sequence-model.md`](time-order-sequence-model.md)** — six permanently-separate time/
    sequence fields; explicitly forbids reusing HERMES's existing stored-row `ticks.seq` (ratified by
    `docs/hermes_tick_seq_semantic.md`) as an exchange/provider sequence number; forbids fabricated
    cross-source global ordering; ties the three historical provenance eras into per-record quality
-   propagation.
+   propagation. Updated in this revision: §3 now notes the `MDP3_FROM_2017_05_21` era boundary is
+   independently corroborated by Databento's own schema-availability boundary while the
+   `PRE_2015_11_20_LEGACY`/`2015_11_20_TO_2017_05_20_LEGACY` boundary is not — the `PRE_2015_11_20_LEGACY`
+   timestamp-confirmation `PENDING_EVIDENCE` cell itself remains open, unresolved by this note; §5's
+   reference to the now-resolved native-corpus decision is updated.
 6. **[`gc-futures-identity-and-roll.md`](gc-futures-identity-and-roll.md)** — every GC event/fact
    permanently retains the actual traded-contract identity (e.g. `GCZ26`, never a bare `GC`); continuous
    futures are derived-only, versioned, retain contributing contract + roll reason/policy per bar, and are
@@ -62,14 +70,23 @@ statement in HMT-1's own scope context).
 10. **[`provider-abstraction.md`](provider-abstraction.md)** — the boundary between provider wire
     format and canonical HERMES representation, generalising the existing `adapters/base.py` (OANDA)
     precedent to a GC provider (e.g. Databento) that must remain swappable.
-11. **[`gc-data-volume-and-cost-study.md`](gc-data-volume-and-cost-study.md)** — a measurement template,
-    every cell `PENDING_EVIDENCE`, structured so real Databento numbers can be dropped in without
-    restructuring.
+11. **[`gc-data-volume-and-cost-study.md`](gc-data-volume-and-cost-study.md)** — originally a measurement
+    template, every cell `PENDING_EVIDENCE`. Updated in this revision: now populated with the real,
+    outright-only Databento measurement (120 verified GC outright futures contracts, 2010-06-06 →
+    2026-09-19) — TBBO 422,689,297 records / 33,815,143,760 bytes / $881.798589; MBP-1 4,324,008,111
+    records / 345,920,648,880 bytes / $579.894677; full era breakdown; a new §2.5 retaining the prior
+    spread-inclusive full-history figures as clearly-labelled superseded/historical evidence (+4.5–5.3%
+    spread inflation). Cells with no measurement (Trades level, 1-day/1-month/1-year horizons, live-
+    subscription monthly cost, storage-tier $/GB rate) remain `PENDING_EVIDENCE`, unchanged.
 12. **[`licensing-and-security.md`](licensing-and-security.md)** — the binding `C — HYBRID` build-v-rent
     ruling (HERMES permanently owns derived facts/definitions/calendar-roll-history/schema-identity/
     evidence vault; the native corpus itself only with BOTH empirical cost support AND written licensing);
     the literal `PERMANENT_NATIVE_CORPUS_RETENTION = PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION`
-    marker; explicit narrowing away from MBO/deeper books/all-CME/unrelated sources.
+    marker; explicit narrowing away from MBO/deeper books/all-CME/unrelated sources. Updated in this
+    revision: records that the native corpus is now ruled MBP-1 and that empirical support (condition 1)
+    is satisfied (~345.9 GB, acceptable cost); adds the synonym marker
+    `PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION` alongside the original, both denoting the same still-
+    open licensing gate (condition 2) — the favourable cost measurement does not clear it.
 13. **[`legacy-migration-roadmap.md`](legacy-migration-roadmap.md)** — governed, unstarted retirement
     roadmaps for (a) legacy `candles_D1` (00:00Z-anchored, `LEGACY / NON_AUTHORITATIVE / RETIRE_PENDING`,
     canonical authority is PR #166's 22:00Z `canonical_candles_d1`) and (b) `market-map-dev.service`
@@ -104,21 +121,45 @@ inside the new subdirectory — because these are architecture documents, govern
 
 ## Collected `PENDING_EVIDENCE`-class markers — full list
 
+**Resolved/populated since the original pack revision:** `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT`
+(all 4 prior occurrences — `canonical-market-events.md` §3, `p0-microstructure-requirements-matrix.md`'s
+primer note, `gc-data-volume-and-cost-study.md` §1/§4, and `hmt1-provisional-scope.md` §1/§4's reference
+to it) is **superseded**: Central Architecture has ruled the P0 native corpus is **MBP-1**, on the
+empirical measurement now in `gc-data-volume-and-cost-study.md` §2 (see `canonical-market-events.md` §3
+for the ruling). `gc-data-volume-and-cost-study.md` §2.1/§2.2/§2.3/§2.4's previous all-cells-`PENDING_EVIDENCE`
+rows are now populated with real, outright-only measurement data — a handful of individually-unmeasured
+cells within that document (Trades-level figures, 1-day/1-month/1-year horizons, ongoing live-
+subscription cost, storage-tier $/GB rate) remain `PENDING_EVIDENCE`, but these are no longer
+all-cells-pending rows and are not separately enumerated here. Two items remain genuinely open:
+
 | Marker | Document | Section |
 |---|---|---|
-| `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` | `canonical-market-events.md` | §3 |
-| `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` (referenced) | `p0-microstructure-requirements-matrix.md` | primer note, "Databento's TBBO..." line |
-| `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` (referenced) | `gc-data-volume-and-cost-study.md` | §1, §4 |
-| `PENDING_EMPIRICAL_TBBO_VS_MBP1_MEASUREMENT` (referenced) | `hmt1-provisional-scope.md` | §1, §4 |
-| `PENDING_EVIDENCE` (raw data volume matrix, all cells) | `gc-data-volume-and-cost-study.md` | §2.1 |
-| `PENDING_EVIDENCE` (acquisition cost matrix, all cells) | `gc-data-volume-and-cost-study.md` | §2.2 |
-| `PENDING_EVIDENCE` (volume/cost by provenance era, all cells) | `gc-data-volume-and-cost-study.md` | §2.3 |
-| `PENDING_EVIDENCE` (storage-tier cost implications, all cells) | `gc-data-volume-and-cost-study.md` | §2.4 |
 | `PENDING_EVIDENCE` (era-specific timestamp/provenance confirmation, `PRE_2015_11_20_LEGACY`) | `time-order-sequence-model.md` | §3 table |
-| `PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` (as `PERMANENT_NATIVE_CORPUS_RETENTION = ...`) | `licensing-and-security.md` | §2 |
+| `PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION` / `PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION` (synonyms, same open gate, as `PERMANENT_NATIVE_CORPUS_RETENTION = ...`) | `licensing-and-security.md` | §2 |
 
 A future reader who needs to know "what is this whole programme still waiting on" can read this table
 alone without hunting through all 15 documents.
+
+## Status of this revision (empirical evidence + P0 corpus ruling)
+
+- Archaeology: **GREEN**.
+- Architecture: **GREEN**.
+- P0 native corpus schema decision: **GREEN — MBP-1** (`canonical-market-events.md` §3).
+- Empirical metadata/sizing measurement: **GREEN** (`gc-data-volume-and-cost-study.md` §2).
+- Outright-only corpus measurement (120 verified GC outright contracts, spreads excluded, cross-validated
+  against Databento's own `instrument_class=F` field): **GREEN**.
+- `darwin_ro` provenance: **GREEN** (unchanged by this revision — see `darwin-ro-provenance-chronology.md`).
+- Vantage RPyC containment: **GREEN** (unchanged by this revision, tracked in Fabric/Helm state, not a
+  document in this pack).
+- Licensing retention confirmation: **OPEN** — `licensing-and-security.md` §2, not cleared by this
+  revision.
+- **HMT-1 remains NOT AUTHORISED.** **DARWIN remains completely frozen and untouched.** Neither statement
+  is weakened by this revision's P0 corpus ruling.
+
+**Overall pack status: `AMBER / CLOSURE PENDING LICENSING`.** This revision resolves the P0 native-corpus
+schema question and supplies the empirical size/cost evidence, but does not achieve full closure — the
+licensing gate on permanent retention of the native corpus is still open, and closure is not claimed
+until it clears.
 
 ## What this closure pack authorises
 
@@ -127,8 +168,9 @@ architecture direction. It does **not** authorise:
 
 - Any HMT-1 implementation (see `hmt1-provisional-scope.md` — explicitly APPROVED IN PRINCIPLE / NOT
   AUTHORISED, gated behind a separate, explicit future authorisation).
-- Any acquisition of GC market data, temporary or permanent (gated behind
-  `gc-data-volume-and-cost-study.md` and `licensing-and-security.md`, both still open).
+- Any acquisition of GC market data, temporary or permanent. The P0 native-corpus schema choice is now
+  resolved (MBP-1) and its empirical size/cost support is satisfied, but acquisition remains gated on
+  `licensing-and-security.md`'s still-open licensing confirmation.
 - Any retirement action against legacy `candles_D1` or `market-map-dev.service` (both roadmaps are
   recorded, neither is started — `legacy-migration-roadmap.md`).
 - Any DARWIN/ATHENA work of any kind — stated explicitly as a non-goal, not merely an absence.
@@ -143,3 +185,8 @@ brief. Every factual claim about "what already exists" in this pack is traceable
 in the relevant document. Every forward-looking architectural claim is stated as direction, not status.
 Every genuinely unmeasured quantity is marked `PENDING_EVIDENCE` (or the more specific named markers
 above) rather than estimated. No credential or secret material appears anywhere in this pack.
+
+This revision's empirical figures (`gc-data-volume-and-cost-study.md` §2) were produced by Helm, delivered
+via Fabric, and independently cross-validated by Rogue against the directive before being written into
+this pack — the same evidence discipline as the rest of the pack applies: no figure beyond what was
+explicitly measured is stated, and nothing here is estimated, rounded differently, or invented.

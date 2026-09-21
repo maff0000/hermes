@@ -25,8 +25,11 @@ HERMES **permanently owns**:
   items 1–2).
 - Immutable promoted-research evidence (the evidence vault, `data-lifecycle-and-storage.md` §1.3).
 
-**The native GC P0 source corpus itself** (the raw TBBO/MBP-1/Trades data as delivered by the provider,
-distinct from HERMES's own derived canonical records above) **may be permanently retained ONLY if**:
+**The native GC P0 source corpus itself** — now that Central Architecture has ruled the P0 native corpus
+is **MBP-1** (see `canonical-market-events.md` §3, decided on the empirical measurement in
+`gc-data-volume-and-cost-study.md`; previously this document referred to "whichever of TBBO/MBP-1 is
+chosen" — that ambiguity is now resolved) — distinct from HERMES's own derived canonical records above,
+**may be permanently retained ONLY if**:
 
 1. Empirical size/cost (per `gc-data-volume-and-cost-study.md`) genuinely supports permanent retention,
    **AND**
@@ -38,9 +41,21 @@ permission does not, by itself, authorise permanent retention if the cost/volume
 prohibitive. This document does not treat either condition as a formality that the other can substitute
 for.
 
+**Condition (1) is now satisfied.** The empirical measurement in `gc-data-volume-and-cost-study.md` §2
+shows the complete outright-only native MBP-1 historical corpus is approximately **345.9 GB**
+(uncompressed/billable representation as quoted by Databento) for the full measured ~16-year interval
+(`2010-06-06T00:00:00Z` → `2026-09-19T00:00:00Z`). This is sufficiently bounded that storage capacity does
+not by itself justify discarding the P0 native corpus as a permanent-retention candidate; historical
+acquisition cost for MBP-1 ($579.894677) is also below TBBO's cost for the same complete history
+($881.798589). **This favourable measurement does NOT clear condition (2).** Licensing remains open — see
+§2 below — and permanent retention is not authorised until it is.
+
 ## §2 — The literal marker, stated exactly as required by this pack's binding brief
 
 > `PERMANENT_NATIVE_CORPUS_RETENTION = PENDING_WRITTEN_PROVIDER/LICENSOR_CONFIRMATION`
+>
+> Equivalently, and also stated literally so a future grep for either string finds the same open
+> conclusion: `PENDING_WRITTEN_LICENCE_RETENTION_CONFIRMATION`
 
 This marker remains in force **until written evidence exists** — a specific, retrievable communication
 from Databento (or whichever provider is ultimately used) explicitly confirming that permanent retention
@@ -49,6 +64,12 @@ material, a general sales page, a typical-industry-practice assumption, or a ver
 satisfies this requirement. This is stated here as a **standing rule for this document and for any future
 revision of it** — a future editor of this document may update the marker's value once real written
 confirmation exists, but may not relax the *standard* of evidence required to do so.
+
+**This gate is not cleared by the favourable empirical measurement now available** (§1 above,
+`gc-data-volume-and-cost-study.md`). The P0 native corpus is now known to be MBP-1, its full outright-only
+history is known to be ~345.9 GB at an acceptable acquisition cost, and empirical support (condition 1)
+is satisfied — but licensing (condition 2) is a wholly independent requirement, still open, and remains
+so until the specific written confirmation described above exists.
 
 ## §3 — Narrowing: this hybrid model does not broaden to other data classes
 
