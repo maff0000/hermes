@@ -320,3 +320,97 @@ allocation-evidence file (verified this checkpoint;
 
 See the WO final report for v2's own `manifest_sha256`, the full Hamilton allocation tables,
 and confirmation that v1's manifest file/hash and v1's event snapshot are both untouched.
+
+---
+
+## 8. Final all-outright MBP-1 quote resolution (checkpoint: quote only, zero MBP-1 acquired)
+
+This checkpoint resolves the final, exact MBP-1 metadata quote request for the 448-session
+manifest v2 above — the pre-download quotation gate for a possible future MBP-1 pilot
+acquisition. **No MBP-1 (or any other schema's) data was acquired, downloaded, or transferred
+at any point** — see `tests/hmt2/test_hmt2c_mbp1_quote_script_guard.py` for the static AST
+guard proving `research/hmt2/hmt2c_mbp1_quote.py` calls only the three free metadata-estimate
+methods.
+
+### 8.1 Real activation/expiration windows (93 clean outright contracts)
+
+`research/hmt2/generate_gc_outright_active_windows_v1.py` re-decodes the SAME already-
+acquired, already-audited `GC.FUT` parent `definition`-schema native artefact §3 processed
+(re-hashed and compared against that checkpoint's own recorded SHA-256 before proceeding — no
+new acquisition of any kind), and extracts the real `activation`/`expiration` definition-schema
+fields (confirmed real field names against the actual decoded dataframe columns) for each of
+the 93 clean outright `provider_symbol`s in `gc-contract-mapping-table-v2.json`. Output:
+`research/hmt2/gc-outright-active-windows-v1.json`.
+
+**Real-data disclosure:** 92 of the 93 clean symbols have exactly one distinct
+(activation, expiration) pair across every one of their own republished definition-schema rows;
+`GCX1` has two, from a genuine, disclosed real vendor correction
+(`security_update_action="M"`) that moved its expiration one hour earlier mid-life
+(`2021-11-26T18:30:00Z` → `17:30:00Z`, activation unchanged). Resolved by taking the row with
+the latest `ts_event` per symbol (last-write-wins) — see
+`market_truth.acquisition.gc_active_windows` module docstring. This one-hour shift never
+changes which calendar date a session falls on, so it has zero effect on any active/inactive
+determination below.
+
+### 8.2 Session-to-contract activity (research/hmt2/generate_session_contract_activity_v1.py)
+
+For each of the 448 manifest rows, `market_truth.acquisition.gc_active_windows.
+determine_active_contracts_for_sessions()` applies a straightforward overlap test — a
+session's `[request_start_utc, request_end_utc)` window overlaps a contract's real
+`[activation_utc, expiration_utc]` listing window — against the 93-contract table. Output:
+`research/hmt2/gc-session-contract-activity-v1.json`.
+
+**Real, checkpoint-discovered finding (important — read before interpreting §8.3's contract
+count):** COMEX lists GC outright contracts many months, and in several observed cases multiple
+YEARS, before their own delivery month (e.g. `GCZ6`, Dec-2026 delivery, activated
+2020-12-30 — six years out). Consequently a typical session in this corpus has **~15
+simultaneously-listed outright contracts** overlapping it (real range across the 448 sessions:
+**2..25**; every one of the 448 sessions has 2 or more). This is a straightforward, literal
+application of the WO's own specified filter ("is this session's date within this contract's
+active listing window") — it is **not** a liquidity/"front-month"-only interpretation (which
+would need real trading-volume data this checkpoint neither has nor was asked to compute), and
+it diverges materially from the WO's own illustrative "front month, plus one more near a roll
+date" framing. This is disclosed here plainly as the single largest judgment call in this
+checkpoint's MBP-1 quote resolution — see the WO final report for the full discussion.
+
+**Real result:** relevant outright contract count for this manifest = **93 of 93** (all of
+them) — every one of the 93 clean contracts overlaps at least one of the 448 sessions somewhere
+across the full 2017–2026 corpus range, contrary to the WO's own speculation that this would
+"likely be fewer than 93." The cost-reduction this checkpoint's quote achieves versus quoting
+each contract's own full multi-year real listed lifetime comes entirely from narrowing the
+requested DATE COVERAGE per contract down to the exact sampled session windows — never from a
+reduction in contract count.
+
+### 8.3 Quote-request construction and grouping (research/hmt2/mbp1_quote_request.py)
+
+Databento's free `metadata.get_cost`/`get_record_count`/`get_billable_size` endpoints each take
+exactly one contiguous `[start, end)` range per call (confirmed against the installed SDK's own
+source, not assumed) — no discontiguous multi-range parameter exists. The chosen approach is
+explicitly **(b)** per the WO's own stated architect intent: quote exactly what would be
+purchased for the sampled 448-session corpus, never each contract's own full real tradable-life
+range (interpretation (a), which would be far more expensive and is not wanted).
+
+Because the real `symbols` parameter accepts up to 2,000 symbols in a single call, this
+checkpoint groups by **contiguous session-date RUN first** (using the real GC trading-session
+calendar, `session_calendar.build_session_universe()`, to guarantee a run never spans a real
+trading day this manifest did not select), then issues ONE call per run carrying the sorted
+UNION of every contract active in any session within that run as its `symbols` list. This is
+provably exact (never bills for a real trading day the manifest did not select; a symbol with
+no real listed activity on some day inside its own run's span simply has zero real records
+there — nothing is ever fabricated or inflated) while being far more call-efficient than a naive
+per-(contract, date) grouping (measured this checkpoint: 5,375 groups per-contract vs. **359**
+session-runs with the union-of-symbols strategy — a ~15x reduction).
+
+### 8.4 Real quote result
+
+`research/hmt2/hmt2c_mbp1_quote.py` — quote-only (three free metadata-estimate calls per run,
+359 runs, dataset `GLBX.MDP3`, schema `mbp-1`, `stype_in="raw_symbol"`). Full request/result
+detail: `research/hmt2/hmt2c-mbp1-quote-evidence-v1.json`.
+
+**Real result:** 359 metadata-estimate call groups, 93 distinct contracts, **449,637,036
+records**, **35,970,962,880 billable bytes** (≈33.5 GiB), **$60.301025569441016 quoted cost**.
+
+**Running total projected HMT-2 spend:** reference-series actual ($0.546575635672) +
+GC.FUT definitions actual ($1.692707203329) + this MBP-1 quote, not yet spent
+($60.301025569441016) = **$62.540308408442016**, against the **$100** ceiling (**$37.46**
+headroom remaining).

@@ -1,0 +1,944 @@
+{
+  "clean_raw_symbol_count": 93,
+  "clean_raw_symbols_with_multiple_distinct_activation_or_expiration_values": 1,
+  "entries": [
+    {
+      "activation_utc": "2019-10-30T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-01-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF0",
+      "source_ts_event": "2020-01-26T17:05:55.795000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-10-29T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-01-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF1",
+      "source_ts_event": "2021-01-24T17:06:12.648084969+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-10-28T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-01-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF2",
+      "source_ts_event": "2022-01-23T17:05:53.540000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-10-28T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-01-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF3",
+      "source_ts_event": "2023-01-22T17:04:52.536000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-10-30T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-01-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF4",
+      "source_ts_event": "2024-01-28T12:04:51.042000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-10-30T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-01-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF5",
+      "source_ts_event": "2025-01-26T12:04:51.059000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-01-28T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF6",
+      "source_ts_event": "2026-01-25T13:20:40.553000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2027,
+      "expiration_utc": "2027-01-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF7",
+      "source_ts_event": "2026-09-13T11:38:09.147000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-10-30T21:30:00+00:00",
+      "delivery_month": 1,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-01-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCF9",
+      "source_ts_event": "2019-01-27T17:05:54.718000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-03-28T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-02-26T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG0",
+      "source_ts_event": "2020-02-23T17:05:43.669000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-03-28T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-02-24T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG1",
+      "source_ts_event": "2021-02-21T17:06:08.431559541+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-03-30T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-02-24T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG2",
+      "source_ts_event": "2022-02-20T17:05:56.524000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-03-30T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-02-24T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG3",
+      "source_ts_event": "2023-02-19T17:04:50.758000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-03-30T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-02-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG4",
+      "source_ts_event": "2024-02-25T12:04:50.821586307+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-03-30T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-02-26T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG5",
+      "source_ts_event": "2025-02-23T12:04:51.012900089+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-03-27T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-02-25T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG6",
+      "source_ts_event": "2026-02-22T12:41:54.890000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-27T22:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2027,
+      "expiration_utc": "2027-02-24T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG7",
+      "source_ts_event": "2026-09-13T11:38:14.447000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-03-30T21:30:00+00:00",
+      "delivery_month": 2,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-02-26T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCG9",
+      "source_ts_event": "2019-02-24T17:05:47.686000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-12-30T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-03-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH0",
+      "source_ts_event": "2020-03-22T16:05:46.161000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-12-30T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-03-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH1",
+      "source_ts_event": "2021-03-28T16:05:58.213000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-12-30T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-03-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH2",
+      "source_ts_event": "2022-03-27T16:05:55.944000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-12-29T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-03-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH3",
+      "source_ts_event": "2023-03-26T16:04:51.521000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-12-28T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-03-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH4",
+      "source_ts_event": "2024-03-24T11:04:50.641000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-12-30T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-03-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH5",
+      "source_ts_event": "2025-03-23T11:04:52.131000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-03-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH6",
+      "source_ts_event": "2026-03-22T14:26:44.609000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-03-27T21:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2027,
+      "expiration_utc": "2027-03-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH7",
+      "source_ts_event": "2026-09-13T11:38:11.947000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-12-28T22:30:00+00:00",
+      "delivery_month": 3,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-03-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCH9",
+      "source_ts_event": "2019-03-24T16:05:44.472000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-05-30T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-04-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ0",
+      "source_ts_event": "2020-04-26T16:14:05.616000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-05-30T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-04-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ1",
+      "source_ts_event": "2021-04-25T16:05:59.294000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-05-28T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-04-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ2",
+      "source_ts_event": "2022-04-24T16:05:56.076000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-05-27T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-04-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ3",
+      "source_ts_event": "2023-04-23T16:04:51.067000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-05-27T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-04-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ4",
+      "source_ts_event": "2024-04-21T15:07:08.910000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-05-30T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-04-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ5",
+      "source_ts_event": "2025-04-27T13:02:45.410593669+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-05-30T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-04-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ6",
+      "source_ts_event": "2026-04-26T11:30:55.883000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-04-11T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2027,
+      "expiration_utc": "2027-04-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ7",
+      "source_ts_event": "2026-09-13T11:38:12.197000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-05-30T21:30:00+00:00",
+      "delivery_month": 4,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-04-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCJ9",
+      "source_ts_event": "2019-04-21T16:05:41.746000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-02-27T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-05-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK0",
+      "source_ts_event": "2020-05-24T16:10:53.509334787+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-02-25T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-05-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK1",
+      "source_ts_event": "2021-05-23T16:05:56.609000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-02-25T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-05-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK2",
+      "source_ts_event": "2022-05-22T16:05:57.752000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-02-27T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-05-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK3",
+      "source_ts_event": "2023-05-21T16:04:51.924000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-02-28T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-05-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK4",
+      "source_ts_event": "2024-05-26T11:04:50.953000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-05-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK5",
+      "source_ts_event": "2025-05-25T11:54:23.097366689+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-05-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK6",
+      "source_ts_event": "2026-05-24T11:37:43.671000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-02-27T22:30:00+00:00",
+      "delivery_month": 5,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-05-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCK9",
+      "source_ts_event": "2019-05-26T16:05:40.229000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-06-29T21:30:00+00:00",
+      "delivery_month": 6,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-06-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCM3",
+      "source_ts_event": "2023-06-25T11:09:36.927000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-06-28T21:30:00+00:00",
+      "delivery_month": 6,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-06-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCM4",
+      "source_ts_event": "2024-06-23T11:04:50.973000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-06-27T21:30:00+00:00",
+      "delivery_month": 6,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-06-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCM5",
+      "source_ts_event": "2025-06-22T12:03:40.323000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-06-29T21:30:00+00:00",
+      "delivery_month": 6,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-06-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCM6",
+      "source_ts_event": "2026-06-21T11:37:58.554000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-04-29T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-07-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN0",
+      "source_ts_event": "2020-07-26T16:04:41.598000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-04-29T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-07-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN1",
+      "source_ts_event": "2021-07-25T16:05:56.065000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-04-28T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-07-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN2",
+      "source_ts_event": "2022-07-24T16:04:54.008000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-04-27T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-07-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN3",
+      "source_ts_event": "2023-07-23T11:04:52.448000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-04-29T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-07-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN4",
+      "source_ts_event": "2024-07-28T14:35:55.705000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-07-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN5",
+      "source_ts_event": "2025-07-27T11:30:03.447000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-07-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN6",
+      "source_ts_event": "2026-07-26T11:55:56.136000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-04-29T21:30:00+00:00",
+      "delivery_month": 7,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-07-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCN9",
+      "source_ts_event": "2019-07-28T16:05:48.678000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-09-27T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-08-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ0",
+      "source_ts_event": "2020-08-23T16:05:16.652533665+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-09-27T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-08-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ1",
+      "source_ts_event": "2021-08-22T16:05:56.924000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-09-29T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-08-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ2",
+      "source_ts_event": "2022-08-28T16:04:51.970000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-09-29T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-08-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ3",
+      "source_ts_event": "2023-08-27T11:04:51.589000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-09-29T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-08-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ4",
+      "source_ts_event": "2024-08-25T11:04:51.264000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-09-28T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-08-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ5",
+      "source_ts_event": "2025-08-24T11:53:40.689000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-09-27T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-08-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ6",
+      "source_ts_event": "2026-08-23T11:39:10.145000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-09-28T21:30:00+00:00",
+      "delivery_month": 8,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-08-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCQ9",
+      "source_ts_event": "2019-08-25T16:04:51.501000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-06-29T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-09-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU0",
+      "source_ts_event": "2020-09-27T16:04:58.056000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-06-29T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-09-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU1",
+      "source_ts_event": "2021-09-26T16:05:54.727000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-06-29T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-09-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU2",
+      "source_ts_event": "2022-09-25T16:04:51.780000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-06-29T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-09-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU3",
+      "source_ts_event": "2023-09-24T11:04:51.321000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-06-27T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-09-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU4",
+      "source_ts_event": "2024-09-22T11:04:50.968000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-09-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU5",
+      "source_ts_event": "2025-09-21T11:15:31.715000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-09-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU6",
+      "source_ts_event": "2026-09-13T11:38:12.197000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-06-27T21:30:00+00:00",
+      "delivery_month": 9,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-09-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCU9",
+      "source_ts_event": "2019-09-22T16:05:54.577000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-11-29T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-10-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV0",
+      "source_ts_event": "2020-10-25T16:05:12.549000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-11-27T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-10-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV1",
+      "source_ts_event": "2021-10-24T16:05:53.215000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-11-27T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-10-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV2",
+      "source_ts_event": "2022-10-23T16:04:51.040474271+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-11-29T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-10-27T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV3",
+      "source_ts_event": "2023-10-22T11:04:52.289000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-11-29T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-10-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV4",
+      "source_ts_event": "2024-10-27T11:04:51.605000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-11-29T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-10-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV5",
+      "source_ts_event": "2025-10-26T11:11:28.566000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-11-27T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-10-28T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV6",
+      "source_ts_event": "2026-09-13T11:38:12.547000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-11-29T22:30:00+00:00",
+      "delivery_month": 10,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-10-29T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCV9",
+      "source_ts_event": "2019-10-27T16:05:51.401000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-08-28T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2020,
+      "expiration_utc": "2020-11-25T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX0",
+      "source_ts_event": "2020-11-22T17:06:18.080000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2021-08-30T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2021,
+      "expiration_utc": "2021-11-26T17:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX1",
+      "source_ts_event": "2021-11-21T17:05:52.953000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2022-08-30T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-11-28T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX2",
+      "source_ts_event": "2022-11-27T17:04:51.144789613+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2023-08-30T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-11-28T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX3",
+      "source_ts_event": "2023-11-26T12:04:52.315000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2024-08-29T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-11-26T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX4",
+      "source_ts_event": "2024-11-24T12:04:51.261000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-11-25T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX5",
+      "source_ts_event": "2025-11-23T12:41:29.177000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2025-02-07T22:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-11-25T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX6",
+      "source_ts_event": "2026-09-13T11:38:12.897000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-08-29T21:30:00+00:00",
+      "delivery_month": 11,
+      "delivery_year": 2019,
+      "expiration_utc": "2019-11-26T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCX9",
+      "source_ts_event": "2019-11-24T17:05:43.066000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2016-12-29T22:30:00+00:00",
+      "delivery_month": 12,
+      "delivery_year": 2022,
+      "expiration_utc": "2022-12-28T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCZ2",
+      "source_ts_event": "2022-12-25T17:04:51.362000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2017-12-28T22:30:00+00:00",
+      "delivery_month": 12,
+      "delivery_year": 2023,
+      "expiration_utc": "2023-12-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCZ3",
+      "source_ts_event": "2023-12-24T12:04:51.520000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2018-12-28T22:30:00+00:00",
+      "delivery_month": 12,
+      "delivery_year": 2024,
+      "expiration_utc": "2024-12-27T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCZ4",
+      "source_ts_event": "2024-12-22T12:04:50.964191003+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2019-12-30T22:30:00+00:00",
+      "delivery_month": 12,
+      "delivery_year": 2025,
+      "expiration_utc": "2025-12-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCZ5",
+      "source_ts_event": "2025-12-28T12:53:54.996000+00:00",
+      "venue": "COMEX"
+    },
+    {
+      "activation_utc": "2020-12-30T22:30:00+00:00",
+      "delivery_month": 12,
+      "delivery_year": 2026,
+      "expiration_utc": "2026-12-29T18:30:00+00:00",
+      "product_root": "GC",
+      "provider_symbol": "GCZ6",
+      "source_ts_event": "2026-09-13T11:38:14.697000+00:00",
+      "venue": "COMEX"
+    }
+  ],
+  "resolution_method": "latest ts_event (last-write-wins) per clean raw_symbol, over that symbol's own real outright (instrument_class='F') definition-schema rows",
+  "source": {
+    "contract_mapping_table_content_sha256": "54bba192840db1c18d87453d5cc05a75dadd80664be59b8db03ca2e9e22e5804",
+    "contract_mapping_table_file": "research/hmt2/gc-contract-mapping-table-v2.json",
+    "native_artefact_relative_path": "research-source/hmt2-gc-mbp1-v1/sessions/HMT2-REAL-ACQ-GC-FUT-DEFINITIONS/definitions/gc_fut_definitions_2017-05-21_2026-09-19.dbn.zst",
+    "native_artefact_sha256": "049608e11f224c9eba7d676db7143340ea691da7c7af37fc71af624d8fa35375"
+  },
+  "version": "hmt2-gc-outright-active-windows-v1"
+}
