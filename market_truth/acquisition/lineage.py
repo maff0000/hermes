@@ -36,6 +36,19 @@ lineage record for each one. `LineageRow`/`LineageCatalogue` themselves are unch
      `gc_contract` is `None` (no representative contract may ever be derived from zero emitted
      events) and it carries zero research partitions; `assert_real_row_is_complete()` enforces
      the correct, opposite set of invariants for each kind (see its own docstring).
+  6. HMT-2 GOVERNED CANONICAL STORAGE-LAYOUT-DEFECT REMEDIATION (additive, v2 file format) — a
+     confirmed, quantified defect in `canonical_worker.py`'s ORIGINAL promotion path let two
+     different sessions' partitions collide on one shared, unnamespaced physical path (see that
+     module's `CANONICAL_STORAGE_LAYOUT_VERSION` docstring for the full mechanism). The fix
+     namespaces every promoted partition's physical path by `session_id`; this module's own
+     role in that fix is exactly one new, appended, OPTIONAL field —
+     `canonical_storage_layout_version` — recording which storage-layout generation produced a
+     given row's `research_partition_relative_paths`/hash maps. A row with this field `None` is
+     a PRE-FIX (v1, unnamespaced) row — indistinguishable, for every pre-existing consumer, from
+     the row shape this module always had, and it must NEVER be silently treated as
+     v2-verified merely because its other required fields happen to be populated
+     (`assert_lineage_row_is_storage_layout_v2()` is the one explicit, separately-callable check
+     for that).
 
 Deterministic chain (WO Part 2, verbatim order):
 
@@ -76,6 +89,15 @@ from market_truth.identity import encode_field
 
 LINEAGE_CATALOGUE_VERSION = "hmt2b-source-canonical-lineage-v1"
 LINEAGE_RECORD_FILE_VERSION = "hmt2-lineage-record-file-v2"
+
+# The canonical STORAGE-LAYOUT version this checkpoint's namespace-collision remediation
+# introduces (see `canonical_worker.py`'s module docstring for the full defect mechanism and
+# fix). A `LineageRow.canonical_storage_layout_version` equal to this value means: every one of
+# this row's `research_partition_relative_paths` was promoted under the session-scoped
+# `canonical-v2/session_id=<...>/...` physical layout, so no other session_id can ever address
+# the same physical file. `None` (or any other value) means the row predates this fix (the
+# original, unnamespaced `canonical/...` layout) — see `assert_lineage_row_is_storage_layout_v2`.
+CANONICAL_STORAGE_LAYOUT_VERSION = "hmt2-canonical-storage-layout-v2"
 
 
 class LineageError(ValueError):
@@ -138,6 +160,13 @@ class LineageRow:
     empty_reason: Optional[str] = None  # only meaningful when canonical_result_kind == "EMPTY_VALID"
     source_resolved_contract_ids: Optional[Tuple[str, ...]] = None
     canonical_emitted_contract_ids: Optional[Tuple[str, ...]] = None
+
+    # ---- HMT-2 governed canonical storage-layout-defect remediation addition (optional, additive) ----
+    # `None` for every row written before this fix existed (the pre-fix, unnamespaced `canonical/`
+    # layout) — see `CANONICAL_STORAGE_LAYOUT_VERSION` above and `canonical_worker.py`'s module
+    # docstring for the full defect/fix. Set to `CANONICAL_STORAGE_LAYOUT_VERSION` on every row
+    # `canonical_worker.py` constructs from this fix onward.
+    canonical_storage_layout_version: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not self.corpus_session_id:
@@ -223,6 +252,12 @@ class LineageRow:
                 if id_tuple:
                     for cid in sorted(id_tuple):
                         h.update(encode_field(cid))
+        # Storage-layout-defect remediation addition — folded in ONLY when set, same
+        # backward-compatibility discipline as the valid-empty ruling's own block immediately
+        # above: every row written before this fix existed leaves this `None` and its self-check
+        # hash is completely unaffected by this code existing.
+        if self.canonical_storage_layout_version is not None:
+            h.update(encode_field(self.canonical_storage_layout_version))
         return h.hexdigest()
 
     def to_json_dict(self) -> dict:
@@ -279,6 +314,7 @@ class LineageRow:
             "canonical_emitted_contract_ids": (
                 list(self.canonical_emitted_contract_ids) if self.canonical_emitted_contract_ids is not None else None
             ),
+            "canonical_storage_layout_version": self.canonical_storage_layout_version,
             "row_identity_sha256": self.row_identity_sha256(),
         }
 
@@ -321,6 +357,7 @@ class LineageRow:
             canonical_emitted_contract_ids=(
                 tuple(doc["canonical_emitted_contract_ids"]) if doc.get("canonical_emitted_contract_ids") is not None else None
             ),
+            canonical_storage_layout_version=doc.get("canonical_storage_layout_version"),
         )
 
 
@@ -383,6 +420,25 @@ def assert_real_row_is_complete(row: LineageRow) -> None:
             raise LineageError(f"session {row.corpus_session_id!r}: real lineage row has no research partitions")
         if not row.partition_semantic_hashes or not row.partition_artifact_hashes:
             raise LineageError(f"session {row.corpus_session_id!r}: real lineage row missing partition hash map(s)")
+
+
+def assert_lineage_row_is_storage_layout_v2(row: LineageRow) -> None:
+    """Explicit, separately-callable check that `row` was produced under the v2, session-scoped
+    canonical storage layout (`canonical-v2/session_id=<...>/...` — see `canonical_worker.py`'s
+    `CANONICAL_STORAGE_LAYOUT_VERSION` docstring for the full defect/fix this guards). A row
+    whose `canonical_storage_layout_version` is missing (pre-fix v1 row) or holds any value other
+    than the current `CANONICAL_STORAGE_LAYOUT_VERSION` must NEVER be silently treated as
+    v2-verified just because `assert_real_row_is_complete()` and every other field happen to
+    check out — that is exactly the confused-deputy failure mode this function exists to close.
+    Never invoked automatically by `__post_init__` or by `assert_real_row_is_complete()`;
+    `canonical_worker.py` calls this explicitly wherever v2-storage-layout verification matters
+    (the promotion fail-closed guard)."""
+    if row.canonical_storage_layout_version != CANONICAL_STORAGE_LAYOUT_VERSION:
+        raise LineageError(
+            f"session {row.corpus_session_id!r}: lineage row canonical_storage_layout_version="
+            f"{row.canonical_storage_layout_version!r} is not the current v2 session-scoped "
+            f"layout ({CANONICAL_STORAGE_LAYOUT_VERSION!r}) — refusing to treat as v2-verified"
+        )
 
 
 def lineage_record_relative_path(session_id: str) -> str:

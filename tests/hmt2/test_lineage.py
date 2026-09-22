@@ -14,10 +14,12 @@ from market_truth.acquisition.canonical_quality_record import (
     RESULT_KIND_NONEMPTY,
 )
 from market_truth.acquisition.lineage import (
+    CANONICAL_STORAGE_LAYOUT_VERSION,
     LINEAGE_CATALOGUE_VERSION,
     LineageCatalogue,
     LineageError,
     LineageRow,
+    assert_lineage_row_is_storage_layout_v2,
     assert_real_row_is_complete,
 )
 from market_truth.futures import GcContractIdentity
@@ -309,3 +311,67 @@ def test_to_json_dict_round_trip_preserves_empty_dicts_not_none():
     assert reconstructed.source_resolved_contract_ids == ("COMEX:GC:2026-12",)
     assert reconstructed.canonical_emitted_contract_ids == ()
     assert reconstructed.row_identity_sha256() == row.row_identity_sha256()
+
+
+# ------------------------------------------------------------------------------------------------
+# HMT-2 governed canonical storage-layout-defect remediation — `canonical_storage_layout_version`
+# is a new, OPTIONAL, additive field (default None == pre-fix v1 row); `assert_lineage_row_is_
+# storage_layout_v2()` is the one explicit, separately-callable check that a row was produced
+# under the v2, session-scoped physical layout — never fooled by an otherwise-complete row.
+# ------------------------------------------------------------------------------------------------
+
+def test_row_defaults_canonical_storage_layout_version_to_none():
+    assert _make_real_row().canonical_storage_layout_version is None
+
+
+def test_row_identity_sha256_unaffected_by_storage_layout_version_when_none():
+    """Backward compatibility, load-bearing (mirrors the valid-empty ruling's own discipline):
+    every pre-existing row (which always leaves this field at its default, None) must keep
+    hashing exactly as it did before this field existed."""
+    a = _make_real_row(canonical_storage_layout_version=None)
+    b = _make_real_row(canonical_storage_layout_version=None)
+    assert a.row_identity_sha256() == b.row_identity_sha256()
+
+
+def test_row_identity_sha256_changes_when_storage_layout_version_is_set():
+    a = _make_real_row(canonical_storage_layout_version=None)
+    b = _make_real_row(canonical_storage_layout_version=CANONICAL_STORAGE_LAYOUT_VERSION)
+    assert a.row_identity_sha256() != b.row_identity_sha256()
+
+
+def test_to_json_dict_round_trips_storage_layout_version():
+    row = _make_real_row(canonical_storage_layout_version=CANONICAL_STORAGE_LAYOUT_VERSION)
+    doc = row.to_json_dict()
+    assert doc["canonical_storage_layout_version"] == CANONICAL_STORAGE_LAYOUT_VERSION
+    reconstructed = LineageRow.from_json_dict(doc)
+    assert reconstructed.canonical_storage_layout_version == CANONICAL_STORAGE_LAYOUT_VERSION
+    assert reconstructed.row_identity_sha256() == row.row_identity_sha256()
+
+
+def test_assert_lineage_row_is_storage_layout_v2_passes_for_the_current_version():
+    row = _make_real_row(canonical_storage_layout_version=CANONICAL_STORAGE_LAYOUT_VERSION)
+    assert_lineage_row_is_storage_layout_v2(row)  # must not raise
+
+
+def test_assert_lineage_row_is_storage_layout_v2_rejects_missing_field():
+    row = _make_real_row(canonical_storage_layout_version=None)
+    with pytest.raises(LineageError, match="not the current v2"):
+        assert_lineage_row_is_storage_layout_v2(row)
+
+
+def test_assert_lineage_row_is_storage_layout_v2_rejects_a_stale_or_wrong_value():
+    row = _make_real_row(canonical_storage_layout_version="hmt2-canonical-storage-layout-v1-fake")
+    with pytest.raises(LineageError, match="not the current v2"):
+        assert_lineage_row_is_storage_layout_v2(row)
+
+
+def test_assert_lineage_row_is_storage_layout_v2_is_never_fooled_by_an_otherwise_complete_row():
+    """The exact confused-deputy failure mode this check exists to close: a row that fully
+    satisfies `assert_real_row_is_complete()` (every OTHER required field populated) must still
+    be refused as v2-verified purely because its storage-layout-version is missing/stale -- a v1
+    row must never be silently treated as v2-verified just because other fields happen to
+    match."""
+    row = _make_real_row(canonical_storage_layout_version=None)
+    assert_real_row_is_complete(row)  # passes -- every other required field is populated
+    with pytest.raises(LineageError):
+        assert_lineage_row_is_storage_layout_v2(row)

@@ -42,7 +42,9 @@ Layout under `<root>/hmt2-gc-mbp1-v1/` (the SAME corpus-store-root NAME
 session's native and canonical stores are trivially correlatable by name even though they live
 under two different roots):
 
-    canonical/   -- Parquet/Zstd research partitions (market_truth.partition, unchanged format)
+    canonical-v2/  -- Parquet/Zstd research partitions (market_truth.partition, unchanged
+                      format), namespaced by `session_id` (see CANONICAL STORAGE-LAYOUT DEFECT
+                      REMEDIATION below): canonical-v2/session_id=<...>/<HMT-1 partition dir>/...
     evidence/    -- one evidence-manifest JSON per session
     lineage/     -- one lineage record JSON per session (market_truth.acquisition.lineage)
     quality/     -- one quality record JSON per session (canonical_quality_record.py)
@@ -53,6 +55,43 @@ explicitly permits reusing the EXISTING, already-governed native-source-store lo
 (`market_truth.acquisition.source_store`, rooted at `research-source/`) instead of copying bytes
 merely to satisfy the diagram; this module's lineage records reference that existing location by
 its own relative path, never a duplicate copy (disclosed judgment call — see final report).
+
+CANONICAL STORAGE-LAYOUT DEFECT REMEDIATION (governed correction, additive) — CONFIRMED DEFECT
+MECHANISM (quantified against the real 122-session corpus: 57 colliding physical paths, 19
+victim sessions, 58 stale-hash mismatches; full forensic detail retained outside this repo):
+`market_truth.partition.partition_relative_dir()` computes a canonical Parquet file's LOGICAL
+path from ONLY `(contract_id, event.source_event_time.date(), event_family)` — never
+`session_id`. The ORIGINAL `_promote_partition_results()` promoted every session's staged output
+into ONE SHARED physical tree via blind `os.replace()`, keyed by that same session-blind logical
+path. Two different sessions whose events land in the same `(contract, date, family)` bucket
+therefore silently collided: whichever session was promoted LAST won, and the earlier session's
+own lineage row was left pointing at a physical file it no longer owns (a stale/incorrect
+reference — the earlier session's OWN recorded event content and hashes are unaffected, only the
+shared physical file on disk drifted out from under it).
+
+THE FIX (this checkpoint, additive, HMT-1 completely untouched) — every promoted partition's
+PHYSICAL path is now namespaced by `session_id`: `canonical-v2/session_id=<safe-escaped-id>/
+<HMT-1's own unchanged partition_relative_dir() output>/part-00000.parquet`. Two distinct
+session_ids can structurally never address the same physical file again, because the very first
+path segment is the session_id's own escaped namespace. The LOGICAL partition identity HMT-1
+computes (`partition_relative_dir()`, `partition_content_sha256`, row serialization/hashing) is
+completely unchanged — only the outer, session-scoped physical-storage prefix this module adds
+on top, purely at the promotion/lineage-recording boundary. `CANONICAL_STORAGE_LAYOUT_VERSION`
+(imported from `lineage.py`) is recorded on every lineage row this fix produces, so a future
+reader can always tell a v2 (session-scoped, collision-proof) row from a v1 (pre-fix,
+collision-vulnerable) one — see `lineage.assert_lineage_row_is_storage_layout_v2()`.
+`_promote_partition_results()` also now fails closed (raises, never silently overwrites) if a
+destination file already exists, UNLESS its content is byte-identical to what is about to be
+promoted (this session's own deterministic crash-and-retry — same retained native bytes +
+governed code always reproduce the same output bytes) OR this exact session already carries a
+verified-complete v2 lineage row (its own idempotent verify-and-reuse path,
+`verify_existing_completion()`, unchanged). Any OTHER pre-existing, content-mismatched
+destination is refused, never guessed at.
+
+The old, pre-fix, unnamespaced `canonical/` tree (built before this fix existed) is NOT deleted
+by this module — it is archived, out-of-band, to a clearly-labelled sibling directory (disclosed
+in the fix's own dispatch report) for forensic retention; this module never reads or writes that
+old tree.
 
 VALID-EMPTY ARCHITECTURE RULING (v2, additive) — a session that fully, honestly processes to
 ZERO canonical events is a valid successful result (`CANONICAL_COMPLETE`, `canonical_result_kind
@@ -93,8 +132,10 @@ from market_truth.acquisition.canonical_quality_record import (
     write_quality_record_atomic,
 )
 from market_truth.acquisition.lineage import (
+    CANONICAL_STORAGE_LAYOUT_VERSION,
     LineageError,
     LineageRow,
+    assert_lineage_row_is_storage_layout_v2,
     assert_real_row_is_complete,
     lineage_record_exists,
     read_lineage_record,
@@ -127,6 +168,13 @@ CANONICAL_WORKER_VERSION = "hmt2-canonical-worker-v2"
 DEFAULT_CANONICAL_RESEARCH_ROOT_DIRNAME = "research-canonical-store"
 CANONICAL_RESEARCH_ROOT_ENV_VAR = "HMT2_CANONICAL_RESEARCH_ROOT"
 CANONICAL_CORPUS_STORE_ROOT_NAME = "hmt2-gc-mbp1-v1"  # matches source_store.CORPUS_STORE_ROOT_NAME
+
+# The v2, session-scoped physical canonical-partition tree name (storage-layout defect
+# remediation — see module docstring). Deliberately a NEW name, never a reuse of the old,
+# pre-fix "canonical" directory name, so this fix can never accidentally read or write into the
+# old, collision-vulnerable tree (which is archived elsewhere, out-of-band, never touched by
+# this module).
+CANONICAL_STORAGE_ROOT_DIRNAME = "canonical-v2"
 
 
 class CanonicalWorkerError(RuntimeError):
@@ -170,6 +218,17 @@ def _safe_session_segment(session_id: str) -> str:
     if not session_id:
         raise CanonicalWorkerError("session_id must be non-empty")
     return "".join(c if (c.isalnum() or c in "-_.:") else "_" for c in session_id)
+
+
+def _session_scoped_relative_dir(session_id: str, hmt1_relative_dir: str) -> str:
+    """Storage-layout defect remediation (module docstring): the PHYSICAL directory a partition
+    is promoted into, under `canonical-v2/`, namespaced by `session_id` — reuses THIS module's
+    own existing `_safe_session_segment()` escaping (already used for this exact session_id
+    elsewhere in this module, e.g. staging/evidence/quality file naming), deliberately never a
+    second, divergent escaping convention. `hmt1_relative_dir` is `market_truth.partition.
+    partition_relative_dir()`'s own, completely unchanged, session-blind LOGICAL output —
+    untouched, just given a session-scoped physical prefix on top."""
+    return f"session_id={_safe_session_segment(session_id)}/{hmt1_relative_dir}"
 
 
 def _parse_canonical_contract_id(canonical_id: str) -> GcContractIdentity:
@@ -234,16 +293,88 @@ class SessionCanonicalisationResult:
     canonical_emitted_contract_ids: Tuple[str, ...] = ()
 
 
-def _promote_partition_results(staging_root: Path, canonical_root: Path, results) -> None:
-    """Atomically promote each staged partition file into the durable canonical/ tree — one
-    `os.replace()` per file (same filesystem, atomic rename; overwrite-safe because canonical
-    output is a deterministic DERIVATION of retained native bytes + governed code, unlike the
-    native-source-store's own immutable-artefact discipline, which protects billable vendor
-    bytes from being silently re-acquired — see module docstring)."""
-    for r in results:
-        src = staging_root / r.relative_dir / r.file_name
-        dst = canonical_root / r.relative_dir / r.file_name
+def _session_already_has_verified_v2_lineage(canonical_store_root: Path, session_id: str) -> bool:
+    """`True` only if `session_id` already carries a lineage row that is BOTH real-complete
+    (`assert_real_row_is_complete`) AND explicitly v2-storage-layout-verified
+    (`assert_lineage_row_is_storage_layout_v2`) — the one, narrow, legitimate reason a promotion
+    destination may already exist (this session's own idempotent verify-and-reuse path). A v1
+    row (missing `canonical_storage_layout_version`, or holding an old value) never satisfies
+    this, even if every other field happens to check out — see `lineage.py`'s
+    `assert_lineage_row_is_storage_layout_v2()` docstring for why that distinction matters."""
+    if not lineage_record_exists(canonical_store_root, session_id):
+        return False
+    try:
+        existing_row = read_lineage_record(canonical_store_root, session_id)
+        assert_real_row_is_complete(existing_row)
+        assert_lineage_row_is_storage_layout_v2(existing_row)
+    except LineageError:
+        return False
+    return True
+
+
+def _files_byte_identical(path_a: Path, path_b: Path) -> bool:
+    """Cheap, streamed (never a whole-file-in-memory assumption) content-identity check, used
+    ONLY by the promotion fail-closed guard below to distinguish a session's own SAFE,
+    deterministic re-write (e.g. a retry after a crash that happened between promotion and the
+    lineage write — same inputs, same governed code, same output bytes, byte-for-byte) from a
+    genuinely unexpected/foreign file occupying the same destination path."""
+    if path_a.stat().st_size != path_b.stat().st_size:
+        return False
+    chunk_size = 1024 * 1024
+    with open(path_a, "rb") as fa, open(path_b, "rb") as fb:
+        while True:
+            chunk_a = fa.read(chunk_size)
+            chunk_b = fb.read(chunk_size)
+            if chunk_a != chunk_b:
+                return False
+            if not chunk_a:
+                return True
+
+
+def _promote_partition_results(
+    staging_root: Path,
+    canonical_root: Path,
+    promotions: Sequence[Tuple[Path, Path]],
+    *,
+    canonical_store_root: Path,
+    session_id: str,
+) -> None:
+    """Atomically promote each staged partition file into the durable, SESSION-SCOPED
+    `canonical-v2/` tree — one `os.replace()` per file (same filesystem, atomic rename).
+
+    Storage-layout defect remediation (module docstring): promotion no longer blindly overwrites.
+    Every destination in `promotions` already lives under this session's own
+    `session_id=<...>/` namespace (computed by the caller via `_session_scoped_relative_dir()`),
+    so a DIFFERENT session's promotion can structurally never reach one of these paths at all.
+    This function still fails CLOSED (raises `CanonicalWorkerError`, never silently overwrites)
+    if a destination unexpectedly already exists, UNLESS one of two narrow, legitimate
+    conditions holds:
+
+      1. the staged file about to be promoted is BYTE-IDENTICAL to what is already at the
+         destination (`_files_byte_identical()`) — this is exactly what a crash-and-retry of
+         THIS SAME session looks like (a prior attempt promoted this file, then crashed before
+         writing its lineage record; the retry re-derives the same deterministic bytes from the
+         same retained native bytes + governed code, so re-promoting them is a harmless no-op);
+      2. this exact session already carries a verified-complete v2 lineage row
+         (`_session_already_has_verified_v2_lineage()`) — its own idempotent verify-and-reuse
+         path (`verify_existing_completion()`).
+
+    Any OTHER pre-existing destination — content that does NOT match, with no verified-complete
+    v2 lineage row for this exact session — is refused: that is the one case a namespaced-by-
+    session-id physical layout can still leave ambiguous, so it is never silently resolved by
+    guessing; a human investigates instead."""
+    session_already_verified_v2 = _session_already_has_verified_v2_lineage(canonical_store_root, session_id)
+    for src, dst in promotions:
         dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.exists():
+            if not (session_already_verified_v2 or _files_byte_identical(src, dst)):
+                raise CanonicalWorkerError(
+                    f"session {session_id!r}: unexpected pre-existing canonical artifact at "
+                    f"{dst!s} — content differs from what this session is about to promote, and "
+                    f"no verified-complete v2 lineage record exists for this exact session — "
+                    f"refusing to silently overwrite (fail-closed promotion guard, storage-layout "
+                    f"defect remediation)"
+                )
         os.replace(src, dst)
 
 
@@ -430,8 +561,28 @@ def canonicalise_records(
     writer = PartitionWriter(staging_root)
     partition_results = writer.write(events)
 
-    canonical_root = canonical_store_root / "canonical"
-    _promote_partition_results(staging_root, canonical_root, partition_results)
+    # ---- storage-layout defect remediation: session-scoped physical destination paths ----
+    # `dest_relative_path` is what every downstream consumer (evidence manifest, lineage row,
+    # reload verification, load_session_canonical_events) sees and stores — it is the PHYSICAL,
+    # session-namespaced path, relative to `canonical_root` below. HMT-1's own
+    # `partition_relative_dir()`/`event_family_name()` outputs (`r.relative_dir`, `r.file_name`)
+    # are completely unchanged; only this module adds the `session_id=<...>/` prefix, purely at
+    # the promotion/recording boundary.
+    canonical_root = canonical_store_root / CANONICAL_STORAGE_ROOT_DIRNAME
+    dest_relative_dir_by_result = {
+        r: _session_scoped_relative_dir(session_id, r.relative_dir) for r in partition_results
+    }
+    promotions = [
+        (
+            staging_root / r.relative_dir / r.file_name,
+            canonical_root / dest_relative_dir_by_result[r] / r.file_name,
+        )
+        for r in partition_results
+    ]
+    _promote_partition_results(
+        staging_root, canonical_root, promotions,
+        canonical_store_root=canonical_store_root, session_id=session_id,
+    )
     shutil.rmtree(staging_root, ignore_errors=True)
 
     if partition_results:
@@ -441,8 +592,12 @@ def canonicalise_records(
         writer_version = pa.__version__
         writer_config_id = PartitionWriter.WRITER_CONFIG_ID
 
-    partition_semantic_hashes = {r.relative_path: r.partition_content_sha256 for r in partition_results}
-    partition_artifact_hashes = {r.relative_path: r.artifact_sha256 for r in partition_results}
+    partition_semantic_hashes = {
+        f"{dest_relative_dir_by_result[r]}/{r.file_name}": r.partition_content_sha256 for r in partition_results
+    }
+    partition_artifact_hashes = {
+        f"{dest_relative_dir_by_result[r]}/{r.file_name}": r.artifact_sha256 for r in partition_results
+    }
 
     manifest = EvidenceManifest(
         manifest_version=EVIDENCE_MANIFEST_VERSION,
@@ -470,7 +625,7 @@ def canonicalise_records(
     reader = PartitionReader(canonical_root)
     reloaded_rows = []
     for r in partition_results:
-        for event in reader.read_events(r.relative_dir, r.event_family):
+        for event in reader.read_events(dest_relative_dir_by_result[r], r.event_family):
             reloaded_rows.append(serialize_event_row(event))
     live_rows = sorted(serialize_event_row(e) for e in events)
     reloaded_rows.sort()
@@ -485,8 +640,16 @@ def canonicalise_records(
     evidence_path = canonical_store_root / evidence_relative_path
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_evidence_path = evidence_path.with_name(evidence_path.name + ".tmp")
+    # `EvidenceManifest` itself (market_truth/evidence.py) is HMT-1, byte-for-byte unchanged —
+    # `canonical_storage_layout_version` is added as a sibling key on the on-disk JSON DOCUMENT
+    # only, at this module's own serialization boundary, never as a field on the dataclass
+    # itself. It is deliberately excluded from `deterministic_fields_sha256()`'s own input
+    # (unchanged, HMT-1 logic) — it describes WHERE this session's bytes physically live, not
+    # WHAT they deterministically are.
+    evidence_doc = manifest.to_json_dict()
+    evidence_doc["canonical_storage_layout_version"] = CANONICAL_STORAGE_LAYOUT_VERSION
     with open(tmp_evidence_path, "w", encoding="utf-8") as f:
-        json.dump(manifest.to_json_dict(), f, indent=2, sort_keys=True)
+        json.dump(evidence_doc, f, indent=2, sort_keys=True)
         f.write("\n")
     os.replace(tmp_evidence_path, evidence_path)
 
@@ -525,6 +688,7 @@ def canonicalise_records(
         empty_reason=empty_reason,
         source_resolved_contract_ids=tuple(sorted(source_resolved_contract_ids)),
         canonical_emitted_contract_ids=tuple(sorted(canonical_emitted_contract_ids)),
+        canonical_storage_layout_version=CANONICAL_STORAGE_LAYOUT_VERSION,
     )
     assert_real_row_is_complete(row)  # last gate before the one file a caller checks for "complete"
     lineage_path = write_lineage_record_atomic(canonical_store_root, row)
@@ -642,7 +806,7 @@ def verify_existing_completion(
             f"expected={expected_native_sha256}, actual={actual_native_sha256})"
         )
 
-    canonical_root = canonical_store_root / "canonical"
+    canonical_root = canonical_store_root / CANONICAL_STORAGE_ROOT_DIRNAME
     for relative_path, expected_hash in row.partition_artifact_hashes.items():
         full_path = canonical_root / relative_path
         if not full_path.exists():
@@ -671,7 +835,7 @@ def load_session_canonical_events(canonical_store_root, session_id: str) -> list
     """Read back ONE session's own durably-recorded canonical events straight from the canonical
     Parquet partitions its (verified) lineage record points to — never from memory."""
     row = read_lineage_record(canonical_store_root, session_id)
-    canonical_root = Path(canonical_store_root) / "canonical"
+    canonical_root = Path(canonical_store_root) / CANONICAL_STORAGE_ROOT_DIRNAME
     reader = PartitionReader(canonical_root)
     events = []
     for relative_path in row.research_partition_relative_paths:

@@ -108,7 +108,11 @@ def test_happy_path_produces_partitions_evidence_lineage_quality(tmp_path):
     assert result.canonical_event_set_hash
     assert result.partition_relative_paths
     for rel in result.partition_relative_paths:
-        assert (tmp_path / "canonical" / rel).exists()
+        # storage-layout defect remediation: every promoted partition's relative path is now
+        # namespaced by session_id, physically stored under CANONICAL_STORAGE_ROOT_DIRNAME
+        # ("canonical-v2"), never the old, unnamespaced "canonical/" tree.
+        assert rel.startswith(f"session_id={SESSION_ID}/")
+        assert (tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME / rel).exists()
     assert (tmp_path / result.evidence_manifest_relative_path).exists()
     assert (tmp_path / result.lineage_record_relative_path).exists()
     assert (tmp_path / result.quality_record_relative_path).exists()
@@ -116,7 +120,7 @@ def test_happy_path_produces_partitions_evidence_lineage_quality(tmp_path):
     # no leftover staging directory
     assert not any((tmp_path / ".staging").glob("*")) if (tmp_path / ".staging").exists() else True
 
-    from market_truth.acquisition.lineage import read_lineage_record
+    from market_truth.acquisition.lineage import CANONICAL_STORAGE_LAYOUT_VERSION, read_lineage_record
 
     row = read_lineage_record(tmp_path, SESSION_ID)
     assert row.synthetic is False
@@ -124,6 +128,7 @@ def test_happy_path_produces_partitions_evidence_lineage_quality(tmp_path):
     assert row.native_artefact_sha256 == native_sha256
     assert row.evidence_manifest_deterministic_hash == result.evidence_manifest_deterministic_hash
     assert row.quality_record_ref == result.quality_record_relative_path
+    assert row.canonical_storage_layout_version == CANONICAL_STORAGE_LAYOUT_VERSION
 
 
 def test_quality_record_reflects_real_counts(tmp_path):
@@ -224,7 +229,7 @@ def test_verify_existing_completion_fails_closed_on_native_hash_drift(tmp_path):
 
 def test_verify_existing_completion_fails_closed_on_partition_tamper(tmp_path):
     result, native_sha256 = _canonicalise(tmp_path)
-    tampered = tmp_path / "canonical" / sorted(result.partition_relative_paths)[0]
+    tampered = tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME / sorted(result.partition_relative_paths)[0]
     tampered.write_bytes(b"TAMPERED BYTES, NOT A REAL PARQUET FILE")
 
     with pytest.raises(cw.VerificationFailedError):
@@ -283,8 +288,8 @@ def test_crash_before_lineage_write_leaves_no_lineage_record_then_recovers_on_re
     assert lineage_record_exists(tmp_path, SESSION_ID) is False
     # Partitions and evidence WERE durably written (they happen before the lineage write) --
     # this is expected and fine: the session is simply not yet CANONICAL_COMPLETE.
-    assert (tmp_path / "canonical").exists()
-    assert any((tmp_path / "canonical").rglob("*.parquet"))
+    assert (tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME).exists()
+    assert any((tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME).rglob("*.parquet"))
     assert (tmp_path / "evidence" / f"{SESSION_ID}.json").exists()
 
     # ---- recovery: restore the real function and retry from scratch ----
@@ -334,7 +339,7 @@ def test_crash_partway_through_record_stream_writes_nothing_durable(tmp_path):
             quality_counters=quality_counters,
         )
 
-    assert not (tmp_path / "canonical").exists()
+    assert not (tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME).exists()
     assert not (tmp_path / "evidence").exists()
     assert not (tmp_path / "lineage").exists()
 
@@ -509,7 +514,9 @@ def test_empty_result_writes_real_evidence_quality_lineage_zero_partitions(tmp_p
     assert result.partition_relative_paths == ()
     assert result.partition_semantic_hashes == {}
     assert result.partition_artifact_hashes == {}
-    assert not (tmp_path / "canonical").exists() or not any((tmp_path / "canonical").rglob("*.parquet"))
+    assert not (tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME).exists() or not any(
+        (tmp_path / cw.CANONICAL_STORAGE_ROOT_DIRNAME).rglob("*.parquet")
+    )
 
     evidence_path = tmp_path / result.evidence_manifest_relative_path
     assert evidence_path.exists()
