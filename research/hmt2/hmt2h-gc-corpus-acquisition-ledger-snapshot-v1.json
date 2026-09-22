@@ -1,0 +1,65 @@
+{
+  "generated_by": "research/hmt2/hmt2h_gc_corpus_acquire.py",
+  "generated_utc": "2026-09-22T07:14:57.546469+00:00",
+  "ledger_schema_version": "hmt2h-gc-corpus-acquisition-ledger-v1",
+  "ledger_state_path_note": "Actual per-session ledger state is LOCAL and gitignored under research-source/ (see .gitignore's blanket research-source/ rule) at hmt2-gc-mbp1-v1/manifest/gc_corpus_acquisition_ledger.json -- this file is a committed SNAPSHOT only.",
+  "result": {
+    "ceiling_usd": 100.0,
+    "completed_this_run": [
+      "GC-2017-06-07",
+      "GC-2017-06-09",
+      "GC-2017-06-14",
+      "GC-2017-06-15",
+      "GC-2017-06-16",
+      "GC-2017-06-20",
+      "GC-2017-06-23",
+      "GC-2017-06-30",
+      "GC-2017-07-13",
+      "GC-2017-07-14",
+      "GC-2017-07-21",
+      "GC-2017-07-26",
+      "GC-2017-07-28",
+      "GC-2017-08-04",
+      "GC-2017-08-18",
+      "GC-2017-08-25",
+      "GC-2017-09-06",
+      "GC-2017-09-07",
+      "GC-2017-09-08",
+      "GC-2017-09-13",
+      "GC-2017-09-14",
+      "GC-2017-09-18",
+      "GC-2017-09-19",
+      "GC-2017-09-20",
+      "GC-2017-09-22",
+      "GC-2017-09-29",
+      "GC-2017-10-06",
+      "GC-2017-10-13",
+      "GC-2017-10-20",
+      "GC-2017-10-26",
+      "GC-2017-10-27",
+      "GC-2017-11-03",
+      "GC-2017-11-15",
+      "GC-2017-11-16",
+      "GC-2017-12-01"
+    ],
+    "completed_this_run_count": 35,
+    "headroom_to_ceiling_usd": 97.584938593213,
+    "ledger_summary": {
+      "by_state": {
+        "COMPLETE": 42,
+        "FAILED_AMBIGUOUS": 0,
+        "IN_PROGRESS": 0,
+        "PLANNED": 406
+      },
+      "total_sessions": 448
+    },
+    "prior_baseline_spend_usd": {
+      "definitions_usd": 1.692707203329,
+      "pilot_usd": 0.175759524107,
+      "reference_series_usd": 0.546575635672,
+      "total_usd": 2.415042363108
+    },
+    "running_actual_spend_usd": 2.4150614067869998,
+    "stopped_reason": "reached --max-sessions=35 for this dispatch"
+  }
+}
