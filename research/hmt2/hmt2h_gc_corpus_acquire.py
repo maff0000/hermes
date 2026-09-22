@@ -91,11 +91,23 @@ CATALOGUE_RELATIVE_PATH = manifest_relative_path("mbp1_pilot_acquisition_catalog
 LEDGER_STATE_PATH = os.path.join(RESEARCH_SOURCE_ROOT, ledger_mod.LEDGER_STATE_RELATIVE_PATH)
 
 # Real, already-spent, already-independently-evidenced baseline for this checkpoint — the 3
-# real acquisitions that happened BEFORE this ledger existed. Read live from their own already-
-# committed/retained evidence rather than re-hardcoded here, so this figure can never silently
-# drift from the artefacts that actually justify it.
-REAL_ACQUISITION_SUMMARY_PATH = os.path.join(
-    RESEARCH_SOURCE_ROOT, "hmt2-gc-mbp1-v1", "manifest", "real_acquisition_summary.json"
+# real acquisitions that happened BEFORE this ledger existed. Read live from their own PRIMARY,
+# per-session evidence files (never a secondary rollup) so this figure can never silently drift
+# from -- or depend on the continued existence of -- anything but the artefacts that actually
+# justify it. `real_acquisition_summary.json` (a convenience rollup of the same two figures)
+# was found to be ABSENT from this local gitignored tree partway through this checkpoint's own
+# dispatch (its two source evidence files below were independently confirmed still intact and
+# byte-identical to what this rollup file had recorded) -- reading the two primary files
+# directly, instead of that rollup, is both more robust and more consistent with this
+# repository's own "evidence must be independent of what it certifies" / "verify contents, not
+# names" discipline.
+REFERENCE_SERIES_EVIDENCE_PATH = os.path.join(
+    RESEARCH_SOURCE_ROOT, "hmt2-gc-mbp1-v1", "sessions", "HMT2-REAL-ACQ-REFERENCE-SERIES-GC-V0-OHLCV1H",
+    "evidence", "reference_series_acquisition_evidence.json",
+)
+GC_DEFINITIONS_EVIDENCE_PATH = os.path.join(
+    RESEARCH_SOURCE_ROOT, "hmt2-gc-mbp1-v1", "sessions", "HMT2-REAL-ACQ-GC-FUT-DEFINITIONS",
+    "evidence", "gc_definitions_acquisition_evidence.json",
 )
 PILOT_QUOTE_EVIDENCE_PATH = os.path.join(_THIS_DIR, "hmt2d-mbp1-pilot-selection-and-quote-evidence-v1.json")
 
@@ -106,18 +118,32 @@ def _utc_now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
 
 
-def compute_prior_actual_spend_usd() -> dict:
+def compute_prior_actual_spend_usd(
+    *,
+    reference_series_evidence_path: str = REFERENCE_SERIES_EVIDENCE_PATH,
+    gc_definitions_evidence_path: str = GC_DEFINITIONS_EVIDENCE_PATH,
+    pilot_quote_evidence_path: str = PILOT_QUOTE_EVIDENCE_PATH,
+) -> dict:
     """The real spend already committed BEFORE this ledger's own tracked sessions: the
-    reference-series + definitions real acquisitions, plus the pilot's own 2 sessions (real
-    spend recorded at the free-quote step per this checkpoint's established "actual == quoted,
-    no post-transfer cost endpoint exists" convention — see `hmt2d-mbp1-pilot-selection-and-
-    quote-evidence-v1.json`'s own `gate_5_dollars.quoted_cost_usd`)."""
-    with open(REAL_ACQUISITION_SUMMARY_PATH, "r", encoding="utf-8") as f:
-        summary = json.load(f)
-    with open(PILOT_QUOTE_EVIDENCE_PATH, "r", encoding="utf-8") as f:
+    reference-series + definitions real acquisitions (read from their own PRIMARY per-session
+    evidence files, never a secondary rollup — see the module-level comment above these
+    constants), plus the pilot's own 2 sessions (real spend recorded at the free-quote step per
+    this checkpoint's established "actual == quoted, no post-transfer cost endpoint exists"
+    convention — see `hmt2d-mbp1-pilot-selection-and-quote-evidence-v1.json`'s own
+    `gate_5_dollars.quoted_cost_usd`).
+
+    Paths are injectable (defaulting to the real repo paths) so this can be unit-tested against
+    synthetic fixtures — the two `research-source/`-rooted paths are real, gitignored local
+    acquisition state (absent on a fresh CI checkout), so a test must never depend on either
+    existing."""
+    with open(reference_series_evidence_path, "r", encoding="utf-8") as f:
+        reference_series_evidence = json.load(f)
+    with open(gc_definitions_evidence_path, "r", encoding="utf-8") as f:
+        definitions_evidence = json.load(f)
+    with open(pilot_quote_evidence_path, "r", encoding="utf-8") as f:
         pilot_quote = json.load(f)
-    reference_series_usd = float(summary["reference_series"]["actual_cost_usd"])
-    definitions_usd = float(summary["definitions"]["actual_cost_usd"])
+    reference_series_usd = float(reference_series_evidence["actual_cost_usd"])
+    definitions_usd = float(definitions_evidence["actual_cost_usd"])
     pilot_usd = float(pilot_quote["gate_5_dollars"]["quoted_cost_usd"])
     return {
         "reference_series_usd": reference_series_usd,

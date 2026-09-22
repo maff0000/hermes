@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -243,13 +244,35 @@ def test_quote_step_failure_leaves_row_planned_and_never_calls_acquire(tmp_path)
 
 
 # ----------------------------------------------------------------------------------------------
-# compute_prior_actual_spend_usd — reads the real, already-committed evidence files, matches the
-# checkpoint's own independently-confirmed figure.
+# compute_prior_actual_spend_usd — pure arithmetic over injected paths, using SYNTHETIC fixture
+# files carrying the checkpoint's own real, independently-confirmed figures (never a dependency
+# on `research-source/` -- that tree is real local acquisition state, gitignored, and absent on
+# a fresh CI checkout; a unit test must never require it to exist).
 # ----------------------------------------------------------------------------------------------
 
-def test_compute_prior_actual_spend_usd_matches_the_confirmed_checkpoint_total():
+def test_compute_prior_actual_spend_usd_sums_the_three_real_baseline_figures(tmp_path):
+    reference_series_path = tmp_path / "reference_series_acquisition_evidence.json"
+    reference_series_path.write_text(json.dumps({"actual_cost_usd": 0.546575635672}))
+    definitions_path = tmp_path / "gc_definitions_acquisition_evidence.json"
+    definitions_path.write_text(json.dumps({"actual_cost_usd": 1.692707203329}))
+    pilot_quote_path = tmp_path / "hmt2d-mbp1-pilot-selection-and-quote-evidence-v1.json"
+    pilot_quote_path.write_text(json.dumps({"gate_5_dollars": {"quoted_cost_usd": 0.175759524107}}))
+
+    prior = hmt2h_acquire.compute_prior_actual_spend_usd(
+        reference_series_evidence_path=str(reference_series_path),
+        gc_definitions_evidence_path=str(definitions_path),
+        pilot_quote_evidence_path=str(pilot_quote_path),
+    )
+    assert prior["reference_series_usd"] == pytest.approx(0.546575635672, abs=1e-9)
+    assert prior["definitions_usd"] == pytest.approx(1.692707203329, abs=1e-9)
+    assert prior["pilot_usd"] == pytest.approx(0.175759524107, abs=1e-9)
+    assert prior["total_usd"] == pytest.approx(2.415042363108, abs=1e-6)  # matches the checkpoint's own confirmed ~$2.415042329108 (floating-point summation-order, ~3e-8, immaterial)
+
+
+@pytest.mark.skipif(
+    not (os.path.exists(hmt2h_acquire.REFERENCE_SERIES_EVIDENCE_PATH) and os.path.exists(hmt2h_acquire.GC_DEFINITIONS_EVIDENCE_PATH)),
+    reason="research-source/ is real, gitignored local acquisition state -- absent on a fresh checkout (e.g. CI); this is an integration smoke-check, not a unit test.",
+)
+def test_compute_prior_actual_spend_usd_against_the_real_local_evidence_files_when_present():
     prior = hmt2h_acquire.compute_prior_actual_spend_usd()
     assert prior["total_usd"] == pytest.approx(2.415042329108, abs=1e-6)
-    assert prior["reference_series_usd"] == pytest.approx(0.546575635672, abs=1e-6)
-    assert prior["definitions_usd"] == pytest.approx(1.692707203329, abs=1e-6)
-    assert prior["pilot_usd"] == pytest.approx(0.175759524107, abs=1e-6)
