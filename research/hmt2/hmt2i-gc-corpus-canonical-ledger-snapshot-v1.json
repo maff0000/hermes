@@ -2,26 +2,1420 @@
   "canonical_ledger_schema_version": "hmt2i-gc-corpus-canonical-ledger-v2",
   "canonical_ledger_state_path_note": "Actual per-session canonical-ledger state is LOCAL (gitignored, under the durable canonical research-store root -- see HMT2_CANONICAL_RESEARCH_ROOT / research-canonical-store/) -- this file is a committed SNAPSHOT only.",
   "generated_by": "research/hmt2/hmt2i_gc_corpus_canonicalise.py",
-  "generated_utc": "2026-09-22T15:14:19.811127+00:00",
+  "generated_utc": "2026-09-22T18:11:24.657562+00:00",
   "result": {
     "canonical_ledger_summary": {
       "by_state": {
-        "CANONICAL_COMPLETE": 102,
+        "CANONICAL_COMPLETE": 122,
         "CANONICAL_FAILED": 0,
         "CANONICAL_IN_PROGRESS": 0,
         "CANONICAL_PENDING": 0
       },
-      "total_sessions": 102
+      "total_sessions": 122
     },
     "canonical_store_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-canonical-store/hmt2-gc-mbp1-v1",
     "processed": [
       {
-        "reused_existing_canonical_result": true,
-        "session_id": "GC-2019-03-22"
+        "canonical_event_counts_by_family": {
+          "market_trade": 69749,
+          "top_of_book": 948308
+        },
+        "canonical_event_set_hash": "36c144eff49640884c8068f6707d23601620ff31c6a78aaf80495ad92a6b7a38",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 6,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-01",
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10"
+          ],
+          "canonical_event_count": 1018057,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 1313,
+          "market_trade_event_count": 69749,
+          "native_record_count": 1021585,
+          "observed_contract_count": 6,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-01",
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-01-23",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCF9",
+            "GCG9",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-01",
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 5530,
+          "top_of_book_event_count": 948308,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-01-23",
+        "source_record_count": 1021585
       },
       {
-        "reused_existing_canonical_result": true,
-        "session_id": "GC-2019-03-29"
+        "canonical_event_counts_by_family": {
+          "market_trade": 109731,
+          "top_of_book": 1486965
+        },
+        "canonical_event_set_hash": "70f86d4aed5bf48fa51f4f42d5c70cb6378c3f20f65e825b8230e726714314ea",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "canonical_event_count": 1596696,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 974,
+          "market_trade_event_count": 109731,
+          "native_record_count": 1599781,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-01-25",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCF9",
+            "GCG0",
+            "GCG9",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-01",
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 7134,
+          "top_of_book_event_count": 1486965,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-01-25",
+        "source_record_count": 1599781
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 86343,
+          "top_of_book": 1366634
+        },
+        "canonical_event_set_hash": "3da551cc5436d496557bd1b8614702cc7c02ebf0b3b90b9aab09d1dde58c4cb3",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "canonical_event_count": 1452977,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 2,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 879,
+          "market_trade_event_count": 86343,
+          "native_record_count": 1455379,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-01-30",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCG9",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 8106,
+          "top_of_book_event_count": 1366634,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-01-30",
+        "source_record_count": 1455379
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 74294,
+          "top_of_book": 966817
+        },
+        "canonical_event_set_hash": "8f7c13ad4ea70670446127a5ff559e80ae2349f05ce3324df7843858b5c0418e",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 7,
+          "canonical_emitted_contract_count": 6,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02"
+          ],
+          "canonical_event_count": 1041111,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 549,
+          "market_trade_event_count": 74294,
+          "native_record_count": 1042117,
+          "observed_contract_count": 6,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-02-01",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCG9",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 5658,
+          "top_of_book_event_count": 966817,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-02-01",
+        "source_record_count": 1042117
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 45872,
+          "top_of_book": 687296
+        },
+        "canonical_event_set_hash": "0922ade8a64ebd1ebb255ff6461441f83c70de613636cba855fab76ed887fd92",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 7,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10"
+          ],
+          "canonical_event_count": 733168,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 14,
+          "market_trade_event_count": 45872,
+          "native_record_count": 733321,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-02-08",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCG9",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCQ9",
+            "GCV0",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-02",
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10"
+          ],
+          "source_sequence_anomaly_count": 3078,
+          "top_of_book_event_count": 687296,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-02-08",
+        "source_record_count": 733321
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 111156,
+          "top_of_book": 1182098
+        },
+        "canonical_event_set_hash": "73b860d40e611d148d964e8eb6ef21b6238aa4b7bf354882548c5a162a274470",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10"
+          ],
+          "canonical_event_count": 1293254,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 1038,
+          "market_trade_event_count": 111156,
+          "native_record_count": 1294472,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-03-01",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ4"
+          ],
+          "source_resolved_contract_count": 9,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2024-12"
+          ],
+          "source_sequence_anomaly_count": 8808,
+          "top_of_book_event_count": 1182098,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-03-01",
+        "source_record_count": 1294472
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 59997,
+          "top_of_book": 873188
+        },
+        "canonical_event_set_hash": "5fc82049f78d6247aee86e55076ef88e929c34398c36e1a54466fe33082ba120",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "canonical_event_count": 933185,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 15,
+          "market_trade_event_count": 59997,
+          "native_record_count": 933415,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-03-11",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 2944,
+          "top_of_book_event_count": 873188,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-03-11",
+        "source_record_count": 933415
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 68824,
+          "top_of_book": 831219
+        },
+        "canonical_event_set_hash": "523a4f9db2a01d2be1291311b028f9e3a9288a5b802d99f408ec6db70d9d08df",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 8,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "canonical_event_count": 900043,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 23,
+          "market_trade_event_count": 68824,
+          "native_record_count": 900488,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-03-19",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCH9",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ3"
+          ],
+          "source_resolved_contract_count": 9,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-03",
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2023-12"
+          ],
+          "source_sequence_anomaly_count": 4511,
+          "top_of_book_event_count": 831219,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-03-19",
+        "source_record_count": 900488
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 1193,
+          "top_of_book": 32619
+        },
+        "canonical_event_set_hash": "a7b54a50b168481ba3314265d23349080930d879bf2fc6d4cd05d2d17bfeaa11",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "canonical_event_count": 33812,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 0,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 12,
+          "market_trade_event_count": 1193,
+          "native_record_count": 34036,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-04-03",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "source_sequence_anomaly_count": 46,
+          "top_of_book_event_count": 32619,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-04-03",
+        "source_record_count": 34036
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 1346,
+          "top_of_book": 19246
+        },
+        "canonical_event_set_hash": "7ed492bdaa3dbb4f8ed6424f5641c337e23f5e07b81f768a2556ee96e948f469",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "canonical_event_count": 20592,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 0,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 13,
+          "market_trade_event_count": 1346,
+          "native_record_count": 20951,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-04-04",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 7,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "source_sequence_anomaly_count": 67,
+          "top_of_book_event_count": 19246,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-04-04",
+        "source_record_count": 20951
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 1015,
+          "top_of_book": 30981
+        },
+        "canonical_event_set_hash": "5c6f43574795a520fa3e01b91392d78ba84d510a7392ae9edb8a2018afc76262",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2023-12"
+          ],
+          "canonical_event_count": 31996,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 0,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 18,
+          "market_trade_event_count": 1015,
+          "native_record_count": 32259,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2023-12"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-04-09",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9",
+            "GCZ3"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2023-12"
+          ],
+          "source_sequence_anomaly_count": 17,
+          "top_of_book_event_count": 30981,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-04-09",
+        "source_record_count": 32259
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 428,
+          "top_of_book": 20523
+        },
+        "canonical_event_set_hash": "1206278d27cca60b9ecf5e9e8b72fdfb9074013e4296d100af72ec331c615683",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 5,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02"
+          ],
+          "canonical_event_count": 20951,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 0,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 2,
+          "market_trade_event_count": 428,
+          "native_record_count": 21091,
+          "observed_contract_count": 5,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-04-22",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCJ9",
+            "GCK9",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 6,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-04",
+            "COMEX:GC:2019-05",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04"
+          ],
+          "source_sequence_anomaly_count": 7,
+          "top_of_book_event_count": 20523,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-04-22",
+        "source_record_count": 21091
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 4051,
+          "top_of_book": 124577
+        },
+        "canonical_event_set_hash": "164c12daab8f8dca3b21c0c20a54e7ef9043d8cdb154c2d0a3b49fd2a8b4d94a",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 5,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2023-12"
+          ],
+          "canonical_event_count": 128628,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 18,
+          "market_trade_event_count": 4051,
+          "native_record_count": 128846,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2023-12"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-05-21",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ3"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2023-12"
+          ],
+          "source_sequence_anomaly_count": 186,
+          "top_of_book_event_count": 124577,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-05-21",
+        "source_record_count": 128846
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 12427,
+          "top_of_book": 350031
+        },
+        "canonical_event_set_hash": "112fdb2fd48c4ab4a55ace4dad049f41060287bdf3022994c0ad1f8fa8be5482",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 5,
+          "canonical_emitted_contract_count": 6,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "canonical_event_count": 362458,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 0,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 29,
+          "market_trade_event_count": 12427,
+          "native_record_count": 362730,
+          "observed_contract_count": 6,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-05-23",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 6,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "source_sequence_anomaly_count": 964,
+          "top_of_book_event_count": 350031,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-05-23",
+        "source_record_count": 362730
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 12380,
+          "top_of_book": 342524
+        },
+        "canonical_event_set_hash": "717f76c269eba1cf262994a4a3f1ec29acf16fae312a238f1571539cad49467e",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 6,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "canonical_event_count": 354904,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 17,
+          "market_trade_event_count": 12380,
+          "native_record_count": 355145,
+          "observed_contract_count": 6,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-05-24",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 6,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "source_sequence_anomaly_count": 906,
+          "top_of_book_event_count": 342524,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-05-24",
+        "source_record_count": 355145
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 54579,
+          "top_of_book": 769898
+        },
+        "canonical_event_set_hash": "c3aeb52ab6ba0fe9b7e31317f63119828f887370b60a35c2027e7429b53dbe8a",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 5,
+          "canonical_emitted_contract_count": 6,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "canonical_event_count": 824477,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 21,
+          "market_trade_event_count": 54579,
+          "native_record_count": 825387,
+          "observed_contract_count": 6,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-05-29",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 6,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08"
+          ],
+          "source_sequence_anomaly_count": 2980,
+          "top_of_book_event_count": 769898,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-05-29",
+        "source_record_count": 825387
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 127025,
+          "top_of_book": 1555257
+        },
+        "canonical_event_set_hash": "04e1ae6847567dde652c1b6d28201661ed30e059ffb62a8b4c3bccfd505355c4",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 5,
+          "canonical_emitted_contract_count": 7,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2022-12"
+          ],
+          "canonical_event_count": 1682282,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 60,
+          "market_trade_event_count": 127025,
+          "native_record_count": 1683298,
+          "observed_contract_count": 7,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2022-12"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-06-14",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ2"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2022-12"
+          ],
+          "source_sequence_anomaly_count": 5715,
+          "top_of_book_event_count": 1555257,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-06-14",
+        "source_record_count": 1683298
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 203783,
+          "top_of_book": 1935612
+        },
+        "canonical_event_set_hash": "1143be77aa9be0c69477d38ed16f94bfd3f33d3cb327bce653c3eae215f4d963",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 6,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02"
+          ],
+          "canonical_event_count": 2139395,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 291,
+          "market_trade_event_count": 203783,
+          "native_record_count": 2140760,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-06-20",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCG1",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ3"
+          ],
+          "source_resolved_contract_count": 9,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02",
+            "COMEX:GC:2023-12"
+          ],
+          "source_sequence_anomaly_count": 8876,
+          "top_of_book_event_count": 1935612,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-06-20",
+        "source_record_count": 2140760
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 261060,
+          "top_of_book": 2038728
+        },
+        "canonical_event_set_hash": "8af5fccb9df6a383ea71d874c6c281bc86f3f49bf37c498013366fad1f82f042",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 7,
+          "canonical_emitted_contract_count": 8,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2022-12"
+          ],
+          "canonical_event_count": 2299788,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 84,
+          "market_trade_event_count": 261060,
+          "native_record_count": 2300861,
+          "observed_contract_count": 8,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2022-12"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-06-25",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCV0",
+            "GCV9",
+            "GCZ2"
+          ],
+          "source_resolved_contract_count": 8,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2022-12"
+          ],
+          "source_sequence_anomaly_count": 12690,
+          "top_of_book_event_count": 2038728,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-06-25",
+        "source_record_count": 2300861
+      },
+      {
+        "canonical_event_counts_by_family": {
+          "market_trade": 187583,
+          "top_of_book": 1465962
+        },
+        "canonical_event_set_hash": "7cead4a3a6449d9618c9512a8ec0295dc508e90cd94578470dc90b696c95d4a6",
+        "canonical_result_kind": "NONEMPTY",
+        "empty_reason": null,
+        "quality_summary": {
+          "bad_receive_time_count": 7,
+          "canonical_emitted_contract_count": 9,
+          "canonical_emitted_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-09",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02"
+          ],
+          "canonical_event_count": 1653545,
+          "canonical_result_kind": "NONEMPTY",
+          "conflict_count": 0,
+          "crossed_book_skipped_count": 1,
+          "duplicate_count": 0,
+          "empty_reason": null,
+          "incomplete_book_skipped_count": 316,
+          "market_trade_event_count": 187583,
+          "native_record_count": 1654834,
+          "observed_contract_count": 9,
+          "observed_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-09",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02"
+          ],
+          "quality_record_file_version": "hmt2-canonical-quality-record-v2",
+          "session_id": "GC-2019-07-03",
+          "source_gap_completeness_status": "GAP_OR_ANOMALY_SUSPECTED",
+          "source_observed_symbols": [
+            "GCG0",
+            "GCG1",
+            "GCJ0",
+            "GCN9",
+            "GCQ0",
+            "GCQ9",
+            "GCU9",
+            "GCV0",
+            "GCV9"
+          ],
+          "source_resolved_contract_count": 9,
+          "source_resolved_contract_ids": [
+            "COMEX:GC:2019-07",
+            "COMEX:GC:2019-08",
+            "COMEX:GC:2019-09",
+            "COMEX:GC:2019-10",
+            "COMEX:GC:2020-02",
+            "COMEX:GC:2020-04",
+            "COMEX:GC:2020-08",
+            "COMEX:GC:2020-10",
+            "COMEX:GC:2021-02"
+          ],
+          "source_sequence_anomaly_count": 9780,
+          "top_of_book_event_count": 1465962,
+          "unmapped_symbol_count": 0
+        },
+        "reused_existing_canonical_result": false,
+        "session_id": "GC-2019-07-03",
+        "source_record_count": 1654834
       }
     ],
     "stopped_reason": null
