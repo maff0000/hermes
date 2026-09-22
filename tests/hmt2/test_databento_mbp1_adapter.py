@@ -235,6 +235,47 @@ def test_genuine_ts_recv_is_recorded_as_genuine_when_not_flagged_bad(monkeypatch
 
 
 # ----------------------------------------------------------------------------------------------
+# F_MAYBE_BAD_BOOK honesty — the REAL, Databento-documented channel-level gap flag ("indicates
+# an unrecoverable gap was detected in the channel") is genuinely decoded and surfaced, never
+# invented. HMT-2 quality-instrumentation correction (v3): this flag — NOT a per-symbol view of
+# the channel-level `sequence` counter — is now the sole basis for
+# `canonical_quality_record.SessionQualityCounters.source_gap_completeness_status` (via
+# `Mbp1AdapterQualityCounters.maybe_bad_book_records`, asserted below).
+# ----------------------------------------------------------------------------------------------
+
+def test_maybe_bad_book_flag_marks_quality_degraded_source_and_counts_the_record(monkeypatch):
+    provider = _make_provider([_native(action="ADD", flags=adapter._FLAG_MAYBE_BAD_BOOK)], monkeypatch)
+    canonicaliser = Canonicaliser(mapping_table=_MAPPING_TABLE)
+    events = []
+    for record in provider.iter_records():
+        events.extend(canonicaliser.canonicalise(record))
+    tob = events[0]
+    assert tob.quality_state is EventQualityState.DEGRADED_SOURCE
+    assert provider.quality_counters.maybe_bad_book_records == 1
+
+
+def test_maybe_bad_book_not_counted_when_flag_absent(monkeypatch):
+    provider = _make_provider([_native(action="ADD", flags=0)], monkeypatch)
+    canonicaliser = Canonicaliser(mapping_table=_MAPPING_TABLE)
+    for record in provider.iter_records():
+        list(canonicaliser.canonicalise(record))
+    assert provider.quality_counters.maybe_bad_book_records == 0
+
+
+def test_maybe_bad_book_and_bad_ts_recv_flags_are_independent(monkeypatch):
+    """Both real DBN flags can be genuinely set on the same record (a bad receive timestamp
+    does not imply a channel gap, and vice versa) — each is counted independently, never
+    conflated."""
+    combined_flags = adapter._FLAG_BAD_TS_RECV | adapter._FLAG_MAYBE_BAD_BOOK
+    provider = _make_provider([_native(action="ADD", flags=combined_flags)], monkeypatch)
+    canonicaliser = Canonicaliser(mapping_table=_MAPPING_TABLE)
+    for record in provider.iter_records():
+        list(canonicaliser.canonicalise(record))
+    assert provider.quality_counters.bad_receive_time_records == 1
+    assert provider.quality_counters.maybe_bad_book_records == 1
+
+
+# ----------------------------------------------------------------------------------------------
 # Symbol mapping never guesses: raw_symbol not in the governed mapping table fails closed too
 # (a second layer, at the canonicaliser/futures.py boundary — this is the EXISTING, unmodified
 # ContractMappingTable.resolve() behaviour, exercised here through the real adapter+canonicaliser

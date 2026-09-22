@@ -38,21 +38,47 @@ class _FakeAdapterCountersWithSymbols(_FakeAdapterCounters):
     source_observed_raw_symbols = {"GCZ26", "GCM26"}
 
 
+class _FakeAdapterCountersWithMaybeBadBook(_FakeAdapterCounters):
+    maybe_bad_book_records = 5
+
+
 def test_defaults_are_all_zero():
     counters = SessionQualityCounters(session_id="GC-2026-01-01")
     d = counters.to_dict()
     assert d["native_record_count"] == 0
     assert d["duplicate_count"] == 0
     assert d["conflict_count"] == 0
-    assert d["source_sequence_anomaly_count"] == 0
+    assert d["sequence_non_monotonic_per_symbol_count"] == 0
+    assert d["source_channel_maybe_bad_book_count"] == 0
     assert d["observed_contract_count"] == 0
     assert d["source_gap_completeness_status"] == "COMPLETE"
 
 
-def test_source_gap_completeness_status_flips_on_any_anomaly():
+# ------------------------------------------------------------------------------------------------
+# v3 quality-instrumentation correction — source_gap_completeness_status is now driven by the
+# REAL, Databento-decoded channel-level MAYBE_BAD_BOOK signal (source_channel_maybe_bad_book_
+# count), NEVER by the per-symbol sequence diagnostic (sequence_non_monotonic_per_symbol_count),
+# which is a genuine false-positive: Databento's `sequence` field is a CHANNEL-level (not
+# per-symbol) venue counter, so filtering it to one symbol looks non-monotonic under completely
+# normal cross-symbol interleaving on the same channel.
+# ------------------------------------------------------------------------------------------------
+
+def test_source_gap_completeness_status_flips_on_a_real_channel_gap():
     counters = SessionQualityCounters(session_id="GC-2026-01-01")
-    counters.source_sequence_anomaly_count = 1
+    counters.source_channel_maybe_bad_book_count = 1
     assert counters.source_gap_completeness_status == "GAP_OR_ANOMALY_SUSPECTED"
+
+
+def test_source_gap_completeness_status_stays_complete_despite_per_symbol_sequence_diagnostic():
+    """The exact false-positive this v3 correction fixes: a large per-symbol sequence-
+    diagnostic count (e.g. from normal cross-symbol channel interleaving) must NEVER, by
+    itself, flip the gap-completeness status."""
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.sequence_non_monotonic_per_symbol_count = 4467
+    assert counters.source_gap_completeness_status == "COMPLETE"
+    d = counters.to_dict()
+    assert d["sequence_non_monotonic_per_symbol_count"] == 4467
+    assert d["source_gap_completeness_status"] == "COMPLETE"
 
 
 def test_observed_contract_count_matches_set_size():
@@ -70,6 +96,15 @@ def test_apply_adapter_counters_reuses_pilot_adapter_fields():
     assert d["crossed_book_skipped_count"] == 1
     assert d["incomplete_book_skipped_count"] == 2
     assert d["bad_receive_time_count"] == 3
+    assert d["source_channel_maybe_bad_book_count"] == 0  # attribute absent on this fake -> 0
+
+
+def test_apply_adapter_counters_wires_through_the_real_channel_gap_signal():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.apply_adapter_counters(_FakeAdapterCountersWithMaybeBadBook())
+    d = counters.to_dict()
+    assert d["source_channel_maybe_bad_book_count"] == 5
+    assert d["source_gap_completeness_status"] == "GAP_OR_ANOMALY_SUSPECTED"
 
 
 def test_write_then_read_round_trips(tmp_path):

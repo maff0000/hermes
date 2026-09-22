@@ -135,6 +135,54 @@ def test_quality_record_reflects_real_counts(tmp_path):
     assert summary["conflict_count"] == 0
 
 
+def test_cross_symbol_channel_interleaving_no_longer_flips_gap_status(tmp_path):
+    """v3 quality-instrumentation correction — Databento's `sequence` field is a CHANNEL-level
+    (not per-symbol) venue counter shared across every instrument multiplexed on that channel
+    (confirmed against Databento's own schema docs and CME MDP 3.0's own docs, identically
+    worded across MBO/MBP-1/MBP-10/Trade: "the message sequence number assigned at the venue").
+    A purely per-symbol view of that shared counter can look non-monotonic even when nothing is
+    actually wrong — this is the exact false positive that previously flipped
+    `source_gap_completeness_status` to GAP_OR_ANOMALY_SUSPECTED on essentially every real
+    session. This synthetic fixture (dataclasses.replace on the committed HMT-1 fixture's own
+    first, already-valid record — never real retained bytes) mimics that pattern deterministically:
+    two symbols multiplexed on the same channel where GCM26's own per-symbol sequence view goes
+    101 -> 99."""
+    base_records, native_sha256 = _fixture_records()
+    base = base_records[0]  # a valid TOP_OF_BOOK_UPDATE record (GCZ26)
+
+    interleaved = [
+        dataclasses.replace(base, raw_provider_symbol="GCZ26", source_sequence=100, source_artifact_id="synthetic-0001"),
+        dataclasses.replace(base, raw_provider_symbol="GCM26", source_sequence=101, source_artifact_id="synthetic-0002"),
+        dataclasses.replace(base, raw_provider_symbol="GCZ26", source_sequence=102, source_artifact_id="synthetic-0003"),
+        # The exact false-positive this correction fixes: GCM26's own per-symbol sequence view
+        # regresses (101 -> 99) purely because the underlying counter is shared across the whole
+        # channel, never owned by GCM26 alone -- not a real gap.
+        dataclasses.replace(base, raw_provider_symbol="GCM26", source_sequence=99, source_artifact_id="synthetic-0004"),
+    ]
+
+    quality_counters = SessionQualityCounters(session_id="GC-INTERLEAVE-TEST")
+    result = cw.canonicalise_records(
+        session_id="GC-INTERLEAVE-TEST", records=interleaved, mapping_table=_mapping_table(),
+        canonical_store_root=tmp_path,
+        native_artefact_relative_path="hmt2-gc-mbp1-v1/sessions/GC-INTERLEAVE-TEST/source/fixture.jsonl",
+        native_artefact_sha256=native_sha256, provider_request_identity="req-interleave-0001",
+        provider_definition_ref="tests/fixtures/hmt1/gc_contract_mapping_v1.json",
+        provider_adapter_version="hmt1-fixture-provider-v1",
+        fixture_schema_version="hmt1-fixture-line-schema-v1",
+        corpus_manifest_ref="research/hmt2/corpus-selection-manifest-v2.json",
+        quality_counters=quality_counters,
+    )
+
+    # The OLD, incorrect classifier would have flagged this GAP_OR_ANOMALY_SUSPECTED purely from
+    # the per-symbol view of GCM26's sequence going 101 -> 99. The corrected classifier must not.
+    assert result.quality_summary["source_gap_completeness_status"] == "COMPLETE"
+    # ... but the raw per-symbol diagnostic still honestly counts it -- never deleted, only
+    # relabelled/disclosed as non-authoritative for gap status (module docstring discipline:
+    # "never delete, only disclose").
+    assert result.quality_summary["sequence_non_monotonic_per_symbol_count"] == 1
+    assert result.quality_summary["source_channel_maybe_bad_book_count"] == 0
+
+
 def test_two_sessions_get_independent_fresh_canonicaliser_state(tmp_path):
     """Session-scoped (WO Part 4): running the SAME fixture twice, as two different session ids,
     must not let book-state leak from one session into the other."""

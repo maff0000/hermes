@@ -322,11 +322,21 @@ def canonicalise_records(
         # events (an exact duplicate already registered, or a genuinely unchanged BBO), which
         # previously made it indistinguishable from a record that never resolved at all.
         _resolve_symbol(symbol)
+        # v3 quality-instrumentation correction: `source_sequence` is Databento's own CHANNEL-
+        # level (not per-symbol) venue sequence counter — identical, verbatim documentation
+        # across MBO/MBP-1/MBP-10/Trade ("the message sequence number assigned at the venue"),
+        # CME MDP 3.0's own multiplexed packet counter shared by every instrument on the
+        # channel. Filtered down to one symbol it looks non-monotonic under completely normal
+        # cross-symbol interleaving, so this is kept ONLY as a raw diagnostic
+        # (`sequence_non_monotonic_per_symbol_count`) — it must never again be treated as a
+        # gap/anomaly signal (`source_gap_completeness_status` now derives from Databento's own
+        # real, decoded `MAYBE_BAD_BOOK` channel-gap flag instead — see
+        # `canonical_quality_record.py`'s module docstring).
         seq = record.source_sequence
         if seq is not None:
             prev = last_sequence_by_symbol.get(symbol)
             if prev is not None and seq <= prev:
-                quality_counters.source_sequence_anomaly_count += 1
+                quality_counters.sequence_non_monotonic_per_symbol_count += 1
             last_sequence_by_symbol[symbol] = seq
 
         for event in canonicaliser.canonicalise(record):
