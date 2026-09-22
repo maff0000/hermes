@@ -31,7 +31,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from market_truth.identity import encode_field
 
@@ -71,6 +71,31 @@ def artefact_relative_path(session_id: str, category: str, filename: str, *, cor
 
 def manifest_relative_path(filename: str, *, corpus_store_root: str = CORPUS_STORE_ROOT_NAME) -> str:
     return "/".join([_safe_segment(corpus_store_root), "manifest", _safe_segment(filename)])
+
+
+def compute_request_identity(
+    *, dataset: str, schema: str, symbols: "Tuple[str, ...] | list[str]", stype_in: str, start: str, end: str
+) -> str:
+    """HMT-2 real-money checkpoint — deterministic request-identity hash for the "already have
+    this exact retained artefact? never re-request it" duplicate-billing guard (WO Part 3).
+    Pure, order-independent in `symbols` (sorted before hashing, so a caller passing the same
+    symbol set in a different order still resolves to the same identity) — every other field
+    is hashed as given (dataset/schema/stype_in/start/end are each single scalar strings, so
+    there is no ordering ambiguity to normalise for them).
+
+    This is an identity over the REQUEST SHAPE only (what would be asked of the vendor), never
+    over any acquired bytes — `NativeArtefactRecord.sha256` remains the only hash of the actual
+    retained content. Two requests with the same identity are, by construction, asking for the
+    exact same real data; finding one already completed (see
+    `find_completed_request_identities()`) means the second must reuse the first's retained
+    bytes rather than re-request and double-bill for them.
+    """
+    h = hashlib.sha256()
+    for value in (dataset, schema, stype_in, start, end):
+        h.update(encode_field(value))
+    for symbol in sorted(symbols):
+        h.update(encode_field(symbol))
+    return h.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -193,3 +218,41 @@ class NativeSourceStore:
 
     def artefact_exists(self, relative_path: str) -> bool:
         return relative_path in self._written_hashes or self._full_path(relative_path).exists()
+
+
+@dataclass(frozen=True)
+class NativeMbp1Record:
+    """HMT-2 real-money checkpoint (MBP-1 pilot, Part 4) — one genuine, decoded MBP-1 record
+    from an already-retained native `.dbn.zst` artefact, translated to this module's own plain,
+    vendor-independent shape by `providers.databento_historical.iter_retained_mbp1_records()`
+    (the ONE place a vendor `databento.MBP1Msg`/`BidAskPair` object is ever touched — it never
+    escapes that function). Every field here is a plain `str`/`int`; nothing here is a vendor
+    type, so `market_truth.providers.databento_mbp1` (the HMT-1-canonicalisation-side adapter
+    that consumes this) never needs to import `databento` at all.
+
+    `raw_symbol` is `None` when this request's own embedded symbology mapping (`DBNStore.
+    mappings`) could not uniquely resolve `instrument_id` — the CALLER (the HMT-1-side adapter)
+    must fail closed on this, never guess (WO Part 4). `record_index` is this record's 0-based
+    position in the file's own native record order — used only for a deterministic
+    `source_artifact_id` tiebreak, never identity-bearing on its own and never a "when it was
+    processed" wall-clock-shaped field.
+    """
+
+    session_id: str
+    raw_symbol: Optional[str]
+    instrument_id: int
+    ts_event_ns: int
+    ts_recv_ns: int
+    action: str  # "TRADE" | "ADD" | "CANCEL" | "MODIFY" | "CLEAR" | "FILL" | "NONE"
+    side: str  # "BID" | "ASK" | "NONE"
+    flags: int
+    sequence: int
+    price: int
+    size: int
+    bid_px_00: int
+    ask_px_00: int
+    bid_sz_00: int
+    ask_sz_00: int
+    bid_ct_00: int
+    ask_ct_00: int
+    record_index: int

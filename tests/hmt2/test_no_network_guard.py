@@ -43,14 +43,21 @@ _FORBIDDEN_MODULE_ROOTS = (
 # The ONLY file in this package authorised to import the `databento` vendor SDK (HMT-2B Part 1).
 _DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH = Path("providers") / "databento_historical.py"
 
-# HMT-2 real-money checkpoint: the ONLY two function names, in the ONLY file above, that may
+# HMT-2 real-money checkpoint: the ONLY three function names, in the ONLY file above, that may
 # ever contain a `.get_range(...)`-shaped attribute access. Each is hardcoded/self-validating
 # to its own single Central-PO/Chief-Architect-authorised real acquisition request — see
 # market_truth/acquisition/providers/databento_historical.py's module docstring and each
 # method's own docstring. No other function, anywhere in this package, may ever call
 # `.get_range` for any reason, on any schema.
+#
+# `acquire_mbp1_pilot_session_data` (added for the HMT-2 MBP-1 pilot) hardcodes
+# dataset/schema/stype_in as literal constants exactly like the other two, but its
+# symbols/start/end/path ARE genuine parameters (the pilot's contracts/sessions are
+# data-driven, not a single fixed request) — fail-closed validated at runtime, see
+# tests/hmt2/test_hardcoded_acquisition_call_sites.py for the source-level proof of what is,
+# and is not, a literal constant at its call site.
 _GET_RANGE_ALLOWED_FUNCTION_NAMES = frozenset(
-    {"acquire_reference_series_ohlcv1h", "acquire_gc_definitions"}
+    {"acquire_reference_series_ohlcv1h", "acquire_gc_definitions", "acquire_mbp1_pilot_session_data"}
 )
 
 # Files legitimately concerned with the real Databento credential (parameter/variable names,

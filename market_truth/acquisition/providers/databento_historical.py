@@ -43,14 +43,19 @@ Deliberately NOT implemented (WO Part 1, absolute) — UPDATED by the HMT-2 real
     - Any live-streaming client of any kind. This module never imports, references, or
       constructs `databento.Live` (or any live/streaming symbol) anywhere.
     - Beyond `download_historical_range()`'s permanent prohibition, this module now has EXACTLY
-      two, narrowly-hardcoded, real bulk-download methods — `acquire_reference_series_ohlcv1h()`
-      and `acquire_gc_definitions()` (see their own docstrings) — each Central-PO/Chief-
-      Architect-authorised for exactly one specific, real-money request shape. Neither is a
-      generic "acquire anything" gateway: each hardcodes its own dataset/symbols/stype_in/schema
-      as literal constants at its one `timeseries.get_range` call site (statically verified —
+      three, narrowly-hardcoded/self-validating, real bulk-download methods —
+      `acquire_reference_series_ohlcv1h()`, `acquire_gc_definitions()`, and (HMT-2 MBP-1 pilot)
+      `acquire_mbp1_pilot_session_data()` (see their own docstrings) — each Central-PO/Chief-
+      Architect-authorised for exactly one specific, real-money request shape. None is a
+      generic "acquire anything" gateway: each hardcodes its own dataset/schema/stype_in as
+      literal constants at its one `timeseries.get_range` call site (statically verified —
       tests/hmt2/test_no_network_guard.py + tests/hmt2/test_hardcoded_acquisition_call_sites.py).
-      No other function anywhere in this package may ever call `.get_range` at all, for any
-      schema — MBP-1/TBBO/trades/MBO acquisition remains structurally impossible.
+      The third method's `symbols`/`start`/`end`/`path` are genuinely data-driven parameters
+      (the pilot's contracts/sessions are not a single fixed request) but are fail-closed
+      validated at runtime before any network call — see that method's own docstring. No other
+      function anywhere in this package may ever call `.get_range` at all, for any schema —
+      TBBO/trades/MBO acquisition remains structurally impossible, and MBP-1 acquisition is
+      possible ONLY through this one governed, validated method.
 
 Vendor boundary
 ----------------
@@ -72,9 +77,10 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, FrozenSet, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Iterator, Mapping, Optional, Sequence, Tuple
 
 try:
     import databento  # noqa: F401  # the ONLY import site of this vendor SDK in this repository
@@ -85,6 +91,7 @@ from market_truth.acquisition import (  # noqa: E402
     HMT2B1_ELIGIBLE_RANGE_START,
     HMT2B1_RESOLVED_FINAL_CUTOFF_DATE,
 )
+from market_truth.acquisition.source_store import NativeMbp1Record  # noqa: E402
 
 ADAPTER_VERSION = "hmt2b-databento-historical-adapter-v1"
 
@@ -109,6 +116,34 @@ GOVERNED_REAL_ACQUISITION_END_EXCLUSIVE = (
 # embedded as a literal value anywhere in this module.
 DEFAULT_DATABENTO_API_KEY_PATH = "/srv-dev/secrets/databento_historical_api_key"
 DATABENTO_API_KEY_PATH_ENV_VAR = "DATABENTO_HISTORICAL_API_KEY_PATH"
+
+# HMT-2 real-money checkpoint — MBP-1 pilot acquisition (Request 3 of the checkpoint's
+# authorised real acquisitions; see `acquire_mbp1_pilot_session_data()` below). A pilot session
+# id is always the governed `GC-YYYY-MM-DD` shape (`market_truth.acquisition.session_calendar.
+# SessionRecord.session_id` — this module does not import that module just for one regex, to
+# avoid a new coupling, but the shape is identical and re-derivable from it).
+_MBP1_PILOT_SESSION_ID_PATTERN = re.compile(r"^GC-\d{4}-\d{2}-\d{2}$")
+
+# Deliberately a NEW, separate pattern from `classify_gc_symbol_shape()` above — NOT a reuse of
+# it. `classify_gc_symbol_shape()` is documented (see its own docstring) as a PROVISIONAL,
+# deliberately conservative candidate-narrowing heuristic that treats a single-digit-year GC
+# symbol (e.g. "GCZ6") as NOT a confirmed outright (`tests/hmt2/test_databento_historical_
+# provider.py::test_classify_gc_symbol_shape` pins this exact behaviour: single-digit year is
+# "not the 2-digit shape"). This checkpoint's REAL governed clean outright mapping table
+# (`research/hmt2/gc-contract-mapping-table-v2.json`, 93 entries) discovered that every one of
+# this dataset's real clean outright `provider_symbol` values IS single-digit-year (e.g.
+# "GCF0") — the ambiguity `classify_gc_symbol_shape()` conservatively declines to resolve is
+# already resolved for these specific symbols by that governed table's own real
+# `delivery_year`/`delivery_month` fields (exactly the "already-governed maturity_year/
+# maturity_month evidence" the WO requires this checkpoint to use instead of guessing from the
+# raw symbol alone). So this method does NOT call `classify_gc_symbol_shape()` — doing so would
+# fail-closed on every real, legitimate symbol this pilot needs. Instead it applies only a
+# cheap, honest STRUCTURAL guard (plain `GC<month-code><1-or-2-digit-year>` shape, no dots, no
+# hyphens) to reject a spread/calendar/continuous/parent-symbology-shaped symbol
+# (e.g. "GC.v.0", "GC.FUT", "GCZ26-GCH27") — never a claim that this resolves the single-digit-
+# year ambiguity itself (only the real mapping table, applied at the adapter boundary in Part 4,
+# does that).
+_PLAIN_GC_OUTRIGHT_STRUCTURAL_PATTERN = re.compile(r"^GC[FGHJKMNQUVXZ]\d{1,2}$")
 
 
 class DatabentoAdapterError(RuntimeError):
@@ -344,6 +379,14 @@ class DatabentoHistoricalProvider:
                 # capability; each is hardcoded to its own single authorised request shape.
                 "REFERENCE_SERIES_GC_V0_OHLCV1H_BULK_ACQUISITION",
                 "GC_FUT_DEFINITIONS_BULK_ACQUISITION",
+                # HMT-2 real-money checkpoint, MBP-1 pilot — a THIRD narrowly-hardcoded/self-
+                # validating billable bulk-acquisition capability. See
+                # acquire_mbp1_pilot_session_data() below. Still not a generic "acquire
+                # anything" gateway: dataset/schema/stype_in remain literal constants at its
+                # one .get_range call site; only the pilot's genuinely data-driven
+                # symbols/start/end/path are real parameters, and every one is fail-closed
+                # validated before any network call is made.
+                "MBP1_PILOT_SESSION_BULK_ACQUISITION",
             }
         )
 
@@ -598,6 +641,98 @@ class DatabentoHistoricalProvider:
             object_path=path,
         )
 
+    def acquire_mbp1_pilot_session_data(
+        self,
+        *,
+        session_id: str,
+        symbols: Sequence[str],
+        start: str,
+        end: str,
+        path: str,
+    ) -> RealBulkAcquisitionResult:
+        """HMT-2 real-money checkpoint — Request 3, the governed MBP-1 pilot acquisition.
+
+        THE ONLY function in this entire codebase permitted to call the vendor's real bulk
+        `timeseries.get_range` method with `schema="mbp-1"`. `dataset` (`"GLBX.MDP3"`),
+        `schema` (`"mbp-1"`), and `stype_in` (`"raw_symbol"`) are ALL hardcoded literal values
+        at the call site below — never variables, never caller-influenced — exactly like
+        `acquire_reference_series_ohlcv1h()` / `acquire_gc_definitions()` above.
+
+        Unlike those two single-hardcoded-symbol methods, the pilot's contracts and sessions
+        are genuinely data-driven (deterministically selected per-session from the governed
+        corpus-selection manifest, via `research/hmt2/hmt2d_mbp1_pilot_selection_and_quote.py`,
+        and the governed active-contract-window resolution in
+        `market_truth.acquisition.gc_active_windows`) — a single hardcoded symbol/date-range
+        constant is not possible here. So `session_id`/`symbols`/`start`/`end`/`path` are
+        genuine parameters, but every one is fail-closed validated below, before any network
+        call is made, never silently coerced or widened:
+
+          - `session_id` must match the governed `GC-YYYY-MM-DD` session-id shape
+            (`_MBP1_PILOT_SESSION_ID_PATTERN`).
+          - `symbols` must be non-empty, and every entry must match the plain structural shape
+            `GC<month-code><1-or-2-digit-year>` (`_PLAIN_GC_OUTRIGHT_STRUCTURAL_PATTERN` — see
+            the module-level comment next to it for exactly why this is a NEW, separate check
+            from `classify_gc_symbol_shape()`, not a reuse of it) — a spread/calendar/
+            continuous/parent-symbology-shaped symbol (e.g. "GC.v.0", "GC.FUT",
+            "GCZ26-GCH27") is rejected fail-closed, never silently dropped or substituted. No
+            front-month reduction, no continuous symbol, no spreads, no MBO — enforced here
+            structurally, not just by caller convention.
+          - `start`/`end` must be non-empty strings with `start < end` — lexicographic order is
+            exactly chronological order for this checkpoint's fixed-width, zero-padded, UTC
+            ISO-8601 session-window strings (the same assumption `gc_active_windows.py`'s
+            `session_overlaps_active_window()` already makes and documents).
+
+        Never auto-triggered by any other code path in this package — the only caller is a
+        separately-authorised, human-invoked acquisition script, exactly once per pilot
+        session, after this exact request's free quote has been reconfirmed AND the
+        duplicate-request-reuse check (keyed on
+        `market_truth.acquisition.source_store.compute_request_identity()`) has confirmed no
+        matching immutable native artefact already exists. `path` is required — see
+        `acquire_reference_series_ohlcv1h()` docstring for the identical streamed-to-disk /
+        immutable-native-artefact rationale.
+        """
+        if not _MBP1_PILOT_SESSION_ID_PATTERN.match(session_id or ""):
+            raise DatabentoScopeError(
+                f"acquire_mbp1_pilot_session_data: session_id must match 'GC-YYYY-MM-DD', "
+                f"got {session_id!r}"
+            )
+        symbol_list = list(symbols)
+        if not symbol_list:
+            raise DatabentoScopeError("acquire_mbp1_pilot_session_data: symbols must be non-empty")
+        non_outright = [s for s in symbol_list if not _PLAIN_GC_OUTRIGHT_STRUCTURAL_PATTERN.match(s or "")]
+        if non_outright:
+            raise DatabentoScopeError(
+                f"acquire_mbp1_pilot_session_data: every symbol must be a plain GC outright "
+                f"(GC<month-code><1-or-2-digit-year>, no dots/hyphens) — rejected "
+                f"non-outright-shaped symbol(s): {non_outright!r}"
+            )
+        if not start or not end or not (start < end):
+            raise DatabentoScopeError(
+                f"acquire_mbp1_pilot_session_data: start must be a non-empty string < end, got "
+                f"start={start!r} end={end!r}"
+            )
+        store = self._call(
+            lambda: self._client.timeseries.get_range(
+                dataset="GLBX.MDP3",
+                symbols=symbol_list,
+                stype_in="raw_symbol",
+                schema="mbp-1",
+                start=start,
+                end=end,
+                path=path,
+            )
+        )
+        return _translate_real_bulk_acquisition(
+            store,
+            dataset="GLBX.MDP3",
+            schema="mbp-1",
+            symbols=tuple(symbol_list),
+            stype_in="raw_symbol",
+            start=start,
+            end=end,
+            object_path=path,
+        )
+
     def download_historical_range(self, *args: Any, **kwargs: Any) -> None:
         """INTENTIONALLY UNIMPLEMENTED — always raises `DatabentoScopeError`.
 
@@ -718,3 +853,93 @@ def _translate_symbology_response(
         end_date=end_date,
         resolutions=tuple(resolutions),
     )
+
+
+# ------------------------------------------------------------------------------------------
+# HMT-2 real-money checkpoint, MBP-1 pilot (Part 4) — READ-ONLY, LOCAL, ZERO-NETWORK decode of
+# an already-retained native MBP-1 `.dbn.zst` artefact. This is NOT a third bulk-acquisition
+# method (it never calls `.get_range`, never constructs `databento.Historical`, never reads the
+# credential) — it mirrors this checkpoint's own established precedent for read-only local
+# re-derivation from already-retained bytes (see the throwaway reference-series re-derivation
+# script's own docstring: "READ-ONLY DBNStore.from_file() call on the local file — zero network
+# access, zero re-charge"). It is, deliberately, the ONE place outside the two/three
+# `acquire_*` methods where a vendor `databento` symbol is touched at all in this module — kept
+# here (not a second file) so `test_no_network_guard.py`'s single-file `databento`-import
+# allowlist never needs to widen. The vendor `databento.MBP1Msg`/`BidAskPair` record objects
+# never escape this function: every value is copied into this module's own plain
+# `NativeMbp1Record` (source_store.py) before it is ever handed to a caller — the
+# `market_truth.providers.databento_mbp1` HMT-1-side canonicalisation adapter that consumes this
+# never needs to import `databento` itself at all.
+# ------------------------------------------------------------------------------------------
+
+
+def _resolve_instrument_id_to_raw_symbol(store: Any) -> Dict[int, str]:
+    """Build an `instrument_id -> raw_symbol` resolver from this request's OWN embedded
+    symbology mapping (`DBNStore.mappings`, sourced from the file's own metadata header — never
+    a second network call). Fails closed (`DatabentoScopeError`) if the same `instrument_id`
+    were ever claimed by two different raw symbols within one retained file (would indicate a
+    genuinely ambiguous/corrupt mapping) — this checkpoint's real, narrowly-scoped, single-
+    session-day pilot requests never legitimately exhibit this."""
+    resolver: Dict[int, str] = {}
+    mappings = getattr(store, "mappings", None) or {}
+    for raw_symbol, intervals in mappings.items():
+        for interval in intervals:
+            try:
+                instrument_id = int(interval["symbol"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if instrument_id in resolver and resolver[instrument_id] != raw_symbol:
+                raise DatabentoScopeError(
+                    f"instrument_id {instrument_id} is claimed by more than one raw symbol in "
+                    f"this retained file's own embedded symbology mapping: "
+                    f"{resolver[instrument_id]!r} vs {raw_symbol!r} — refusing to guess"
+                )
+            resolver[instrument_id] = raw_symbol
+    return resolver
+
+
+_MBP1_ACTION_CODE_TO_NAME = {
+    "T": "TRADE", "A": "ADD", "C": "CANCEL", "M": "MODIFY", "R": "CLEAR", "F": "FILL", "N": "NONE",
+}
+_MBP1_SIDE_CODE_TO_NAME = {"B": "BID", "A": "ASK", "N": "NONE"}
+
+
+def iter_retained_mbp1_records(path: str, *, session_id: str) -> Iterator[NativeMbp1Record]:
+    """Decode an already-retained native MBP-1 `.dbn.zst` artefact at `path`, read-only, fully
+    offline (`databento.DBNStore.from_file()` — a local file decode; confirmed this checkpoint,
+    via the installed SDK's own source, to make no network call). Yields this module's own
+    plain `NativeMbp1Record` for every genuine `MBP1Msg` record in the file's native order —
+    symbol-mapping/system records embedded in the same file are silently skipped here (they
+    carry no MBP-1 book/trade content of their own; their content is already folded into
+    `raw_symbol` resolution above)."""
+    if databento is None:  # pragma: no cover - exercised only when the optional dep is absent
+        raise DatabentoAdapterError(
+            "the 'databento' package is not installed — required to decode a retained MBP-1 artefact"
+        )
+    store = databento.DBNStore.from_file(path)
+    resolver = _resolve_instrument_id_to_raw_symbol(store)
+    for index, rec in enumerate(store):
+        if not hasattr(rec, "bid_px_00"):
+            continue  # not an MBP1Msg (e.g. an embedded SymbolMappingMsg) — skip, not content
+        action_code = str(getattr(rec, "action", ""))
+        side_code = str(getattr(rec, "side", ""))
+        yield NativeMbp1Record(
+            session_id=session_id,
+            raw_symbol=resolver.get(int(rec.instrument_id)),
+            instrument_id=int(rec.instrument_id),
+            ts_event_ns=int(rec.ts_event),
+            ts_recv_ns=int(rec.ts_recv),
+            action=_MBP1_ACTION_CODE_TO_NAME.get(action_code, action_code),
+            side=_MBP1_SIDE_CODE_TO_NAME.get(side_code, side_code),
+            flags=int(rec.flags),
+            sequence=int(rec.sequence),
+            price=int(rec.price),
+            size=int(rec.size),
+            bid_px_00=int(rec.bid_px_00),
+            ask_px_00=int(rec.ask_px_00),
+            bid_sz_00=int(rec.bid_sz_00),
+            ask_sz_00=int(rec.ask_sz_00),
+            bid_ct_00=int(rec.bid_ct_00),
+            ask_ct_00=int(rec.ask_ct_00),
+            record_index=index,
+        )

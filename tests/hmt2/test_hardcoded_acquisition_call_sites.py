@@ -21,7 +21,10 @@ from pathlib import Path
 PACKAGE_DIR = Path(__file__).resolve().parent.parent.parent / "market_truth" / "acquisition"
 ADAPTER_PATH = PACKAGE_DIR / "providers" / "databento_historical.py"
 
-_FORBIDDEN_BULK_SCHEMAS = frozenset({"mbp-1", "tbbo", "trades", "mbo"})
+# HMT-2 real-money checkpoint, MBP-1 pilot: "mbp-1" is REMOVED from the forbidden set — it is
+# now exactly what `acquire_mbp1_pilot_session_data` (and ONLY that function) is authorised to
+# request. TBBO/trades/MBO remain forbidden everywhere, no exceptions.
+_FORBIDDEN_BULK_SCHEMAS = frozenset({"tbbo", "trades", "mbo"})
 
 
 def _parse_adapter() -> ast.Module:
@@ -157,9 +160,11 @@ def test_no_get_range_call_anywhere_in_the_package_uses_a_forbidden_bulk_schema(
                         )
 
 
-def test_exactly_two_get_range_call_sites_exist_in_the_whole_package():
-    """Pinning the total count is itself a guard: if a third call site is ever added anywhere,
-    this test fails immediately even before inspecting what it hardcodes."""
+def test_exactly_three_get_range_call_sites_exist_in_the_whole_package():
+    """Pinning the total count is itself a guard: if a fourth call site is ever added anywhere,
+    this test fails immediately even before inspecting what it hardcodes. Bumped from 2 to 3 by
+    the HMT-2 MBP-1 pilot's `acquire_mbp1_pilot_session_data` — see that test below for its own
+    call-site-level hardcoding proof."""
     total = 0
     for path in sorted(PACKAGE_DIR.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -170,7 +175,77 @@ def test_exactly_two_get_range_call_sites_exist_in_the_whole_package():
                 and node.func.attr == "get_range"
             ):
                 total += 1
-    assert total == 2, f"expected exactly 2 .get_range(...) call sites in the whole package, found {total}"
+    assert total == 3, f"expected exactly 3 .get_range(...) call sites in the whole package, found {total}"
+
+
+# ------------------------------------------------------------------------------------------
+# (e) acquire_mbp1_pilot_session_data — hardcodes dataset="GLBX.MDP3", schema="mbp-1",
+#     stype_in="raw_symbol" as literal AST constants, exactly like (a)/(b) above. Unlike those
+#     two, `symbols`/`start`/`end`/`path` are genuinely data-driven parameters here (the
+#     pilot's contracts/sessions are not a single fixed request) — this test proves they are
+#     passed through as plain `Name` references to the function's own parameters, never
+#     re-literalised, and never silently replaced by some other hardcoded value either.
+# ------------------------------------------------------------------------------------------
+
+def test_acquire_mbp1_pilot_session_data_call_site_hardcodes_dataset_schema_stype_in_only():
+    tree = _parse_adapter()
+    function_node = _find_function(tree, "acquire_mbp1_pilot_session_data")
+    calls = _find_get_range_calls(function_node)
+    assert len(calls) == 1, (
+        f"acquire_mbp1_pilot_session_data must contain exactly one .get_range(...) call site, "
+        f"found {len(calls)}"
+    )
+    call = calls[0]
+    _assert_literal_string(
+        _kwarg_value_node(call, "dataset"), "GLBX.MDP3",
+        context="acquire_mbp1_pilot_session_data .get_range dataset=",
+    )
+    _assert_literal_string(
+        _kwarg_value_node(call, "schema"), "mbp-1",
+        context="acquire_mbp1_pilot_session_data .get_range schema=",
+    )
+    _assert_literal_string(
+        _kwarg_value_node(call, "stype_in"), "raw_symbol",
+        context="acquire_mbp1_pilot_session_data .get_range stype_in=",
+    )
+    # symbols/start/end/path are genuine parameters — must be plain Name nodes (a reference to
+    # this function's own parameter, or a locally-derived variable holding it unmodified —
+    # `symbols` is passed through `symbol_list = list(symbols)` purely to defend against a
+    # one-shot iterator being exhausted by validation before the real call; `start`/`end`/`path`
+    # are passed through completely unchanged as the function's own parameters), never a
+    # literal constant (which would falsely claim a single fixed request shape) and never
+    # anything more exotic (which could hide a caller-uncontrolled substitution).
+    expected_name_by_param = {
+        "symbols": "symbol_list",
+        "start": "start",
+        "end": "end",
+        "path": "path",
+    }
+    for param_name, expected_var_name in expected_name_by_param.items():
+        node = _kwarg_value_node(call, param_name)
+        assert isinstance(node, ast.Name), (
+            f"acquire_mbp1_pilot_session_data .get_range {param_name}=: expected a plain Name "
+            f"reference, got {ast.dump(node)}"
+        )
+        assert node.id == expected_var_name, (
+            f"acquire_mbp1_pilot_session_data .get_range {param_name}=: expected the Name to be "
+            f"{expected_var_name!r}, got {node.id!r}"
+        )
+
+
+def test_no_get_range_call_anywhere_in_the_package_uses_a_forbidden_bulk_schema_including_mbp1_call_site():
+    """Defence-in-depth, mirroring test_no_get_range_call_anywhere_in_the_package_uses_a_forbidden_bulk_schema
+    below but confirming explicitly that adding the MBP-1 call site did not also smuggle in a
+    literal `tbbo`/`trades`/`mbo` schema anywhere (schema="mbp-1" itself is, correctly, NOT in
+    `_FORBIDDEN_BULK_SCHEMAS` — MBP-1 is exactly what this checkpoint's pilot is authorised to
+    acquire; TBBO/trades/MBO remain forbidden everywhere, including at this new call site)."""
+    tree = _parse_adapter()
+    function_node = _find_function(tree, "acquire_mbp1_pilot_session_data")
+    for call in _find_get_range_calls(function_node):
+        for kw in call.keywords:
+            if kw.arg == "schema" and isinstance(kw.value, ast.Constant):
+                assert kw.value.value == "mbp-1"
+                assert kw.value.value not in _FORBIDDEN_BULK_SCHEMAS
 
 
 # ------------------------------------------------------------------------------------------
