@@ -53,6 +53,22 @@ explicitly permits reusing the EXISTING, already-governed native-source-store lo
 (`market_truth.acquisition.source_store`, rooted at `research-source/`) instead of copying bytes
 merely to satisfy the diagram; this module's lineage records reference that existing location by
 its own relative path, never a duplicate copy (disclosed judgment call — see final report).
+
+VALID-EMPTY ARCHITECTURE RULING (v2, additive) — a session that fully, honestly processes to
+ZERO canonical events is a valid successful result (`CANONICAL_COMPLETE`, `canonical_result_kind
+= "EMPTY_VALID"`), not a failure, but this is provably distinguished from a session that produced
+zero events because something silently broke: `canonicalise_records()` now independently tracks
+`source_resolved_contract_ids` (every raw provider symbol that resolved to a real, governed GC
+contract, checked for EVERY record reaching the loop, and for every native record the adapter
+observed even if it was filtered before ever becoming a `RawSourceRecord` — via
+`Mbp1AdapterQualityCounters.source_observed_raw_symbols`) alongside `canonical_emitted_contract_
+ids` (the OLD, events-only notion, kept under its original name/meaning for `observed_contract_
+ids` in the quality record). A session is `EMPTY_VALID` only under the two explicit sub-cases
+(`EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS` / `EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_
+PROCESSING`) — every other zero-event path (an unresolved symbol, a genuine mapping/integrity
+problem) still fails closed exactly as before. No new ledger lifecycle state is introduced; both
+`NONEMPTY` and `EMPTY_VALID` are `CANONICAL_COMPLETE`. See `lineage.py`'s module docstring and
+`assert_real_row_is_complete()` for how the lineage row itself represents this.
 """
 from __future__ import annotations
 
@@ -69,6 +85,10 @@ from uuid import uuid4
 import pyarrow as pa
 
 from market_truth.acquisition.canonical_quality_record import (
+    EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING,
+    EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS,
+    RESULT_KIND_EMPTY_VALID,
+    RESULT_KIND_NONEMPTY,
     SessionQualityCounters,
     write_quality_record_atomic,
 )
@@ -83,7 +103,7 @@ from market_truth.acquisition.lineage import (
 from market_truth.canonicaliser import CANONICALISER_VERSION, Canonicaliser, DuplicateConflictError
 from market_truth.contracts import MARKET_EVENT_CONTRACT_SCHEMA_VERSION, MarketTradeEvent, TopOfBookEvent
 from market_truth.evidence import EVIDENCE_MANIFEST_VERSION, EvidenceManifest
-from market_truth.futures import ContractMappingTable, GcContractIdentity
+from market_truth.futures import ContractMappingError, ContractMappingTable, GcContractIdentity
 from market_truth.identity import EVENT_IDENTITY_ALGORITHM_VERSION
 from market_truth.partition import (
     PARQUET_WRITER_LIBRARY,
@@ -99,7 +119,7 @@ from market_truth.providers.databento_mbp1 import (
 )
 from market_truth.replay import compute_event_set_hash
 
-CANONICAL_WORKER_VERSION = "hmt2-canonical-worker-v1"
+CANONICAL_WORKER_VERSION = "hmt2-canonical-worker-v2"
 
 # External configuration for the durable canonical research store (WO Part 2) — mirrors
 # providers/databento_historical.py's DEFAULT_*/*_ENV_VAR pair exactly. Never hardcoded into any
@@ -207,6 +227,12 @@ class SessionCanonicalisationResult:
     quality_record_relative_path: str
     quality_summary: Mapping[str, object]
 
+    # ---- valid-empty architecture ruling additions (all optional, all additive) ----
+    canonical_result_kind: str = RESULT_KIND_NONEMPTY  # "NONEMPTY" | "EMPTY_VALID"
+    empty_reason: Optional[str] = None
+    source_resolved_contract_ids: Tuple[str, ...] = ()
+    canonical_emitted_contract_ids: Tuple[str, ...] = ()
+
 
 def _promote_partition_results(staging_root: Path, canonical_root: Path, results) -> None:
     """Atomically promote each staged partition file into the durable canonical/ tree — one
@@ -267,12 +293,35 @@ def canonicalise_records(
 
     events = []
     last_sequence_by_symbol: Dict[str, int] = {}
-    resolved_contract_ids: Set[str] = set()
+    canonical_emitted_contract_ids: Set[str] = set()
+    source_observed_symbols: Set[str] = set()
     records_seen = 0
+
+    # Source-side contract resolution, tracked independently of canonical-event emission (the
+    # architecture ruling's core correction). `resolved_cache` memoises one `mapping_table.
+    # resolve()` call per DISTINCT raw provider symbol seen — cheap (a session sees very few
+    # distinct symbols), and identical to the resolution the canonicaliser performs internally,
+    # never a second, divergent notion of "resolved".
+    resolved_cache: Dict[str, Optional[str]] = {}
+
+    def _resolve_symbol(symbol: str) -> None:
+        if symbol in resolved_cache:
+            return
+        try:
+            resolved_cache[symbol] = mapping_table.resolve(symbol).canonical_id()
+        except ContractMappingError:
+            resolved_cache[symbol] = None
 
     for record in records:
         records_seen += 1
         symbol = record.raw_provider_symbol
+        source_observed_symbols.add(symbol)
+        # Resolve THIS record's symbol regardless of whether canonicalise() below goes on to
+        # emit any event for it — fixes the exact bug the architecture ruling addresses: a
+        # record may resolve to a real, governed GC contract and still legitimately emit zero
+        # events (an exact duplicate already registered, or a genuinely unchanged BBO), which
+        # previously made it indistinguishable from a record that never resolved at all.
+        _resolve_symbol(symbol)
         seq = record.source_sequence
         if seq is not None:
             prev = last_sequence_by_symbol.get(symbol)
@@ -284,23 +333,80 @@ def canonicalise_records(
             events.append(event)
             contract_id = getattr(event, "contract_id", None)
             if contract_id is not None:
-                resolved_contract_ids.add(contract_id)
+                canonical_emitted_contract_ids.add(contract_id)
 
     if adapter_quality_counters is not None:
         quality_counters.apply_adapter_counters(adapter_quality_counters)
+        # Native records that never became a RawSourceRecord at all (filtered upstream in the
+        # adapter — e.g. an incomplete/crossed book on a non-trade action) never reached the
+        # loop above, so they were never resolved either. They still had a real raw symbol
+        # genuinely observed by the adapter (`source_observed_raw_symbols`) — resolve those too,
+        # so this session is never falsely reported as "resolved zero contracts" purely because
+        # every one of its records happened to be filtered before ever reaching this loop.
+        for symbol in getattr(adapter_quality_counters, "source_observed_raw_symbols", ()):
+            source_observed_symbols.add(symbol)
+            _resolve_symbol(symbol)
     else:
         quality_counters.native_record_count = records_seen
 
-    quality_counters.observed_contract_ids = resolved_contract_ids
+    source_resolved_contract_ids = {cid for cid in resolved_cache.values() if cid is not None}
+    unresolved_source_symbols = {sym for sym, cid in resolved_cache.items() if cid is None}
+
+    quality_counters.observed_contract_ids = canonical_emitted_contract_ids
+    quality_counters.source_observed_symbols = source_observed_symbols
+    quality_counters.source_resolved_contract_ids = source_resolved_contract_ids
     quality_counters.market_trade_event_count = sum(1 for e in events if isinstance(e, MarketTradeEvent))
     quality_counters.top_of_book_event_count = sum(1 for e in events if isinstance(e, TopOfBookEvent))
 
-    if not resolved_contract_ids:
+    if unresolved_source_symbols:
+        # A symbol genuinely observed in the native stream that does NOT resolve to a governed
+        # GC contract is always a real mapping/integrity problem (architecture ruling item 3,
+        # "same for any unmapped symbol") — never valid-empty, never silently swallowed, even
+        # when it comes from a record that would otherwise have been filtered before ever
+        # reaching the canonicaliser (the one new case this correction can now detect that the
+        # old code structurally never even looked at).
         raise CanonicalWorkerError(
-            f"session {session_id!r}: canonicalised zero events / resolved zero GC contracts — "
-            f"refusing to build a lineage row with no observed contract"
+            f"session {session_id!r}: source symbol(s) {sorted(unresolved_source_symbols)!r} were "
+            f"observed in the native stream but do not resolve to a governed GC contract identity "
+            f"— a genuine mapping/integrity problem, refusing to classify this session as complete"
         )
 
+    canonical_event_count = len(events)
+    native_record_count = quality_counters.native_record_count
+
+    # ---- NONEMPTY vs. EMPTY_VALID classification (architecture ruling items 1 and 3) ----
+    # Result-kind metadata, never a new ledger lifecycle state: both kinds are, and remain,
+    # CANONICAL_COMPLETE. A session that fully, honestly processes to zero canonical events is a
+    # valid successful result -- but ONLY under the two explicit, checked sub-cases below; every
+    # other zero-event path (a genuine mapping/integrity problem) fails closed above already, or
+    # right here, and is never silently reclassified as empty-but-fine.
+    if canonical_event_count == 0:
+        if native_record_count == 0:
+            empty_reason = EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS
+        elif source_resolved_contract_ids:
+            empty_reason = EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING
+        else:
+            # native_record_count > 0 but zero records resolved to a governed contract, and zero
+            # canonical events were emitted -- a genuine mapping/integrity problem, never valid-
+            # empty (architecture ruling item 3, verbatim).
+            raise CanonicalWorkerError(
+                f"session {session_id!r}: {native_record_count} native record(s) processed, zero "
+                f"resolved to a governed GC contract, and zero canonical events were emitted — "
+                f"NOT a valid-empty result, refusing to build a lineage row with no observed "
+                f"contract and no honest empty-reason"
+            )
+        canonical_result_kind = RESULT_KIND_EMPTY_VALID
+    else:
+        empty_reason = None
+        canonical_result_kind = RESULT_KIND_NONEMPTY
+
+    quality_counters.canonical_result_kind = canonical_result_kind
+    quality_counters.empty_reason = empty_reason
+
+    # Deterministic empty-result identity (architecture ruling item 4): `compute_event_set_hash`
+    # already supports (and, per its own regression test, deterministically/reproducibly
+    # supports) an empty event list -- this is HMT-1's EXISTING, unmodified identity algorithm,
+    # never a hand-crafted magic hash for the empty case.
     event_set_hash = compute_event_set_hash(events)
     event_counts_by_family = dict(Counter(event_family_name(e) for e in events))
 
@@ -377,7 +483,14 @@ def canonicalise_records(
     quality_path = write_quality_record_atomic(canonical_store_root, quality_counters)
     quality_relative_path = str(quality_path.relative_to(canonical_store_root))
 
-    representative_contract = _parse_canonical_contract_id(sorted(resolved_contract_ids)[0])
+    # A representative contract may only ever be derived from an EMITTED event (never
+    # invented/guessed for an EMPTY_VALID session) — for EMPTY_VALID, `gc_contract` is `None`;
+    # the real per-contract detail lives in `source_resolved_contract_ids` on the row instead
+    # (architecture ruling item 6, disclosed choice — see lineage.py module docstring).
+    if canonical_result_kind == RESULT_KIND_NONEMPTY:
+        representative_contract = _parse_canonical_contract_id(sorted(canonical_emitted_contract_ids)[0])
+    else:
+        representative_contract = None
     row = LineageRow(
         corpus_session_id=session_id,
         provider_request_identity=provider_request_identity,
@@ -398,6 +511,10 @@ def canonicalise_records(
         partition_artifact_hashes=partition_artifact_hashes,
         evidence_manifest_deterministic_hash=manifest.deterministic_fields_sha256(),
         quality_record_ref=quality_relative_path,
+        canonical_result_kind=canonical_result_kind,
+        empty_reason=empty_reason,
+        source_resolved_contract_ids=tuple(sorted(source_resolved_contract_ids)),
+        canonical_emitted_contract_ids=tuple(sorted(canonical_emitted_contract_ids)),
     )
     assert_real_row_is_complete(row)  # last gate before the one file a caller checks for "complete"
     lineage_path = write_lineage_record_atomic(canonical_store_root, row)
@@ -417,6 +534,10 @@ def canonicalise_records(
         lineage_record_relative_path=lineage_relative_path,
         quality_record_relative_path=quality_relative_path,
         quality_summary=quality_counters.to_dict(),
+        canonical_result_kind=canonical_result_kind,
+        empty_reason=empty_reason,
+        source_resolved_contract_ids=tuple(sorted(source_resolved_contract_ids)),
+        canonical_emitted_contract_ids=tuple(sorted(canonical_emitted_contract_ids)),
     )
 
 

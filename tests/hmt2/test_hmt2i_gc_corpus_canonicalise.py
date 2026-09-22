@@ -58,6 +58,20 @@ def _acquisition_entry(session_id, trade_date, *, sha256="a" * 64, request_ident
     }
 
 
+def _fake_empty_valid_result(session_id, *, event_set_hash="deadbeef"):
+    return canonical_worker.SessionCanonicalisationResult(
+        session_id=session_id, native_artefact_sha256="a" * 64, source_record_count=0,
+        canonical_event_counts_by_family={}, canonical_event_set_hash=event_set_hash,
+        partition_relative_paths=(), partition_semantic_hashes={}, partition_artifact_hashes={},
+        evidence_manifest_relative_path=f"evidence/{session_id}.json",
+        evidence_manifest_deterministic_hash="d" * 64,
+        lineage_record_relative_path=f"lineage/{session_id}.json",
+        quality_record_relative_path=f"quality/{session_id}.json",
+        quality_summary={"native_record_count": 0},
+        canonical_result_kind="EMPTY_VALID", empty_reason="SOURCE_RETURNED_ZERO_RECORDS",
+    )
+
+
 def _fake_result(session_id, *, event_set_hash="deadbeef"):
     return canonical_worker.SessionCanonicalisationResult(
         session_id=session_id, native_artefact_sha256="a" * 64, source_record_count=10,
@@ -233,3 +247,51 @@ def test_claimed_complete_session_failing_reverification_is_marked_failed_and_st
     assert "simulated drift" in canonical_ledger["GC-2020-01-01"]["failure_reason"]
     assert result["stopped_reason"] is not None
     assert canonical_ledger["GC-2020-01-02"]["state"] == canonical_ledger_mod.STATE_CANONICAL_PENDING
+
+
+# ------------------------------------------------------------------------------------------------
+# Valid-empty architecture ruling — canonical_result_kind/empty_reason are persisted onto the
+# ledger row, and both are CANONICAL_COMPLETE (no new lifecycle state).
+# ------------------------------------------------------------------------------------------------
+
+def test_empty_valid_session_is_marked_complete_with_result_kind_and_reason_persisted(tmp_path, monkeypatch):
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01"])
+    monkeypatch.setattr(
+        canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_empty_valid_result("GC-2020-01-01"),
+    )
+
+    result = hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+    )
+
+    assert result["stopped_reason"] is None
+    # Still CANONICAL_COMPLETE -- NOT a new lifecycle state.
+    assert canonical_ledger["GC-2020-01-01"]["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    assert canonical_ledger["GC-2020-01-01"]["canonical_result_kind"] == "EMPTY_VALID"
+    assert canonical_ledger["GC-2020-01-01"]["empty_reason"] == "SOURCE_RETURNED_ZERO_RECORDS"
+    assert result["processed"][0]["canonical_result_kind"] == "EMPTY_VALID"
+    assert result["processed"][0]["empty_reason"] == "SOURCE_RETURNED_ZERO_RECORDS"
+    reloaded = canonical_ledger_mod.load_canonical_ledger(str(tmp_path / "canonical_ledger.json"))
+    assert reloaded["GC-2020-01-01"]["canonical_result_kind"] == "EMPTY_VALID"
+
+
+def test_nonempty_session_result_kind_defaults_to_nonempty_on_the_ledger(tmp_path, monkeypatch):
+    """Regression pin: the ordinary NONEMPTY happy path (already proven by
+    `test_pending_session_is_canonicalised_and_marked_complete` above) also now carries an
+    explicit `canonical_result_kind` on the ledger row."""
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01"])
+    monkeypatch.setattr(canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_result("GC-2020-01-01"))
+
+    hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+    )
+    assert canonical_ledger["GC-2020-01-01"]["canonical_result_kind"] == "NONEMPTY"
+    assert canonical_ledger["GC-2020-01-01"]["empty_reason"] is None

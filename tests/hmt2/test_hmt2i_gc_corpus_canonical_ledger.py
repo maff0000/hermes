@@ -146,3 +146,27 @@ def test_canonical_ledger_content_sha256_is_deterministic_and_order_independent(
     ledger_a = {"a": {"x": 1}, "b": {"y": 2}}
     ledger_b = {"b": {"y": 2}, "a": {"x": 1}}
     assert canonical_ledger_mod.canonical_ledger_content_sha256(ledger_a) == canonical_ledger_mod.canonical_ledger_content_sha256(ledger_b)
+
+
+# ------------------------------------------------------------------------------------------------
+# Valid-empty architecture ruling — additive seed fields, NOT a new lifecycle state.
+# ------------------------------------------------------------------------------------------------
+
+def test_seed_row_carries_valid_empty_fields_defaulted_to_none():
+    acquisition_ledger = {
+        "GC-2020-01-01": _acquisition_entry("GC-2020-01-01", "2020-01-01", state=source_ledger_mod.STATE_COMPLETE),
+    }
+    ledger = canonical_ledger_mod.build_initial_canonical_ledger(acquisition_ledger=acquisition_ledger)
+    assert ledger["GC-2020-01-01"]["canonical_result_kind"] is None
+    assert ledger["GC-2020-01-01"]["empty_reason"] is None
+
+
+def test_valid_canonical_states_still_has_exactly_four_states():
+    """No new lifecycle state is introduced by the valid-empty architecture ruling -- both
+    NONEMPTY and EMPTY_VALID sessions are, and remain, CANONICAL_COMPLETE."""
+    assert canonical_ledger_mod.VALID_CANONICAL_STATES == {
+        canonical_ledger_mod.STATE_CANONICAL_PENDING,
+        canonical_ledger_mod.STATE_CANONICAL_IN_PROGRESS,
+        canonical_ledger_mod.STATE_CANONICAL_COMPLETE,
+        canonical_ledger_mod.STATE_CANONICAL_FAILED,
+    }

@@ -27,6 +27,15 @@ lineage record for each one. `LineageRow`/`LineageCatalogue` themselves are unch
      corpus-level `LineageCatalogue` FROM the per-session files on disk. This index is NEVER
      itself the source of truth — it is always regenerable from the per-session records, exactly
      as the WO requires.
+  5. VALID-EMPTY ARCHITECTURE RULING (additive, v2 file format) — `gc_contract` is now `Optional`
+     (widened, never narrowed) and four new optional fields are appended after `quality_record_
+     ref`: `canonical_result_kind` ("NONEMPTY"/"EMPTY_VALID" — NOT a new ledger lifecycle state,
+     just result-kind metadata; both kinds are `CANONICAL_COMPLETE`), `empty_reason`,
+     `source_resolved_contract_ids`, `canonical_emitted_contract_ids`. A session that fully,
+     honestly processes to zero canonical events is a valid, `EMPTY_VALID` result — its row's
+     `gc_contract` is `None` (no representative contract may ever be derived from zero emitted
+     events) and it carries zero research partitions; `assert_real_row_is_complete()` enforces
+     the correct, opposite set of invariants for each kind (see its own docstring).
 
 Deterministic chain (WO Part 2, verbatim order):
 
@@ -58,11 +67,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Mapping, Optional, Tuple
 
+from market_truth.acquisition.canonical_quality_record import (
+    RESULT_KIND_EMPTY_VALID,
+    VALID_CANONICAL_RESULT_KINDS,
+)
 from market_truth.futures import GcContractIdentity
 from market_truth.identity import encode_field
 
 LINEAGE_CATALOGUE_VERSION = "hmt2b-source-canonical-lineage-v1"
-LINEAGE_RECORD_FILE_VERSION = "hmt2-lineage-record-file-v1"
+LINEAGE_RECORD_FILE_VERSION = "hmt2-lineage-record-file-v2"
 
 
 class LineageError(ValueError):
@@ -98,7 +111,7 @@ class LineageRow:
     native_artefact_relative_path: str
     native_artefact_sha256: str
     provider_definition_ref: str
-    gc_contract: GcContractIdentity
+    gc_contract: Optional[GcContractIdentity]
     canonical_event_set_hash: Optional[str]
     research_partition_relative_paths: Tuple[str, ...]
     evidence_manifest_ref: Optional[str]
@@ -115,6 +128,17 @@ class LineageRow:
     evidence_manifest_deterministic_hash: Optional[str] = None
     quality_record_ref: Optional[str] = None
 
+    # ---- valid-empty architecture ruling additions (all optional, all additive) ----
+    # `gc_contract` above is now Optional too (widened, never narrowed — every row that already
+    # provided a real GcContractIdentity is completely unaffected): a real EMPTY_VALID row's
+    # `gc_contract` is deliberately `None` (no representative contract may ever be derived from
+    # zero emitted events); its real per-contract detail lives in
+    # `source_resolved_contract_ids` instead (architecture ruling item 6, disclosed choice).
+    canonical_result_kind: Optional[str] = None  # "NONEMPTY" | "EMPTY_VALID"
+    empty_reason: Optional[str] = None  # only meaningful when canonical_result_kind == "EMPTY_VALID"
+    source_resolved_contract_ids: Optional[Tuple[str, ...]] = None
+    canonical_emitted_contract_ids: Optional[Tuple[str, ...]] = None
+
     def __post_init__(self) -> None:
         if not self.corpus_session_id:
             raise LineageError("corpus_session_id must be non-empty")
@@ -125,8 +149,13 @@ class LineageRow:
                 f"session {self.corpus_session_id}: source bytes recorded without acquisition/"
                 f"evidence metadata (native_artefact_relative_path/sha256 both required)"
             )
-        if not isinstance(self.gc_contract, GcContractIdentity):
+        if self.gc_contract is not None and not isinstance(self.gc_contract, GcContractIdentity):
             raise LineageError(f"session {self.corpus_session_id}: gc_contract must be a GcContractIdentity")
+        if self.canonical_result_kind is not None and self.canonical_result_kind not in VALID_CANONICAL_RESULT_KINDS:
+            raise LineageError(
+                f"session {self.corpus_session_id}: invalid canonical_result_kind "
+                f"{self.canonical_result_kind!r} (must be one of {sorted(VALID_CANONICAL_RESULT_KINDS)})"
+            )
         if self.research_partition_relative_paths and self.canonical_event_set_hash is None:
             raise LineageError(
                 f"session {self.corpus_session_id}: research partitions recorded with no "
@@ -146,6 +175,17 @@ class LineageRow:
                 )
 
     def row_identity_sha256(self) -> str:
+        """BACKWARD-COMPATIBILITY, load-bearing: every field that existed before the valid-empty
+        architecture ruling is hashed in EXACTLY the same order, over EXACTLY the same values, as
+        before that ruling -- a lineage record file written by the pre-ruling code must continue
+        to self-verify (`read_lineage_record()`'s own `row_identity_sha256` recheck) forever,
+        without being silently invalidated by a later code change. The four new fields
+        (`canonical_result_kind`/`empty_reason`/`source_resolved_contract_ids`/`canonical_
+        emitted_contract_ids`) are folded in ONLY when `canonical_result_kind` is set -- true for
+        every row `canonical_worker.py` constructs from this checkpoint onward, false for every
+        row written before it existed (which always leaves it `None`). This is what lets a
+        pre-existing, already-`CANONICAL_COMPLETE` session's lineage file keep passing its own
+        self-check after this upgrade, with zero reprocessing."""
         h = hashlib.sha256()
         for value in (
             self.corpus_session_id,
@@ -153,7 +193,7 @@ class LineageRow:
             self.native_artefact_relative_path,
             self.native_artefact_sha256,
             self.provider_definition_ref,
-            self.gc_contract.canonical_id(),
+            None if self.gc_contract is None else self.gc_contract.canonical_id(),
             self.canonical_event_set_hash,
             self.evidence_manifest_ref,
             str(self.synthetic),
@@ -176,6 +216,13 @@ class LineageRow:
                 for k in sorted(mapping):
                     h.update(encode_field(str(k)))
                     h.update(encode_field(str(mapping[k])))
+        if self.canonical_result_kind is not None:
+            h.update(encode_field(self.canonical_result_kind))
+            h.update(encode_field(self.empty_reason))
+            for id_tuple in (self.source_resolved_contract_ids, self.canonical_emitted_contract_ids):
+                if id_tuple:
+                    for cid in sorted(id_tuple):
+                        h.update(encode_field(cid))
         return h.hexdigest()
 
     def to_json_dict(self) -> dict:
@@ -189,7 +236,7 @@ class LineageRow:
             "native_artefact_relative_path": self.native_artefact_relative_path,
             "native_artefact_sha256": self.native_artefact_sha256,
             "provider_definition_ref": self.provider_definition_ref,
-            "gc_contract": {
+            "gc_contract": None if contract is None else {
                 "venue": contract.venue,
                 "product_root": contract.product_root,
                 "delivery_year": contract.delivery_year,
@@ -204,30 +251,48 @@ class LineageRow:
             "canonical_schema_version": self.canonical_schema_version,
             "canonicaliser_version": self.canonicaliser_version,
             "event_identity_algorithm_version": self.event_identity_algorithm_version,
+            # `is not None` (never bare truthiness) — an EMPTY_VALID row's mapping fields are
+            # genuinely provided, empty dicts (`{}`), which must round-trip as `{}`, NEVER
+            # collapse to `None` (a bare-truthiness check would silently do exactly that, since
+            # `{}` is falsy in Python — this distinction did not matter before the valid-empty
+            # architecture ruling, because every pre-existing real row's mappings were always
+            # non-empty).
             "canonical_event_counts_by_family": (
                 dict(sorted(self.canonical_event_counts_by_family.items()))
-                if self.canonical_event_counts_by_family else None
+                if self.canonical_event_counts_by_family is not None else None
             ),
             "partition_semantic_hashes": (
-                dict(sorted(self.partition_semantic_hashes.items())) if self.partition_semantic_hashes else None
+                dict(sorted(self.partition_semantic_hashes.items()))
+                if self.partition_semantic_hashes is not None else None
             ),
             "partition_artifact_hashes": (
-                dict(sorted(self.partition_artifact_hashes.items())) if self.partition_artifact_hashes else None
+                dict(sorted(self.partition_artifact_hashes.items()))
+                if self.partition_artifact_hashes is not None else None
             ),
             "evidence_manifest_deterministic_hash": self.evidence_manifest_deterministic_hash,
             "quality_record_ref": self.quality_record_ref,
+            "canonical_result_kind": self.canonical_result_kind,
+            "empty_reason": self.empty_reason,
+            "source_resolved_contract_ids": (
+                list(self.source_resolved_contract_ids) if self.source_resolved_contract_ids is not None else None
+            ),
+            "canonical_emitted_contract_ids": (
+                list(self.canonical_emitted_contract_ids) if self.canonical_emitted_contract_ids is not None else None
+            ),
             "row_identity_sha256": self.row_identity_sha256(),
         }
 
     @classmethod
     def from_json_dict(cls, doc: Mapping) -> "LineageRow":
-        contract_doc = doc["gc_contract"]
-        contract = GcContractIdentity(
-            delivery_year=contract_doc["delivery_year"],
-            delivery_month=contract_doc["delivery_month"],
-            venue=contract_doc.get("venue", "COMEX"),
-            product_root=contract_doc.get("product_root", "GC"),
-        )
+        contract_doc = doc.get("gc_contract")
+        contract = None
+        if contract_doc is not None:
+            contract = GcContractIdentity(
+                delivery_year=contract_doc["delivery_year"],
+                delivery_month=contract_doc["delivery_month"],
+                venue=contract_doc.get("venue", "COMEX"),
+                product_root=contract_doc.get("product_root", "GC"),
+            )
         return cls(
             corpus_session_id=doc["corpus_session_id"],
             provider_request_identity=doc["provider_request_identity"],
@@ -248,6 +313,14 @@ class LineageRow:
             partition_artifact_hashes=doc.get("partition_artifact_hashes"),
             evidence_manifest_deterministic_hash=doc.get("evidence_manifest_deterministic_hash"),
             quality_record_ref=doc.get("quality_record_ref"),
+            canonical_result_kind=doc.get("canonical_result_kind"),
+            empty_reason=doc.get("empty_reason"),
+            source_resolved_contract_ids=(
+                tuple(doc["source_resolved_contract_ids"]) if doc.get("source_resolved_contract_ids") is not None else None
+            ),
+            canonical_emitted_contract_ids=(
+                tuple(doc["canonical_emitted_contract_ids"]) if doc.get("canonical_emitted_contract_ids") is not None else None
+            ),
         )
 
 
@@ -257,7 +330,15 @@ def assert_real_row_is_complete(row: LineageRow) -> None:
     marked CANONICAL_COMPLETE without lineage evidence existing and verified"). Never invoked
     automatically by `__post_init__` — that constructor-time check stays exactly as permissive as
     it always was, so every pre-existing synthetic test is untouched. This function is the one,
-    explicit, separately-callable gate `canonical_worker.py` runs before promoting a session."""
+    explicit, separately-callable gate `canonical_worker.py` runs before promoting a session.
+
+    Branches on `canonical_result_kind` (valid-empty architecture ruling, item 5): a legacy row
+    predating this field (`canonical_result_kind is None`) or an explicit `"NONEMPTY"` row is
+    held to the EXACT ORIGINAL strict requirement — at least one research partition, both hash
+    maps populated — completely unchanged. Only a row explicitly marked `"EMPTY_VALID"` is held
+    to the alternate, equally strict, zero-partition requirement below; there is no way for a
+    row to silently drift between the two, since `canonical_result_kind` is a required, validated
+    enum-like field (`LineageRow.__post_init__`)."""
     if row.synthetic:
         raise LineageError(f"session {row.corpus_session_id!r}: assert_real_row_is_complete() called on a synthetic row")
     required_scalars = {
@@ -272,10 +353,36 @@ def assert_real_row_is_complete(row: LineageRow) -> None:
     missing = sorted(name for name, value in required_scalars.items() if not value)
     if missing:
         raise LineageError(f"session {row.corpus_session_id!r}: real lineage row missing required field(s): {missing}")
-    if not row.research_partition_relative_paths:
-        raise LineageError(f"session {row.corpus_session_id!r}: real lineage row has no research partitions")
-    if not row.partition_semantic_hashes or not row.partition_artifact_hashes:
-        raise LineageError(f"session {row.corpus_session_id!r}: real lineage row missing partition hash map(s)")
+
+    if row.canonical_result_kind == RESULT_KIND_EMPTY_VALID:
+        if not row.empty_reason:
+            raise LineageError(f"session {row.corpus_session_id!r}: EMPTY_VALID lineage row missing empty_reason")
+        if row.gc_contract is not None:
+            raise LineageError(
+                f"session {row.corpus_session_id!r}: EMPTY_VALID lineage row must not carry a representative "
+                f"gc_contract derived from (zero) emitted events"
+            )
+        if row.research_partition_relative_paths:
+            raise LineageError(
+                f"session {row.corpus_session_id!r}: EMPTY_VALID lineage row must have exactly zero research "
+                f"partitions — found {len(row.research_partition_relative_paths)}"
+            )
+        if row.partition_semantic_hashes or row.partition_artifact_hashes:
+            raise LineageError(
+                f"session {row.corpus_session_id!r}: EMPTY_VALID lineage row must have empty partition hash map(s)"
+            )
+        if row.canonical_event_counts_by_family:
+            raise LineageError(
+                f"session {row.corpus_session_id!r}: EMPTY_VALID lineage row must have an empty "
+                f"canonical_event_counts_by_family"
+            )
+    else:
+        # NONEMPTY, or a legacy row that predates canonical_result_kind entirely — the ORIGINAL,
+        # fully unchanged, strict non-empty-partition requirement.
+        if not row.research_partition_relative_paths:
+            raise LineageError(f"session {row.corpus_session_id!r}: real lineage row has no research partitions")
+        if not row.partition_semantic_hashes or not row.partition_artifact_hashes:
+            raise LineageError(f"session {row.corpus_session_id!r}: real lineage row missing partition hash map(s)")
 
 
 def lineage_record_relative_path(session_id: str) -> str:

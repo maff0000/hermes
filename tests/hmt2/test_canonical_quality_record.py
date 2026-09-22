@@ -13,7 +13,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from market_truth.acquisition.canonical_quality_record import (  # noqa: E402
+    EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING,
+    EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS,
     QualityRecordError,
+    RESULT_KIND_EMPTY_VALID,
+    RESULT_KIND_NONEMPTY,
     SessionQualityCounters,
     quality_record_exists,
     quality_record_relative_path,
@@ -28,6 +32,10 @@ class _FakeAdapterCounters:
     crossed_book_skipped_records = 1
     incomplete_book_skipped_records = 2
     bad_receive_time_records = 3
+
+
+class _FakeAdapterCountersWithSymbols(_FakeAdapterCounters):
+    source_observed_raw_symbols = {"GCZ26", "GCM26"}
 
 
 def test_defaults_are_all_zero():
@@ -100,3 +108,67 @@ def test_quality_record_relative_path_escapes_unsafe_characters():
     stem = path[len("quality/"):-len(".json")]
     assert "/" not in stem
     assert path.count("/") == 1  # exactly the one "quality/" separator -- no extra segment smuggled in
+
+
+# ------------------------------------------------------------------------------------------------
+# Valid-empty architecture ruling additions — source_observed_symbols / source_resolved_
+# contract_ids / canonical_result_kind / empty_reason, all additive.
+# ------------------------------------------------------------------------------------------------
+
+def test_valid_empty_fields_default_empty_or_none():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    d = counters.to_dict()
+    assert d["source_observed_symbols"] == []
+    assert d["source_resolved_contract_count"] == 0
+    assert d["source_resolved_contract_ids"] == []
+    assert d["canonical_result_kind"] is None
+    assert d["empty_reason"] is None
+    assert d["canonical_event_count"] == 0
+
+
+def test_canonical_event_count_sums_trade_and_top_of_book():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.market_trade_event_count = 3
+    counters.top_of_book_event_count = 2
+    assert counters.canonical_event_count == 5
+    assert counters.to_dict()["canonical_event_count"] == 5
+
+
+def test_source_resolved_contract_count_matches_set_size():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.source_resolved_contract_ids = {"COMEX:GC:2026-12", "COMEX:GC:2027-02"}
+    assert counters.source_resolved_contract_count == 2
+    assert counters.to_dict()["source_resolved_contract_ids"] == ["COMEX:GC:2026-12", "COMEX:GC:2027-02"]
+
+
+def test_canonical_emitted_contract_aliases_mirror_observed_contract_ids():
+    """`observed_contract_ids`/`observed_contract_count` keep their EXACT original meaning; the
+    architecture ruling's own vocabulary is exposed as an alias, never a second computation."""
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.observed_contract_ids = {"COMEX:GC:2026-12"}
+    d = counters.to_dict()
+    assert d["canonical_emitted_contract_ids"] == d["observed_contract_ids"]
+    assert d["canonical_emitted_contract_count"] == d["observed_contract_count"] == 1
+
+
+def test_result_kind_and_empty_reason_round_trip():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.canonical_result_kind = RESULT_KIND_EMPTY_VALID
+    counters.empty_reason = EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING
+    d = counters.to_dict()
+    assert d["canonical_result_kind"] == RESULT_KIND_EMPTY_VALID
+    assert d["empty_reason"] == EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING
+
+
+def test_apply_adapter_counters_merges_source_observed_raw_symbols():
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.apply_adapter_counters(_FakeAdapterCountersWithSymbols())
+    assert counters.source_observed_symbols == {"GCZ26", "GCM26"}
+
+
+def test_apply_adapter_counters_tolerates_missing_source_observed_raw_symbols_attribute():
+    """Defensive/additive: an adapter-counters object that predates this field (e.g. the plain
+    `_FakeAdapterCounters` test double above) is still accepted without error."""
+    counters = SessionQualityCounters(session_id="GC-2026-01-01")
+    counters.apply_adapter_counters(_FakeAdapterCounters())
+    assert counters.source_observed_symbols == set()

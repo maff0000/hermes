@@ -249,3 +249,67 @@ def test_a_resolved_raw_symbol_not_in_the_governed_mapping_table_fails_closed_vi
     with pytest.raises(CanonicalisationError):
         for record in provider.iter_records():
             canonicaliser.canonicalise(record)
+
+
+# ----------------------------------------------------------------------------------------------
+# Valid-empty architecture ruling — source_observed_raw_symbols tracks EVERY genuinely resolved
+# raw symbol, including ones the adapter goes on to filter BEFORE ever constructing a
+# RawSourceRecord (an incomplete or crossed book on a non-trade action) -- the exact fix needed
+# so canonical_worker.py can independently detect source-side contract resolution even when a
+# session's `records` iterable itself ends up empty.
+# ----------------------------------------------------------------------------------------------
+
+def test_source_observed_raw_symbols_includes_a_record_filtered_for_crossed_book(monkeypatch):
+    provider = _make_provider(
+        [_native(action="ADD", raw_symbol="GCJ9", bid_px_00=1_289_600_000_000, ask_px_00=1_287_500_000_000)],
+        monkeypatch,
+    )
+    records = list(provider.iter_records())
+    assert records == []  # filtered before ever becoming a RawSourceRecord
+    assert provider.quality_counters.crossed_book_skipped_records == 1
+    assert provider.quality_counters.source_observed_raw_symbols == {"GCJ9"}
+
+
+def test_source_observed_raw_symbols_includes_a_record_filtered_for_incomplete_book(monkeypatch):
+    provider = _make_provider(
+        [_native(action="CLEAR", raw_symbol="GCJ9", bid_px_00=_UNDEF_PRICE, ask_px_00=_UNDEF_PRICE)], monkeypatch,
+    )
+    records = list(provider.iter_records())
+    assert records == []
+    assert provider.quality_counters.incomplete_book_skipped_records == 1
+    assert provider.quality_counters.source_observed_raw_symbols == {"GCJ9"}
+
+
+def test_source_observed_raw_symbols_includes_records_that_do_emit_too(monkeypatch):
+    provider = _make_provider([_native(action="TRADE", side="BID", raw_symbol="GCJ9")], monkeypatch)
+    list(provider.iter_records())
+    assert provider.quality_counters.source_observed_raw_symbols == {"GCJ9"}
+
+
+def test_source_observed_raw_symbols_excludes_a_record_with_no_raw_symbol_at_all(monkeypatch):
+    """An adapter-level UnmappedSymbolError (native.raw_symbol is None) is a wholly different,
+    already-fail-closed case -- that record's symbol is never added, because it was never
+    genuinely resolved by the adapter's own per-request symbology in the first place."""
+    provider = _make_provider([_native(raw_symbol=None)], monkeypatch)
+    with pytest.raises(adapter.UnmappedSymbolError):
+        list(provider.iter_records())
+    assert provider.quality_counters.source_observed_raw_symbols == set()
+
+
+def test_source_observed_raw_symbols_accumulates_across_multiple_records(monkeypatch):
+    provider = _make_provider(
+        [
+            _native(action="TRADE", raw_symbol="GCJ9", sequence=1, record_index=0),
+            _native(action="TRADE", raw_symbol="GCJ9", sequence=2, record_index=1),
+        ],
+        monkeypatch,
+    )
+    list(provider.iter_records())
+    # Same symbol observed twice -- a SET, deduplicated, never a count.
+    assert provider.quality_counters.source_observed_raw_symbols == {"GCJ9"}
+
+
+def test_quality_counters_to_dict_includes_source_observed_raw_symbols(monkeypatch):
+    provider = _make_provider([_native(action="TRADE", raw_symbol="GCJ9")], monkeypatch)
+    list(provider.iter_records())
+    assert provider.quality_counters.to_dict()["source_observed_raw_symbols"] == ["GCJ9"]

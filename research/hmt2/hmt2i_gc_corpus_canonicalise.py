@@ -170,6 +170,10 @@ def process_sessions(
         entry["evidence_manifest_relative_path"] = result.evidence_manifest_relative_path
         entry["quality_record_relative_path"] = result.quality_record_relative_path
         entry["canonical_updated_utc"] = _utc_now_iso()
+        # Valid-empty architecture ruling — result-kind metadata, NOT a new ledger state (both
+        # kinds are, and remain, CANONICAL_COMPLETE above).
+        entry["canonical_result_kind"] = result.canonical_result_kind
+        entry["empty_reason"] = result.empty_reason
         canonical_ledger_mod.save_canonical_ledger_atomic(ledger_state_path, canonical_ledger)
         processed.append(
             {
@@ -179,6 +183,8 @@ def process_sessions(
                 "source_record_count": result.source_record_count,
                 "canonical_event_counts_by_family": dict(result.canonical_event_counts_by_family),
                 "quality_summary": dict(result.quality_summary),
+                "canonical_result_kind": result.canonical_result_kind,
+                "empty_reason": result.empty_reason,
             }
         )
 

@@ -10,6 +10,7 @@ real retained artefacts are not present (e.g. a bare CI checkout).
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import sys
 from pathlib import Path
@@ -21,9 +22,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from market_truth.acquisition import canonical_worker as cw  # noqa: E402
-from market_truth.acquisition.canonical_quality_record import SessionQualityCounters  # noqa: E402
-from market_truth.acquisition.lineage import LineageError  # noqa: E402
+from market_truth.acquisition.canonical_quality_record import (  # noqa: E402
+    EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING,
+    EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS,
+    RESULT_KIND_EMPTY_VALID,
+    RESULT_KIND_NONEMPTY,
+    SessionQualityCounters,
+)
+from market_truth.acquisition.lineage import LineageError, read_lineage_record  # noqa: E402
+from market_truth.canonicaliser import DuplicateConflictError  # noqa: E402
 from market_truth.futures import ContractMappingTable  # noqa: E402
+from market_truth.providers.databento_mbp1 import Mbp1AdapterQualityCounters  # noqa: E402
 from market_truth.providers.fixture import FixtureMarketDataProvider  # noqa: E402
 
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "hmt1"
@@ -321,3 +330,246 @@ def test_compute_corpus_level_event_set_hash_unions_two_sessions(tmp_path):
     # But it must be DETERMINISTIC regardless of the order the session ids are given in.
     combined_reversed = cw.compute_corpus_level_event_set_hash(tmp_path, ["GC-UNION-B", "GC-UNION-A"])
     assert combined == combined_reversed
+
+
+# ------------------------------------------------------------------------------------------------
+# Valid-empty architecture ruling — a session that fully, honestly processes to zero canonical
+# events is a valid CANONICAL_COMPLETE result (canonical_result_kind="EMPTY_VALID"), provably
+# distinguished from a session that produced zero events because something silently broke.
+# ------------------------------------------------------------------------------------------------
+
+EMPTY_SESSION_ID = "GC-TEST-EMPTY-2026-09-15"
+
+
+def _base_kwargs(session_id, **overrides):
+    base = dict(
+        native_artefact_relative_path="hmt2-gc-mbp1-v1/sessions/%s/source/fixture.jsonl" % session_id,
+        native_artefact_sha256="e" * 64,
+        provider_request_identity="test-request-identity-0001",
+        provider_definition_ref="tests/fixtures/hmt1/gc_contract_mapping_v1.json",
+        provider_adapter_version="hmt1-fixture-provider-v1",
+        fixture_schema_version="hmt1-fixture-line-schema-v1",
+        corpus_manifest_ref="research/hmt2/corpus-selection-manifest-v2.json",
+    )
+    base.update(overrides)
+    return base
+
+
+def _canonicalise_empty(canonical_store_root, *, session_id=EMPTY_SESSION_ID, adapter_quality_counters=None):
+    """Zero native records at all -- the trivial, unambiguous valid-empty case (WO acceptance
+    test 1): SOURCE_RETURNED_ZERO_RECORDS."""
+    quality_counters = SessionQualityCounters(session_id=session_id)
+    result = cw.canonicalise_records(
+        session_id=session_id,
+        records=[],
+        mapping_table=_mapping_table(),
+        canonical_store_root=canonical_store_root,
+        quality_counters=quality_counters,
+        adapter_quality_counters=adapter_quality_counters,
+        **_base_kwargs(session_id),
+    )
+    return result
+
+
+def test_zero_native_records_is_valid_empty_completion(tmp_path):
+    """WO acceptance test 1: zero native records -> valid empty completion."""
+    result = _canonicalise_empty(tmp_path)
+    assert result.canonical_result_kind == RESULT_KIND_EMPTY_VALID
+    assert result.empty_reason == EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS
+    assert result.source_record_count == 0
+    assert result.canonical_event_counts_by_family == {}
+    assert result.source_resolved_contract_ids == ()
+    assert result.canonical_emitted_contract_ids == ()
+
+
+def test_nonzero_records_valid_mapping_zero_emissions_is_valid_empty_completion(tmp_path):
+    """WO acceptance test 2: non-zero native records + valid source mappings + zero emissions ->
+    valid empty completion. Mirrors the REAL GC-2017-07-13 remediation case exactly: the sole
+    native record's raw symbol genuinely, successfully resolved to a real governed GC contract
+    (GCZ26 -> COMEX:GC:2026-12), but the record itself was filtered by the adapter BEFORE ever
+    becoming a RawSourceRecord (e.g. an incomplete/crossed book on a non-trade action) -- so
+    `records` (what canonicalise_records() itself iterates) is empty, and the only way this
+    session's real resolution is ever seen is via the adapter's own
+    `source_observed_raw_symbols` side channel."""
+    adapter_counters = Mbp1AdapterQualityCounters(
+        total_native_records=1, incomplete_book_skipped_records=1, source_observed_raw_symbols={"GCZ26"},
+    )
+    result = _canonicalise_empty(tmp_path, adapter_quality_counters=adapter_counters)
+    assert result.canonical_result_kind == RESULT_KIND_EMPTY_VALID
+    assert result.empty_reason == EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING
+    assert result.source_record_count == 1
+    assert result.source_resolved_contract_ids == ("COMEX:GC:2026-12",)
+    assert result.canonical_emitted_contract_ids == ()
+    assert result.canonical_event_counts_by_family == {}
+
+
+def test_nonzero_records_zero_resolved_contracts_stays_failed(tmp_path):
+    """WO acceptance test 3: non-zero native records + zero source-resolved contracts -> NOT
+    valid empty, stays failed. Here the adapter observed a native record but never assigned it
+    ANY raw symbol at all (distinct from an unmapped symbol, WO acceptance test 4, below)."""
+    adapter_counters = Mbp1AdapterQualityCounters(total_native_records=1, source_observed_raw_symbols=set())
+    with pytest.raises(cw.CanonicalWorkerError, match="zero resolved to a governed GC contract"):
+        _canonicalise_empty(tmp_path, adapter_quality_counters=adapter_counters)
+
+
+def test_unmapped_symbol_is_not_valid_empty(tmp_path):
+    """WO acceptance test 4: an unmapped symbol -> NOT valid empty, fails closed -- even when it
+    comes from a record the adapter would otherwise have filtered before ever reaching the
+    canonicaliser (the exact new case this correction can now detect)."""
+    adapter_counters = Mbp1AdapterQualityCounters(
+        total_native_records=1, source_observed_raw_symbols={"GCZ99_NOT_IN_TABLE"},
+    )
+    with pytest.raises(cw.CanonicalWorkerError, match="do not resolve to a governed GC contract"):
+        _canonicalise_empty(tmp_path, adapter_quality_counters=adapter_counters)
+
+
+def test_identity_conflict_is_not_valid_empty(tmp_path):
+    """WO acceptance test 5: an identity conflict -> NOT valid empty. A second record sharing the
+    first record's exact identity-bearing fields (same source_artifact_id/sequence/event-time)
+    but DIFFERENT payload content (a different bid price) is a genuine conflict -- HMT-1's own
+    unmodified `Canonicaliser._register()` fails closed on this via `DuplicateConflictError`,
+    which must propagate all the way out of `canonicalise_records()`, never swallowed/
+    reclassified as an empty result."""
+    records, native_sha256 = _fixture_records()
+    original_bid = records[0].payload["bid"]
+    conflicting = dataclasses.replace(
+        records[0],
+        # A different, but still book-valid (bid < ask), quantity -- same identity-bearing
+        # fields, genuinely different row content -> a real conflict, not a crossed-book
+        # validation error from unrelated, out-of-scope HMT-1 event construction.
+        payload={**records[0].payload, "bid": {**original_bid, "quantity": original_bid["quantity"] + 1}},
+    )
+    quality_counters = SessionQualityCounters(session_id=SESSION_ID)
+    with pytest.raises(DuplicateConflictError):
+        cw.canonicalise_records(
+            session_id=SESSION_ID,
+            records=records + [conflicting],
+            mapping_table=_mapping_table(),
+            canonical_store_root=tmp_path,
+            quality_counters=quality_counters,
+            **_base_kwargs(SESSION_ID, native_artefact_sha256=native_sha256),
+        )
+    assert quality_counters.conflict_count == 1
+
+
+def test_empty_result_writes_real_evidence_quality_lineage_zero_partitions(tmp_path):
+    """WO acceptance tests 6/7/8/9: an EMPTY_VALID result still writes real evidence, quality,
+    and lineage files, with ZERO partitions -- and, per the WO, never a dummy/empty Parquet file
+    written merely to satisfy a completeness assertion."""
+    result = _canonicalise_empty(tmp_path)
+
+    assert result.partition_relative_paths == ()
+    assert result.partition_semantic_hashes == {}
+    assert result.partition_artifact_hashes == {}
+    assert not (tmp_path / "canonical").exists() or not any((tmp_path / "canonical").rglob("*.parquet"))
+
+    evidence_path = tmp_path / result.evidence_manifest_relative_path
+    assert evidence_path.exists()
+    import json as _json
+    evidence_doc = _json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert evidence_doc["source_record_count"] == 0
+    assert evidence_doc["canonical_event_counts_by_family"] == {}
+    assert evidence_doc["partition_content_hashes"] == {}
+    assert evidence_doc["artifact_hashes"] == {}
+
+    quality_path = tmp_path / result.quality_record_relative_path
+    assert quality_path.exists()
+    quality_doc = _json.loads(quality_path.read_text(encoding="utf-8"))
+    assert quality_doc["canonical_result_kind"] == RESULT_KIND_EMPTY_VALID
+    assert quality_doc["empty_reason"] == EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS
+    assert quality_doc["native_record_count"] == 0
+    assert quality_doc["canonical_event_count"] == 0
+
+    lineage_path = tmp_path / result.lineage_record_relative_path
+    assert lineage_path.exists()
+    row = read_lineage_record(tmp_path, EMPTY_SESSION_ID)
+    assert row.canonical_result_kind == RESULT_KIND_EMPTY_VALID
+    assert row.empty_reason == EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS
+    assert row.gc_contract is None
+    assert row.research_partition_relative_paths == ()
+    assert row.partition_semantic_hashes == {}
+    assert row.partition_artifact_hashes == {}
+
+
+def test_empty_result_has_deterministic_reproducible_empty_event_set_hash(tmp_path):
+    """WO acceptance test 10: the deterministic, reproducible empty event-set hash. Reuses HMT-1's
+    OWN existing `compute_event_set_hash` (never a hand-crafted magic hash) -- proven stable and
+    reproducible for an empty list directly against `market_truth.replay.compute_event_set_hash`
+    in `tests/hmt1/test_replay.py`'s style; re-proven here as a regression pin on the LITERAL
+    value canonical_worker.py records for every EMPTY_VALID session."""
+    result_a = _canonicalise_empty(tmp_path, session_id="GC-EMPTY-HASH-A")
+    result_b = _canonicalise_empty(tmp_path, session_id="GC-EMPTY-HASH-B")
+    assert result_a.canonical_event_set_hash == result_b.canonical_event_set_hash
+    assert result_a.canonical_event_set_hash == hashlib.sha256(b"").hexdigest()  # the well-known empty-input SHA-256
+
+
+def test_empty_result_reload_verification_asserts_expected_equals_reloaded_equals_empty(tmp_path):
+    """WO acceptance test 11: reload verification for EMPTY_VALID asserts expected == reloaded ==
+    [] exactly -- never skipped merely because it is trivially empty."""
+    _canonicalise_empty(tmp_path)
+    reloaded = cw.load_session_canonical_events(tmp_path, EMPTY_SESSION_ID)
+    assert reloaded == []
+
+
+def test_empty_result_idempotency_reuses_not_reprocesses(tmp_path):
+    """WO acceptance test 12: a second invocation against an already-EMPTY_VALID-complete session
+    reverifies (native SHA, evidence identity, quality record, lineage self-hash, zero expected
+    partitions, result kind) and reuses -- exactly like the existing NONEMPTY idempotency path."""
+    native_path = tmp_path / "fake-native-artefact.bin"
+    native_path.write_bytes(b"a genuinely retained, empty-session native artefact's real bytes")
+    real_sha256 = hashlib.sha256(native_path.read_bytes()).hexdigest()
+
+    session_id = "GC-TEST-EMPTY-IDEMPOTENT"
+    quality_counters = SessionQualityCounters(session_id=session_id)
+    cw.canonicalise_records(
+        session_id=session_id, records=[], mapping_table=_mapping_table(), canonical_store_root=tmp_path,
+        quality_counters=quality_counters,
+        **_base_kwargs(session_id, native_artefact_sha256=real_sha256),
+    )
+
+    assert cw.verify_existing_completion(
+        canonical_store_root=tmp_path, session_id=session_id,
+        native_artefact_path=native_path, expected_native_sha256=real_sha256,
+    ) is True
+
+
+def test_nonempty_completion_rules_are_completely_unchanged(tmp_path):
+    """WO acceptance test 13: the existing NONEMPTY completion rules are completely unchanged --
+    a real regression pin on `assert_real_row_is_complete()`'s ORIGINAL strict non-empty-
+    partition requirement, now reached via its `else` (non-EMPTY_VALID) branch."""
+    from market_truth.acquisition.lineage import LineageRow, assert_real_row_is_complete
+    from market_truth.futures import GcContractIdentity
+
+    row = LineageRow(
+        corpus_session_id="GC-REGRESSION-NONEMPTY",
+        provider_request_identity="req-0001",
+        native_artefact_relative_path="hmt2-gc-mbp1-v1/sessions/x/source/mbp1.bin",
+        native_artefact_sha256="1" * 64,
+        provider_definition_ref="ref-0001",
+        gc_contract=GcContractIdentity(delivery_year=2026, delivery_month=12),
+        canonical_event_set_hash="2" * 64,
+        research_partition_relative_paths=(),  # NONEMPTY row with zero partitions -- must fail
+        evidence_manifest_ref="evidence-ref-0001",
+        synthetic=False,
+        canonical_schema_version="v1",
+        canonicaliser_version="v1",
+        event_identity_algorithm_version="v1",
+        evidence_manifest_deterministic_hash="3" * 64,
+        quality_record_ref="quality-ref-0001",
+        canonical_result_kind=RESULT_KIND_NONEMPTY,
+    )
+    with pytest.raises(LineageError, match="no research partitions"):
+        assert_real_row_is_complete(row)
+
+
+def test_result_kind_defaults_to_nonempty_for_the_ordinary_happy_path(tmp_path):
+    """The ordinary, already-proven happy path (real fixture records, real emitted events) is
+    classified NONEMPTY, with a real representative gc_contract on its lineage row -- unchanged
+    behaviour, now explicitly asserted under the new vocabulary."""
+    result, _ = _canonicalise(tmp_path)
+    assert result.canonical_result_kind == RESULT_KIND_NONEMPTY
+    assert result.empty_reason is None
+    assert result.canonical_emitted_contract_ids
+    row = read_lineage_record(tmp_path, SESSION_ID)
+    assert row.canonical_result_kind == RESULT_KIND_NONEMPTY
+    assert row.gc_contract is not None

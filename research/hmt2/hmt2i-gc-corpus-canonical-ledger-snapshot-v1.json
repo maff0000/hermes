@@ -1,20 +1,29 @@
 {
-  "canonical_ledger_schema_version": "hmt2i-gc-corpus-canonical-ledger-v1",
+  "canonical_ledger_schema_version": "hmt2i-gc-corpus-canonical-ledger-v2",
   "canonical_ledger_state_path_note": "Actual per-session canonical-ledger state is LOCAL (gitignored, under the durable canonical research-store root -- see HMT2_CANONICAL_RESEARCH_ROOT / research-canonical-store/) -- this file is a committed SNAPSHOT only.",
   "generated_by": "research/hmt2/hmt2i_gc_corpus_canonicalise.py",
-  "generated_utc": "2026-09-22T13:00:26.461160+00:00",
+  "generated_utc": "2026-09-22T15:14:19.811127+00:00",
   "result": {
     "canonical_ledger_summary": {
       "by_state": {
-        "CANONICAL_COMPLETE": 69,
-        "CANONICAL_FAILED": 2,
+        "CANONICAL_COMPLETE": 102,
+        "CANONICAL_FAILED": 0,
         "CANONICAL_IN_PROGRESS": 0,
-        "CANONICAL_PENDING": 31
+        "CANONICAL_PENDING": 0
       },
       "total_sessions": 102
     },
     "canonical_store_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-canonical-store/hmt2-gc-mbp1-v1",
-    "processed": [],
+    "processed": [
+      {
+        "reused_existing_canonical_result": true,
+        "session_id": "GC-2019-03-22"
+      },
+      {
+        "reused_existing_canonical_result": true,
+        "session_id": "GC-2019-03-29"
+      }
+    ],
     "stopped_reason": null
   }
 }

@@ -99,7 +99,20 @@ class UnmappedSymbolError(ValueError):
 class Mbp1AdapterQualityCounters:
     """Real, per-session counters for the WO Part 6 pilot quality report. Mutated in place by
     `DatabentoMbp1PilotProvider.iter_records()` as it runs — reflects genuine observed pilot
-    data, never a synthetic/estimated figure."""
+    data, never a synthetic/estimated figure.
+
+    `source_observed_raw_symbols` (valid-empty architecture ruling addition, additive) — every
+    raw provider symbol seen on the native stream, added for EVERY native record that reaches
+    this adapter's own governed per-request symbology resolution (i.e. `native.raw_symbol is not
+    None` — a record that fails even that resolution raises `UnmappedSymbolError` immediately,
+    below, and is never added here). This deliberately includes records this adapter goes on to
+    filter BEFORE ever constructing a `RawSourceRecord` (an incomplete or crossed book on a
+    non-trade action) — those symbols were still genuinely, successfully resolved by this
+    adapter; `canonical_worker.py` is what independently checks each one against the governed GC
+    contract mapping table, fixing the exact bug the architecture ruling addresses (a session
+    could previously look like it "resolved zero contracts" purely because every one of its
+    records happened to be filtered before reaching the canonicaliser, even when every single
+    one of them genuinely, successfully resolved)."""
 
     total_native_records: int = 0
     trade_records: int = 0
@@ -110,6 +123,7 @@ class Mbp1AdapterQualityCounters:
     bad_receive_time_records: int = 0
     maybe_bad_book_records: int = 0
     action_counts: dict = field(default_factory=dict)
+    source_observed_raw_symbols: set = field(default_factory=set)
 
     def to_dict(self) -> dict:
         return {
@@ -122,6 +136,7 @@ class Mbp1AdapterQualityCounters:
             "bad_receive_time_records": self.bad_receive_time_records,
             "maybe_bad_book_records": self.maybe_bad_book_records,
             "action_counts": dict(sorted(self.action_counts.items())),
+            "source_observed_raw_symbols": sorted(self.source_observed_raw_symbols),
         }
 
 
@@ -207,6 +222,7 @@ class DatabentoMbp1PilotProvider(MarketDataProvider):
                     f"(instrument_id={native.instrument_id}) has no unique raw-symbol mapping in "
                     f"this request's own embedded symbology — fail-closed, never guessed"
                 )
+            self.quality_counters.source_observed_raw_symbols.add(native.raw_symbol)
             record = self._translate(native)
             if record is not None:
                 yield record

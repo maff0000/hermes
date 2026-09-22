@@ -44,6 +44,17 @@ States (canonicalisation checkpoint, WO-specified names, used verbatim):
                              and `.verify_existing_completion()`.
     CANONICAL_FAILED      -- an ambiguous failure (including a failed re-verification of a
                              previously-claimed-complete session) — never auto-retried.
+
+VALID-EMPTY ARCHITECTURE RULING (additive, v2 schema) — NO NEW LIFECYCLE STATE is introduced by
+this ruling: a session that fully, honestly processes to zero canonical events is STILL
+`CANONICAL_COMPLETE` at this ledger's level, exactly like any other complete session. What is
+new is two additive, optional fields on the row — `canonical_result_kind` ("NONEMPTY" /
+"EMPTY_VALID") and `empty_reason` (only meaningful for "EMPTY_VALID") — recorded by
+`hmt2i_gc_corpus_canonicalise.py`'s `process_sessions()` alongside the existing lineage/evidence/
+quality references, straight from `market_truth.acquisition.canonical_worker.
+SessionCanonicalisationResult`. A legacy row that predates this ruling simply carries
+`canonical_result_kind=None` — indistinguishable, for every existing consumer, from the row
+shape this module always had.
 """
 from __future__ import annotations
 
@@ -60,7 +71,7 @@ VALID_CANONICAL_STATES = frozenset(
     {STATE_CANONICAL_PENDING, STATE_CANONICAL_IN_PROGRESS, STATE_CANONICAL_COMPLETE, STATE_CANONICAL_FAILED}
 )
 
-CANONICAL_LEDGER_SCHEMA_VERSION = "hmt2i-gc-corpus-canonical-ledger-v1"
+CANONICAL_LEDGER_SCHEMA_VERSION = "hmt2i-gc-corpus-canonical-ledger-v2"
 
 # Relative to the DURABLE CANONICAL research root's corpus subdirectory
 # (`market_truth.acquisition.canonical_worker.corpus_canonical_store_root()`) — NOT
@@ -98,6 +109,9 @@ def build_canonical_ledger_entry(
         "quality_record_relative_path": None,
         "failure_reason": None,
         "canonical_updated_utc": None,
+        # ---- valid-empty architecture ruling additions (additive, v2 schema) ----
+        "canonical_result_kind": None,  # "NONEMPTY" | "EMPTY_VALID", set once CANONICAL_COMPLETE
+        "empty_reason": None,  # only meaningful when canonical_result_kind == "EMPTY_VALID"
     }
 
 
