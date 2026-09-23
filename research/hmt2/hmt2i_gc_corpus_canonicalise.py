@@ -27,6 +27,42 @@ Explicit-invocation only (never auto-triggered by any other code path):
 
     /tmp/hmt2-work-venv/bin/python3 research/hmt2/hmt2i_gc_corpus_canonicalise.py \\
         --pilot-reproduction-check
+
+FULL-CORPUS V2 STORAGE-LAYOUT REBUILD (`--force-rebuild-v2`, additive) — the pilot-reproduction
+gate above has long since passed and all 122 currently-acquired sessions are `CANONICAL_COMPLETE`
+under the pre-fix, unnamespaced `canonical/` storage layout. `canonical_worker.py`'s namespace-
+collision fix (`CANONICAL_STORAGE_LAYOUT_VERSION = "hmt2-canonical-storage-layout-v2"`) means every
+session's PHYSICAL canonical-partition path changed, even sessions that were never a collision
+victim — the architect's own ruling is that ALL 122 must be uniformly rebuilt onto `canonical-v2/`
+from their retained native bytes, one at a time, correctness over elapsed time
+(`process_sessions(..., force_rebuild_v2=True)`).
+
+`force_rebuild_v2=True` changes ONE thing about the existing loop: a session already
+`CANONICAL_COMPLETE` is no longer short-circuited into `verify_existing_completion()`'s
+verify-and-reuse path (that path only ever re-verifies the EXISTING physical artefact — it can
+never rebuild one under a new storage layout). Instead:
+
+  - if the ledger row already carries `canonical_storage_layout_version ==
+    canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION` (this exact session was already migrated —
+    e.g. the namespace-collision fix's own bounded proof already durably reprocessed 6 sessions,
+    including updating THEIR ledger rows), it is skipped as already-done (`already_v2=True` in
+    the per-session `processed` entry) — this is what makes a follow-up dispatch resumable without
+    redoing verified work;
+  - otherwise the session's PRE-rebuild `canonical_event_set_hash` (whatever the ledger currently
+    records — this is the "old v1 value" the dispatch's own regression check compares against) is
+    captured BEFORE reprocessing, `canonical_worker.canonicalise_mbp1_session()` is called fresh
+    (real reprocessing from retained native bytes, into the NEW `canonical-v2/session_id=<...>/`
+    layout — never a copy of old Parquet files), and the ledger row is updated with the new
+    result PLUS `canonical_storage_layout_version` (now always set on every successful outcome,
+    force-rebuild or not) and two new, additive-only diagnostic fields: `pre_rebuild_v1_event_set_
+    hash` and `v2_rebuild_matches_v1_hash` (`True` only when a pre-rebuild hash existed and
+    matched exactly — the critical regression check for the 103 sessions with no known storage
+    defect; a session with no pre-rebuild hash at all, e.g. a first-ever run, records `None`/
+    `False` rather than a false match).
+
+This flag changes NOTHING about `--pilot-reproduction-check` (that mode's own two pilot sessions
+are already v2, already skipped as already-done under this same logic if it were ever combined,
+though the two modes are never invoked together in practice).
 """
 from __future__ import annotations
 
@@ -93,11 +129,25 @@ def process_sessions(
     mapping_table_path: str,
     research_source_root: str,
     ledger_state_path: str,
+    force_rebuild_v2: bool = False,
 ) -> dict:
     """The pure(ish) sequential orchestration loop, with every dependency injected — mirrors
     `hmt2h_gc_corpus_acquire.process_planned_sessions()`'s own testing discipline exactly. Only
     ever touches the sessions named in `session_ids` (the mandatory, explicit allowlist) —
-    NEVER "every CANONICAL_PENDING row"."""
+    NEVER "every CANONICAL_PENDING row".
+
+    `force_rebuild_v2=False` (default): completely unchanged original behaviour — a
+    `CANONICAL_COMPLETE` session is verified-and-reused via `verify_existing_completion()`, never
+    blindly redone.
+
+    `force_rebuild_v2=True` (governed full-corpus v2 storage-layout rebuild — see module
+    docstring): a `CANONICAL_COMPLETE` session already migrated to the current
+    `canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION` (checked via the ledger row's own
+    `canonical_storage_layout_version` field — never re-derived, so a follow-up dispatch can
+    resume without re-touching already-verified work) is skipped as already-done; every other
+    `CANONICAL_COMPLETE` session is genuinely reprocessed from its retained native bytes, and its
+    ledger row's PRE-rebuild `canonical_event_set_hash` is captured before being overwritten, so
+    the regression check (`v2_rebuild_matches_v1_hash`) can be recorded on the row."""
     processed = []
     stopped_reason = None
 
@@ -120,7 +170,10 @@ def process_sessions(
         native_full_path = os.path.join(research_source_root, native_relative)
         expected_native_sha256 = artefact["sha256"]
 
-        if entry["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE:
+        already_complete = entry["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+        pre_rebuild_event_set_hash = None
+
+        if already_complete and not force_rebuild_v2:
             try:
                 canonical_worker.verify_existing_completion(
                     canonical_store_root=canonical_store_root, session_id=session_id,
@@ -138,6 +191,19 @@ def process_sessions(
                 break
             processed.append({"session_id": session_id, "reused_existing_canonical_result": True})
             continue
+
+        if already_complete and force_rebuild_v2:
+            if entry.get("canonical_storage_layout_version") == canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION:
+                # Already migrated (this exact session) — resumability: never re-touch verified
+                # work a prior dispatch already completed.
+                processed.append(
+                    {"session_id": session_id, "reused_existing_canonical_result": True, "already_v2": True}
+                )
+                continue
+            # Not yet migrated — capture the PRE-rebuild value this row currently records (the
+            # "old v1 value" the regression check below compares the fresh rebuild against)
+            # before it is overwritten by the real reprocessing result.
+            pre_rebuild_event_set_hash = entry.get("canonical_event_set_hash")
 
         try:
             result = canonical_worker.canonicalise_mbp1_session(
@@ -174,19 +240,36 @@ def process_sessions(
         # kinds are, and remain, CANONICAL_COMPLETE above).
         entry["canonical_result_kind"] = result.canonical_result_kind
         entry["empty_reason"] = result.empty_reason
+        # Storage-layout defect remediation — every session `canonicalise_mbp1_session()`
+        # successfully (re)processes from this checkpoint onward is, by construction, v2
+        # (`canonical_worker.py` always promotes into the session-scoped `canonical-v2/` tree
+        # now); recorded unconditionally, not just under `force_rebuild_v2`, so a session
+        # processed for the first time going forward is never ambiguously "v1 or v2".
+        entry["canonical_storage_layout_version"] = canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+        processed_entry = {
+            "session_id": session_id,
+            "reused_existing_canonical_result": False,
+            "canonical_event_set_hash": result.canonical_event_set_hash,
+            "source_record_count": result.source_record_count,
+            "canonical_event_counts_by_family": dict(result.canonical_event_counts_by_family),
+            "quality_summary": dict(result.quality_summary),
+            "canonical_result_kind": result.canonical_result_kind,
+            "empty_reason": result.empty_reason,
+        }
+        if force_rebuild_v2 and already_complete:
+            # The critical regression check (WO-binding for the full-corpus v2 rebuild): a
+            # session with a genuine pre-rebuild value MUST reproduce it exactly, since
+            # `canonical_event_set_hash` is a hash over LOGICAL canonical events, never over
+            # physical storage bytes — the namespace-collision defect only ever touched the
+            # latter. `None` (no pre-rebuild value at all, e.g. a row that somehow lacked one)
+            # is recorded honestly as a non-match, never silently treated as a pass.
+            matches = pre_rebuild_event_set_hash is not None and pre_rebuild_event_set_hash == result.canonical_event_set_hash
+            entry["pre_rebuild_v1_event_set_hash"] = pre_rebuild_event_set_hash
+            entry["v2_rebuild_matches_v1_hash"] = matches
+            processed_entry["pre_rebuild_v1_event_set_hash"] = pre_rebuild_event_set_hash
+            processed_entry["v2_rebuild_matches_v1_hash"] = matches
         canonical_ledger_mod.save_canonical_ledger_atomic(ledger_state_path, canonical_ledger)
-        processed.append(
-            {
-                "session_id": session_id,
-                "reused_existing_canonical_result": False,
-                "canonical_event_set_hash": result.canonical_event_set_hash,
-                "source_record_count": result.source_record_count,
-                "canonical_event_counts_by_family": dict(result.canonical_event_counts_by_family),
-                "quality_summary": dict(result.quality_summary),
-                "canonical_result_kind": result.canonical_result_kind,
-                "empty_reason": result.empty_reason,
-            }
-        )
+        processed.append(processed_entry)
 
     return {
         "processed": processed,
@@ -195,7 +278,7 @@ def process_sessions(
     }
 
 
-def run_batch(*, session_ids, canonical_research_root_override=None) -> dict:
+def run_batch(*, session_ids, canonical_research_root_override=None, force_rebuild_v2: bool = False) -> dict:
     """Real-file-wiring wrapper: loads the acquisition ledger + real dependencies against the
     actual repo paths, then delegates to `process_sessions()`."""
     acquisition_ledger = source_ledger_mod.load_ledger(SOURCE_LEDGER_STATE_PATH)
@@ -213,6 +296,7 @@ def run_batch(*, session_ids, canonical_research_root_override=None) -> dict:
         mapping_table_path=MAPPING_TABLE_PATH,
         research_source_root=RESEARCH_SOURCE_ROOT,
         ledger_state_path=ledger_state_path,
+        force_rebuild_v2=force_rebuild_v2,
     )
     result["canonical_store_root"] = str(canonical_store_root)
     return result
@@ -299,9 +383,19 @@ def main() -> None:
              "reproduces the already-governed pilot canonical-event-set hash exactly.",
     )
     parser.add_argument("--canonical-research-root", default=None, help="Overrides HMT2_CANONICAL_RESEARCH_ROOT for this invocation only.")
+    parser.add_argument(
+        "--force-rebuild-v2", action="store_true",
+        help="Governed full-corpus v2 storage-layout rebuild (module docstring) — only valid with "
+             "--session-ids. Reprocesses every named session already CANONICAL_COMPLETE from its "
+             "retained native bytes into the new canonical-v2/session_id=<...>/ layout, UNLESS the "
+             "ledger row already records canonical_storage_layout_version == the current version "
+             "(already migrated — skipped, resumable). Never used with --pilot-reproduction-check.",
+    )
     args = parser.parse_args()
 
     if args.pilot_reproduction_check:
+        if args.force_rebuild_v2:
+            parser.error("--force-rebuild-v2 may not be combined with --pilot-reproduction-check")
         result = run_pilot_reproduction_check(canonical_research_root_override=args.canonical_research_root)
         write_pilot_reproduction_evidence(result)
         write_snapshot(result["batch_result"])
@@ -310,7 +404,10 @@ def main() -> None:
             sys.exit(1)
         return
 
-    result = run_batch(session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root)
+    result = run_batch(
+        session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root,
+        force_rebuild_v2=args.force_rebuild_v2,
+    )
     write_snapshot(result)
     print(json.dumps(result, indent=2, sort_keys=True))
 

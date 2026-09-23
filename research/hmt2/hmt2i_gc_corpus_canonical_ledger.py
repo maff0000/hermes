@@ -112,6 +112,18 @@ def build_canonical_ledger_entry(
         # ---- valid-empty architecture ruling additions (additive, v2 schema) ----
         "canonical_result_kind": None,  # "NONEMPTY" | "EMPTY_VALID", set once CANONICAL_COMPLETE
         "empty_reason": None,  # only meaningful when canonical_result_kind == "EMPTY_VALID"
+        # ---- governed canonical storage-layout-defect remediation additions (additive, still v2 schema — same no-version-bump-for-purely-additive-optional-fields discipline lineage.py itself already established) ----
+        # Set once CANONICAL_COMPLETE, from `canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION` —
+        # `None` means this row's canonical output (if any) predates the namespace-collision fix
+        # (the old, unnamespaced `canonical/` layout). See
+        # `hmt2i_gc_corpus_canonicalise.process_sessions(force_rebuild_v2=True)`.
+        "canonical_storage_layout_version": None,
+        # Only ever populated by a `force_rebuild_v2=True` run: the row's own
+        # `canonical_event_set_hash` immediately BEFORE this rebuild overwrote it, and whether the
+        # freshly-rebuilt value matched it exactly (the full-corpus rebuild's binding regression
+        # check).
+        "pre_rebuild_v1_event_set_hash": None,
+        "v2_rebuild_matches_v1_hash": None,
     }
 
 

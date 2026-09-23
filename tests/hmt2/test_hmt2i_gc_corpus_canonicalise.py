@@ -295,3 +295,138 @@ def test_nonempty_session_result_kind_defaults_to_nonempty_on_the_ledger(tmp_pat
     )
     assert canonical_ledger["GC-2020-01-01"]["canonical_result_kind"] == "NONEMPTY"
     assert canonical_ledger["GC-2020-01-01"]["empty_reason"] is None
+
+
+# ------------------------------------------------------------------------------------------------
+# Governed full-corpus v2 storage-layout rebuild (`force_rebuild_v2=True`) — see this module's
+# own docstring and `market_truth.acquisition.canonical_worker`'s `CANONICAL_STORAGE_LAYOUT_
+# VERSION` docstring for the real namespace-collision defect this rebuild remediates.
+# ------------------------------------------------------------------------------------------------
+
+def test_force_rebuild_v2_reprocesses_a_complete_v1_session_and_records_exact_hash_match(tmp_path, monkeypatch):
+    """A CANONICAL_COMPLETE session with NO `canonical_storage_layout_version` on its row (a
+    pre-fix v1 row) must be genuinely reprocessed under `force_rebuild_v2=True` -- never
+    short-circuited into `verify_existing_completion()` (that path can only re-verify an EXISTING
+    physical artefact, never rebuild one under a new storage layout) -- and the regression check
+    must record an exact match when the fresh rebuild reproduces the pre-rebuild hash."""
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01"])
+    canonical_ledger["GC-2020-01-01"]["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    canonical_ledger["GC-2020-01-01"]["canonical_event_set_hash"] = "old-v1-hash"
+    assert canonical_ledger["GC-2020-01-01"]["canonical_storage_layout_version"] is None
+
+    calls = {"reprocess": 0, "verify": 0}
+    monkeypatch.setattr(
+        canonical_worker, "canonicalise_mbp1_session",
+        lambda **kw: calls.__setitem__("reprocess", calls["reprocess"] + 1) or _fake_result("GC-2020-01-01", event_set_hash="old-v1-hash"),
+    )
+    monkeypatch.setattr(canonical_worker, "verify_existing_completion", lambda **kw: calls.__setitem__("verify", calls["verify"] + 1) or True)
+
+    result = hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+        force_rebuild_v2=True,
+    )
+
+    assert calls["verify"] == 0  # never the verify-and-reuse short-circuit
+    assert calls["reprocess"] == 1  # genuinely reprocessed, not blindly reused
+    entry = canonical_ledger["GC-2020-01-01"]
+    assert entry["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    assert entry["canonical_storage_layout_version"] == canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+    assert entry["pre_rebuild_v1_event_set_hash"] == "old-v1-hash"
+    assert entry["v2_rebuild_matches_v1_hash"] is True
+    assert result["processed"][0]["v2_rebuild_matches_v1_hash"] is True
+    reloaded = canonical_ledger_mod.load_canonical_ledger(str(tmp_path / "canonical_ledger.json"))
+    assert reloaded["GC-2020-01-01"]["canonical_storage_layout_version"] == canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+
+
+def test_force_rebuild_v2_records_no_match_when_rebuild_hash_genuinely_differs(tmp_path, monkeypatch):
+    """Never rationalises a mismatch: if the fresh rebuild's hash genuinely differs from the
+    pre-rebuild value, that is recorded plainly (`v2_rebuild_matches_v1_hash=False`), never
+    silently forced to True."""
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01"])
+    canonical_ledger["GC-2020-01-01"]["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    canonical_ledger["GC-2020-01-01"]["canonical_event_set_hash"] = "old-v1-hash"
+
+    monkeypatch.setattr(
+        canonical_worker, "canonicalise_mbp1_session",
+        lambda **kw: _fake_result("GC-2020-01-01", event_set_hash="new-v2-hash-genuinely-different"),
+    )
+
+    result = hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+        force_rebuild_v2=True,
+    )
+
+    entry = canonical_ledger["GC-2020-01-01"]
+    assert entry["v2_rebuild_matches_v1_hash"] is False
+    assert entry["pre_rebuild_v1_event_set_hash"] == "old-v1-hash"
+    assert entry["canonical_event_set_hash"] == "new-v2-hash-genuinely-different"
+    assert result["processed"][0]["v2_rebuild_matches_v1_hash"] is False
+
+
+def test_force_rebuild_v2_skips_session_already_migrated_never_reprocesses(tmp_path, monkeypatch):
+    """Resumability: a session whose ledger row ALREADY carries the current
+    `canonical_storage_layout_version` (a prior dispatch already durably rebuilt it) must be
+    skipped -- never re-touched, never re-reprocessed -- so a follow-up dispatch can resume a
+    long-running full-corpus rebuild without redoing already-verified work."""
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01"])
+    canonical_ledger["GC-2020-01-01"]["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    canonical_ledger["GC-2020-01-01"]["canonical_storage_layout_version"] = canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+
+    calls = {"reprocess": 0, "verify": 0}
+    monkeypatch.setattr(
+        canonical_worker, "canonicalise_mbp1_session",
+        lambda **kw: calls.__setitem__("reprocess", calls["reprocess"] + 1) or _fake_result("GC-2020-01-01"),
+    )
+    monkeypatch.setattr(canonical_worker, "verify_existing_completion", lambda **kw: calls.__setitem__("verify", calls["verify"] + 1) or True)
+
+    result = hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+        force_rebuild_v2=True,
+    )
+
+    assert calls["reprocess"] == 0
+    assert calls["verify"] == 0
+    assert result["processed"][0]["reused_existing_canonical_result"] is True
+    assert result["processed"][0]["already_v2"] is True
+
+
+def test_force_rebuild_v2_ambiguous_failure_still_marks_failed_and_stops(tmp_path, monkeypatch):
+    """The existing crash/failure-safety discipline is completely unchanged under
+    `force_rebuild_v2=True`: an ambiguous reprocessing failure marks the session
+    CANONICAL_FAILED and stops the batch, never auto-retried."""
+    acquisition_ledger, canonical_ledger = _setup(tmp_path, ["GC-2020-01-01", "GC-2020-01-02"])
+    canonical_ledger["GC-2020-01-01"]["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+    canonical_ledger["GC-2020-01-02"]["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+
+    def _boom(**kw):
+        raise RuntimeError("simulated ambiguous rebuild failure")
+
+    monkeypatch.setattr(canonical_worker, "canonicalise_mbp1_session", _boom)
+
+    result = hmt2i_canonicalise.process_sessions(
+        canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+        session_ids=["GC-2020-01-01", "GC-2020-01-02"], canonical_store_root=tmp_path / "canonical-store",
+        mapping_table_path=str(tmp_path / "mapping.json"),
+        research_source_root=str(tmp_path / "research-source"),
+        ledger_state_path=str(tmp_path / "canonical_ledger.json"),
+        force_rebuild_v2=True,
+    )
+
+    assert canonical_ledger["GC-2020-01-01"]["state"] == canonical_ledger_mod.STATE_CANONICAL_FAILED
+    assert "simulated ambiguous" in canonical_ledger["GC-2020-01-01"]["failure_reason"]
+    assert result["stopped_reason"] is not None
+    # batch stopped before the second session -- its row is untouched (still CANONICAL_COMPLETE,
+    # not silently advanced or reset)
+    assert canonical_ledger["GC-2020-01-02"]["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE
