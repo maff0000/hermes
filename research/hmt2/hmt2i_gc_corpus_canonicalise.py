@@ -67,7 +67,9 @@ though the two modes are never invoked together in practice).
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import datetime as _dt
+import functools
 import json
 import os
 import sys
@@ -278,6 +280,339 @@ def process_sessions(
     }
 
 
+# ==================================================================================================
+# BOUNDED PROCESS-LEVEL CONCURRENCY AT THE SESSION BOUNDARY (additive, orchestration-only; see the
+# dispatch's final report for the full design rationale/proof). Nothing below this point ever
+# modifies `process_sessions()` above -- it remains the exact, byte-for-byte unmodified SERIAL
+# baseline every determinism proof compares against -- or any HMT-1 semantic module (contracts /
+# identity / canonicaliser / partition / evidence / replay -- all untouched).
+#
+# Design, one paragraph: a single coordinator (this process, never a worker) owns every ledger
+# read and write and all session assignment. Each WORKER process runs exactly one HMT-2 session at
+# a time, end to end, through the SAME unmodified `canonical_worker.canonicalise_mbp1_session()` /
+# `verify_existing_completion()` the serial path above already calls -- no HMT-1 semantics are ever
+# touched inside a worker, and no two workers ever address the same physical output path (every
+# destination -- canonical partitions, evidence, lineage, quality, staging -- is already namespaced
+# by `session_id` at the `canonical_worker.py` level; running two DIFFERENT sessions in two OS
+# processes only adds a second, complete layer of isolation -- separate address spaces -- on top of
+# that). Sessions are grouped into WAVES of at most `max_workers` sessions; a wave is dispatched,
+# the coordinator waits for EVERY task in that wave to reach its own natural terminal point
+# (success or exception -- a worker is never killed or cancelled mid-write), applies each session's
+# ledger mutation itself, one at a time, in a FIXED order (the wave's own scheduling order, never
+# physical completion order -- this is what makes the final ledger state provably independent of
+# which worker happens to finish first), and only THEN considers dispatching the next wave. If any
+# task in a wave produced an ambiguous failure, no further wave is ever dispatched (fail-closed, no
+# auto-retry) -- exactly `process_sessions()`'s own stop-the-batch discipline, generalised from one
+# session to a whole wave of already-in-flight sessions.
+# ==================================================================================================
+
+DEFAULT_CONCURRENT_MAX_WORKERS = 2
+MAX_SUPPORTED_CONCURRENT_WORKERS = 4
+
+# Memory-aware scheduling (WO Part 4, "keep this simple") -- a session whose RETAINED NATIVE byte
+# size (`artefact["byte_size"]`, the SAME existing, deterministic workload metadata the acquisition
+# ledger already durably records for every COMPLETE session -- nothing new estimated/derived) is
+# strictly greater than this threshold is treated as "large" for SCHEDULING purposes only, never
+# for anything about the canonicalisation result itself. 10 MiB is deliberately conservative on
+# this host (24 logical CPUs / 12 physical cores / 62 GiB RAM, per the dispatch's own host
+# reference) -- see the dispatch's final report for the real observed byte-size distribution this
+# was picked against (the single largest of the 142 currently-acquired sessions is ~49 MB).
+LARGE_SESSION_NATIVE_BYTE_SIZE_THRESHOLD = 10 * 1024 * 1024
+
+
+def _validate_and_snapshot_task(
+    *, session_id, canonical_ledger, acquisition_ledger, research_source_root, force_rebuild_v2,
+):
+    """Exactly the SAME per-session existence/state checks `process_sessions()` performs inline --
+    factored out so the concurrent coordinator can run them, in the caller's own `session_ids`
+    order, BEFORE dispatching a single worker. Raises the identical `CanonicalLedgerError` for an
+    unknown/not-source-complete session. Returns a plain, picklable task-description dict; never
+    mutates `canonical_ledger`/`acquisition_ledger` (read-only snapshot -- the coordinator is the
+    only thing that ever mutates the ledger, and only once a result comes back).
+
+    Disclosed, deliberate strengthening (never a weakening): validating every session_id UP FRONT,
+    before any dispatch, means an invalid session_ids list fails closed with ZERO side effects,
+    rather than (as the serial path does) after however many earlier sessions in the list already
+    ran. This can only ever make an invalid batch fail EARLIER and with LESS side effect, never
+    later or with more."""
+    entry = canonical_ledger.get(session_id)
+    if entry is None:
+        raise canonical_ledger_mod.CanonicalLedgerError(
+            f"session {session_id!r} has no canonical-ledger row — it is not acquisition-"
+            f"SOURCE-COMPLETE yet (or the ledger has not been built/refreshed)"
+        )
+    acquisition_entry = acquisition_ledger.get(session_id)
+    if acquisition_entry is None or acquisition_entry.get("state") != source_ledger_mod.STATE_COMPLETE:
+        raise canonical_ledger_mod.CanonicalLedgerError(
+            f"session {session_id!r}: acquisition ledger no longer reports SOURCE COMPLETE "
+            f"— refusing to canonicalise a session whose native-source completeness cannot "
+            f"be reconfirmed"
+        )
+    artefact = acquisition_entry["artefact"]
+    native_relative = artefact["object_relative_path"]
+    native_full_path = os.path.join(research_source_root, native_relative)
+    expected_native_sha256 = artefact["sha256"]
+    native_byte_size = artefact.get("byte_size") or 0
+
+    already_complete = entry["state"] == canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+
+    if (
+        already_complete and force_rebuild_v2
+        and entry.get("canonical_storage_layout_version") == canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+    ):
+        return {"session_id": session_id, "kind": "already_v2_skip", "native_byte_size": native_byte_size}
+
+    if already_complete and not force_rebuild_v2:
+        kind = "verify"
+        pre_rebuild_event_set_hash = None
+    else:
+        kind = "process"
+        pre_rebuild_event_set_hash = (
+            entry.get("canonical_event_set_hash") if (already_complete and force_rebuild_v2) else None
+        )
+
+    return {
+        "session_id": session_id,
+        "kind": kind,
+        "already_complete": already_complete,
+        "force_rebuild_v2": force_rebuild_v2,
+        "pre_rebuild_event_set_hash": pre_rebuild_event_set_hash,
+        "native_relative": native_relative,
+        "native_full_path": native_full_path,
+        "expected_native_sha256": expected_native_sha256,
+        "native_byte_size": native_byte_size,
+        "provider_request_identity": acquisition_entry["request_identity"],
+    }
+
+
+def _run_one_session_worker(task: dict):
+    """Runs in a WORKER PROCESS (never the coordinator) -- exactly one session, end to end,
+    through the SAME unmodified `canonical_worker` entry points the serial path calls.
+    `canonicalise_mbp1_session()`/`verify_existing_completion()` already construct their own fresh
+    `Canonicaliser`, their own provider, and their own pid+uuid4-scoped staging directory per call
+    (see `market_truth.acquisition.canonical_worker` module docstring); running two of these in two
+    separate OS processes gives each an entirely separate address space on top of that, so there is
+    no shared mutable state between workers to reason about at all. NEVER touches any ledger file
+    -- only the coordinator (the caller, in the main process) ever writes a ledger. Returns the
+    real result, or raises the real exception, unmodified -- the coordinator applies the exact same
+    exception-type-specific handling `process_sessions()` uses inline, so a worker never has to
+    reimplement or approximate that logic."""
+    if task["kind"] == "verify":
+        canonical_worker.verify_existing_completion(
+            canonical_store_root=task["canonical_store_root"], session_id=task["session_id"],
+            native_artefact_path=task["native_full_path"], expected_native_sha256=task["expected_native_sha256"],
+        )
+        return {"outcome": "reused"}
+
+    result = canonical_worker.canonicalise_mbp1_session(
+        session_id=task["session_id"],
+        native_artefact_path=task["native_full_path"],
+        native_artefact_relative_path=task["native_relative"],
+        expected_native_sha256=task["expected_native_sha256"],
+        mapping_table_path=task["mapping_table_path"],
+        canonical_store_root=task["canonical_store_root"],
+        provider_request_identity=task["provider_request_identity"],
+        provider_definition_ref=PROVIDER_DEFINITION_REF,
+        corpus_manifest_ref=CORPUS_MANIFEST_REF,
+        acquisition_epoch=task["provider_request_identity"],
+    )
+    return {"outcome": "processed", "result": result}
+
+
+def _build_memory_aware_waves(tasks, *, max_workers, large_byte_threshold):
+    """Simple, deliberately non-clever scheduler (WO Part 4: "keep this simple"). Splits `tasks`
+    (already in the caller's own, stable order) into "large" and "the rest" by native byte size,
+    then builds waves of at most `max_workers` tasks each, never placing a second "large" task into
+    a wave while ANY non-large task is still waiting to be scheduled -- the one, narrow case this
+    is meant to avoid is two very-large sessions each holding their own full in-memory canonical
+    event list on separate workers AT THE SAME TIME. Once non-large tasks run out, remaining large
+    tasks are still scheduled (capacity is never left idle purely to keep the rule)."""
+    large = [t for t in tasks if t["native_byte_size"] > large_byte_threshold]
+    rest = [t for t in tasks if t["native_byte_size"] <= large_byte_threshold]
+    waves = []
+    while large or rest:
+        wave = []
+        if large:
+            wave.append(large.pop(0))
+        while len(wave) < max_workers and rest:
+            wave.append(rest.pop(0))
+        while len(wave) < max_workers and large:
+            wave.append(large.pop(0))
+        waves.append(wave)
+    return waves
+
+
+def process_sessions_concurrent(
+    *,
+    canonical_ledger: dict,
+    acquisition_ledger: dict,
+    session_ids,
+    canonical_store_root,
+    mapping_table_path: str,
+    research_source_root: str,
+    ledger_state_path: str,
+    force_rebuild_v2: bool = False,
+    max_workers: int = DEFAULT_CONCURRENT_MAX_WORKERS,
+    large_byte_threshold: int = LARGE_SESSION_NATIVE_BYTE_SIZE_THRESHOLD,
+    executor_factory=None,
+) -> dict:
+    """Bounded, session-boundary process-level concurrency, additive alongside the unmodified
+    `process_sessions()` above. Same external contract (same return shape, same ledger mutations,
+    same fail-closed/no-auto-retry discipline, same explicit-allowlist-only scope) -- the ONLY
+    thing that differs from the serial path is HOW MANY sessions are in flight at once and WHICH
+    process runs each one; every ledger mutation is still applied by this coordinator alone, one
+    session at a time, never concurrently.
+
+    `executor_factory`, if given, is called with `max_workers=` and must return a context-manager
+    executor exposing `.submit()` (mirrors `concurrent.futures.Executor`) -- injected purely so
+    tests can exercise the real scheduling/ledger/stop-on-failure logic against a fast, in-process
+    fake executor without paying for real OS process start-up on every test. The real caller
+    (`run_batch_concurrent()` below) always uses a real `concurrent.futures.ProcessPoolExecutor`
+    (real, separate OS processes -- never threads)."""
+    if max_workers < 1:
+        raise ValueError(f"max_workers must be >= 1, got {max_workers!r}")
+    if max_workers > MAX_SUPPORTED_CONCURRENT_WORKERS:
+        raise ValueError(
+            f"max_workers={max_workers!r} exceeds this dispatch's own governed ceiling of "
+            f"{MAX_SUPPORTED_CONCURRENT_WORKERS} -- see the dispatch's final report for the "
+            f"determinism/performance proof this ceiling is based on"
+        )
+    if executor_factory is None:
+        executor_factory = functools.partial(concurrent.futures.ProcessPoolExecutor, max_workers=max_workers)
+
+    processed = []
+    stopped_reason = None
+
+    tasks = [
+        _validate_and_snapshot_task(
+            session_id=session_id, canonical_ledger=canonical_ledger, acquisition_ledger=acquisition_ledger,
+            research_source_root=research_source_root, force_rebuild_v2=force_rebuild_v2,
+        )
+        for session_id in session_ids
+    ]
+    for task in tasks:
+        task["canonical_store_root"] = str(canonical_store_root)
+        task["mapping_table_path"] = mapping_table_path
+
+    dispatchable = [t for t in tasks if t["kind"] != "already_v2_skip"]
+    for t in tasks:
+        if t["kind"] == "already_v2_skip":
+            processed.append(
+                {"session_id": t["session_id"], "reused_existing_canonical_result": True, "already_v2": True}
+            )
+
+    waves = _build_memory_aware_waves(dispatchable, max_workers=max_workers, large_byte_threshold=large_byte_threshold)
+
+    with executor_factory() as executor:
+        for wave in waves:
+            if stopped_reason is not None:
+                break
+            # Submit the WHOLE wave before collecting any result, so all of it runs concurrently;
+            # collect in FIXED (wave) order below -- never physical-completion order -- so the
+            # ledger's own final state (and this function's `processed` list) can never depend on
+            # which worker happened to finish first.
+            futures_in_order = [(t, executor.submit(_run_one_session_worker, t)) for t in wave]
+            for task, future in futures_in_order:
+                session_id = task["session_id"]
+                entry = canonical_ledger[session_id]
+                try:
+                    outcome = future.result()
+                except canonical_worker.VerificationFailedError as exc:
+                    entry["state"] = canonical_ledger_mod.STATE_CANONICAL_FAILED
+                    entry["failure_reason"] = f"re-verification of claimed-complete session failed: {exc}"
+                    entry["canonical_updated_utc"] = _utc_now_iso()
+                    canonical_ledger_mod.save_canonical_ledger_atomic(ledger_state_path, canonical_ledger)
+                    if stopped_reason is None:
+                        stopped_reason = (
+                            f"AMBIGUOUS: claimed-complete session {session_id!r} failed re-verification "
+                            f"— marked CANONICAL_FAILED, batch stopped (no auto-retry): {exc}"
+                        )
+                    continue
+                except Exception as exc:  # noqa: BLE001 - deliberate, mirrors process_sessions() exactly
+                    entry["state"] = canonical_ledger_mod.STATE_CANONICAL_FAILED
+                    entry["failure_reason"] = f"{type(exc).__name__}: {exc}"
+                    entry["canonical_updated_utc"] = _utc_now_iso()
+                    canonical_ledger_mod.save_canonical_ledger_atomic(ledger_state_path, canonical_ledger)
+                    if stopped_reason is None:
+                        stopped_reason = (
+                            f"AMBIGUOUS FAILURE canonicalising {session_id!r} — marked CANONICAL_FAILED, "
+                            f"batch stopped (no auto-retry): {type(exc).__name__}: {exc}"
+                        )
+                    continue
+
+                if outcome["outcome"] == "reused":
+                    processed.append({"session_id": session_id, "reused_existing_canonical_result": True})
+                    continue
+
+                result = outcome["result"]
+                entry["state"] = canonical_ledger_mod.STATE_CANONICAL_COMPLETE
+                entry["lineage_record_relative_path"] = result.lineage_record_relative_path
+                entry["canonical_event_set_hash"] = result.canonical_event_set_hash
+                entry["canonical_partition_relative_paths"] = list(result.partition_relative_paths)
+                entry["evidence_manifest_relative_path"] = result.evidence_manifest_relative_path
+                entry["quality_record_relative_path"] = result.quality_record_relative_path
+                entry["canonical_updated_utc"] = _utc_now_iso()
+                entry["canonical_result_kind"] = result.canonical_result_kind
+                entry["empty_reason"] = result.empty_reason
+                entry["canonical_storage_layout_version"] = canonical_worker.CANONICAL_STORAGE_LAYOUT_VERSION
+                processed_entry = {
+                    "session_id": session_id,
+                    "reused_existing_canonical_result": False,
+                    "canonical_event_set_hash": result.canonical_event_set_hash,
+                    "source_record_count": result.source_record_count,
+                    "canonical_event_counts_by_family": dict(result.canonical_event_counts_by_family),
+                    "quality_summary": dict(result.quality_summary),
+                    "canonical_result_kind": result.canonical_result_kind,
+                    "empty_reason": result.empty_reason,
+                }
+                if task["force_rebuild_v2"] and task["already_complete"]:
+                    pre_rebuild_event_set_hash = task["pre_rebuild_event_set_hash"]
+                    matches = (
+                        pre_rebuild_event_set_hash is not None
+                        and pre_rebuild_event_set_hash == result.canonical_event_set_hash
+                    )
+                    entry["pre_rebuild_v1_event_set_hash"] = pre_rebuild_event_set_hash
+                    entry["v2_rebuild_matches_v1_hash"] = matches
+                    processed_entry["pre_rebuild_v1_event_set_hash"] = pre_rebuild_event_set_hash
+                    processed_entry["v2_rebuild_matches_v1_hash"] = matches
+                canonical_ledger_mod.save_canonical_ledger_atomic(ledger_state_path, canonical_ledger)
+                processed.append(processed_entry)
+
+    return {
+        "processed": processed,
+        "stopped_reason": stopped_reason,
+        "canonical_ledger_summary": canonical_ledger_mod.summarize_canonical(canonical_ledger),
+    }
+
+
+def run_batch_concurrent(
+    *, session_ids, canonical_research_root_override=None, force_rebuild_v2: bool = False,
+    max_workers: int = DEFAULT_CONCURRENT_MAX_WORKERS,
+) -> dict:
+    """Real-file-wiring wrapper for `process_sessions_concurrent()` -- mirrors `run_batch()`
+    exactly, additive alongside it (never replaces it)."""
+    acquisition_ledger = source_ledger_mod.load_ledger(SOURCE_LEDGER_STATE_PATH)
+    canonical_store_root = canonical_worker.corpus_canonical_store_root(canonical_research_root_override)
+    canonical_ledger = build_or_load_canonical_ledger(
+        canonical_store_root=canonical_store_root, acquisition_ledger=acquisition_ledger,
+    )
+    ledger_state_path = canonical_ledger_state_path(canonical_store_root)
+
+    result = process_sessions_concurrent(
+        canonical_ledger=canonical_ledger,
+        acquisition_ledger=acquisition_ledger,
+        session_ids=session_ids,
+        canonical_store_root=canonical_store_root,
+        mapping_table_path=MAPPING_TABLE_PATH,
+        research_source_root=RESEARCH_SOURCE_ROOT,
+        ledger_state_path=ledger_state_path,
+        force_rebuild_v2=force_rebuild_v2,
+        max_workers=max_workers,
+    )
+    result["canonical_store_root"] = str(canonical_store_root)
+    return result
+
+
 def run_batch(*, session_ids, canonical_research_root_override=None, force_rebuild_v2: bool = False) -> dict:
     """Real-file-wiring wrapper: loads the acquisition ledger + real dependencies against the
     actual repo paths, then delegates to `process_sessions()`."""
@@ -391,11 +726,23 @@ def main() -> None:
              "ledger row already records canonical_storage_layout_version == the current version "
              "(already migrated — skipped, resumable). Never used with --pilot-reproduction-check.",
     )
+    parser.add_argument(
+        "--max-workers", type=int, default=None, metavar="N",
+        help="Bounded process-level concurrency at the session boundary (additive; only valid "
+             "with --session-ids, never --pilot-reproduction-check). OMITTED (the default): "
+             "byte-for-byte the same, unmodified SERIAL path (`run_batch()`/`process_sessions()`) "
+             "this script has always used -- existing invocations are completely unaffected. "
+             f"Given: uses `run_batch_concurrent()`/`process_sessions_concurrent()` instead, with "
+             f"exactly N worker PROCESSES (1-{MAX_SUPPORTED_CONCURRENT_WORKERS}; see that "
+             f"function's own governed ceiling).",
+    )
     args = parser.parse_args()
 
     if args.pilot_reproduction_check:
         if args.force_rebuild_v2:
             parser.error("--force-rebuild-v2 may not be combined with --pilot-reproduction-check")
+        if args.max_workers is not None:
+            parser.error("--max-workers may not be combined with --pilot-reproduction-check")
         result = run_pilot_reproduction_check(canonical_research_root_override=args.canonical_research_root)
         write_pilot_reproduction_evidence(result)
         write_snapshot(result["batch_result"])
@@ -404,10 +751,16 @@ def main() -> None:
             sys.exit(1)
         return
 
-    result = run_batch(
-        session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root,
-        force_rebuild_v2=args.force_rebuild_v2,
-    )
+    if args.max_workers is None:
+        result = run_batch(
+            session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root,
+            force_rebuild_v2=args.force_rebuild_v2,
+        )
+    else:
+        result = run_batch_concurrent(
+            session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root,
+            force_rebuild_v2=args.force_rebuild_v2, max_workers=args.max_workers,
+        )
     write_snapshot(result)
     print(json.dumps(result, indent=2, sort_keys=True))
 
