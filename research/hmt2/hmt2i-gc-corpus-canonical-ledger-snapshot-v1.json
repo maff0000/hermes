@@ -2,14 +2,14 @@
   "canonical_ledger_schema_version": "hmt2i-gc-corpus-canonical-ledger-v2",
   "canonical_ledger_state_path_note": "Actual per-session canonical-ledger state is LOCAL (gitignored, under the durable canonical research-store root -- see HMT2_CANONICAL_RESEARCH_ROOT / research-canonical-store/) -- this file is a committed SNAPSHOT only.",
   "generated_by": "research/hmt2/hmt2i_gc_corpus_canonicalise.py",
-  "generated_utc": "2026-09-23T15:50:00.669943+00:00",
+  "generated_utc": "2026-09-23T16:07:25.574040+00:00",
   "result": {
     "canonical_ledger_summary": {
       "by_state": {
-        "CANONICAL_COMPLETE": 148,
+        "CANONICAL_COMPLETE": 149,
         "CANONICAL_FAILED": 0,
         "CANONICAL_IN_PROGRESS": 0,
-        "CANONICAL_PENDING": 14
+        "CANONICAL_PENDING": 13
       },
       "total_sessions": 162
     },
@@ -17,14 +17,14 @@
     "processed": [
       {
         "canonical_event_counts_by_family": {
-          "market_trade": 291156,
-          "top_of_book": 970930
+          "market_trade": 316794,
+          "top_of_book": 1026280
         },
-        "canonical_event_set_hash": "44dc8f63451387cd92d3d0e4237e9ef1280c52283fb721bcb09b8cf079e82d54",
+        "canonical_event_set_hash": "574b601ab75f0a74f846601b6bcd729c63d68c5272980825c0c7575c95400af5",
         "canonical_result_kind": "NONEMPTY",
         "empty_reason": null,
         "quality_summary": {
-          "bad_receive_time_count": 8,
+          "bad_receive_time_count": 9,
           "canonical_emitted_contract_count": 8,
           "canonical_emitted_contract_ids": [
             "COMEX:GC:2020-03",
@@ -34,17 +34,17 @@
             "COMEX:GC:2020-10",
             "COMEX:GC:2021-02",
             "COMEX:GC:2021-04",
-            "COMEX:GC:2022-12"
+            "COMEX:GC:2021-08"
           ],
-          "canonical_event_count": 1262086,
+          "canonical_event_count": 1343074,
           "canonical_result_kind": "NONEMPTY",
           "conflict_count": 0,
-          "crossed_book_skipped_count": 1,
+          "crossed_book_skipped_count": 3,
           "duplicate_count": 0,
           "empty_reason": null,
-          "incomplete_book_skipped_count": 312,
-          "market_trade_event_count": 291156,
-          "native_record_count": 1265914,
+          "incomplete_book_skipped_count": 465,
+          "market_trade_event_count": 316794,
+          "native_record_count": 1349346,
           "observed_contract_count": 8,
           "observed_contract_ids": [
             "COMEX:GC:2020-03",
@@ -54,11 +54,11 @@
             "COMEX:GC:2020-10",
             "COMEX:GC:2021-02",
             "COMEX:GC:2021-04",
-            "COMEX:GC:2022-12"
+            "COMEX:GC:2021-08"
           ],
           "quality_record_file_version": "hmt2-canonical-quality-record-v3",
-          "sequence_non_monotonic_per_symbol_count": 28577,
-          "session_id": "GC-2020-03-13",
+          "sequence_non_monotonic_per_symbol_count": 38504,
+          "session_id": "GC-2020-03-16",
           "source_channel_maybe_bad_book_count": 0,
           "source_gap_completeness_status": "COMPLETE",
           "source_observed_symbols": [
@@ -70,8 +70,8 @@
             "GCM4",
             "GCM5",
             "GCQ0",
-            "GCV0",
-            "GCZ2"
+            "GCQ1",
+            "GCV0"
           ],
           "source_resolved_contract_count": 10,
           "source_resolved_contract_ids": [
@@ -82,16 +82,16 @@
             "COMEX:GC:2020-10",
             "COMEX:GC:2021-02",
             "COMEX:GC:2021-04",
-            "COMEX:GC:2022-12",
+            "COMEX:GC:2021-08",
             "COMEX:GC:2024-06",
             "COMEX:GC:2025-06"
           ],
-          "top_of_book_event_count": 970930,
+          "top_of_book_event_count": 1026280,
           "unmapped_symbol_count": 0
         },
         "reused_existing_canonical_result": false,
-        "session_id": "GC-2020-03-13",
-        "source_record_count": 1265914
+        "session_id": "GC-2020-03-16",
+        "source_record_count": 1349346
       }
     ],
     "stopped_reason": null
