@@ -1,40 +1,40 @@
 {
   "generated_by": "research/hmt2/hmt2h_gc_corpus_acquire.py",
-  "generated_utc": "2026-09-22T16:31:18.007628+00:00",
+  "generated_utc": "2026-09-23T04:24:30.887221+00:00",
   "ledger_schema_version": "hmt2h-gc-corpus-acquisition-ledger-v1",
   "ledger_state_path_note": "Actual per-session ledger state is LOCAL and gitignored under research-source/ (see .gitignore's blanket research-source/ rule) at hmt2-gc-mbp1-v1/manifest/gc_corpus_acquisition_ledger.json -- this file is a committed SNAPSHOT only.",
   "result": {
     "ceiling_usd": 100.0,
     "completed_this_run": [
-      "GC-2019-01-23",
-      "GC-2019-01-25",
-      "GC-2019-01-30",
-      "GC-2019-02-01",
-      "GC-2019-02-08",
-      "GC-2019-03-01",
-      "GC-2019-03-11",
-      "GC-2019-03-19",
-      "GC-2019-04-03",
-      "GC-2019-04-04",
-      "GC-2019-04-09",
-      "GC-2019-04-22",
-      "GC-2019-05-21",
-      "GC-2019-05-23",
-      "GC-2019-05-24",
-      "GC-2019-05-29",
-      "GC-2019-06-14",
-      "GC-2019-06-20",
-      "GC-2019-06-25",
-      "GC-2019-07-03"
+      "GC-2019-07-05",
+      "GC-2019-07-10",
+      "GC-2019-07-11",
+      "GC-2019-07-12",
+      "GC-2019-07-16",
+      "GC-2019-07-18",
+      "GC-2019-07-22",
+      "GC-2019-07-23",
+      "GC-2019-07-24",
+      "GC-2019-07-30",
+      "GC-2019-07-31",
+      "GC-2019-08-01",
+      "GC-2019-08-30",
+      "GC-2019-09-03",
+      "GC-2019-09-06",
+      "GC-2019-09-23",
+      "GC-2019-10-11",
+      "GC-2019-10-18",
+      "GC-2019-10-29",
+      "GC-2019-11-07"
     ],
     "completed_this_run_count": 20,
-    "headroom_to_ceiling_usd": 93.318764455617,
+    "headroom_to_ceiling_usd": 91.43318975717,
     "ledger_summary": {
       "by_state": {
-        "COMPLETE": 122,
+        "COMPLETE": 142,
         "FAILED_AMBIGUOUS": 0,
         "IN_PROGRESS": 0,
-        "PLANNED": 326
+        "PLANNED": 306
       },
       "total_sessions": 448
     },
@@ -44,7 +44,7 @@
       "reference_series_usd": 0.546575635672,
       "total_usd": 2.415042363108
     },
-    "running_actual_spend_usd": 6.681235544383,
+    "running_actual_spend_usd": 8.56681024283,
     "stopped_reason": "reached --max-sessions=20 for this dispatch"
   }
 }
