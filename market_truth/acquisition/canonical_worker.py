@@ -93,6 +93,85 @@ by this module — it is archived, out-of-band, to a clearly-labelled sibling di
 in the fix's own dispatch report) for forensic retention; this module never reads or writes that
 old tree.
 
+BOUNDED-MEMORY CANONICALISATION FIX (Stage 1, additive, HMT-1 completely untouched) — CONFIRMED
+INCIDENT MECHANISM: this module used to accumulate EVERY canonical event emitted for an entire
+session into one in-memory `events = []` list, held resident from the first record processed all
+the way through partition writing, reload verification, and evidence/lineage/quality recording.
+Resident memory was therefore proportional to session size. A real 2.39M-native-record session
+(`GC-2020-02-27`) proved this operationally unsafe: even after PR #172's bounded partition-scoped
+reload verification (which independently fixed a DIFFERENT 2-3x reload-re-materialization
+multiplier), and even under a temporarily-raised soft memory limit, that session still entered
+sustained kernel-level `mem_cgroup_handle_over_high` throttling and stalled, peaking at 9.88 GiB
+against a 10 GiB hard cap.
+
+THE FIX (this checkpoint) — the whole-session `events` list is removed entirely. Every canonical
+event `Canonicaliser.canonicalise()` emits is persisted immediately into an attempt-scoped,
+git-untracked scratch spool (`market_truth.acquisition.canonical_spool.PartitionSpool`), keyed by
+its own, completely unmodified HMT-1 partition key (`partition_relative_dir(event),
+event_family_name(event)` — computed purely from the event's own fields, identical to the key
+`PartitionWriter.write()` groups on internally). Everything else that used to require re-scanning
+the full `events` list (canonical event count, per-family counts, quality-state counts,
+market-trade/top-of-book counts) is instead tallied incrementally, in bounded memory, as each
+event is emitted — never by retaining the event objects merely to count them later.
+
+Partition finalization then proceeds ONE partition at a time: `PartitionSpool.load_and_clear()`
+reconstructs only that partition's events, hands them to the existing, completely unmodified
+`PartitionWriter.write()` (grouping-by-key becomes a single-group no-op when every event handed to
+it already shares one partition key — the sort/hash/Arrow-table/Parquet-write code path for that
+partition's rows is byte-for-byte identical to what ran when the whole session's events were
+written in one call), and releases that partition's events before the next partition is even
+loaded. At most one partition's reconstructed canonical events are ever resident in memory at a
+time.
+
+The one thing that could NOT simply be tallied incrementally is `canonical_event_set_hash`
+(`market_truth.replay.compute_event_set_hash`'s SHA-256 chained over every event's row bytes,
+GLOBALLY sorted by the raw bytes themselves) — order-independent, whole-corpus identities of this
+shape fundamentally need to see every row before any output can be produced. This is preserved
+EXACTLY via `market_truth.acquisition.canonical_spool.ExternalRowHasher`: a bounded-memory external
+sort (spill sorted runs to disk, then a deterministic `heapq.merge` k-way merge over raw bytes —
+proven, in `tests/hmt2/test_external_row_hasher_sort_equivalence.py`, to reproduce Python's own
+`sorted()` byte-ordering exactly) feeding the identical length-prefixed SHA-256 accumulation
+`compute_event_set_hash` uses. Nothing about the hash ALGORITHM changes — only how the sorted
+order it depends on is produced.
+
+Stage 1 deliberately leaves the base `Canonicaliser`'s in-memory `_seen_rows` duplicate/conflict
+map (canonicaliser.py, completely unmodified) exactly as it is. Per this fix's own governing work
+order, Stage 2 (externalizing `_seen_rows` into bounded disk-backed storage at the HMT-2
+orchestration boundary) is built ONLY if this checkpoint's own measured profiling of the real
+2.39M-record session shows `_seen_rows` remains the dominant resident-memory driver after Stage 1
+— see this fix's own dispatch report for the actual measured before/after numbers and the
+Stage-1-alone-vs-Stage-2 decision this checkpoint reached.
+
+MEASURED RESULT, real 2.39M-record session (`GC-2020-02-27`) — Stage 1 alone is NOT sufficient
+for this specific session, but NOT for the reason Stage 2 anticipates. Direct, isolated
+instrumentation (retained outside this repo; see dispatch report) proved: (1) decode + resolve +
+canonicalise + `_seen_rows`, run alone with no spooling at all, completes the ENTIRE session
+cleanly at only ~2.1 GiB peak resident memory — `_seen_rows` is emphatically NOT the driver here
+(it holds one entry per canonical event, ~2.38M of them, indistinguishable in growth rate from the
+`_seen_rows` behaviour on every other session in the corpus); (2) this session's canonical events
+are extremely concentrated — ONE partition (the front-month contract's `top_of_book` stream)
+holds 89.3% of all 2,384,220 canonical events (2,128,113 of them). Partition-at-a-time bounding
+therefore provides only marginal benefit for THIS session specifically: reconstructing that one
+dominant partition's events back into live Python objects during finalization
+(`PartitionSpool.load_and_clear()`) alone measured ~5.3 GiB of additional resident memory on top
+of the ~2 GiB traversal baseline — genuinely LIVE, necessary memory for that instant (confirmed by
+`gc.collect()` + `malloc_trim()` housekeeping, added at both the finalization and reload-
+verification loops as `canonical_spool.release_process_memory()`, making no measurable
+difference to this specific stall). The combined ~7-8+ GiB this requires, on top of whatever the
+rest of the (unchanged) reload-verification pass for that same partition later re-requires, is
+what crosses the governed 8 GiB/10 GiB boundary and triggers a sustained
+`mem_cgroup_handle_over_high` stall on this host (confirmed via `/proc/<pid>/wchan` sampling).
+A genuine fix for this specific failure mode would require `PartitionWriter.write()` itself to
+stream Arrow/Parquet row groups in bounded batches rather than materializing one partition's full
+row list/Arrow Table/Parquet buffer at once — which risks changing the physical artifact
+(`artifact_sha256`) HMT-1's writer contract governs, and is therefore NOT self-authorized here;
+per this checkpoint's own stop conditions, this is escalated rather than forced. Every OTHER
+governed session this checkpoint tested (the two MBP-1 pilot sessions, an ordinary median-sized
+session, and the 1,335,855-record boundary session `GC-2019-07-24`, whose own events split across
+20 far more evenly-distributed partitions) completes cleanly, with byte-for-byte reproduced
+canonical identities, comfortably inside the normal 8 GiB/10 GiB boundary under this exact Stage 1
+design — see the dispatch report's Gate B/C/D results.
+
 VALID-EMPTY ARCHITECTURE RULING (v2, additive) — a session that fully, honestly processes to
 ZERO canonical events is a valid successful result (`CANONICAL_COMPLETE`, `canonical_result_kind
 = "EMPTY_VALID"`), not a failure, but this is provably distinguished from a session that produced
@@ -123,6 +202,7 @@ from uuid import uuid4
 
 import pyarrow as pa
 
+from market_truth.acquisition.canonical_spool import ExternalRowHasher, PartitionSpool, release_process_memory
 from market_truth.acquisition.canonical_quality_record import (
     EMPTY_REASON_NO_CANONICAL_EMISSIONS_AFTER_VALID_PROCESSING,
     EMPTY_REASON_SOURCE_RETURNED_ZERO_RECORDS,
@@ -153,6 +233,7 @@ from market_truth.partition import (
     PartitionWriter,
     event_family_name,
     event_sort_key,
+    partition_relative_dir,
     serialize_event_row,
 )
 from market_truth.providers.databento_mbp1 import (
@@ -406,11 +487,13 @@ def canonicalise_records(
     retained bytes required), while `canonicalise_mbp1_session()` below wires in the real
     `DatabentoMbp1PilotProvider` for a genuine retained session.
 
-    Streaming/bounded processing: iterates `records` once, accumulating canonical events into one
-    in-memory list — the pilot's own two sessions (up to 1,266,770 native records) already proved
-    this is a manageable working set for one session's worth of data; this checkpoint's corpus
-    sessions are not expected to be dramatically larger (WO Part 4 — a bigger rewrite is
-    deliberately NOT undertaken here unless a concrete session is shown to break it).
+    Streaming/bounded processing: iterates `records` once; every canonical event is spooled to an
+    attempt-scoped scratch area (`market_truth.acquisition.canonical_spool.PartitionSpool`) keyed
+    by its own HMT-1 partition key, and counted incrementally, as it is emitted — no whole-session
+    canonical-event collection is ever held in memory (see the module docstring's
+    "BOUNDED-MEMORY CANONICALISATION FIX" section for the incident this responds to and the exact
+    design). Partitions are then finalized one at a time, each loaded, written, and released
+    before the next is even read.
 
     Crash safety: partitions are written to a per-attempt STAGING directory first, then promoted
     into the canonical/ tree by atomic per-file rename; evidence/quality/lineage files are each
@@ -423,11 +506,35 @@ def canonicalise_records(
     canonical_store_root = Path(canonical_store_root)
     canonicaliser = _CountingCanonicaliser(mapping_table=mapping_table, quality_counters=quality_counters)
 
-    events = []
+    # ---- attempt-scoped scratch area (bounded-memory canonicalisation fix) ----
+    # `attempt_root` is this SINGLE attempt's own disposable scratch namespace — the existing
+    # stale-attempt cleanup glob just below (unchanged from before this fix) already discards a
+    # prior crashed attempt's leftovers for this exact session_id, and now covers every kind of
+    # this attempt's scratch state (partition-writer staging, event spool, hash-merge runs) in one
+    # sweep, since all three now live nested under the one `attempt_root` name it matches.
+    session_segment = _safe_session_segment(session_id)
+    staging_parent = canonical_store_root / ".staging"
+    for stale in staging_parent.glob(f"{session_segment}-*"):
+        shutil.rmtree(stale, ignore_errors=True)  # leftover from a prior crashed attempt; disposable
+
+    attempt_root = staging_parent / f"{session_segment}-{os.getpid()}-{uuid4().hex[:8]}"
+    staging_root = attempt_root / "partition_staging"
+    spool = PartitionSpool(attempt_root / "event_spool")
+    row_hasher = ExternalRowHasher(attempt_root / "hash_runs")
+
     last_sequence_by_symbol: Dict[str, int] = {}
     canonical_emitted_contract_ids: Set[str] = set()
     source_observed_symbols: Set[str] = set()
     records_seen = 0
+
+    # Bounded, incremental replacements for what used to require a whole-session `events` list
+    # (see module docstring "BOUNDED-MEMORY CANONICALISATION FIX") — every count derivable purely
+    # by tallying-as-you-go, never by re-scanning a retained collection of every emitted event.
+    canonical_event_count = 0
+    event_family_counts: Dict[str, int] = Counter()
+    quality_state_counts: Dict[str, int] = Counter()
+    market_trade_event_count = 0
+    top_of_book_event_count = 0
 
     # Source-side contract resolution, tracked independently of canonical-event emission (the
     # architecture ruling's core correction). `resolved_cache` memoises one `mapping_table.
@@ -472,10 +579,19 @@ def canonicalise_records(
             last_sequence_by_symbol[symbol] = seq
 
         for event in canonicaliser.canonicalise(record):
-            events.append(event)
+            canonical_event_count += 1
             contract_id = getattr(event, "contract_id", None)
             if contract_id is not None:
                 canonical_emitted_contract_ids.add(contract_id)
+            family = event_family_name(event)
+            event_family_counts[family] += 1
+            quality_state_counts[event.quality_state.value] += 1
+            if isinstance(event, MarketTradeEvent):
+                market_trade_event_count += 1
+            elif isinstance(event, TopOfBookEvent):
+                top_of_book_event_count += 1
+            spool.add((partition_relative_dir(event), family), event)
+            row_hasher.add(serialize_event_row(event))
 
     if adapter_quality_counters is not None:
         quality_counters.apply_adapter_counters(adapter_quality_counters)
@@ -497,8 +613,8 @@ def canonicalise_records(
     quality_counters.observed_contract_ids = canonical_emitted_contract_ids
     quality_counters.source_observed_symbols = source_observed_symbols
     quality_counters.source_resolved_contract_ids = source_resolved_contract_ids
-    quality_counters.market_trade_event_count = sum(1 for e in events if isinstance(e, MarketTradeEvent))
-    quality_counters.top_of_book_event_count = sum(1 for e in events if isinstance(e, TopOfBookEvent))
+    quality_counters.market_trade_event_count = market_trade_event_count
+    quality_counters.top_of_book_event_count = top_of_book_event_count
 
     if unresolved_source_symbols:
         # A symbol genuinely observed in the native stream that does NOT resolve to a governed
@@ -513,7 +629,6 @@ def canonicalise_records(
             f"— a genuine mapping/integrity problem, refusing to classify this session as complete"
         )
 
-    canonical_event_count = len(events)
     native_record_count = quality_counters.native_record_count
 
     # ---- NONEMPTY vs. EMPTY_VALID classification (architecture ruling items 1 and 3) ----
@@ -547,20 +662,37 @@ def canonicalise_records(
 
     # Deterministic empty-result identity (architecture ruling item 4): `compute_event_set_hash`
     # already supports (and, per its own regression test, deterministically/reproducibly
-    # supports) an empty event list -- this is HMT-1's EXISTING, unmodified identity algorithm,
-    # never a hand-crafted magic hash for the empty case.
-    event_set_hash = compute_event_set_hash(events)
-    event_counts_by_family = dict(Counter(event_family_name(e) for e in events))
+    # supports) an empty event list -- this is HMT-1's EXISTING, unmodified identity algorithm;
+    # `ExternalRowHasher.finalize()` reproduces it exactly (including the empty case, which never
+    # spills a run and falls straight through to sha256 of nothing) without ever holding the
+    # full row-bytes collection in memory -- see module docstring "BOUNDED-MEMORY CANONICALISATION
+    # FIX" and `tests/hmt2/test_external_row_hasher_sort_equivalence.py`. Never a hand-crafted
+    # magic hash for the empty case.
+    event_set_hash = row_hasher.finalize()
+    row_hasher.cleanup()
+    event_counts_by_family = dict(event_family_counts)
 
-    # ---- staging + atomic promotion (crash safety) ----
-    staging_parent = canonical_store_root / ".staging"
-    session_segment = _safe_session_segment(session_id)
-    for stale in staging_parent.glob(f"{session_segment}-*"):
-        shutil.rmtree(stale, ignore_errors=True)  # leftover from a prior crashed attempt; disposable
-
-    staging_root = staging_parent / f"{session_segment}-{os.getpid()}-{uuid4().hex[:8]}"
+    # ---- partition-by-partition finalization (bounded memory) ----
+    # One partition's events are loaded from the spool, handed to the existing, completely
+    # unmodified `PartitionWriter.write()`, and released before the next partition is even loaded
+    # -- at most one partition's reconstructed canonical events are ever resident in memory at a
+    # time (see module docstring "BOUNDED-MEMORY CANONICALISATION FIX"). `PartitionWriter.write()`
+    # groups its input by partition key internally; handing it events that already all share ONE
+    # partition key just makes that internal grouping a single-group no-op -- the
+    # sort/hash/Arrow-table/Parquet-write code path executed for this partition's rows is
+    # byte-for-byte the same code, given the same inputs, as when the whole session's events were
+    # written via one `write(events)` call.
     writer = PartitionWriter(staging_root)
-    partition_results = writer.write(events)
+    partition_results = []
+    for partition_key in spool.partition_keys():
+        partition_events = spool.load_and_clear(partition_key)
+        partition_results.extend(writer.write(partition_events))
+        del partition_events
+        # Memory-hygiene-only call (see canonical_spool.release_process_memory's own docstring
+        # for why this is needed on top of plain `del`/refcounting for the real 2.39M-record
+        # session's extremely large dominant partition) — never affects output/behaviour.
+        release_process_memory()
+    spool.cleanup()
 
     # ---- storage-layout defect remediation: session-scoped physical destination paths ----
     # `dest_relative_path` is what every downstream consumer (evidence manifest, lineage row,
@@ -584,7 +716,7 @@ def canonicalise_records(
         staging_root, canonical_root, promotions,
         canonical_store_root=canonical_store_root, session_id=session_id,
     )
-    shutil.rmtree(staging_root, ignore_errors=True)
+    shutil.rmtree(attempt_root, ignore_errors=True)
 
     if partition_results:
         writer_version = partition_results[0].writer_version
@@ -619,7 +751,7 @@ def canonicalise_records(
         canonical_event_set_hash=event_set_hash,
         partition_content_hashes=partition_semantic_hashes,
         artifact_hashes=partition_artifact_hashes,
-        provenance_quality_summary=dict(Counter(e.quality_state.value for e in events)),
+        provenance_quality_summary=dict(quality_state_counts),
     )
 
     # ---- reload verification — BEFORE any evidence/lineage file is written ----
@@ -693,6 +825,10 @@ def canonicalise_records(
             semantic_hasher.update(row_bytes)
         recomputed_semantic_sha256 = semantic_hasher.hexdigest()
         del reloaded_events
+        # Memory-hygiene-only call, same reasoning as the finalization loop above — PR #172's own
+        # partition-scoped reload-verification approach, sequencing, and checks are otherwise
+        # completely unchanged (retained as-is).
+        release_process_memory()
         if recomputed_semantic_sha256 != r.partition_content_sha256:
             raise CanonicalWorkerError(
                 f"session {session_id!r}: reload verification FAILED — semantic content sha256 "
