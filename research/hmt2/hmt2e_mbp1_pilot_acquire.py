@@ -59,6 +59,9 @@ from market_truth.acquisition.source_store import (  # noqa: E402
     compute_request_identity,
     manifest_relative_path,
 )
+from market_truth.acquisition.hmt2_slice_guard import require_hmt2_slice  # noqa: E402
+
+_SCRIPT_NAME = os.path.basename(__file__)
 
 DATASET = "GLBX.MDP3"
 SCHEMA = "mbp-1"
@@ -178,6 +181,11 @@ def acquire_one_session(
 
 
 def main() -> None:
+    # HMT2 SLICE CONTAINMENT GUARD -- must be the first thing that happens in this real-data
+    # entry point's main(), before any file I/O against retained corpus data. See
+    # market_truth.acquisition.hmt2_slice_guard for why.
+    require_hmt2_slice(script_name=_SCRIPT_NAME)
+
     manifest_doc = read_manifest_v2(MANIFEST_PATH)
     selection = select_pilot_pair(manifest_doc)
 

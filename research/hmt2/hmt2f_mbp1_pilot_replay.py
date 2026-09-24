@@ -57,6 +57,9 @@ from market_truth.providers.databento_mbp1 import (  # noqa: E402
     DatabentoMbp1PilotProvider,
 )
 from market_truth.replay import compute_event_set_hash  # noqa: E402
+from market_truth.acquisition.hmt2_slice_guard import require_hmt2_slice  # noqa: E402
+
+_SCRIPT_NAME = os.path.basename(__file__)
 
 MAPPING_TABLE_PATH = os.path.join(_THIS_DIR, "gc-contract-mapping-table-v2.json")
 CATALOGUE_PATH = os.path.join(
@@ -195,6 +198,11 @@ def run(output_root: str, summary_path: str) -> dict:
 
 
 def main() -> None:
+    # HMT2 SLICE CONTAINMENT GUARD -- must be the first thing that happens in this real-data
+    # entry point's main(), before any file I/O against retained corpus data. See
+    # market_truth.acquisition.hmt2_slice_guard for why.
+    require_hmt2_slice(script_name=_SCRIPT_NAME)
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--output-root", required=True)
     ap.add_argument("--summary-path", required=True)

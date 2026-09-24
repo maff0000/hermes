@@ -84,6 +84,9 @@ if _THIS_DIR not in sys.path:
 import hmt2h_gc_corpus_ledger as source_ledger_mod  # noqa: E402
 import hmt2i_gc_corpus_canonical_ledger as canonical_ledger_mod  # noqa: E402
 from market_truth.acquisition import canonical_worker  # noqa: E402
+from market_truth.acquisition.hmt2_slice_guard import require_hmt2_slice  # noqa: E402
+
+_SCRIPT_NAME = os.path.basename(__file__)
 
 MAPPING_TABLE_PATH = os.path.join(_THIS_DIR, "gc-contract-mapping-table-v2.json")
 CORPUS_MANIFEST_REF = "research/hmt2/corpus-selection-manifest-v2.json"
@@ -703,6 +706,11 @@ def write_pilot_reproduction_evidence(result: dict) -> None:
 
 
 def main() -> None:
+    # HMT2 SLICE CONTAINMENT GUARD -- must be the first thing that happens in this real-data
+    # entry point's main(), before any file I/O against retained corpus data. See
+    # market_truth.acquisition.hmt2_slice_guard for why.
+    require_hmt2_slice(script_name=_SCRIPT_NAME)
+
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
