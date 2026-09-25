@@ -152,6 +152,7 @@ from market_truth.partition import (
     PartitionReader,
     PartitionWriter,
     event_family_name,
+    event_sort_key,
     serialize_event_row,
 )
 from market_truth.providers.databento_mbp1 import (
@@ -622,19 +623,85 @@ def canonicalise_records(
     )
 
     # ---- reload verification — BEFORE any evidence/lineage file is written ----
+    # Partition-bounded semantic reload verification (bounded-memory fix — see the real
+    # production-incident investigation retained outside this repo: the ORIGINAL form
+    # re-materialised the ENTIRE session's canonical events a SECOND time into a session-wide
+    # `reloaded_rows` list while the first copy (`events`) was still resident, then built a
+    # session-wide sorted `live_rows` copy on top of that, and compared — three full-session-
+    # sized structures resident at once. On a real 1,335,855-record session this drove RSS to
+    # 8.97+ GiB and caused sustained cgroup MemoryHigh reclaim thrashing.
+    #
+    # This replacement processes every `PartitionWriteResult` ONE AT A TIME, proving the exact
+    # round-trip guarantee the original design intended — that `PartitionReader` can reconstruct
+    # the just-promoted partition into the identical canonical events that were written — without
+    # ever holding more than one partition's reconstructed events in memory:
+    #
+    #   1-2. recompute the promoted PHYSICAL file's own sha256 (streamed, never a whole-file-in-
+    #        memory read) and require it to equal the `artifact_sha256` already recorded for this
+    #        partition by `PartitionWriter.write()`.
+    #   3-4. reload THIS partition alone through the governed, unmodified HMT-1 `PartitionReader`,
+    #        and require the reloaded row count to equal this partition's own `row_count`.
+    #   5-7. re-serialize every reloaded event with the existing, unmodified HMT-1
+    #        `serialize_event_row()`, in the existing, unmodified HMT-1 `event_sort_key()` order
+    #        (the SAME deterministic persisted order `PartitionWriter.write()` used), and
+    #        recompute the SAME semantic-hash algorithm it uses
+    #        (`len(row_bytes).to_bytes(4, "big") + row_bytes`, chained through one sha256) — then
+    #        require the result to equal the already-recorded `partition_content_sha256`.
+    #   8.   this partition's reloaded events are released (`del`) before the next partition is
+    #        even read — at most one partition's reconstructed events are ever resident at a
+    #        time; never a session-wide reloaded-event collection, never a second full-session
+    #        serialized-row list, never a whole-session reload sort.
+    #
+    # A failure at ANY partition (either check) fails closed exactly as the original whole-session
+    # comparison did: raises `CanonicalWorkerError` before any evidence/lineage/quality file is
+    # written, so a caller can never mistake a partially-verified session for a complete one.
     reader = PartitionReader(canonical_root)
-    reloaded_rows = []
     for r in partition_results:
-        for event in reader.read_events(dest_relative_dir_by_result[r], r.event_family):
-            reloaded_rows.append(serialize_event_row(event))
-    live_rows = sorted(serialize_event_row(e) for e in events)
-    reloaded_rows.sort()
-    if reloaded_rows != live_rows:
-        raise CanonicalWorkerError(
-            f"session {session_id!r}: reload verification FAILED — reconstructed rows from the "
-            f"just-promoted canonical partitions do not match the in-memory canonical events; "
-            f"refusing to write evidence/lineage/quality for an unverified session"
-        )
+        relative_dir = dest_relative_dir_by_result[r]
+        partition_file_path = canonical_root / relative_dir / r.file_name
+
+        artifact_hasher = hashlib.sha256()
+        with open(partition_file_path, "rb") as fh:
+            while True:
+                chunk = fh.read(1024 * 1024)
+                if not chunk:
+                    break
+                artifact_hasher.update(chunk)
+        recomputed_artifact_sha256 = artifact_hasher.hexdigest()
+        if recomputed_artifact_sha256 != r.artifact_sha256:
+            raise CanonicalWorkerError(
+                f"session {session_id!r}: reload verification FAILED — physical artifact sha256 "
+                f"for promoted partition {relative_dir}/{r.file_name} does not match the value "
+                f"recorded at write time (recorded={r.artifact_sha256}, "
+                f"recomputed={recomputed_artifact_sha256}); refusing to write "
+                f"evidence/lineage/quality for an unverified session"
+            )
+
+        reloaded_events = reader.read_events(relative_dir, r.event_family)
+        if len(reloaded_events) != r.row_count:
+            raise CanonicalWorkerError(
+                f"session {session_id!r}: reload verification FAILED — partition "
+                f"{relative_dir}/{r.file_name} reloaded {len(reloaded_events)} row(s) through "
+                f"PartitionReader, expected {r.row_count}; refusing to write "
+                f"evidence/lineage/quality for an unverified session"
+            )
+
+        semantic_hasher = hashlib.sha256()
+        for event in sorted(reloaded_events, key=event_sort_key):
+            row_bytes = serialize_event_row(event)
+            semantic_hasher.update(len(row_bytes).to_bytes(4, "big"))
+            semantic_hasher.update(row_bytes)
+        recomputed_semantic_sha256 = semantic_hasher.hexdigest()
+        del reloaded_events
+        if recomputed_semantic_sha256 != r.partition_content_sha256:
+            raise CanonicalWorkerError(
+                f"session {session_id!r}: reload verification FAILED — semantic content sha256 "
+                f"reconstructed from partition {relative_dir}/{r.file_name} via PartitionReader "
+                f"does not match the value recorded at write time "
+                f"(recorded={r.partition_content_sha256}, "
+                f"recomputed={recomputed_semantic_sha256}); refusing to write "
+                f"evidence/lineage/quality for an unverified session"
+            )
 
     evidence_relative_path = f"evidence/{session_segment}.json"
     evidence_path = canonical_store_root / evidence_relative_path
