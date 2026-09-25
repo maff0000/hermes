@@ -34,3 +34,27 @@ pytz==2025.2
 # byte-for-byte artifact determinism, empirically verified across separate process invocations
 # with different PYTHONHASHSEED values). Not consumed by any other module in this repository.
 pyarrow==17.0.0
+
+# HMT-2B (Governed GC MBP-1 Historical Research Corpus — provider foundation): the Databento
+# Python SDK, consumed by exactly one module, market_truth/acquisition/providers/
+# databento_historical.py (statically enforced — tests/hmt2/test_no_network_guard.py), for
+# free/metadata-only calls ONLY (symbology.resolve, metadata.get_cost/get_record_count/
+# get_billable_size), PLUS (HMT-2 real-money checkpoint) exactly two narrowly-hardcoded real
+# bulk-acquisition methods (acquire_reference_series_ohlcv1h / acquire_gc_definitions). No
+# other bulk historical-data download and no live-streaming client are implemented anywhere in
+# this repository — see that module's docstring.
+#
+# Version bumped 0.42.0 -> 0.86.0 during the HMT-2 real-money checkpoint: 0.42.0's bundled DBN
+# decoder (decoder version 2) empirically FAILED against the live GLBX.MDP3 ohlcv-1h stream for
+# GC.v.0 (server now emits DBN encoding version 3): `DatabentoAdapterError: decoding error:
+# can't decode newer version of DBN. Decoder version is 2, input version is 3`. This was
+# discovered mid-acquisition, AFTER the real, billable request had already been made and its
+# raw bytes fully transferred and retained (the vendor bills on data transfer, independent of
+# whether the local client can decode the response) — so this bump is a genuine compatibility
+# fix, not an unrelated version churn. 0.86.0 was verified (same checkpoint) to decode that
+# exact already-retained artefact correctly, and to expose an identical `Historical`/
+# `timeseries.get_range`/`metadata.get_cost` call surface — the free-metadata quote script and
+# the full tests/hmt2/ suite were both re-run clean under 0.86.0 before the second (definitions)
+# real acquisition was attempted.
+databento==0.86.0
+

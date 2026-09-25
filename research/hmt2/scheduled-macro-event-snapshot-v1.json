@@ -1,0 +1,1143 @@
+{
+  "metadata": {
+    "corpus_cutoff": "2025-12-31",
+    "corpus_start": "2017-05-21",
+    "coverage_disclosure": {
+      "CPI_RELEASE": "PARTIAL coverage: 2024-01-01 through 2025-12-31 only (23 dates); 2017-2023 NOT covered in this checkpoint (disclosed gap, not fabricated). Source: BLS.gov per-year schedule archive pages.",
+      "EMPLOYMENT_SITUATION_NFP": "PARTIAL coverage: 2024-01-01 through 2025-12-31 only (23 dates); 2017-2023 NOT covered in this checkpoint (disclosed gap, not fabricated). Source: BLS.gov per-year schedule archive pages.",
+      "FOMC_DECISION": "FULL coverage 2017-05-21 through 2025-12-31 (69 dates); primary-source verified against federalreserve.gov historical/current FOMC calendar pages. Regularly-scheduled meetings only.",
+      "PCE_RELEASE": "PARTIAL coverage: 2025-01-01 through 2025-12-31 only (10 dates, 2 of the year's normal 12 release dates fell after the 2025-12-31 cutoff due to 2025 shutdown-driven rescheduling); 2017-2024 NOT covered in this checkpoint (disclosed gap, not fabricated). Source: BEA.gov official 2025 news release schedule PDF + BEA schedule-update announcements."
+    },
+    "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+    "known_real_world_anomaly_disclosed": "The Oct-Nov 2025 U.S. federal government shutdown caused BLS to skip/delay several 2025 CPI and Employment Situation releases and caused BEA to delay/combine several 2025 Personal Income and Outlays (PCE) releases. This snapshot records the ACTUAL release calendar (including the resulting gaps), not the originally-scheduled-but-never-published dates, except where explicitly noted in a record's coverage_note.",
+    "snapshot_sha256": "f1041a2f0916804032efa369664e3d71d2b87fee6275fb0878f45ade34ae2c03",
+    "snapshot_version": "hmt2-scheduled-macro-event-snapshot-v1"
+  },
+  "records": [
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2017-06-14",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2017-07-26",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2017-09-20",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2017-11-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2017-12-13",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-01-31",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-03-21",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-05-02",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-06-13",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-08-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-09-26",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-11-08",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2018-12-19",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-01-30",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-03-20",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-05-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-06-19",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-07-31",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-09-18",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-10-30",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2019-12-11",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-01-29",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-03-18",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-04-29",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-06-10",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-07-29",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-09-16",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-11-05",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2020-12-16",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-01-27",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-03-17",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-04-28",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-06-16",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-07-28",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-09-22",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-11-03",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2021-12-15",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-01-26",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-03-16",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-05-04",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-06-15",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-07-27",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-09-21",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-11-02",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2022-12-14",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-02-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-03-22",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-05-03",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-06-14",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-07-26",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-09-20",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-11-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2023-12-13",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-01-05",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-01-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-01-31",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-02-02",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-02-13",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-03-08",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-03-12",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-03-20",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-04-05",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-04-10",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-05-01",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-05-03",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-05-15",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-06-07",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-06-12",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-06-12",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-07-05",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-07-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-07-31",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-08-02",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-08-14",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-09-06",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-09-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-09-18",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-10-04",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-10-10",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-11-01",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-11-07",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-11-13",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-12-06",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": null,
+      "date": "2024-12-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2024/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2024-12-18",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-01-10",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-01-15",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-01-29",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-01-31",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-02-07",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-02-12",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-02-28",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-03-07",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-03-12",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-03-19",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-03-28",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-04-04",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-04-10",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-04-30",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-05-02",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-05-07",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-05-13",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-05-30",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-06-06",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-06-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-06-18",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-06-27",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-07-03",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-07-15",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-07-30",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-07-31",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-08-01",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-08-12",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-08-29",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-09-05",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-09-11",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-09-17",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-09-26",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-10-24",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-10-29",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-11-20",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BEA",
+      "coverage_note": "October and November 2025 reference-month releases were combined and pushed to 2026-01-22 (outside HMT-2A corpus cutoff of 2025-12-31) by BEA due to the Oct-Nov 2025 federal government shutdown; December 2025 reference-month release pushed to 2026-02-20, also outside cutoff",
+      "date": "2025-12-05",
+      "event_class": "PCE_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bea.gov/sites/default/files/2024-09/2025-News-Release-Schedule.pdf (originally-scheduled dates) revised per BEA schedule-update announcements: https://x.com/BEA_News/status/1993006090984870329 (Sep 2025 data -> Dec 5, 2025) and https://x.com/BEA_News/status/2008998721929785768 (Oct/Nov 2025 data combined -> Jan 22, 2026, outside HMT-2A corpus cutoff)"
+    },
+    {
+      "authority": "FEDERAL_RESERVE",
+      "coverage_note": "regularly-scheduled meeting only; unscheduled/emergency FOMC actions (e.g. March 2020) are explicitly out of scope for this snapshot",
+      "date": "2025-12-10",
+      "event_class": "FOMC_DECISION",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (2019-2026 meeting calendar) + https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm + https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm (2017, 2018 historical archive pages)"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month Employment Situation report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-12-16",
+      "event_class": "EMPLOYMENT_SITUATION_NFP",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    },
+    {
+      "authority": "BLS",
+      "coverage_note": "2025 series has a disclosed gap: no discrete October-2025-reference-month CPI report was published, attributed to the Oct-Nov 2025 federal government shutdown data-collection gap",
+      "date": "2025-12-18",
+      "event_class": "CPI_RELEASE",
+      "event_taxonomy_version": "hmt2-event-taxonomy-v1",
+      "retrieval_utc": "2026-09-21T00:00:00Z",
+      "source_ref": "https://www.bls.gov/schedule/2025/home.htm"
+    }
+  ]
+}
