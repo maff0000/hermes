@@ -15,7 +15,7 @@
       "merged_at_utc": "2026-09-25T09:49:59Z"
     },
     "pr_169": {
-      "title": "[HMT-2A/2B] Corpus Selection Foundation + Provider Foundation — governed GC MBP-1 historical research corpus",
+      "title": "[HMT-2A/2B] Corpus Selection Foundation + Provider Foundation \u2014 governed GC MBP-1 historical research corpus",
       "state": "OPEN",
       "base_ref": "main",
       "head_ref": "hmt-2/governed-gc-mbp1-historical-corpus",
@@ -26,7 +26,7 @@
       "triggered": true,
       "run_id": 36120647721,
       "conclusion": "success",
-      "note": "Actions run for head_sha ca48e8c... completed with conclusion=success. GitHub commit-status API (repos/.../commits/.../status) reports 'pending' with an empty statuses array — this is the same known branch-level status-API limitation seen on prior HMT-2 tips (e.g. the pre-merge tip 8a0fb2e also shows only via Actions, not the legacy status API); Actions is authoritative here."
+      "note": "Actions run for head_sha ca48e8c... completed with conclusion=success. GitHub commit-status API (repos/.../commits/.../status) reports 'pending' with an empty statuses array \u2014 this is the same known branch-level status-API limitation seen on prior HMT-2 tips (e.g. the pre-merge tip 8a0fb2e also shows only via Actions, not the legacy status API); Actions is authoritative here."
     },
     "authoritative_worktree_git_status": "clean (git status --porcelain empty) before, during, and after fast-forward + test run"
   },
@@ -43,8 +43,8 @@
         "tests/hmt2/test_hmt2i_pilot_reproduction.py::test_durable_pipeline_reproduces_the_governed_pilot_canonical_event_set_hash_exactly",
         "tests/hmt2/test_hmt2i_pilot_reproduction.py::test_pilot_reproduction_check_is_idempotent_on_a_second_run"
       ],
-      "failure_analysis": "Both failures are LineageError: no lineage record file for session 'GC-2019-03-22', raised inside the REAL durable canonicalisation pipeline (this test genuinely invokes it against retained native pilot data, per its own docstring, writing into an isolated pytest tmp_path). This test file (tests/hmt2/test_hmt2i_pilot_reproduction.py) was NOT touched by PR #177's diff (PR #177 only touched tests/conftest.py, tests/hmt2/test_hmt2i_snapshot_output_path.py, and tests/support/*) — the failure is pre-existing and unrelated to the destructive-cleanup-guard fix being merged in this dispatch. Not root-caused further here (out of scope: this dispatch is verification/hashing/manifest-building only, no corpus recomputation).",
-      "destructive_test_safety_guard": "The merged fix adds a fail-closed guard (tests/support/destructive_cleanup_guard.py + conftest.py) that REFUSES to run the suite at all from the persistent authoritative worktree by default, because its default canonical-store/research-source roots resolve to the real data — exactly the condition that caused the 2026-09-25 incident. The suite only proceeded here after HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT=1 was set, following independent verification (directory-listing snapshot before/after) that no destructive action would occur.",
+      "failure_analysis": "Both failures are LineageError: no lineage record file for session 'GC-2019-03-22', raised inside the REAL durable canonicalisation pipeline (this test genuinely invokes it against retained native pilot data, per its own docstring, writing into an isolated pytest tmp_path). This test file (tests/hmt2/test_hmt2i_pilot_reproduction.py) was NOT touched by PR #177's diff (PR #177 only touched tests/conftest.py, tests/hmt2/test_hmt2i_snapshot_output_path.py, and tests/support/*) \u2014 the failure is pre-existing and unrelated to the destructive-cleanup-guard fix being merged in this dispatch. Not root-caused further here (out of scope: this dispatch is verification/hashing/manifest-building only, no corpus recomputation).",
+      "destructive_test_safety_guard": "The merged fix adds a fail-closed guard (tests/support/destructive_cleanup_guard.py + conftest.py) that REFUSES to run the suite at all from the persistent authoritative worktree by default, because its default canonical-store/research-source roots resolve to the real data \u2014 exactly the condition that caused the 2026-09-25 incident. The suite only proceeded here after HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT=1 was set, following independent verification (directory-listing snapshot before/after) that no destructive action would occur.",
       "side_effect_check": "find research-canonical-store research-source -maxdepth 4 | sort, captured before and after the full test run: BYTE-IDENTICAL (526 lines, zero diff). git status --porcelain also empty after the run. No canonical-store/research-source mutation occurred."
     }
   },
@@ -52,7 +52,7 @@
     {
       "path": "/srv/rogue-hermes/canonical",
       "branch": "main",
-      "note": "bare/base clone backing all worktrees — not a work branch"
+      "note": "bare/base clone backing all worktrees \u2014 not a work branch"
     },
     {
       "path": "/srv/rogue-hermes/worktrees/hermes-gc-live-architecture-docs",
@@ -99,9 +99,14 @@
     {
       "path": "/srv/rogue-hermes/worktrees/hmt2-snapshot-path-fix",
       "branch": "hmt-2/snapshot-path-fix"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-permission-bypass-incident",
+      "branch": "docs/hmt2-permission-bypass-incident-2026-09-25",
+      "note": "Holds PR #178's incident documentation (permission-boundary-bypass during PR #177 merge). Evidence only, not authoritative corpus/code. Was missing from this list at manifest generation time; added during 2026-09-25 independent re-verification pass."
     }
   ],
-  "note_incident_evidence_worktree": "/srv/rogue-hermes/worktrees/hmt2-incident-evidence (branch docs/hmt2-canonical-store-incident-2026-09-25, PR #176, OPEN/not merged) is also NOT authoritative corpus/code — it holds evidence files only, referenced individually below by exact path+hash, not as a worktree to trust wholesale.",
+  "note_incident_evidence_worktree": "/srv/rogue-hermes/worktrees/hmt2-incident-evidence (branch docs/hmt2-canonical-store-incident-2026-09-25, PR #176, OPEN/not merged) is also NOT authoritative corpus/code \u2014 it holds evidence files only, referenced individually below by exact path+hash, not as a worktree to trust wholesale.",
   "source": {
     "absolute_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-source",
     "corpus_subtree": "hmt2-gc-mbp1-v1",
@@ -112,7 +117,7 @@
       "dbn_zst_artefact_count": 164,
       "session_count_represented_in_ledger_COMPLETE": 162,
       "session_directories_on_disk": 164,
-      "note": "164 = 162 GC trading sessions + 2 non-session reference/definition acquisitions (see real_directory_structure note). No canonical/derived output is mixed into research-source — confirmed: every file under it is either *.dbn.zst (164) or *.json (167 = 164 per-session evidence + 3 manifest files); zero other extensions/artefact types present."
+      "note": "164 = 162 GC trading sessions + 2 non-session reference/definition acquisitions (see real_directory_structure note). No canonical/derived output is mixed into research-source \u2014 confirmed: every file under it is either *.dbn.zst (164) or *.json (167 = 164 per-session evidence + 3 manifest files); zero other extensions/artefact types present."
     },
     "acquisition_ledger": {
       "path": "research-source/hmt2-gc-mbp1-v1/manifest/gc_corpus_acquisition_ledger.json",
@@ -129,7 +134,7 @@
         "extra_non_session_acquisitions_usd": 2.239282839001,
         "extra_acquisitions_detail": "GC.FUT parent definitions ($1.692707203329) + GC.v.0 continuous OHLCV-1h reference series ($0.546575635672), recorded in research-source/hmt2-gc-mbp1-v1/manifest/real_acquisition_summary.json, NOT in the ledger",
         "total_hmt2_programme_spend_usd": 12.270617417990998,
-        "note": "Matches previously-reported programme figures (~$10.03 ledger / ~$12.27-12.45 total) — these are the re-verified real current numbers as of 2026-09-25."
+        "note": "Matches previously-reported programme figures (~$10.03 ledger / ~$12.27-12.45 total) \u2014 these are the re-verified real current numbers as of 2026-09-25."
       }
     },
     "mbp1_pilot_acquisition_catalogue": {
@@ -148,7 +153,7 @@
       "checked_count": 162,
       "clean_count": 162,
       "mismatches_found": 0,
-      "result": "ALL_CLEAN — 100% of the 162-session population verified, zero mismatches, zero duplicate/ambiguous paths."
+      "result": "ALL_CLEAN \u2014 100% of the 162-session population verified, zero mismatches, zero duplicate/ambiguous paths."
     },
     "per_artifact_manifest_file": {
       "path": "docs/handoff/2026-09-25-hmt2-native-source-transfer-manifest.json",
@@ -1138,18 +1143,18 @@
       {
         "path": "research/hmt2/corpus-selection-manifest-v2.json",
         "sha256": "2fd83976157adf1f7780d98f940f1a1731e5277ba91313b75dd7788bb344be89",
-        "role": "CORPUS_MANIFEST_REF constant in hmt2i_gc_corpus_canonicalise.py — corpus/session selection authority referenced by the canonicalisation driver"
+        "role": "CORPUS_MANIFEST_REF constant in hmt2i_gc_corpus_canonicalise.py \u2014 corpus/session selection authority referenced by the canonicalisation driver"
       },
       {
         "path": "research/hmt2/gc-contract-mapping-table-v2.json",
         "sha256": "033d6daaa5c9649c5b48f0d2a28a24684c4c628d6e55c22c762bbaa957c48195",
-        "role": "The REAL GC contract-mapping file actually loaded at runtime. Verified filename via code: MAPPING_TABLE_PATH in hmt2i_gc_corpus_canonicalise.py resolves to this file, passed as mapping_table_path into canonical_worker.py's ContractMappingTable.from_json_file(). CORRECTS the dispatch's assumed filename 'gc-contract-mapping-table-v2.json' — assumption was actually correct, confirmed live rather than inferred."
+        "role": "The REAL GC contract-mapping file actually loaded at runtime. Verified filename via code: MAPPING_TABLE_PATH in hmt2i_gc_corpus_canonicalise.py resolves to this file, passed as mapping_table_path into canonical_worker.py's ContractMappingTable.from_json_file(). CORRECTS the dispatch's assumed filename 'gc-contract-mapping-table-v2.json' \u2014 assumption was actually correct, confirmed live rather than inferred."
       }
     ],
     "excluded_but_noted": [
       {
         "path": "research/hmt2/corpus-selection-manifest-v2-allocation-evidence.json",
-        "reason": "Supporting allocation-evidence documentation output by research/hmt2/generate_selection_manifest_v2.py. NOT read by canonical_worker.py or the canonicalisation driver at runtime — not a governed input to the canonicalisation path itself, so excluded from the authoritative set above."
+        "reason": "Supporting allocation-evidence documentation output by research/hmt2/generate_selection_manifest_v2.py. NOT read by canonical_worker.py or the canonicalisation driver at runtime \u2014 not a governed input to the canonicalisation path itself, so excluded from the authoritative set above."
       },
       {
         "path": "research/hmt2/gc-session-contract-activity-v1.json",
@@ -1163,14 +1168,16 @@
       "state": "OPEN",
       "merged": false,
       "branch": "docs/hmt2-canonical-store-incident-2026-09-25",
-      "head_sha": "576a21ccbd7a0b28378c665995b6f4d7e7ac4726"
+      "head_sha_at_manifest_generation": "576a21ccbd7a0b28378c665995b6f4d7e7ac4726",
+      "head_sha_current_live_2026-09-25": "ceade295ee3919aeff07d1344083ebf99557fb9c",
+      "head_sha_drift_note": "The single commit between these two SHAs (576a21c..ceade295) only ADDS this manifest and the native-source-transfer-manifest.json to the branch \u2014 it does not touch full-regression-progress.json, the forensic evidence files, or any other referenced evidence file. This is expected self-referential staleness (a manifest cannot record the hash of the commit that first introduces it) and is NOT content drift: all evidence file hashes below were independently re-verified at the current live HEAD and matched exactly."
     },
-    "note": "PR #176 has not merged yet. This is fine — it is evidence, not authoritative corpus code, so it does not need to be on the main/authoritative branch to be usable. HELM should be pointed at this branch/commit/path regardless of merge state.",
+    "note": "PR #176 has not merged yet. This is fine \u2014 it is evidence, not authoritative corpus code, so it does not need to be on the main/authoritative branch to be usable. HELM should be pointed at this branch/commit/path regardless of merge state.",
     "path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/full-regression-progress.json",
     "sha256": "a5808a1246ab3cf0e9555de86ae20f0c2500eb61ba5f21d3f677c9ba639ba768",
     "companion_log_path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/full_regression_driver.log.txt",
     "companion_log_sha256": "a6bf1194c52fae5d13103b42bf6835bfad14fd860a154059e4cf98e8efe15886",
-    "independent_reverification": "Re-read the actual file and independently counted status values across all 'completed' entries: {'MATCH': 150}, total completed = 150, zero DRIFT entries present. This CONFIRMS the claimed match_count: 150, drift_count: 0 — not taken on trust from the prior report."
+    "independent_reverification": "Re-read the actual file and independently counted status values across all 'completed' entries: {'MATCH': 150}, total completed = 150, zero DRIFT entries present. This CONFIRMS the claimed match_count: 150, drift_count: 0 \u2014 not taken on trust from the prior report."
   },
   "forensic_evidence": {
     "files": [
@@ -1188,14 +1195,46 @@
   },
   "exclusions": {
     "must_not_be_transferred_or_treated_as_authoritative": [
-      "research-canonical-store/hmt2-gc-mbp1-v1/canonical-v2 — derived/recomputed canonical output; NOT source-of-truth, must be recomputed or independently verified by HELM, never assumed authoritative as transferred",
-      "The deleted 'canonical-v1-superseded-by-namespace-defect' forensic tree — genuinely, permanently lost; do not represent any future regenerated output as this tree",
-      "Any of the 12 other Rogue dell-debian HMT worktrees named above under other_dell_debian_hmt_worktrees_NOT_authoritative (hermes-gc-live-architecture-docs, hmt0-architecture-closure, hmt1-canonical-market-event-replay-foundation, hmt2-bounded-canonical-spool, hmt2-bounded-reload-verification-fix, hmt2-emergency-test-isolation, hmt2-memory-investigation-patched, hmt2-memory-profiling, hmt2-partitionwriter-bounded, hmt2-slice-containment-guard, hmt2-snapshot-path-fix, and the bare /srv/rogue-hermes/canonical clone)",
+      "research-canonical-store/hmt2-gc-mbp1-v1/canonical-v2 \u2014 derived/recomputed canonical output; NOT source-of-truth, must be recomputed or independently verified by HELM, never assumed authoritative as transferred",
+      "The deleted 'canonical-v1-superseded-by-namespace-defect' forensic tree \u2014 genuinely, permanently lost; do not represent any future regenerated output as this tree",
+      "Any of the 13 other Rogue dell-debian HMT worktrees named above under other_dell_debian_hmt_worktrees_NOT_authoritative (hermes-gc-live-architecture-docs, hmt0-architecture-closure, hmt1-canonical-market-event-replay-foundation, hmt2-bounded-canonical-spool, hmt2-bounded-reload-verification-fix, hmt2-emergency-test-isolation, hmt2-memory-investigation-patched, hmt2-memory-profiling, hmt2-partitionwriter-bounded, hmt2-permission-bypass-incident, hmt2-slice-containment-guard, hmt2-snapshot-path-fix, and the bare /srv/rogue-hermes/canonical clone) [corrected 2026-09-25: hmt2-permission-bypass-incident (PR #178) was missing from the original count/list and has been added]",
       "Any secrets/credentials (none identified in or near the transfer set; none of the files referenced above are credential-bearing)",
       "Any Python virtualenvs on dell-debian (e.g. /tmp/hermes-test-venv, /tmp/hmt1_venv, /tmp/hmt2b1_venv, /tmp/hmt2b1_dbn_venv, /tmp/hmt2b1_databento_venv, /tmp/hmt2-partitionwriter-bounded-venv, /tmp/hmt2-work-venv, /tmp/hmt2-mem-profile-venv, /tmp/databento_venv)",
       "Arbitrary /tmp/hmt2-* scratch/audit paths, including /tmp/hmt2-handoff-check (this dispatch's own scratch verification workspace)",
-      "research-canonical-store/hmt2-gc-mbp1-v1/.staging and /quality subtrees — working/scratch state of the canonicaliser, not durable authority",
-      "The hmt2-incident-evidence worktree as a whole — only the individually-named, individually-hashed evidence files above are endorsed for handoff, not the worktree wholesale"
+      "research-canonical-store/hmt2-gc-mbp1-v1/.staging and /quality subtrees \u2014 working/scratch state of the canonicaliser, not durable authority",
+      "The hmt2-incident-evidence worktree as a whole \u2014 only the individually-named, individually-hashed evidence files above are endorsed for handoff, not the worktree wholesale",
+      "The hmt2-permission-bypass-incident worktree as a whole \u2014 holds PR #178's incident documentation only; only the individually-named, individually-hashed evidence file below is endorsed for handoff reference, not the worktree wholesale"
     ]
+  },
+  "permission_bypass_incident_pr_178": {
+    "purpose": "Durable record of the separate 2026-09-25 permission-boundary-bypass incident during the PR #177 merge execution (process concern, distinct from the canonical-store data-loss incident in PR #176). Does not block use of merge commit ca48e8c250aa661cb415f8c75cc867a737062581 as the authoritative execution point (ratified by Architect on technical/content grounds).",
+    "branch": "docs/hmt2-permission-bypass-incident-2026-09-25",
+    "state": "OPEN, unmerged (must not be merged per standing instruction)",
+    "head_sha": "7cdb594c46a4768a66b2cba7dcddf962376b5a62",
+    "evidence_file": {
+      "path": "docs/incidents/2026-09-25-hmt2-permission-boundary-bypass.md",
+      "sha256": "42af30891f48eab9450c91476939fc0bf62d8bacea1f5b8dda45f629e653141e"
+    }
+  },
+  "independent_reverification_2026-09-25": {
+    "performed_by": "FORGE Engineer dispatch (dell-debian SSH + gh CLI, read/verify/hash only, no heavy compute)",
+    "scope": "Every claim in this manifest and the standalone native-source-transfer-manifest.json was independently re-derived from the live repo/filesystem, not trusted from either file's own cached content.",
+    "result": "ALL CLAIMS CONFIRMED MATCHING, with one benign self-referential staleness noted in recovery_oracle.source_pr (see head_sha_drift_note) and one real gap corrected: hmt2-permission-bypass-incident (PR #178) worktree had been omitted from other_dell_debian_hmt_worktrees_NOT_authoritative and the exclusions block; both are now corrected, and a permission_bypass_incident_pr_178 block was added.",
+    "native_integrity": "162/162 COMPLETE-state ledger artefacts independently re-verified (existence + byte_size + sha256 + no duplicate paths) directly against research-source on dell-debian \u2014 ZERO mismatches. This is the third independent pass at this exact check.",
+    "recovery_oracle_reverified": "full-regression-progress.json re-read live: 150/150 'completed' entries have status MATCH, 0 DRIFT \u2014 confirms manifest's claim exactly.",
+    "hashes_reconfirmed_exactly": [
+      "gc_corpus_acquisition_ledger.json sha256 08ca3d98b0bccb805f9070c1d773668a9947ad51ee7eafe2854984506346d860",
+      "mbp1_pilot_acquisition_catalogue.json sha256 3b28747c35527828530bd103638861c7e047272c75775a545cb5a36d9dd667a9",
+      "research/hmt2/corpus-selection-manifest-v2.json @ ca48e8c2 sha256 2fd83976157adf1f7780d98f940f1a1731e5277ba91313b75dd7788bb344be89",
+      "research/hmt2/gc-contract-mapping-table-v2.json @ ca48e8c2 sha256 033d6daaa5c9649c5b48f0d2a28a24684c4c628d6e55c22c762bbaa957c48195",
+      "full-regression-progress.json sha256 a5808a1246ab3cf0e9555de86ae20f0c2500eb61ba5f21d3f677c9ba639ba768",
+      "hmt2_forensic_report.json sha256 7407e7f759094af56991f4733326d25a447a928bd96545edbfc539283c406bea",
+      "hmt2_forensic_per_session.json sha256 10ab90be0bc034fbc00915a68bf4c425a0a9d6537c53403886d1a93962ce8563",
+      "docs/handoff/2026-09-25-hmt2-native-source-transfer-manifest.json sha256 75e13a72a2c3e32fc8cce8de3d2bf076d46fa8726bdcc2be1cb659399148a37a"
+    ],
+    "ledger_spend_reconfirmed": {
+      "ledger_acquisition_spend_usd": 10.031334578989998,
+      "total_hmt2_programme_spend_usd": 12.270617417990998
+    }
   }
 }
