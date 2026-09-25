@@ -34,6 +34,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from market_truth.acquisition import canonical_worker  # noqa: E402
+from market_truth.acquisition import hmt2_slice_guard  # noqa: E402
 
 
 def _load_module(name: str, relative_path: str):
@@ -144,6 +145,11 @@ def test_scratch_cli_invocation_never_mutates_the_tracked_snapshot_file(tmp_path
     scratch_canonical_root = tmp_path / "scratch-canonical-root"
 
     monkeypatch.delenv(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR, raising=False)
+    # This test calls main() in-process, outside the hmt2.slice cgroup, against a tiny synthetic
+    # fixture (fake canonicalise_mbp1_session(), no real vendor decode) -- exactly the case the
+    # containment guard's own error message names as the sanctioned bypass (see
+    # tests/hmt2/test_hmt2_slice_guard_entrypoints.py for the identical established pattern).
+    monkeypatch.setenv(hmt2_slice_guard.ALLOW_OUTSIDE_SLICE_ENV_VAR, "1")
     monkeypatch.setattr(hmt2i_canonicalise, "RESEARCH_SOURCE_ROOT", str(research_source_root))
     monkeypatch.setattr(hmt2i_canonicalise, "SOURCE_LEDGER_STATE_PATH", str(ledger_state_path))
     monkeypatch.setattr(canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_result(kw["session_id"]))
@@ -191,6 +197,9 @@ def test_default_root_cli_invocation_still_writes_the_tracked_snapshot_as_before
     ledger_state_path = _write_fake_acquisition_ledger(research_source_root, ["GC-2020-02-02"])
 
     monkeypatch.delenv(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR, raising=False)
+    # See identical note above -- in-process main() call outside hmt2.slice, tiny synthetic
+    # fixture only, sanctioned bypass per the guard's own documented escape hatch.
+    monkeypatch.setenv(hmt2_slice_guard.ALLOW_OUTSIDE_SLICE_ENV_VAR, "1")
     monkeypatch.setattr(hmt2i_canonicalise, "RESEARCH_SOURCE_ROOT", str(research_source_root))
     monkeypatch.setattr(hmt2i_canonicalise, "SOURCE_LEDGER_STATE_PATH", str(ledger_state_path))
     monkeypatch.setattr(canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_result(kw["session_id"]))
