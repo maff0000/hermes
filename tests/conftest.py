@@ -106,3 +106,63 @@ def _seed_runtime_identity_for_tests():
 @pytest.fixture(autouse=True)
 def _seed_history_retention_days_for_tests(monkeypatch):
     monkeypatch.setenv("HERMES_REDIS_HISTORY_RETENTION_DAYS", "14")
+
+
+# ---------------------------------------------------------------------------
+# hmt-2/emergency-destructive-test-fix (2026-09-25) -- TEST-EXECUTION DOCTRINE GUARD.
+#
+# Incident: a merged test resolved the REAL default HMT-2 canonical-store root (no
+# --canonical-research-root override, no HMT2_CANONICAL_RESEARCH_ROOT env var) and
+# unconditionally `shutil.rmtree()`'d it in a `finally` block. Run against the persistent
+# authoritative worktree (which had 150 real sessions' canonical data), this destroyed all of
+# it. See tests/hmt2/test_hmt2i_snapshot_output_path.py and tests/support/
+# destructive_cleanup_guard.py for the fix to that one test and the new reusable
+# cleanup-ownership invariant every recursive-delete-performing test must now use.
+#
+# This is the second, independent layer: a session-start sanity check that refuses to run ANY
+# part of this suite at all if the REAL, default-resolved HMT-2 canonical-store root or
+# research-source root is found non-empty. A disposable/fresh checkout or worktree never has
+# either directory populated -- both are gitignored, never committed -- so this can only ever
+# trip when pytest's cwd/worktree already holds real retained/canonicalised HMT-2 data, which is
+# exactly the situation that must never be exercised by this suite again.
+#
+# Doctrine, made explicit: run this test suite ONLY from a disposable/fresh checkout, or a
+# worktree you know has no real HMT-2 data in it -- never from the persistent authoritative
+# HMT-2 worktree. Conscious, explicit override (e.g. a reviewer who has independently verified
+# it is safe): HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT=1.
+# ---------------------------------------------------------------------------
+def pytest_sessionstart(session):  # noqa: ARG001 - pytest hook signature
+    if os.environ.get("HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT"):
+        return
+    try:
+        from market_truth.acquisition import canonical_worker as _canonical_worker
+    except ImportError:
+        return  # this checkout has no HMT-2 module at all -- nothing to guard
+
+    candidates = []
+    try:
+        candidates.append(("HMT-2 default canonical-store root", Path(_canonical_worker.corpus_canonical_store_root(None))))
+    except Exception:
+        pass
+    try:
+        repo_root = Path(_canonical_worker.__file__).resolve().parents[2]
+        candidates.append(("HMT-2 default research-source root", repo_root / "research-source"))
+    except Exception:
+        pass
+
+    populated = [
+        f"{label} ({path}) already exists and is non-empty"
+        for label, path in candidates
+        if path.exists() and any(path.rglob("*"))
+    ]
+    if populated:
+        raise pytest.UsageError(
+            "REFUSING TO RUN THE TEST SUITE: " + "; ".join(populated) + ". This worktree/cwd "
+            "resolves the REAL default HMT-2 canonical-store/research-source root to a location "
+            "that already contains real data -- running the suite here risks repeating the "
+            "hmt-2/emergency-destructive-test-fix incident (a destructive test wiped 150 real "
+            "sessions' canonical data by resolving to exactly this default). Run the suite from "
+            "a disposable/fresh checkout instead, or set "
+            "HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT=1 if you have independently "
+            "verified this run is safe."
+        )

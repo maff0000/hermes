@@ -18,12 +18,51 @@ invocation's own resolved canonical corpus store. `write_snapshot()` now REQUIRE
 Every test here injects a FAKE `canonical_worker.canonicalise_mbp1_session()` — never a real
 vendor decode — mirroring `tests/hmt2/test_hmt2i_gc_corpus_canonicalise.py`'s own established
 fake-dependency discipline exactly.
+
+------------------------------------------------------------------------------------------------
+EMERGENCY INCIDENT NOTE (hmt-2/emergency-destructive-test-fix, 2026-09-25) — TEST-ISOLATION
+DOCTRINE, read before touching this file again
+------------------------------------------------------------------------------------------------
+`test_default_root_cli_invocation_still_writes_the_tracked_snapshot_as_before` used to call
+`main()` with NO `--canonical-research-root` override and NO env var override — i.e. it let
+`canonical_worker.corpus_canonical_store_root(None)` resolve to the REAL, repo-relative default
+canonical-store root (`<repo_root>/research-canonical-store/hmt2-gc-mbp1-v1`), then
+unconditionally `shutil.rmtree()`'d that real path in its `finally` block. Run in a disposable
+checkout that is merely wasteful; run against the persistent authoritative worktree (which had
+150 real sessions' canonical data, none of it under any `tmp_path`) it destroyed all of it.
+Native source data was not affected (separate, untouched directory).
+
+The fix below keeps testing the EXACT same semantic property — "a CLI invocation with no
+explicit `--canonical-research-root` (and no env var) still resolves to, and writes, the
+'default root' behaviour" — but the test now monkeypatches
+`canonical_worker.resolve_canonical_research_root` (the single function every "default root"
+resolution in this driver ultimately goes through) so that its OWN "nothing selected" branch
+resolves to a fake default root safely inside `tmp_path`, never the real
+`research-canonical-store/`. `hmt2i_canonicalise.SNAPSHOT_OUTPUT_PATH` (the tracked-path
+constant) is likewise monkeypatched to a `tmp_path`-scoped fake tracked file. The test still
+omits `--canonical-research-root` from `sys.argv` and never sets the env var — that omission is
+exactly the condition under test, "no override selected" — only the underlying resolution
+FUNCTION is redirected, so it can never resolve to the real path in the first place. Any cleanup
+this file still performs goes through `tests.support.destructive_cleanup_guard.safe_rmtree()`,
+which fails closed (raises, never silently no-ops) unless the target is provably `tmp_path`-
+scoped or explicitly sentinel-marked, and unconditionally refuses to touch the real HMT-2
+default roots regardless of any other proof offered — see that module for the full doctrine and
+`tests/support/test_destructive_cleanup_guard.py` for the proof it actually refuses.
+
+STANDING RULE for any future test in this file or elsewhere in `tests/hmt2/` that needs a
+recursive directory delete: never call `shutil.rmtree()` directly on anything derived from a
+"no override" / default-root resolution. Route it through
+`tests.support.destructive_cleanup_guard.safe_rmtree()` instead. See also the session-start
+guard added to `tests/conftest.py` (`pytest_sessionstart`), which refuses to start the WHOLE
+suite if the real default HMT-2 canonical-store or research-source root is ever found non-empty
+— the doctrine is: this suite is only ever run from a disposable/fresh checkout or an empty
+worktree, never from a worktree already holding real retained/canonicalised HMT-2 data.
 """
 from __future__ import annotations
 
 import importlib.util
 import json
-import shutil
+import os
 import sys
 from pathlib import Path
 
@@ -35,6 +74,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from market_truth.acquisition import canonical_worker  # noqa: E402
 from market_truth.acquisition import hmt2_slice_guard  # noqa: E402
+from tests.support.destructive_cleanup_guard import safe_rmtree  # noqa: E402
 
 
 def _load_module(name: str, relative_path: str):
@@ -90,6 +130,31 @@ def _write_fake_acquisition_ledger(research_source_root: Path, session_ids):
     ledger_state_path = research_source_root / source_ledger_mod.LEDGER_STATE_RELATIVE_PATH
     source_ledger_mod.save_ledger_atomic(str(ledger_state_path), acquisition_ledger)
     return ledger_state_path
+
+
+def _monkeypatch_default_root_into_tmp_path(monkeypatch, tmp_path: Path) -> Path:
+    """Redirects the underlying "no override selected" default-root RESOLUTION FUNCTION itself
+    (`canonical_worker.resolve_canonical_research_root`) into a fake default root safely inside
+    `tmp_path` — required approach per the emergency incident fix (see module docstring): the
+    caller must still be free to omit `--canonical-research-root` / the env var (that omission is
+    the condition under test), but the function that decides where "no override" resolves TO
+    must never be able to reach the real, repo-relative `research-canonical-store/` root.
+
+    An explicit override (CLI arg or env var) is deliberately still passed through to the REAL
+    resolver unchanged — this fake is a faithful drop-in for the "nothing selected" branch only,
+    never a blanket stub, so a test that mixes both scenarios still gets correct behaviour for
+    the override case.
+    """
+    fake_default_research_root = tmp_path / "fake-default-hmt2-canonical-research-root"
+    real_resolve = canonical_worker.resolve_canonical_research_root
+
+    def _fake_resolve_canonical_research_root(explicit=None, *, repo_root=None):
+        if explicit or os.environ.get(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR):
+            return real_resolve(explicit, repo_root=repo_root)
+        return fake_default_research_root
+
+    monkeypatch.setattr(canonical_worker, "resolve_canonical_research_root", _fake_resolve_canonical_research_root)
+    return fake_default_research_root
 
 
 # ----------------------------------------------------------------------------------------------
@@ -186,40 +251,71 @@ def test_scratch_cli_invocation_never_mutates_the_tracked_snapshot_file(tmp_path
 
 # ----------------------------------------------------------------------------------------------
 # End-to-end via main(): (b) a default/real-root invocation is unaffected -- no regression.
+#
+# See the EMERGENCY INCIDENT NOTE at the top of this file: this test used to exercise the REAL
+# default canonical-store root and unconditionally shutil.rmtree() it afterwards. It now
+# monkeypatches the underlying default-root resolution function into tmp_path via
+# `_monkeypatch_default_root_into_tmp_path()` — the CLI/env override is still genuinely absent
+# (that is the condition under test), but "absent" can no longer resolve anywhere real.
 # ----------------------------------------------------------------------------------------------
 
 def test_default_root_cli_invocation_still_writes_the_tracked_snapshot_as_before(tmp_path, monkeypatch):
-    tracked_path = Path(hmt2i_canonicalise.SNAPSHOT_OUTPUT_PATH)
-    assert tracked_path.exists()
-    before_bytes = tracked_path.read_bytes()
+    fake_tracked_path = tmp_path / "fake-tracked-snapshot-dir" / "hmt2i-gc-corpus-canonical-ledger-snapshot-v1.json"
+    fake_tracked_path.parent.mkdir(parents=True, exist_ok=True)
+    fake_tracked_path.write_text(json.dumps({"placeholder": True}), encoding="utf-8")
+    monkeypatch.setattr(hmt2i_canonicalise, "SNAPSHOT_OUTPUT_PATH", str(fake_tracked_path))
 
     research_source_root = tmp_path / "research-source"
     ledger_state_path = _write_fake_acquisition_ledger(research_source_root, ["GC-2020-02-02"])
 
-    monkeypatch.delenv(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR, raising=False)
-    # See identical note above -- in-process main() call outside hmt2.slice, tiny synthetic
-    # fixture only, sanctioned bypass per the guard's own documented escape hatch.
-    monkeypatch.setenv(hmt2_slice_guard.ALLOW_OUTSIDE_SLICE_ENV_VAR, "1")
-    monkeypatch.setattr(hmt2i_canonicalise, "RESEARCH_SOURCE_ROOT", str(research_source_root))
-    monkeypatch.setattr(hmt2i_canonicalise, "SOURCE_LEDGER_STATE_PATH", str(ledger_state_path))
-    monkeypatch.setattr(canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_result(kw["session_id"]))
-    monkeypatch.setattr(sys, "argv", [
-        "hmt2i_gc_corpus_canonicalise.py",
-        "--session-ids", "GC-2020-02-02",
-    ])  # no --canonical-research-root override -- exercises the real, default root
+    # The default-root redirection is scoped to its OWN monkeypatch.context() and explicitly
+    # exited before cleanup below. Reason: while it is active,
+    # canonical_worker.resolve_canonical_research_root() -- and therefore
+    # tests.support.destructive_cleanup_guard's own forbidden-root check, which calls the SAME
+    # live function -- cannot distinguish "this test's fake tmp_path default" from "the real
+    # production default", because inside this process they are, deliberately, the same value.
+    # Exiting the context first restores the REAL resolver, so the guard used for cleanup below
+    # correctly computes the TRUE real default (never this test's fake) and can tell the two
+    # apart again.
+    with monkeypatch.context() as scoped:
+        scoped.delenv(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR, raising=False)
+        fake_default_research_root = _monkeypatch_default_root_into_tmp_path(scoped, tmp_path)
+        # See identical note above -- in-process main() call outside hmt2.slice, tiny synthetic
+        # fixture only, sanctioned bypass per the guard's own documented escape hatch.
+        scoped.setenv(hmt2_slice_guard.ALLOW_OUTSIDE_SLICE_ENV_VAR, "1")
+        scoped.setattr(hmt2i_canonicalise, "RESEARCH_SOURCE_ROOT", str(research_source_root))
+        scoped.setattr(hmt2i_canonicalise, "SOURCE_LEDGER_STATE_PATH", str(ledger_state_path))
+        scoped.setattr(canonical_worker, "canonicalise_mbp1_session", lambda **kw: _fake_result(kw["session_id"]))
+        scoped.setattr(sys, "argv", [
+            "hmt2i_gc_corpus_canonicalise.py",
+            "--session-ids", "GC-2020-02-02",
+        ])  # no --canonical-research-root override -- exercises the "default root" branch, which
+            # this test has redirected (above) into tmp_path rather than the real repo path.
 
-    real_default_store_root = canonical_worker.corpus_canonical_store_root(None)
-    try:
+        # Positive proof this test still exercises the REAL "no override" branch of
+        # resolve_canonical_research_root(), not a bypass of it: the fake resolver must actually
+        # be in effect for `explicit=None`.
+        assert canonical_worker.resolve_canonical_research_root(None) == fake_default_research_root
+
         hmt2i_canonicalise.main()
 
-        assert tracked_path.exists()
-        snapshot = json.loads(tracked_path.read_text(encoding="utf-8"))
+        assert fake_tracked_path.exists()
+        snapshot = json.loads(fake_tracked_path.read_text(encoding="utf-8"))
         assert snapshot["result"]["processed"][0]["session_id"] == "GC-2020-02-02"
         assert snapshot["result"]["processed"][0]["canonical_event_set_hash"] == "deadbeef"
-    finally:
-        # Restore the tracked file to its pre-test content (this test's whole point is that the
-        # DEFAULT invocation legitimately writes here, so we must clean up after ourselves) and
-        # remove the real, gitignored default canonical-store artefacts this run created.
-        tracked_path.write_bytes(before_bytes)
-        if real_default_store_root.exists():
-            shutil.rmtree(real_default_store_root)
+
+        # Positive control, mirroring the original test's own: the run really did execute
+        # against the (fake, tmp_path-scoped) default root and really did write real
+        # ledger/store artefacts there -- proving this isn't a false pass from the run failing
+        # before reaching the snapshot-write step.
+        real_default_store_root = canonical_worker.corpus_canonical_store_root(None)
+        assert real_default_store_root == fake_default_research_root / canonical_worker.CANONICAL_CORPUS_STORE_ROOT_NAME
+        assert real_default_store_root.exists()
+
+    # `scoped` has now been fully undone -- resolve_canonical_research_root() is back to the
+    # genuine original. Cleanup target is provably tmp_path-scoped (it is literally
+    # `fake_default_research_root`, created above under `tmp_path`); routed through the
+    # fail-closed guard rather than a bare shutil.rmtree(), per this file's standing rule. Note
+    # this is technically redundant with pytest's own tmp_path teardown -- kept anyway to
+    # demonstrate (and exercise, on every run) the standing rule in practice.
+    safe_rmtree(fake_default_research_root, tmp_path=tmp_path)
