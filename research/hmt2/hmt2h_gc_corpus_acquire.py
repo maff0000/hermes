@@ -83,6 +83,9 @@ from market_truth.acquisition.source_store import (  # noqa: E402
     compute_request_identity,
     manifest_relative_path,
 )
+from market_truth.acquisition.hmt2_slice_guard import require_hmt2_slice  # noqa: E402
+
+_SCRIPT_NAME = os.path.basename(__file__)
 
 MANIFEST_PATH = os.path.join(_THIS_DIR, "corpus-selection-manifest-v2.json")
 SESSION_CONTRACT_ACTIVITY_PATH = os.path.join(_THIS_DIR, "gc-session-contract-activity-v1.json")
@@ -332,6 +335,11 @@ def write_snapshot(result: dict) -> None:
 
 
 def main() -> None:
+    # HMT2 SLICE CONTAINMENT GUARD -- must be the first thing that happens in this real-data
+    # entry point's main(), before any file I/O against retained corpus data. See
+    # market_truth.acquisition.hmt2_slice_guard for why.
+    require_hmt2_slice(script_name=_SCRIPT_NAME)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--max-sessions", type=int, default=40,
