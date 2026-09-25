@@ -105,6 +105,36 @@ def _utc_now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
 
 
+def resolve_snapshot_output_path(canonical_research_root_override: str | None = None) -> str:
+    """Where THIS invocation's corpus-progress snapshot must be written.
+
+    Bug fixed here: `write_snapshot()` used to write to the hardcoded, git-tracked
+    `SNAPSHOT_OUTPUT_PATH` UNCONDITIONALLY, no matter whether the caller pointed the actual
+    canonical output somewhere else entirely via `--canonical-research-root` /
+    `HMT2_CANONICAL_RESEARCH_ROOT` (e.g. a disposable scratch directory used for testing) — so a
+    scratch invocation of this driver could silently clobber the authoritative corpus-progress
+    record checked into the real, shared worktree. This is a real, already-observed incident
+    (caught and manually reverted by another engineer earlier).
+
+    Invariant enforced here: the tracked, authoritative `SNAPSHOT_OUTPUT_PATH` is used ONLY when
+    this invocation resolves to the real, default canonical research root — i.e. no explicit
+    `--canonical-research-root` override AND no `HMT2_CANONICAL_RESEARCH_ROOT` environment
+    override diverting the run elsewhere. Any invocation whose canonical research root resolves
+    somewhere else — by either mechanism, there is no hidden code-level toggle here, just "was an
+    alternate root ever selected for this run" — writes its snapshot alongside that resolved
+    run's own canonical corpus store instead (`canonical_worker.corpus_canonical_store_root()`,
+    the exact same store-root value every other code path in that run already uses), so it can
+    never touch the tracked file at all.
+    """
+    override_selected = canonical_research_root_override is not None or bool(
+        os.environ.get(canonical_worker.CANONICAL_RESEARCH_ROOT_ENV_VAR)
+    )
+    if not override_selected:
+        return SNAPSHOT_OUTPUT_PATH
+    canonical_store_root = canonical_worker.corpus_canonical_store_root(canonical_research_root_override)
+    return str(canonical_store_root / os.path.basename(SNAPSHOT_OUTPUT_PATH))
+
+
 def canonical_ledger_state_path(canonical_store_root) -> str:
     return os.path.join(str(canonical_store_root), canonical_ledger_mod.CANONICAL_LEDGER_STATE_RELATIVE_PATH)
 
@@ -682,7 +712,13 @@ def run_pilot_reproduction_check(*, canonical_research_root_override=None) -> di
     }
 
 
-def write_snapshot(result: dict) -> None:
+def write_snapshot(result: dict, *, output_path: str) -> None:
+    """Writes the corpus-progress snapshot to `output_path` — ALWAYS an explicit, caller-supplied
+    argument (never a module-level default silently substituted here), precisely so this
+    function itself can never reintroduce the fixed bug by falling back to the hardcoded
+    `SNAPSHOT_OUTPUT_PATH` when a caller forgets to pass one. Every real call site
+    (`main()`) computes `output_path` via `resolve_snapshot_output_path()`, which is the single
+    place that decides tracked-authoritative-path vs. scratch-root-local-path."""
     snapshot = {
         "generated_by": "research/hmt2/hmt2i_gc_corpus_canonicalise.py",
         "generated_utc": _utc_now_iso(),
@@ -694,7 +730,8 @@ def write_snapshot(result: dict) -> None:
         ),
         "result": result,
     }
-    with open(SNAPSHOT_OUTPUT_PATH, "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, indent=2, sort_keys=True)
         f.write("\n")
 
@@ -753,7 +790,10 @@ def main() -> None:
             parser.error("--max-workers may not be combined with --pilot-reproduction-check")
         result = run_pilot_reproduction_check(canonical_research_root_override=args.canonical_research_root)
         write_pilot_reproduction_evidence(result)
-        write_snapshot(result["batch_result"])
+        write_snapshot(
+            result["batch_result"],
+            output_path=resolve_snapshot_output_path(args.canonical_research_root),
+        )
         print(json.dumps(result, indent=2, sort_keys=True))
         if not result["reproduces_exactly"]:
             sys.exit(1)
@@ -769,7 +809,7 @@ def main() -> None:
             session_ids=args.session_ids, canonical_research_root_override=args.canonical_research_root,
             force_rebuild_v2=args.force_rebuild_v2, max_workers=args.max_workers,
         )
-    write_snapshot(result)
+    write_snapshot(result, output_path=resolve_snapshot_output_path(args.canonical_research_root))
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
