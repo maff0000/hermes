@@ -1,0 +1,4055 @@
+{
+  "completed": {
+    "GC-2017-05-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-05-22"
+      },
+      "session_id": "GC-2017-05-22",
+      "status": "MATCH",
+      "wall_seconds": 0.9072374519892037
+    },
+    "GC-2017-05-26": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-05-26"
+      },
+      "session_id": "GC-2017-05-26",
+      "status": "MATCH",
+      "wall_seconds": 0.912690045312047
+    },
+    "GC-2017-05-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-05-30"
+      },
+      "session_id": "GC-2017-05-30",
+      "status": "MATCH",
+      "wall_seconds": 0.8969205929897726
+    },
+    "GC-2017-06-02": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-02"
+      },
+      "session_id": "GC-2017-06-02",
+      "status": "MATCH",
+      "wall_seconds": 0.9119626679457724
+    },
+    "GC-2017-06-05": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-05"
+      },
+      "session_id": "GC-2017-06-05",
+      "status": "MATCH",
+      "wall_seconds": 0.9395450530573726
+    },
+    "GC-2017-06-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-07"
+      },
+      "session_id": "GC-2017-06-07",
+      "status": "MATCH",
+      "wall_seconds": 0.9231530847027898
+    },
+    "GC-2017-06-09": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-09"
+      },
+      "session_id": "GC-2017-06-09",
+      "status": "MATCH",
+      "wall_seconds": 0.8858475983142853
+    },
+    "GC-2017-06-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-14"
+      },
+      "session_id": "GC-2017-06-14",
+      "status": "MATCH",
+      "wall_seconds": 0.9230353678576648
+    },
+    "GC-2017-06-15": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-15"
+      },
+      "session_id": "GC-2017-06-15",
+      "status": "MATCH",
+      "wall_seconds": 0.8948772889561951
+    },
+    "GC-2017-06-16": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-16"
+      },
+      "session_id": "GC-2017-06-16",
+      "status": "MATCH",
+      "wall_seconds": 0.9181446200236678
+    },
+    "GC-2017-06-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-20"
+      },
+      "session_id": "GC-2017-06-20",
+      "status": "MATCH",
+      "wall_seconds": 0.8917399891652167
+    },
+    "GC-2017-06-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-23"
+      },
+      "session_id": "GC-2017-06-23",
+      "status": "MATCH",
+      "wall_seconds": 0.9491773340851068
+    },
+    "GC-2017-06-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-06-30"
+      },
+      "session_id": "GC-2017-06-30",
+      "status": "MATCH",
+      "wall_seconds": 0.989145495928824
+    },
+    "GC-2017-07-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-07-13"
+      },
+      "session_id": "GC-2017-07-13",
+      "status": "MATCH",
+      "wall_seconds": 0.9315035622566938
+    },
+    "GC-2017-07-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-07-14"
+      },
+      "session_id": "GC-2017-07-14",
+      "status": "MATCH",
+      "wall_seconds": 1.029876559972763
+    },
+    "GC-2017-07-21": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-07-21"
+      },
+      "session_id": "GC-2017-07-21",
+      "status": "MATCH",
+      "wall_seconds": 0.940220476128161
+    },
+    "GC-2017-07-26": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "efa83a37057eeee30a42ed8572de42dc62c080f70462514c4ef9b735fe1c653a",
+        "authoritative_partition_count": 2,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "efa83a37057eeee30a42ed8572de42dc62c080f70462514c4ef9b735fe1c653a",
+        "new_partition_count": 2,
+        "session_id": "GC-2017-07-26"
+      },
+      "session_id": "GC-2017-07-26",
+      "status": "MATCH",
+      "wall_seconds": 1.0158010181039572
+    },
+    "GC-2017-07-28": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "b3d49969f973d4fe5c6f33453c9c7046ed086917ce63c0d4ea5a849a8ed2cf83",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "b3d49969f973d4fe5c6f33453c9c7046ed086917ce63c0d4ea5a849a8ed2cf83",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-07-28"
+      },
+      "session_id": "GC-2017-07-28",
+      "status": "MATCH",
+      "wall_seconds": 1.0382245499640703
+    },
+    "GC-2017-08-04": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-08-04"
+      },
+      "session_id": "GC-2017-08-04",
+      "status": "MATCH",
+      "wall_seconds": 0.8999755550175905
+    },
+    "GC-2017-08-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "c2478e288f16ae580c84ec3b5f3deaa0db3452442517903ff0f39c0d9f99dc65",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "c2478e288f16ae580c84ec3b5f3deaa0db3452442517903ff0f39c0d9f99dc65",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-08-18"
+      },
+      "session_id": "GC-2017-08-18",
+      "status": "MATCH",
+      "wall_seconds": 0.9299082481302321
+    },
+    "GC-2017-08-25": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-08-25"
+      },
+      "session_id": "GC-2017-08-25",
+      "status": "MATCH",
+      "wall_seconds": 0.9096157909370959
+    },
+    "GC-2017-09-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-06"
+      },
+      "session_id": "GC-2017-09-06",
+      "status": "MATCH",
+      "wall_seconds": 0.8940378967672586
+    },
+    "GC-2017-09-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-07"
+      },
+      "session_id": "GC-2017-09-07",
+      "status": "MATCH",
+      "wall_seconds": 0.9249625499360263
+    },
+    "GC-2017-09-08": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-08"
+      },
+      "session_id": "GC-2017-09-08",
+      "status": "MATCH",
+      "wall_seconds": 0.8931427453644574
+    },
+    "GC-2017-09-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-13"
+      },
+      "session_id": "GC-2017-09-13",
+      "status": "MATCH",
+      "wall_seconds": 0.9015927300788462
+    },
+    "GC-2017-09-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-14"
+      },
+      "session_id": "GC-2017-09-14",
+      "status": "MATCH",
+      "wall_seconds": 0.8793240166269243
+    },
+    "GC-2017-09-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-18"
+      },
+      "session_id": "GC-2017-09-18",
+      "status": "MATCH",
+      "wall_seconds": 0.9122664500027895
+    },
+    "GC-2017-09-19": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "811a52c29948dbfb9c6115acb5d5470c5bd5172da85851e8764dd8103b504bab",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "811a52c29948dbfb9c6115acb5d5470c5bd5172da85851e8764dd8103b504bab",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-09-19"
+      },
+      "session_id": "GC-2017-09-19",
+      "status": "MATCH",
+      "wall_seconds": 1.0123759182170033
+    },
+    "GC-2017-09-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-20"
+      },
+      "session_id": "GC-2017-09-20",
+      "status": "MATCH",
+      "wall_seconds": 0.8988680732436478
+    },
+    "GC-2017-09-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-09-22"
+      },
+      "session_id": "GC-2017-09-22",
+      "status": "MATCH",
+      "wall_seconds": 0.9091397179290652
+    },
+    "GC-2017-09-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2648b25e4dcdaa9b80010e2967e92129feb61025b3522662270d9499471aa099",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2648b25e4dcdaa9b80010e2967e92129feb61025b3522662270d9499471aa099",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-09-29"
+      },
+      "session_id": "GC-2017-09-29",
+      "status": "MATCH",
+      "wall_seconds": 0.9712628028355539
+    },
+    "GC-2017-10-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-10-06"
+      },
+      "session_id": "GC-2017-10-06",
+      "status": "MATCH",
+      "wall_seconds": 0.9027768983505666
+    },
+    "GC-2017-10-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-10-13"
+      },
+      "session_id": "GC-2017-10-13",
+      "status": "MATCH",
+      "wall_seconds": 0.9403459061868489
+    },
+    "GC-2017-10-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-10-20"
+      },
+      "session_id": "GC-2017-10-20",
+      "status": "MATCH",
+      "wall_seconds": 0.9085233747027814
+    },
+    "GC-2017-10-26": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "29587f574bafecdaf4eff364db190c0cc374202a90b80e60c6831ccbde38cfc8",
+        "authoritative_partition_count": 2,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "29587f574bafecdaf4eff364db190c0cc374202a90b80e60c6831ccbde38cfc8",
+        "new_partition_count": 2,
+        "session_id": "GC-2017-10-26"
+      },
+      "session_id": "GC-2017-10-26",
+      "status": "MATCH",
+      "wall_seconds": 1.0182246849872172
+    },
+    "GC-2017-10-27": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "735c71881e6361a939b3ecaa0dfe3a8f980679a229e9c5265dab445fa5c68f90",
+        "authoritative_partition_count": 2,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "735c71881e6361a939b3ecaa0dfe3a8f980679a229e9c5265dab445fa5c68f90",
+        "new_partition_count": 2,
+        "session_id": "GC-2017-10-27"
+      },
+      "session_id": "GC-2017-10-27",
+      "status": "MATCH",
+      "wall_seconds": 1.0230535012669861
+    },
+    "GC-2017-11-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2017-11-03"
+      },
+      "session_id": "GC-2017-11-03",
+      "status": "MATCH",
+      "wall_seconds": 0.9019540571607649
+    },
+    "GC-2017-11-15": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "70923f53ff030a38345a4435ed854e517bc2675b3b97874b289af914af417307",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "70923f53ff030a38345a4435ed854e517bc2675b3b97874b289af914af417307",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-11-15"
+      },
+      "session_id": "GC-2017-11-15",
+      "status": "MATCH",
+      "wall_seconds": 0.9676353419199586
+    },
+    "GC-2017-11-16": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e4498d08a55a73e9222f44ec9801eb5a1865afe4ad9e74fa742e13e99fe5d39b",
+        "authoritative_partition_count": 1,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e4498d08a55a73e9222f44ec9801eb5a1865afe4ad9e74fa742e13e99fe5d39b",
+        "new_partition_count": 1,
+        "session_id": "GC-2017-11-16"
+      },
+      "session_id": "GC-2017-11-16",
+      "status": "MATCH",
+      "wall_seconds": 0.9795746807940304
+    },
+    "GC-2017-12-01": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "145c82d76f087c69557f93a9002db0e46b5a3a4314d1f73b6cc63663b5df6dea",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "145c82d76f087c69557f93a9002db0e46b5a3a4314d1f73b6cc63663b5df6dea",
+        "new_partition_count": 3,
+        "session_id": "GC-2017-12-01"
+      },
+      "session_id": "GC-2017-12-01",
+      "status": "MATCH",
+      "wall_seconds": 0.9726375439204276
+    },
+    "GC-2017-12-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "c25dc591ea33080885a3280da5daa8e10fd6dd57e676d160e624f55bc76e4169",
+        "authoritative_partition_count": 7,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "c25dc591ea33080885a3280da5daa8e10fd6dd57e676d160e624f55bc76e4169",
+        "new_partition_count": 7,
+        "session_id": "GC-2017-12-14"
+      },
+      "session_id": "GC-2017-12-14",
+      "status": "MATCH",
+      "wall_seconds": 0.9975097919814289
+    },
+    "GC-2017-12-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "daad6bb02b27faa0b2789f95fa7e50ed61fa053b9572f070871e4c567501e1e1",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "daad6bb02b27faa0b2789f95fa7e50ed61fa053b9572f070871e4c567501e1e1",
+        "new_partition_count": 3,
+        "session_id": "GC-2017-12-20"
+      },
+      "session_id": "GC-2017-12-20",
+      "status": "MATCH",
+      "wall_seconds": 0.9695105869323015
+    },
+    "GC-2017-12-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "ad3a8e942a658a49a7161dc922f052249e31f4878c9bb881b5e4b4d400ef1ce2",
+        "authoritative_partition_count": 4,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "ad3a8e942a658a49a7161dc922f052249e31f4878c9bb881b5e4b4d400ef1ce2",
+        "new_partition_count": 4,
+        "session_id": "GC-2017-12-29"
+      },
+      "session_id": "GC-2017-12-29",
+      "status": "MATCH",
+      "wall_seconds": 1.011833397205919
+    },
+    "GC-2018-01-05": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2018-01-05"
+      },
+      "session_id": "GC-2018-01-05",
+      "status": "MATCH",
+      "wall_seconds": 0.9360207836143672
+    },
+    "GC-2018-01-12": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "25acf4fe32ae7e54ee29350822516eff74e32831f16cfe03f9664783f7fd9ac8",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "25acf4fe32ae7e54ee29350822516eff74e32831f16cfe03f9664783f7fd9ac8",
+        "new_partition_count": 3,
+        "session_id": "GC-2018-01-12"
+      },
+      "session_id": "GC-2018-01-12",
+      "status": "MATCH",
+      "wall_seconds": 0.9639668730087578
+    },
+    "GC-2018-01-19": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2018-01-19"
+      },
+      "session_id": "GC-2018-01-19",
+      "status": "MATCH",
+      "wall_seconds": 0.9610911626368761
+    },
+    "GC-2018-01-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "authoritative_partition_count": 0,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "new_partition_count": 0,
+        "session_id": "GC-2018-01-22"
+      },
+      "session_id": "GC-2018-01-22",
+      "status": "MATCH",
+      "wall_seconds": 1.0230563571676612
+    },
+    "GC-2018-01-24": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "97e56921bff4fc9be926bdf782801c46e2b950a8d62c9c914dbc23d689036d20",
+        "authoritative_partition_count": 4,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "97e56921bff4fc9be926bdf782801c46e2b950a8d62c9c914dbc23d689036d20",
+        "new_partition_count": 4,
+        "session_id": "GC-2018-01-24"
+      },
+      "session_id": "GC-2018-01-24",
+      "status": "MATCH",
+      "wall_seconds": 1.1684963582083583
+    },
+    "GC-2018-01-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "48403efe8dca656a7983b71ecfc21b4d25ea4eba72a330d253d9426f3d9d5c4c",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "48403efe8dca656a7983b71ecfc21b4d25ea4eba72a330d253d9426f3d9d5c4c",
+        "new_partition_count": 3,
+        "session_id": "GC-2018-01-29"
+      },
+      "session_id": "GC-2018-01-29",
+      "status": "MATCH",
+      "wall_seconds": 1.014707521069795
+    },
+    "GC-2018-01-31": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "0e5d610aa4e1ec9a1b9626ccdab35c9b13776f75cce4b31a3817c852c191514a",
+        "authoritative_partition_count": 2,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "0e5d610aa4e1ec9a1b9626ccdab35c9b13776f75cce4b31a3817c852c191514a",
+        "new_partition_count": 2,
+        "session_id": "GC-2018-01-31"
+      },
+      "session_id": "GC-2018-01-31",
+      "status": "MATCH",
+      "wall_seconds": 1.3036128818057477
+    },
+    "GC-2018-02-05": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "0a17e9e36167f775a88af75ea1f0127b8892ca63c55ed7d65d9b315ce99cc647",
+        "authoritative_partition_count": 2,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "0a17e9e36167f775a88af75ea1f0127b8892ca63c55ed7d65d9b315ce99cc647",
+        "new_partition_count": 2,
+        "session_id": "GC-2018-02-05"
+      },
+      "session_id": "GC-2018-02-05",
+      "status": "MATCH",
+      "wall_seconds": 1.3278189720585942
+    },
+    "GC-2018-02-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5b619ca67919a3a546194d32e4d64a262adc3ebe632f84a25151e4af17dfb089",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5b619ca67919a3a546194d32e4d64a262adc3ebe632f84a25151e4af17dfb089",
+        "new_partition_count": 3,
+        "session_id": "GC-2018-02-07"
+      },
+      "session_id": "GC-2018-02-07",
+      "status": "MATCH",
+      "wall_seconds": 1.0583981173112988
+    },
+    "GC-2018-02-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "803658e8248f7541a79a9dfc68ee1a441dbc529207f092d46846ee6fe59551a5",
+        "authoritative_partition_count": 3,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "803658e8248f7541a79a9dfc68ee1a441dbc529207f092d46846ee6fe59551a5",
+        "new_partition_count": 3,
+        "session_id": "GC-2018-02-20"
+      },
+      "session_id": "GC-2018-02-20",
+      "status": "MATCH",
+      "wall_seconds": 1.0291446088813245
+    },
+    "GC-2018-03-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "0a576e540ac24d6c4d037ecf93991298ee55099357ccf4182a2ed8afcfbe685f",
+        "authoritative_partition_count": 5,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "0a576e540ac24d6c4d037ecf93991298ee55099357ccf4182a2ed8afcfbe685f",
+        "new_partition_count": 5,
+        "session_id": "GC-2018-03-07"
+      },
+      "session_id": "GC-2018-03-07",
+      "status": "MATCH",
+      "wall_seconds": 1.1660605939105153
+    },
+    "GC-2018-04-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2b49dde526ae20c37abc58694d49e3bd78ba2ae30558f02b7bd36b7c9cc0f78a",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2b49dde526ae20c37abc58694d49e3bd78ba2ae30558f02b7bd36b7c9cc0f78a",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-04-06"
+      },
+      "session_id": "GC-2018-04-06",
+      "status": "MATCH",
+      "wall_seconds": 1.3026900049299002
+    },
+    "GC-2018-04-10": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "65a758962a90257dc7aefe3df0e2c6a6f453433f82beb654c5e5ca1d25ef0b6c",
+        "authoritative_partition_count": 6,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "65a758962a90257dc7aefe3df0e2c6a6f453433f82beb654c5e5ca1d25ef0b6c",
+        "new_partition_count": 6,
+        "session_id": "GC-2018-04-10"
+      },
+      "session_id": "GC-2018-04-10",
+      "status": "MATCH",
+      "wall_seconds": 1.1413613785989583
+    },
+    "GC-2018-04-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "9368c515e670bf55958af7d3d4a6fa93474c662a02db6c7458911dee511ebb74",
+        "authoritative_partition_count": 8,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "9368c515e670bf55958af7d3d4a6fa93474c662a02db6c7458911dee511ebb74",
+        "new_partition_count": 8,
+        "session_id": "GC-2018-04-13"
+      },
+      "session_id": "GC-2018-04-13",
+      "status": "MATCH",
+      "wall_seconds": 1.1334675149992108
+    },
+    "GC-2018-05-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "9a7e7a8c47be9eb9963a80d8a83fb9f75971f083907b471fff3fdf952b0a4f59",
+        "authoritative_partition_count": 5,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "9a7e7a8c47be9eb9963a80d8a83fb9f75971f083907b471fff3fdf952b0a4f59",
+        "new_partition_count": 5,
+        "session_id": "GC-2018-05-03"
+      },
+      "session_id": "GC-2018-05-03",
+      "status": "MATCH",
+      "wall_seconds": 1.0461180759593844
+    },
+    "GC-2018-05-10": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "6ad90b702559343c1908a0923574b7f46e29df763ccd0c3a2a343f08eff4350c",
+        "authoritative_partition_count": 6,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "6ad90b702559343c1908a0923574b7f46e29df763ccd0c3a2a343f08eff4350c",
+        "new_partition_count": 6,
+        "session_id": "GC-2018-05-10"
+      },
+      "session_id": "GC-2018-05-10",
+      "status": "MATCH",
+      "wall_seconds": 1.3475343347527087
+    },
+    "GC-2018-05-17": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "ec6a3d61e2924f72cb67d33fc0ddb8acc0db7d7be5fc1cc54ec785eb37b71298",
+        "authoritative_partition_count": 8,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "ec6a3d61e2924f72cb67d33fc0ddb8acc0db7d7be5fc1cc54ec785eb37b71298",
+        "new_partition_count": 8,
+        "session_id": "GC-2018-05-17"
+      },
+      "session_id": "GC-2018-05-17",
+      "status": "MATCH",
+      "wall_seconds": 1.3656536960043013
+    },
+    "GC-2018-05-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "c51317294d47102bbf93044c95337091604fb92dafc8f6fbdb9c81817b379919",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "c51317294d47102bbf93044c95337091604fb92dafc8f6fbdb9c81817b379919",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-05-18"
+      },
+      "session_id": "GC-2018-05-18",
+      "status": "MATCH",
+      "wall_seconds": 1.2727238200604916
+    },
+    "GC-2018-06-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "cf641deba8aed83b7f08d3cce2189d87b3646122fcbc84559af20480edf924f8",
+        "authoritative_partition_count": 7,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "cf641deba8aed83b7f08d3cce2189d87b3646122fcbc84559af20480edf924f8",
+        "new_partition_count": 7,
+        "session_id": "GC-2018-06-14"
+      },
+      "session_id": "GC-2018-06-14",
+      "status": "MATCH",
+      "wall_seconds": 1.1938214120455086
+    },
+    "GC-2018-06-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "9be3000a5b5d52566c5712ced2e3a76a129c95c03e4328905b9a3aad7326ab1f",
+        "authoritative_partition_count": 6,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "9be3000a5b5d52566c5712ced2e3a76a129c95c03e4328905b9a3aad7326ab1f",
+        "new_partition_count": 6,
+        "session_id": "GC-2018-06-29"
+      },
+      "session_id": "GC-2018-06-29",
+      "status": "MATCH",
+      "wall_seconds": 1.3576129581779242
+    },
+    "GC-2018-07-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "109cb551c06278c4fe892a9ac8ffe1bd6a1f7a70981bcb4ca5dd4e9f821a12bc",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "109cb551c06278c4fe892a9ac8ffe1bd6a1f7a70981bcb4ca5dd4e9f821a12bc",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-07-03"
+      },
+      "session_id": "GC-2018-07-03",
+      "status": "MATCH",
+      "wall_seconds": 3.2341712759807706
+    },
+    "GC-2018-07-12": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "0b1f34288bf696cf55113b69370a35276b629fa161429c2fd414e795514ee60f",
+        "authoritative_partition_count": 12,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "0b1f34288bf696cf55113b69370a35276b629fa161429c2fd414e795514ee60f",
+        "new_partition_count": 12,
+        "session_id": "GC-2018-07-12"
+      },
+      "session_id": "GC-2018-07-12",
+      "status": "MATCH",
+      "wall_seconds": 3.2026832960546017
+    },
+    "GC-2018-07-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "42917f551276301641c6ababf46fdd27bd828d23774d7a968be71287f9cdb880",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "42917f551276301641c6ababf46fdd27bd828d23774d7a968be71287f9cdb880",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-07-18"
+      },
+      "session_id": "GC-2018-07-18",
+      "status": "MATCH",
+      "wall_seconds": 2.7973706661723554
+    },
+    "GC-2018-07-19": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "6b65089b38c1c043e9955b3dd7a7c5dbfda7bf570ce842483434dd7efcf971a1",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "6b65089b38c1c043e9955b3dd7a7c5dbfda7bf570ce842483434dd7efcf971a1",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-07-19"
+      },
+      "session_id": "GC-2018-07-19",
+      "status": "MATCH",
+      "wall_seconds": 2.268791721202433
+    },
+    "GC-2018-07-24": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "128e0f844960372c2e462fcae112436dfb7edcd93dc7e3c90ff87c3d8448d57b",
+        "authoritative_partition_count": 7,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "128e0f844960372c2e462fcae112436dfb7edcd93dc7e3c90ff87c3d8448d57b",
+        "new_partition_count": 7,
+        "session_id": "GC-2018-07-24"
+      },
+      "session_id": "GC-2018-07-24",
+      "status": "MATCH",
+      "wall_seconds": 3.4351577810011804
+    },
+    "GC-2018-07-25": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "15ea64ce2ebb493fa70b40e0313b305fa1960d45e9f88fc26c14e6e444f722d0",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "15ea64ce2ebb493fa70b40e0313b305fa1960d45e9f88fc26c14e6e444f722d0",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-07-25"
+      },
+      "session_id": "GC-2018-07-25",
+      "status": "MATCH",
+      "wall_seconds": 5.455252832733095
+    },
+    "GC-2018-07-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2f0ce5e907645baea9bf9750c03769c57932592bed401d9fd753c7694391c41d",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2f0ce5e907645baea9bf9750c03769c57932592bed401d9fd753c7694391c41d",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-07-30"
+      },
+      "session_id": "GC-2018-07-30",
+      "status": "MATCH",
+      "wall_seconds": 3.123742997646332
+    },
+    "GC-2018-07-31": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5d28d730f59bc94a4407cbe0c93f328b96831812ceb5b1c08a17bbce4d6ea2ea",
+        "authoritative_partition_count": 8,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5d28d730f59bc94a4407cbe0c93f328b96831812ceb5b1c08a17bbce4d6ea2ea",
+        "new_partition_count": 8,
+        "session_id": "GC-2018-07-31"
+      },
+      "session_id": "GC-2018-07-31",
+      "status": "MATCH",
+      "wall_seconds": 4.002051304560155
+    },
+    "GC-2018-08-01": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "9aedad8cbd543782caa7a9d35a807635c88da9ed9569466db825aa0ebffc2118",
+        "authoritative_partition_count": 8,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "9aedad8cbd543782caa7a9d35a807635c88da9ed9569466db825aa0ebffc2118",
+        "new_partition_count": 8,
+        "session_id": "GC-2018-08-01"
+      },
+      "session_id": "GC-2018-08-01",
+      "status": "MATCH",
+      "wall_seconds": 3.4372547357343137
+    },
+    "GC-2018-08-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "b9fa26162dd478f970072db34f3e4973b6aea46b71b1b8b4488bc2f5c333ee27",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "b9fa26162dd478f970072db34f3e4973b6aea46b71b1b8b4488bc2f5c333ee27",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-08-03"
+      },
+      "session_id": "GC-2018-08-03",
+      "status": "MATCH",
+      "wall_seconds": 3.8698774660006166
+    },
+    "GC-2018-08-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "073953184062b5c1a5112bf0c721a4c3148928c919ae53b38e96fc95b27188bd",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "073953184062b5c1a5112bf0c721a4c3148928c919ae53b38e96fc95b27188bd",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-08-06"
+      },
+      "session_id": "GC-2018-08-06",
+      "status": "MATCH",
+      "wall_seconds": 2.4159642150625587
+    },
+    "GC-2018-08-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "090a8ee688b82b2bc579c0c8b19ffb94f61e8266c3390de46406b81a43b04f91",
+        "authoritative_partition_count": 12,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "090a8ee688b82b2bc579c0c8b19ffb94f61e8266c3390de46406b81a43b04f91",
+        "new_partition_count": 12,
+        "session_id": "GC-2018-08-13"
+      },
+      "session_id": "GC-2018-08-13",
+      "status": "MATCH",
+      "wall_seconds": 4.207409537397325
+    },
+    "GC-2018-08-27": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "af0d86cd01059b329271502fc71b21651be2ad60189bf4572b86a8fe591268a6",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "af0d86cd01059b329271502fc71b21651be2ad60189bf4572b86a8fe591268a6",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-08-27"
+      },
+      "session_id": "GC-2018-08-27",
+      "status": "MATCH",
+      "wall_seconds": 3.1167392367497087
+    },
+    "GC-2018-08-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "9a2948071338d396e2582a96e1487541560eeeec7dc2dd8b5ef46207a48791d9",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "9a2948071338d396e2582a96e1487541560eeeec7dc2dd8b5ef46207a48791d9",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-08-29"
+      },
+      "session_id": "GC-2018-08-29",
+      "status": "MATCH",
+      "wall_seconds": 3.0232379869557917
+    },
+    "GC-2018-08-31": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "887fa99aca9a64e42780d8f28ec828268c529624fd02695f4e91d2880b403e57",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "887fa99aca9a64e42780d8f28ec828268c529624fd02695f4e91d2880b403e57",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-08-31"
+      },
+      "session_id": "GC-2018-08-31",
+      "status": "MATCH",
+      "wall_seconds": 3.6582481721416116
+    },
+    "GC-2018-09-05": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "b166076b60ea524eccdc3029dde5152bf150d2754c98022417a9099c16862b6c",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "b166076b60ea524eccdc3029dde5152bf150d2754c98022417a9099c16862b6c",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-09-05"
+      },
+      "session_id": "GC-2018-09-05",
+      "status": "MATCH",
+      "wall_seconds": 5.344141098205
+    },
+    "GC-2018-09-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "29cbfe0b3832db8cce2c27d3c0ba9fbb4f5be9f6bb9e578b949512cb6b212df1",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "29cbfe0b3832db8cce2c27d3c0ba9fbb4f5be9f6bb9e578b949512cb6b212df1",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-09-06"
+      },
+      "session_id": "GC-2018-09-06",
+      "status": "MATCH",
+      "wall_seconds": 6.186758783180267
+    },
+    "GC-2018-09-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "065db8b73944fe957aa360e112dc0bfc0658f6e5e149550d4f8e480436c498e9",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "065db8b73944fe957aa360e112dc0bfc0658f6e5e149550d4f8e480436c498e9",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-09-07"
+      },
+      "session_id": "GC-2018-09-07",
+      "status": "MATCH",
+      "wall_seconds": 5.409836683887988
+    },
+    "GC-2018-09-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "22d9f922d73d6711580694b4b87804cca1ed26d3610094dad98a528d23a7f556",
+        "authoritative_partition_count": 9,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "22d9f922d73d6711580694b4b87804cca1ed26d3610094dad98a528d23a7f556",
+        "new_partition_count": 9,
+        "session_id": "GC-2018-09-13"
+      },
+      "session_id": "GC-2018-09-13",
+      "status": "MATCH",
+      "wall_seconds": 4.871108077000827
+    },
+    "GC-2018-09-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2af590890c61fa1f6fc4976e09ef626e57da9b6a9b8883565e5d508d4337a3cf",
+        "authoritative_partition_count": 10,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2af590890c61fa1f6fc4976e09ef626e57da9b6a9b8883565e5d508d4337a3cf",
+        "new_partition_count": 10,
+        "session_id": "GC-2018-09-14"
+      },
+      "session_id": "GC-2018-09-14",
+      "status": "MATCH",
+      "wall_seconds": 7.074130108114332
+    },
+    "GC-2018-09-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "3da131b93de756f79fbec89c216127ffc9f068187f151b54aca5a0aa6c1802f4",
+        "authoritative_partition_count": 13,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "3da131b93de756f79fbec89c216127ffc9f068187f151b54aca5a0aa6c1802f4",
+        "new_partition_count": 13,
+        "session_id": "GC-2018-09-18"
+      },
+      "session_id": "GC-2018-09-18",
+      "status": "MATCH",
+      "wall_seconds": 4.99457815522328
+    },
+    "GC-2018-10-02": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "529f55053de080b0790bb7c00d7b47087730edf0064b86505ba5ce83adf23d73",
+        "authoritative_partition_count": 13,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "529f55053de080b0790bb7c00d7b47087730edf0064b86505ba5ce83adf23d73",
+        "new_partition_count": 13,
+        "session_id": "GC-2018-10-02"
+      },
+      "session_id": "GC-2018-10-02",
+      "status": "MATCH",
+      "wall_seconds": 14.504519016016275
+    },
+    "GC-2018-10-08": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "02567efeb7826f09430f1b2e134e8b8b9141545caa995033cf396b222c94699c",
+        "authoritative_partition_count": 12,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "02567efeb7826f09430f1b2e134e8b8b9141545caa995033cf396b222c94699c",
+        "new_partition_count": 12,
+        "session_id": "GC-2018-10-08"
+      },
+      "session_id": "GC-2018-10-08",
+      "status": "MATCH",
+      "wall_seconds": 6.681649464182556
+    },
+    "GC-2018-10-11": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "18299239a2a2a14206204aaed91596c0a7f42020dfc8e3ab7476c0035ab4a099",
+        "authoritative_partition_count": 15,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "18299239a2a2a14206204aaed91596c0a7f42020dfc8e3ab7476c0035ab4a099",
+        "new_partition_count": 15,
+        "session_id": "GC-2018-10-11"
+      },
+      "session_id": "GC-2018-10-11",
+      "status": "MATCH",
+      "wall_seconds": 16.133726678323
+    },
+    "GC-2018-11-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "bd8cc679dc257779bb6ed1e84241cfd3a4ef1e8c8105106e95b6a7e4ef26a9fa",
+        "authoritative_partition_count": 17,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "bd8cc679dc257779bb6ed1e84241cfd3a4ef1e8c8105106e95b6a7e4ef26a9fa",
+        "new_partition_count": 17,
+        "session_id": "GC-2018-11-07"
+      },
+      "session_id": "GC-2018-11-07",
+      "status": "MATCH",
+      "wall_seconds": 38.444562419783324
+    },
+    "GC-2018-11-26": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "05e39da7e016eacb1359c7d0d7efa7b4ca0005ca6bbb930cf7260c248a0932b4",
+        "authoritative_partition_count": 16,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "05e39da7e016eacb1359c7d0d7efa7b4ca0005ca6bbb930cf7260c248a0932b4",
+        "new_partition_count": 16,
+        "session_id": "GC-2018-11-26"
+      },
+      "session_id": "GC-2018-11-26",
+      "status": "MATCH",
+      "wall_seconds": 221.35834806319326
+    },
+    "GC-2018-11-28": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2c970ca02ca9c9a714688dcd31659b2bd62a4ec2ec4454614d3e0e5eb49d6db1",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2c970ca02ca9c9a714688dcd31659b2bd62a4ec2ec4454614d3e0e5eb49d6db1",
+        "new_partition_count": 19,
+        "session_id": "GC-2018-11-28"
+      },
+      "session_id": "GC-2018-11-28",
+      "status": "MATCH",
+      "wall_seconds": 374.60663498798385
+    },
+    "GC-2018-11-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "14e3b471fc52626f412c6dc1202204a309124859e74a33ae4d316d36f4b3e48b",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "14e3b471fc52626f412c6dc1202204a309124859e74a33ae4d316d36f4b3e48b",
+        "new_partition_count": 18,
+        "session_id": "GC-2018-11-29"
+      },
+      "session_id": "GC-2018-11-29",
+      "status": "MATCH",
+      "wall_seconds": 571.3524724137969
+    },
+    "GC-2018-12-27": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "b4877f3689a8b0c8da4d3a3058c8df75dc76df8ac2c42e8629043cd448219ed4",
+        "authoritative_partition_count": 17,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "b4877f3689a8b0c8da4d3a3058c8df75dc76df8ac2c42e8629043cd448219ed4",
+        "new_partition_count": 17,
+        "session_id": "GC-2018-12-27"
+      },
+      "session_id": "GC-2018-12-27",
+      "status": "MATCH",
+      "wall_seconds": 653.7756924382411
+    },
+    "GC-2018-12-28": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "75b8a5a7b6ef6d10cb1dc4de1e1aaa01d1dab13265fa43e22a0a963a4da3e93e",
+        "authoritative_partition_count": 17,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "75b8a5a7b6ef6d10cb1dc4de1e1aaa01d1dab13265fa43e22a0a963a4da3e93e",
+        "new_partition_count": 17,
+        "session_id": "GC-2018-12-28"
+      },
+      "session_id": "GC-2018-12-28",
+      "status": "MATCH",
+      "wall_seconds": 548.1963614420965
+    },
+    "GC-2019-01-04": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "c482f85a5cd4510627fb53493d6d5abdc8095dedce07195c2341e7452840de3f",
+        "authoritative_partition_count": 24,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "c482f85a5cd4510627fb53493d6d5abdc8095dedce07195c2341e7452840de3f",
+        "new_partition_count": 24,
+        "session_id": "GC-2019-01-04"
+      },
+      "session_id": "GC-2019-01-04",
+      "status": "MATCH",
+      "wall_seconds": 839.0053439000621
+    },
+    "GC-2019-01-09": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "ad616a1dc9d6cadfdb0a165853c2cf3dd0e4b5a9f2f5fec9b5f97604f6755691",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "ad616a1dc9d6cadfdb0a165853c2cf3dd0e4b5a9f2f5fec9b5f97604f6755691",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-01-09"
+      },
+      "session_id": "GC-2019-01-09",
+      "status": "MATCH",
+      "wall_seconds": 631.4157854276709
+    },
+    "GC-2019-01-11": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "25044714ea9a0d0c7b25febda20bfd551d29e60cf40cac4763da5a47cb6193bb",
+        "authoritative_partition_count": 24,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "25044714ea9a0d0c7b25febda20bfd551d29e60cf40cac4763da5a47cb6193bb",
+        "new_partition_count": 24,
+        "session_id": "GC-2019-01-11"
+      },
+      "session_id": "GC-2019-01-11",
+      "status": "MATCH",
+      "wall_seconds": 554.7085113488138
+    },
+    "GC-2019-01-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "892519ef7a2f1d7f1c7735807b5df376acdaaf5cec59a6a3bee64aa137da3f7f",
+        "authoritative_partition_count": 24,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "892519ef7a2f1d7f1c7735807b5df376acdaaf5cec59a6a3bee64aa137da3f7f",
+        "new_partition_count": 24,
+        "session_id": "GC-2019-01-14"
+      },
+      "session_id": "GC-2019-01-14",
+      "status": "MATCH",
+      "wall_seconds": 453.00616075191647
+    },
+    "GC-2019-01-16": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "d9ee3b87cb8f0ec71395185caa963ff0d95eb7b760ac8c35da4f3231d6994c28",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "d9ee3b87cb8f0ec71395185caa963ff0d95eb7b760ac8c35da4f3231d6994c28",
+        "new_partition_count": 18,
+        "session_id": "GC-2019-01-16"
+      },
+      "session_id": "GC-2019-01-16",
+      "status": "MATCH",
+      "wall_seconds": 502.61038760934025
+    },
+    "GC-2019-01-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "91dcdc3756fe07a8f9aab8276b0135d4564ff355292adf2d1cb9d4a581e5bd97",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "91dcdc3756fe07a8f9aab8276b0135d4564ff355292adf2d1cb9d4a581e5bd97",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-01-18"
+      },
+      "session_id": "GC-2019-01-18",
+      "status": "MATCH",
+      "wall_seconds": 558.8697636160068
+    },
+    "GC-2019-01-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "12d107101a86a6126e1f5d28ce36f23d2e2972938537b5b83079edd52801ee86",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "12d107101a86a6126e1f5d28ce36f23d2e2972938537b5b83079edd52801ee86",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-01-22"
+      },
+      "session_id": "GC-2019-01-22",
+      "status": "MATCH",
+      "wall_seconds": 488.81293728994206
+    },
+    "GC-2019-01-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "36c144eff49640884c8068f6707d23601620ff31c6a78aaf80495ad92a6b7a38",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "36c144eff49640884c8068f6707d23601620ff31c6a78aaf80495ad92a6b7a38",
+        "new_partition_count": 18,
+        "session_id": "GC-2019-01-23"
+      },
+      "session_id": "GC-2019-01-23",
+      "status": "MATCH",
+      "wall_seconds": 503.9770468007773
+    },
+    "GC-2019-01-25": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "70f86d4aed5bf48fa51f4f42d5c70cb6378c3f20f65e825b8230e726714314ea",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "70f86d4aed5bf48fa51f4f42d5c70cb6378c3f20f65e825b8230e726714314ea",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-01-25"
+      },
+      "session_id": "GC-2019-01-25",
+      "status": "MATCH",
+      "wall_seconds": 787.8636651551351
+    },
+    "GC-2019-01-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "3da551cc5436d496557bd1b8614702cc7c02ebf0b3b90b9aab09d1dde58c4cb3",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "3da551cc5436d496557bd1b8614702cc7c02ebf0b3b90b9aab09d1dde58c4cb3",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-01-30"
+      },
+      "session_id": "GC-2019-01-30",
+      "status": "MATCH",
+      "wall_seconds": 710.6609244071878
+    },
+    "GC-2019-02-01": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "8f7c13ad4ea70670446127a5ff559e80ae2349f05ce3324df7843858b5c0418e",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "8f7c13ad4ea70670446127a5ff559e80ae2349f05ce3324df7843858b5c0418e",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-02-01"
+      },
+      "session_id": "GC-2019-02-01",
+      "status": "MATCH",
+      "wall_seconds": 518.709114745725
+    },
+    "GC-2019-02-08": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "0922ade8a64ebd1ebb255ff6461441f83c70de613636cba855fab76ed887fd92",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "0922ade8a64ebd1ebb255ff6461441f83c70de613636cba855fab76ed887fd92",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-02-08"
+      },
+      "session_id": "GC-2019-02-08",
+      "status": "MATCH",
+      "wall_seconds": 354.3468215977773
+    },
+    "GC-2019-03-01": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "73b860d40e611d148d964e8eb6ef21b6238aa4b7bf354882548c5a162a274470",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "73b860d40e611d148d964e8eb6ef21b6238aa4b7bf354882548c5a162a274470",
+        "new_partition_count": 23,
+        "session_id": "GC-2019-03-01"
+      },
+      "session_id": "GC-2019-03-01",
+      "status": "MATCH",
+      "wall_seconds": 626.2110058502294
+    },
+    "GC-2019-03-11": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5fc82049f78d6247aee86e55076ef88e929c34398c36e1a54466fe33082ba120",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5fc82049f78d6247aee86e55076ef88e929c34398c36e1a54466fe33082ba120",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-03-11"
+      },
+      "session_id": "GC-2019-03-11",
+      "status": "MATCH",
+      "wall_seconds": 455.2791672972962
+    },
+    "GC-2019-03-19": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "523a4f9db2a01d2be1291311b028f9e3a9288a5b802d99f408ec6db70d9d08df",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "523a4f9db2a01d2be1291311b028f9e3a9288a5b802d99f408ec6db70d9d08df",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-03-19"
+      },
+      "session_id": "GC-2019-03-19",
+      "status": "MATCH",
+      "wall_seconds": 441.94464885722846
+    },
+    "GC-2019-03-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "586a94a745d0fd176bb0431fdc2419cac8609f1bd6e577a83de8b0611a8960d9",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "586a94a745d0fd176bb0431fdc2419cac8609f1bd6e577a83de8b0611a8960d9",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-03-22"
+      },
+      "session_id": "GC-2019-03-22",
+      "status": "MATCH",
+      "wall_seconds": 619.4535687710159
+    },
+    "GC-2019-03-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "1ed08fb849b1c24a3a82e0aebe198031d6cbe12ec68b88efd8ee0f91be2d1989",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "1ed08fb849b1c24a3a82e0aebe198031d6cbe12ec68b88efd8ee0f91be2d1989",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-03-29"
+      },
+      "session_id": "GC-2019-03-29",
+      "status": "MATCH",
+      "wall_seconds": 22.197060705162585
+    },
+    "GC-2019-04-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "a7b54a50b168481ba3314265d23349080930d879bf2fc6d4cd05d2d17bfeaa11",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "a7b54a50b168481ba3314265d23349080930d879bf2fc6d4cd05d2d17bfeaa11",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-04-03"
+      },
+      "session_id": "GC-2019-04-03",
+      "status": "MATCH",
+      "wall_seconds": 17.40396568039432
+    },
+    "GC-2019-04-04": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "7ed492bdaa3dbb4f8ed6424f5641c337e23f5e07b81f768a2556ee96e948f469",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "7ed492bdaa3dbb4f8ed6424f5641c337e23f5e07b81f768a2556ee96e948f469",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-04-04"
+      },
+      "session_id": "GC-2019-04-04",
+      "status": "MATCH",
+      "wall_seconds": 11.504709452856332
+    },
+    "GC-2019-04-09": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5c6f43574795a520fa3e01b91392d78ba84d510a7392ae9edb8a2018afc76262",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5c6f43574795a520fa3e01b91392d78ba84d510a7392ae9edb8a2018afc76262",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-04-09"
+      },
+      "session_id": "GC-2019-04-09",
+      "status": "MATCH",
+      "wall_seconds": 17.571565684862435
+    },
+    "GC-2019-04-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "1206278d27cca60b9ecf5e9e8b72fdfb9074013e4296d100af72ec331c615683",
+        "authoritative_partition_count": 16,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "1206278d27cca60b9ecf5e9e8b72fdfb9074013e4296d100af72ec331c615683",
+        "new_partition_count": 16,
+        "session_id": "GC-2019-04-22"
+      },
+      "session_id": "GC-2019-04-22",
+      "status": "MATCH",
+      "wall_seconds": 11.488326557911932
+    },
+    "GC-2019-05-21": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "164c12daab8f8dca3b21c0c20a54e7ef9043d8cdb154c2d0a3b49fd2a8b4d94a",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "164c12daab8f8dca3b21c0c20a54e7ef9043d8cdb154c2d0a3b49fd2a8b4d94a",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-05-21"
+      },
+      "session_id": "GC-2019-05-21",
+      "status": "MATCH",
+      "wall_seconds": 63.18752968776971
+    },
+    "GC-2019-05-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "112fdb2fd48c4ab4a55ace4dad049f41060287bdf3022994c0ad1f8fa8be5482",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "112fdb2fd48c4ab4a55ace4dad049f41060287bdf3022994c0ad1f8fa8be5482",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-05-23"
+      },
+      "session_id": "GC-2019-05-23",
+      "status": "MATCH",
+      "wall_seconds": 176.7847431851551
+    },
+    "GC-2019-05-24": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "717f76c269eba1cf262994a4a3f1ec29acf16fae312a238f1571539cad49467e",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "717f76c269eba1cf262994a4a3f1ec29acf16fae312a238f1571539cad49467e",
+        "new_partition_count": 18,
+        "session_id": "GC-2019-05-24"
+      },
+      "session_id": "GC-2019-05-24",
+      "status": "MATCH",
+      "wall_seconds": 177.65322351595387
+    },
+    "GC-2019-05-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "c3aeb52ab6ba0fe9b7e31317f63119828f887370b60a35c2027e7429b53dbe8a",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "c3aeb52ab6ba0fe9b7e31317f63119828f887370b60a35c2027e7429b53dbe8a",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-05-29"
+      },
+      "session_id": "GC-2019-05-29",
+      "status": "MATCH",
+      "wall_seconds": 399.1175105269067
+    },
+    "GC-2019-06-14": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "04e1ae6847567dde652c1b6d28201661ed30e059ffb62a8b4c3bccfd505355c4",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "04e1ae6847567dde652c1b6d28201661ed30e059ffb62a8b4c3bccfd505355c4",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-06-14"
+      },
+      "session_id": "GC-2019-06-14",
+      "status": "MATCH",
+      "wall_seconds": 818.3802354228683
+    },
+    "GC-2019-06-20": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "1143be77aa9be0c69477d38ed16f94bfd3f33d3cb327bce653c3eae215f4d963",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "1143be77aa9be0c69477d38ed16f94bfd3f33d3cb327bce653c3eae215f4d963",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-06-20"
+      },
+      "session_id": "GC-2019-06-20",
+      "status": "MATCH",
+      "wall_seconds": 1027.6819900069386
+    },
+    "GC-2019-06-25": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "8af5fccb9df6a383ea71d874c6c281bc86f3f49bf37c498013366fad1f82f042",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "8af5fccb9df6a383ea71d874c6c281bc86f3f49bf37c498013366fad1f82f042",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-06-25"
+      },
+      "session_id": "GC-2019-06-25",
+      "status": "MATCH",
+      "wall_seconds": 1113.3025476410985
+    },
+    "GC-2019-07-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "7cead4a3a6449d9618c9512a8ec0295dc508e90cd94578470dc90b696c95d4a6",
+        "authoritative_partition_count": 29,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "7cead4a3a6449d9618c9512a8ec0295dc508e90cd94578470dc90b696c95d4a6",
+        "new_partition_count": 29,
+        "session_id": "GC-2019-07-03"
+      },
+      "session_id": "GC-2019-07-03",
+      "status": "MATCH",
+      "wall_seconds": 816.6230205898173
+    },
+    "GC-2019-07-05": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "ec763314e14eb1fcd501c0b0d835185a10700591c1284ccf198a05bf04b8f5e0",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "ec763314e14eb1fcd501c0b0d835185a10700591c1284ccf198a05bf04b8f5e0",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-07-05"
+      },
+      "session_id": "GC-2019-07-05",
+      "status": "MATCH",
+      "wall_seconds": 821.8462160890922
+    },
+    "GC-2019-07-10": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "ef59e9fce6681af3c9bb1238bed0317b9e0706256fcad84eca53a9957d3fcba8",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "ef59e9fce6681af3c9bb1238bed0317b9e0706256fcad84eca53a9957d3fcba8",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-07-10"
+      },
+      "session_id": "GC-2019-07-10",
+      "status": "MATCH",
+      "wall_seconds": 817.9353334070183
+    },
+    "GC-2019-07-11": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "3e5bf347029c6c58c32b6ceb9f7dc7ca2f3e5a8772762e34a9fcc87a8aa781cb",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "3e5bf347029c6c58c32b6ceb9f7dc7ca2f3e5a8772762e34a9fcc87a8aa781cb",
+        "new_partition_count": 23,
+        "session_id": "GC-2019-07-11"
+      },
+      "session_id": "GC-2019-07-11",
+      "status": "MATCH",
+      "wall_seconds": 731.0976617410779
+    },
+    "GC-2019-07-12": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "31fba3075d1297681fb2774486c5232d8c19dfd567c695336a2cc077a5fbf1c5",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "31fba3075d1297681fb2774486c5232d8c19dfd567c695336a2cc077a5fbf1c5",
+        "new_partition_count": 21,
+        "session_id": "GC-2019-07-12"
+      },
+      "session_id": "GC-2019-07-12",
+      "status": "MATCH",
+      "wall_seconds": 526.6062060529366
+    },
+    "GC-2019-07-16": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5bd2b8323e7a6b4c2ee24bfc3dfa04d86cea02e41fdbb0552ac93f86ab5511a2",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5bd2b8323e7a6b4c2ee24bfc3dfa04d86cea02e41fdbb0552ac93f86ab5511a2",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-07-16"
+      },
+      "session_id": "GC-2019-07-16",
+      "status": "MATCH",
+      "wall_seconds": 643.0461271251552
+    },
+    "GC-2019-07-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "380dda02e0be14b31dbd0ba23cfac134410a6a600df4240aff3cfa411e7e458f",
+        "authoritative_partition_count": 25,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "380dda02e0be14b31dbd0ba23cfac134410a6a600df4240aff3cfa411e7e458f",
+        "new_partition_count": 25,
+        "session_id": "GC-2019-07-18"
+      },
+      "session_id": "GC-2019-07-18",
+      "status": "MATCH",
+      "wall_seconds": 787.3423369289376
+    },
+    "GC-2019-07-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "2a4bb0669dbe1136b96dbd173b730143d4e810d5004d00965ba86aa423c7a823",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "2a4bb0669dbe1136b96dbd173b730143d4e810d5004d00965ba86aa423c7a823",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-07-22"
+      },
+      "session_id": "GC-2019-07-22",
+      "status": "MATCH",
+      "wall_seconds": 586.7236935673282
+    },
+    "GC-2019-07-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e9dcaa1f8e9cbdd524e5799284d69bc29bb85169c63e82a8ff43975adddc7891",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e9dcaa1f8e9cbdd524e5799284d69bc29bb85169c63e82a8ff43975adddc7891",
+        "new_partition_count": 23,
+        "session_id": "GC-2019-07-23"
+      },
+      "session_id": "GC-2019-07-23",
+      "status": "MATCH",
+      "wall_seconds": 721.4711542320438
+    },
+    "GC-2019-07-24": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "75bdf556f192f67f112dd730320a55473fa11cbad2dd393f705b80336bae4563",
+        "authoritative_partition_count": 20,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "75bdf556f192f67f112dd730320a55473fa11cbad2dd393f705b80336bae4563",
+        "new_partition_count": 20,
+        "session_id": "GC-2019-07-24"
+      },
+      "session_id": "GC-2019-07-24",
+      "status": "MATCH",
+      "wall_seconds": 652.9724027668126
+    },
+    "GC-2019-07-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "bc936b7084bafd767d41aaf77cc8d3916343cb373d01a5beb6118ee76dbbd142",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "bc936b7084bafd767d41aaf77cc8d3916343cb373d01a5beb6118ee76dbbd142",
+        "new_partition_count": 23,
+        "session_id": "GC-2019-07-30"
+      },
+      "session_id": "GC-2019-07-30",
+      "status": "MATCH",
+      "wall_seconds": 195.98145751096308
+    },
+    "GC-2019-07-31": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "596a3836b7dd10cf097e648092427ea156a19478a87b8e986460a427c247ded0",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "596a3836b7dd10cf097e648092427ea156a19478a87b8e986460a427c247ded0",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-07-31"
+      },
+      "session_id": "GC-2019-07-31",
+      "status": "MATCH",
+      "wall_seconds": 36.93890300486237
+    },
+    "GC-2019-08-01": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "7a4923a2c77372021eb35aaf265bc2121b04f18902ccc7ec9c99aef5e2936bdf",
+        "authoritative_partition_count": 26,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "7a4923a2c77372021eb35aaf265bc2121b04f18902ccc7ec9c99aef5e2936bdf",
+        "new_partition_count": 26,
+        "session_id": "GC-2019-08-01"
+      },
+      "session_id": "GC-2019-08-01",
+      "status": "MATCH",
+      "wall_seconds": 73.91475310502574
+    },
+    "GC-2019-08-30": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "66d32b571bd013a89ce36df74504fc1e4bc9a098071afaafe0594fd1bf0dbdd5",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "66d32b571bd013a89ce36df74504fc1e4bc9a098071afaafe0594fd1bf0dbdd5",
+        "new_partition_count": 18,
+        "session_id": "GC-2019-08-30"
+      },
+      "session_id": "GC-2019-08-30",
+      "status": "MATCH",
+      "wall_seconds": 37.81532415887341
+    },
+    "GC-2019-09-03": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5578bc32115389bb0a3c100c2c4220c7e5c92d2f2dcd891130151f7c9644166a",
+        "authoritative_partition_count": 16,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5578bc32115389bb0a3c100c2c4220c7e5c92d2f2dcd891130151f7c9644166a",
+        "new_partition_count": 16,
+        "session_id": "GC-2019-09-03"
+      },
+      "session_id": "GC-2019-09-03",
+      "status": "MATCH",
+      "wall_seconds": 33.659631398972124
+    },
+    "GC-2019-09-06": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "edab17fbb1f282356e8a31746386c6967d2188c6f2338666780acf40ce366ebd",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "edab17fbb1f282356e8a31746386c6967d2188c6f2338666780acf40ce366ebd",
+        "new_partition_count": 23,
+        "session_id": "GC-2019-09-06"
+      },
+      "session_id": "GC-2019-09-06",
+      "status": "MATCH",
+      "wall_seconds": 51.720148666296154
+    },
+    "GC-2019-09-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "1a8c198062f45537df7eae33f179fd535e07e183236625cfeda7fd4ef2607952",
+        "authoritative_partition_count": 27,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "1a8c198062f45537df7eae33f179fd535e07e183236625cfeda7fd4ef2607952",
+        "new_partition_count": 27,
+        "session_id": "GC-2019-09-23"
+      },
+      "session_id": "GC-2019-09-23",
+      "status": "MATCH",
+      "wall_seconds": 15.886768160853535
+    },
+    "GC-2019-10-11": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "e6dc197247618d3b273009c5fb160769cd46d7495d27c462a0fd4be18cd00ec8",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "e6dc197247618d3b273009c5fb160769cd46d7495d27c462a0fd4be18cd00ec8",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-10-11"
+      },
+      "session_id": "GC-2019-10-11",
+      "status": "MATCH",
+      "wall_seconds": 23.84558402420953
+    },
+    "GC-2019-10-18": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "f9783e3208f737bc0e4da99261de45cfeec300cdba335a2d3cf449cbfdac4d7c",
+        "authoritative_partition_count": 18,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "f9783e3208f737bc0e4da99261de45cfeec300cdba335a2d3cf449cbfdac4d7c",
+        "new_partition_count": 18,
+        "session_id": "GC-2019-10-18"
+      },
+      "session_id": "GC-2019-10-18",
+      "status": "MATCH",
+      "wall_seconds": 15.538455037865788
+    },
+    "GC-2019-10-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "3c59ff5eb4d8ed042be1199f7deec597d81837d55068228772ba4d239943a266",
+        "authoritative_partition_count": 17,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "3c59ff5eb4d8ed042be1199f7deec597d81837d55068228772ba4d239943a266",
+        "new_partition_count": 17,
+        "session_id": "GC-2019-10-29"
+      },
+      "session_id": "GC-2019-10-29",
+      "status": "MATCH",
+      "wall_seconds": 57.54998593684286
+    },
+    "GC-2019-11-07": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "d0bf7cc35fb475b4565f12e35c48419370c3befef2a23e7c658005004f7ae138",
+        "authoritative_partition_count": 22,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "d0bf7cc35fb475b4565f12e35c48419370c3befef2a23e7c658005004f7ae138",
+        "new_partition_count": 22,
+        "session_id": "GC-2019-11-07"
+      },
+      "session_id": "GC-2019-11-07",
+      "status": "MATCH",
+      "wall_seconds": 38.73565004300326
+    },
+    "GC-2019-12-09": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "97081e79074b39534cbd3676d8754d036e4ffe1fd06260da6a435853df7bbb6a",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "97081e79074b39534cbd3676d8754d036e4ffe1fd06260da6a435853df7bbb6a",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-12-09"
+      },
+      "session_id": "GC-2019-12-09",
+      "status": "MATCH",
+      "wall_seconds": 444.9639076469466
+    },
+    "GC-2019-12-17": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "6876e91a1ddfe4a0eae2607f31e380f08697b2a727d49c390512c38dfd6555c6",
+        "authoritative_partition_count": 16,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "6876e91a1ddfe4a0eae2607f31e380f08697b2a727d49c390512c38dfd6555c6",
+        "new_partition_count": 16,
+        "session_id": "GC-2019-12-17"
+      },
+      "session_id": "GC-2019-12-17",
+      "status": "MATCH",
+      "wall_seconds": 409.78626241208985
+    },
+    "GC-2019-12-23": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "5f7107b971ade63a3d3683863807bee5a7b197964dd04e4b048b5970fbeb6841",
+        "authoritative_partition_count": 19,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "5f7107b971ade63a3d3683863807bee5a7b197964dd04e4b048b5970fbeb6841",
+        "new_partition_count": 19,
+        "session_id": "GC-2019-12-23"
+      },
+      "session_id": "GC-2019-12-23",
+      "status": "MATCH",
+      "wall_seconds": 374.96405570814386
+    },
+    "GC-2020-01-17": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "f26edc3ffcf2fd362c09be3463cc0833f786f495cad1b4530a7af91fe08c7147",
+        "authoritative_partition_count": 24,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "f26edc3ffcf2fd362c09be3463cc0833f786f495cad1b4530a7af91fe08c7147",
+        "new_partition_count": 24,
+        "session_id": "GC-2020-01-17"
+      },
+      "session_id": "GC-2020-01-17",
+      "status": "MATCH",
+      "wall_seconds": 544.4457954550162
+    },
+    "GC-2020-01-22": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "1edd2930d72e9438852485abdc31aa13c4652aed4d73e2f8dd04707eaaf33b0b",
+        "authoritative_partition_count": 24,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "1edd2930d72e9438852485abdc31aa13c4652aed4d73e2f8dd04707eaaf33b0b",
+        "new_partition_count": 24,
+        "session_id": "GC-2020-01-22"
+      },
+      "session_id": "GC-2020-01-22",
+      "status": "MATCH",
+      "wall_seconds": 610.649909703061
+    },
+    "GC-2020-01-29": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "b227405dcecda5f806b21e3d521e61bd2b056b13b9b656bd8f4f88883d5110b9",
+        "authoritative_partition_count": 21,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "b227405dcecda5f806b21e3d521e61bd2b056b13b9b656bd8f4f88883d5110b9",
+        "new_partition_count": 21,
+        "session_id": "GC-2020-01-29"
+      },
+      "session_id": "GC-2020-01-29",
+      "status": "MATCH",
+      "wall_seconds": 776.952076763846
+    },
+    "GC-2020-03-13": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "44dc8f63451387cd92d3d0e4237e9ef1280c52283fb721bcb09b8cf079e82d54",
+        "authoritative_partition_count": 23,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "44dc8f63451387cd92d3d0e4237e9ef1280c52283fb721bcb09b8cf079e82d54",
+        "new_partition_count": 23,
+        "session_id": "GC-2020-03-13"
+      },
+      "session_id": "GC-2020-03-13",
+      "status": "MATCH",
+      "wall_seconds": 622.0253347842954
+    },
+    "GC-2020-03-16": {
+      "compare_report": {
+        "all_ok": true,
+        "authoritative_canonical_event_set_hash": "574b601ab75f0a74f846601b6bcd729c63d68c5272980825c0c7575c95400af5",
+        "authoritative_partition_count": 25,
+        "checks": {
+          "canonical_emitted_contract_ids": true,
+          "canonical_event_counts_by_family": true,
+          "canonical_event_set_hash": true,
+          "canonical_result_kind": true,
+          "empty_reason": true,
+          "evidence_manifest_deterministic_hash": true,
+          "native_artefact_sha256": true,
+          "partition_artifact_hashes": true,
+          "partition_path_set": true,
+          "partition_semantic_hashes": true,
+          "source_record_count": true,
+          "source_resolved_contract_ids": true
+        },
+        "new_canonical_event_set_hash": "574b601ab75f0a74f846601b6bcd729c63d68c5272980825c0c7575c95400af5",
+        "new_partition_count": 25,
+        "session_id": "GC-2020-03-16"
+      },
+      "session_id": "GC-2020-03-16",
+      "status": "MATCH",
+      "wall_seconds": 662.4102364880964
+    }
+  },
+  "started_utc": "2026-09-24T17:09:15Z"
+}

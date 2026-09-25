@@ -1,0 +1,1240 @@
+{
+  "schema": "hmt2-trinity-handoff-manifest-v1",
+  "generated_utc": "2026-09-25T09:59:00Z",
+  "purpose": "Bounded, machine-readable, fully-verified handoff of HMT-2 governed GC MBP-1 historical corpus native source + governed reference inputs + preserved evidence, for HELM (Trinity host) to take over HMT-2 recovery/recomputation without needing to understand dell-debian's worktree topology.",
+  "git": {
+    "repository": "github.com/maff0000/hermes",
+    "authoritative_branch": "hmt-2/governed-gc-mbp1-historical-corpus",
+    "post_merge_head_sha": "ca48e8c250aa661cb415f8c75cc867a737062581",
+    "pr_177": {
+      "title": "[EMERGENCY] Fix destructive HMT-2 test that deleted real canonical-store data",
+      "head_ref": "hmt-2/emergency-destructive-test-fix",
+      "head_sha_pre_merge": "3bad4fe188a14f03d63655fbb6447cb901f5fd7f",
+      "merge_commit_sha": "ca48e8c250aa661cb415f8c75cc867a737062581",
+      "state": "MERGED",
+      "merged_at_utc": "2026-09-25T09:49:59Z"
+    },
+    "pr_169": {
+      "title": "[HMT-2A/2B] Corpus Selection Foundation + Provider Foundation \u2014 governed GC MBP-1 historical research corpus",
+      "state": "OPEN",
+      "base_ref": "main",
+      "head_ref": "hmt-2/governed-gc-mbp1-historical-corpus",
+      "head_ref_oid": "ca48e8c250aa661cb415f8c75cc867a737062581",
+      "note": "This is the overarching corpus PR into main. It is NOT merged. It now points at the post-#177-merge tip."
+    },
+    "ci_on_new_tip": {
+      "triggered": true,
+      "run_id": 36120647721,
+      "conclusion": "success",
+      "note": "Actions run for head_sha ca48e8c... completed with conclusion=success. GitHub commit-status API (repos/.../commits/.../status) reports 'pending' with an empty statuses array \u2014 this is the same known branch-level status-API limitation seen on prior HMT-2 tips (e.g. the pre-merge tip 8a0fb2e also shows only via Actions, not the legacy status API); Actions is authoritative here."
+    },
+    "authoritative_worktree_git_status": "clean (git status --porcelain empty) before, during, and after fast-forward + test run"
+  },
+  "authoritative_worktree": {
+    "path": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus",
+    "host": "dell-debian (192.168.11.10)",
+    "branch": "hmt-2/governed-gc-mbp1-historical-corpus",
+    "head_sha": "ca48e8c250aa661cb415f8c75cc867a737062581",
+    "fast_forwarded_from": "8a0fb2e11ae582c2baed6b84c887efd0fd84df78",
+    "test_run": {
+      "command": "pytest tests/hmt1 tests/hmt2 -q",
+      "result": "690 passed, 2 failed in 21.99s",
+      "failed_tests": [
+        "tests/hmt2/test_hmt2i_pilot_reproduction.py::test_durable_pipeline_reproduces_the_governed_pilot_canonical_event_set_hash_exactly",
+        "tests/hmt2/test_hmt2i_pilot_reproduction.py::test_pilot_reproduction_check_is_idempotent_on_a_second_run"
+      ],
+      "failure_analysis": "Both failures are LineageError: no lineage record file for session 'GC-2019-03-22', raised inside the REAL durable canonicalisation pipeline (this test genuinely invokes it against retained native pilot data, per its own docstring, writing into an isolated pytest tmp_path). This test file (tests/hmt2/test_hmt2i_pilot_reproduction.py) was NOT touched by PR #177's diff (PR #177 only touched tests/conftest.py, tests/hmt2/test_hmt2i_snapshot_output_path.py, and tests/support/*) \u2014 the failure is pre-existing and unrelated to the destructive-cleanup-guard fix being merged in this dispatch. Not root-caused further here (out of scope: this dispatch is verification/hashing/manifest-building only, no corpus recomputation).",
+      "destructive_test_safety_guard": "The merged fix adds a fail-closed guard (tests/support/destructive_cleanup_guard.py + conftest.py) that REFUSES to run the suite at all from the persistent authoritative worktree by default, because its default canonical-store/research-source roots resolve to the real data \u2014 exactly the condition that caused the 2026-09-25 incident. The suite only proceeded here after HMT2_ALLOW_TESTS_AGAINST_POPULATED_DEFAULT_ROOT=1 was set, following independent verification (directory-listing snapshot before/after) that no destructive action would occur.",
+      "side_effect_check": "find research-canonical-store research-source -maxdepth 4 | sort, captured before and after the full test run: BYTE-IDENTICAL (526 lines, zero diff). git status --porcelain also empty after the run. No canonical-store/research-source mutation occurred."
+    }
+  },
+  "other_dell_debian_hmt_worktrees_NOT_authoritative": [
+    {
+      "path": "/srv/rogue-hermes/canonical",
+      "branch": "main",
+      "note": "bare/base clone backing all worktrees \u2014 not a work branch"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hermes-gc-live-architecture-docs",
+      "branch": "docs/hermes-gc-historical-and-live-architecture"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt0-architecture-closure",
+      "branch": "docs/hmt0-market-truth-v2-architecture"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt1-canonical-market-event-replay-foundation",
+      "branch": "hmt-1/canonical-market-event-replay-foundation"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-bounded-canonical-spool",
+      "branch": "hmt-2/canonical-worker-bounded-memory-spool",
+      "note": "memory profiling / bounded-canonical-spool track"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-bounded-reload-verification-fix",
+      "branch": "hmt-2/canonical-worker-bounded-reload-verification-fix"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-emergency-test-isolation",
+      "branch": "hmt-2/emergency-destructive-test-fix",
+      "note": "source branch of PR #177, now merged; historical, not authoritative going forward"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-memory-investigation-patched",
+      "branch": "hmt-2/canonical-worker-memory-investigation-patch-experiment"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-memory-profiling",
+      "branch": "hmt-2/canonical-worker-memory-investigation"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-partitionwriter-bounded",
+      "branch": "hmt-2/partitionwriter-bounded-finalisation"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-slice-containment-guard",
+      "branch": "hmt-2/slice-containment-guard"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-snapshot-path-fix",
+      "branch": "hmt-2/snapshot-path-fix"
+    },
+    {
+      "path": "/srv/rogue-hermes/worktrees/hmt2-permission-bypass-incident",
+      "branch": "docs/hmt2-permission-bypass-incident-2026-09-25",
+      "note": "Holds PR #178's incident documentation (permission-boundary-bypass during PR #177 merge). Evidence only, not authoritative corpus/code. Was missing from this list at manifest generation time; added during 2026-09-25 independent re-verification pass."
+    }
+  ],
+  "note_incident_evidence_worktree": "/srv/rogue-hermes/worktrees/hmt2-incident-evidence (branch docs/hmt2-canonical-store-incident-2026-09-25, PR #176, OPEN/not merged) is also NOT authoritative corpus/code \u2014 it holds evidence files only, referenced individually below by exact path+hash, not as a worktree to trust wholesale.",
+  "source": {
+    "absolute_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-source",
+    "corpus_subtree": "hmt2-gc-mbp1-v1",
+    "real_directory_structure": "research-source/hmt2-gc-mbp1-v1/sessions/<session-id>/source/gc_mbp1_<session-id>.dbn.zst (native artefact) + research-source/hmt2-gc-mbp1-v1/sessions/<session-id>/evidence/mbp1_pilot_acquisition_evidence.json (per-session acquisition evidence) + research-source/hmt2-gc-mbp1-v1/manifest/{gc_corpus_acquisition_ledger.json, mbp1_pilot_acquisition_catalogue.json, real_acquisition_summary.json}. CORRECTION vs assumed layout: there is an intermediate source/ (and evidence/) subdirectory under each session, not a bare session directory. 164 session directories exist on disk in total; 162 are GC trading-session COMPLETE entries in the acquisition ledger, and 2 (HMT2-REAL-ACQ-GC-FUT-DEFINITIONS, HMT2-REAL-ACQ-REFERENCE-SERIES-GC-V0-OHLCV1H) are non-session reference/definition acquisitions (GC.FUT parent definitions; GC.v.0 continuous OHLCV-1h reference series), not part of the 162-session population.",
+    "totals": {
+      "total_file_count": 331,
+      "total_byte_count": 1692125500,
+      "dbn_zst_artefact_count": 164,
+      "session_count_represented_in_ledger_COMPLETE": 162,
+      "session_directories_on_disk": 164,
+      "note": "164 = 162 GC trading sessions + 2 non-session reference/definition acquisitions (see real_directory_structure note). No canonical/derived output is mixed into research-source \u2014 confirmed: every file under it is either *.dbn.zst (164) or *.json (167 = 164 per-session evidence + 3 manifest files); zero other extensions/artefact types present."
+    },
+    "acquisition_ledger": {
+      "path": "research-source/hmt2-gc-mbp1-v1/manifest/gc_corpus_acquisition_ledger.json",
+      "sha256": "08ca3d98b0bccb805f9070c1d773668a9947ad51ee7eafe2854984506346d860",
+      "schema_version_field": "none present at top level (ledger is a flat dict keyed directly by session_id; per-entry 'schema' field = 'mbp-1')",
+      "state_counts": {
+        "COMPLETE": 162,
+        "PLANNED": 286,
+        "FAILED_AMBIGUOUS": 0
+      },
+      "total_entries": 448,
+      "spend": {
+        "ledger_acquisition_spend_usd": 10.031334578989998,
+        "extra_non_session_acquisitions_usd": 2.239282839001,
+        "extra_acquisitions_detail": "GC.FUT parent definitions ($1.692707203329) + GC.v.0 continuous OHLCV-1h reference series ($0.546575635672), recorded in research-source/hmt2-gc-mbp1-v1/manifest/real_acquisition_summary.json, NOT in the ledger",
+        "total_hmt2_programme_spend_usd": 12.270617417990998,
+        "note": "Matches previously-reported programme figures (~$10.03 ledger / ~$12.27-12.45 total) \u2014 these are the re-verified real current numbers as of 2026-09-25."
+      }
+    },
+    "mbp1_pilot_acquisition_catalogue": {
+      "path": "research-source/hmt2-gc-mbp1-v1/manifest/mbp1_pilot_acquisition_catalogue.json",
+      "sha256": "3b28747c35527828530bd103638861c7e047272c75775a545cb5a36d9dd667a9",
+      "gitignored": true,
+      "required_by_recovery_replay_path": true,
+      "readers": [
+        "research/hmt2/hmt2f_mbp1_pilot_replay.py",
+        "research/hmt2/hmt2h_gc_corpus_acquire.py",
+        "research/hmt2/hmt2e_mbp1_pilot_acquire.py"
+      ]
+    },
+    "native_integrity_verification": {
+      "method": "Independent re-verification (NOT reused from PR #176's prior 162/162 pass): for every session_id with state==COMPLETE in the ledger (162 total), confirmed the artefact exists at the ledger's object_relative_path, confirmed on-disk byte_size == ledger's recorded byte_size, confirmed freshly-computed SHA-256 == ledger's recorded SHA-256, and confirmed no object_relative_path is reused by more than one session_id.",
+      "checked_count": 162,
+      "clean_count": 162,
+      "mismatches_found": 0,
+      "result": "ALL_CLEAN \u2014 100% of the 162-session population verified, zero mismatches, zero duplicate/ambiguous paths."
+    },
+    "per_artifact_manifest_file": {
+      "path": "docs/handoff/2026-09-25-hmt2-native-source-transfer-manifest.json",
+      "sha256": "75e13a72a2c3e32fc8cce8de3d2bf076d46fa8726bdcc2be1cb659399148a37a",
+      "note": "Standalone Step-5 transfer manifest (162 entries: session_id, native_object_relative_path, byte_size, sha256), hashed independently. Full array also embedded inline below for convenience.",
+      "entry_count": 162
+    },
+    "per_artifact": [
+      {
+        "session_id": "GC-2017-05-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-05-22/source/gc_mbp1_GC-2017-05-22.dbn.zst",
+        "byte_size": 132,
+        "sha256": "00fd3a142a18b38da977b3dae0f0101fc6e600dc6dc78d34df42effd44d02f74"
+      },
+      {
+        "session_id": "GC-2017-05-26",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-05-26/source/gc_mbp1_GC-2017-05-26.dbn.zst",
+        "byte_size": 132,
+        "sha256": "38bf1b5793f2c6213b5cfa36d28e57dd3bb272a4917777c4cb07c5c909487c16"
+      },
+      {
+        "session_id": "GC-2017-05-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-05-30/source/gc_mbp1_GC-2017-05-30.dbn.zst",
+        "byte_size": 132,
+        "sha256": "78c2936aefafd33657c479721f952172e9e798e5a1dcc47c34c5e08e46fee081"
+      },
+      {
+        "session_id": "GC-2017-06-02",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-02/source/gc_mbp1_GC-2017-06-02.dbn.zst",
+        "byte_size": 149,
+        "sha256": "279dfadc3faa41e4c87b3b5d761b7420462be501c3230bf535014c0f5b1f1dab"
+      },
+      {
+        "session_id": "GC-2017-06-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-05/source/gc_mbp1_GC-2017-06-05.dbn.zst",
+        "byte_size": 149,
+        "sha256": "a044d1ac8261ad6583979cd222ab7260d4fe83b103a2f439aafbc28faac2bc48"
+      },
+      {
+        "session_id": "GC-2017-06-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-07/source/gc_mbp1_GC-2017-06-07.dbn.zst",
+        "byte_size": 149,
+        "sha256": "f3f8f3daf0bc7525feadba78e72969af5cfaf6610afe090bd6ffa52136caf552"
+      },
+      {
+        "session_id": "GC-2017-06-09",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-09/source/gc_mbp1_GC-2017-06-09.dbn.zst",
+        "byte_size": 149,
+        "sha256": "18891ebc96ef882db2660e071816a76b40d32ca2f81650d383a89876eb8c6f63"
+      },
+      {
+        "session_id": "GC-2017-06-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-14/source/gc_mbp1_GC-2017-06-14.dbn.zst",
+        "byte_size": 149,
+        "sha256": "45b2bbc7970435b22e58710e49a260f8eed6eafdc645b4fcdeab17a96c644dda"
+      },
+      {
+        "session_id": "GC-2017-06-15",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-15/source/gc_mbp1_GC-2017-06-15.dbn.zst",
+        "byte_size": 149,
+        "sha256": "bd6714c13612628e86331bcac5948dc0b6f9ffc4ec6fe933e31958da8147031c"
+      },
+      {
+        "session_id": "GC-2017-06-16",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-16/source/gc_mbp1_GC-2017-06-16.dbn.zst",
+        "byte_size": 149,
+        "sha256": "2028b3961b5736023862d9830fab58353cb49be40e6752398b2f9417d9aaf582"
+      },
+      {
+        "session_id": "GC-2017-06-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-20/source/gc_mbp1_GC-2017-06-20.dbn.zst",
+        "byte_size": 149,
+        "sha256": "fc354eac84844927b70ce7272d46ca4599397bd351cfc95448dc616ec56af394"
+      },
+      {
+        "session_id": "GC-2017-06-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-23/source/gc_mbp1_GC-2017-06-23.dbn.zst",
+        "byte_size": 149,
+        "sha256": "fb67a224fc3743f9194b36e19310c984d26ba302aca113bfaf857a0e02dd9c58"
+      },
+      {
+        "session_id": "GC-2017-06-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-06-30/source/gc_mbp1_GC-2017-06-30.dbn.zst",
+        "byte_size": 164,
+        "sha256": "7cdc18366e07cc3beb3084c167d54ef09c9f69346c4f48823b63cb66e45cae0f"
+      },
+      {
+        "session_id": "GC-2017-07-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-07-13/source/gc_mbp1_GC-2017-07-13.dbn.zst",
+        "byte_size": 236,
+        "sha256": "d0cd6829d5c92a82be0db792d3dd4a038ce78df1362eda10ea08af3e9692fc7e"
+      },
+      {
+        "session_id": "GC-2017-07-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-07-14/source/gc_mbp1_GC-2017-07-14.dbn.zst",
+        "byte_size": 236,
+        "sha256": "c7183904bccffc3309988712dcfd94b2e6a04cbab7409cdec97f0b99ce8b518f"
+      },
+      {
+        "session_id": "GC-2017-07-21",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-07-21/source/gc_mbp1_GC-2017-07-21.dbn.zst",
+        "byte_size": 164,
+        "sha256": "510657261a155272ad6780e684299d8b43e6840c8f056ba778161e2aee111fcd"
+      },
+      {
+        "session_id": "GC-2017-07-26",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-07-26/source/gc_mbp1_GC-2017-07-26.dbn.zst",
+        "byte_size": 777,
+        "sha256": "24abfac41cce499b19daf4c2dc46003790e3e503fd4489c79434ad51d7d7881d"
+      },
+      {
+        "session_id": "GC-2017-07-28",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-07-28/source/gc_mbp1_GC-2017-07-28.dbn.zst",
+        "byte_size": 351,
+        "sha256": "0ab37e68f1dca97cbd9801aa43d0c3583be279b0e55f3561a2b5f48dd8d39c33"
+      },
+      {
+        "session_id": "GC-2017-08-04",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-08-04/source/gc_mbp1_GC-2017-08-04.dbn.zst",
+        "byte_size": 164,
+        "sha256": "5cb8b6c1aa316efa403f835d6caeaababb1e75b0c1c7f51fdf8f406b6cdb6de2"
+      },
+      {
+        "session_id": "GC-2017-08-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-08-18/source/gc_mbp1_GC-2017-08-18.dbn.zst",
+        "byte_size": 296,
+        "sha256": "dcc006710fab646e445794fdd591f01b6518a4d77c882e70c5d7c67ba3d967f7"
+      },
+      {
+        "session_id": "GC-2017-08-25",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-08-25/source/gc_mbp1_GC-2017-08-25.dbn.zst",
+        "byte_size": 230,
+        "sha256": "006ecad7dece4521daab5886f83c974263e5360c5089393c4862495811f47001"
+      },
+      {
+        "session_id": "GC-2017-09-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-06/source/gc_mbp1_GC-2017-09-06.dbn.zst",
+        "byte_size": 164,
+        "sha256": "a376df2dfad605e2e8c17dedddb8724191d1ce28883618681ae7aea856c13e1c"
+      },
+      {
+        "session_id": "GC-2017-09-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-07/source/gc_mbp1_GC-2017-09-07.dbn.zst",
+        "byte_size": 164,
+        "sha256": "a840ea98ce91da28e63231a7c545a6d328af8dd7176df0b2de42b0c89310b527"
+      },
+      {
+        "session_id": "GC-2017-09-08",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-08/source/gc_mbp1_GC-2017-09-08.dbn.zst",
+        "byte_size": 164,
+        "sha256": "4e30628ad49404b629b3e4aa9c2d33c50a05ce6c4ccb81d05f6249f6b4ef888b"
+      },
+      {
+        "session_id": "GC-2017-09-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-13/source/gc_mbp1_GC-2017-09-13.dbn.zst",
+        "byte_size": 164,
+        "sha256": "1ce5b3cde02d030dbf6a9e7d85f5e56317beea32ddda4abe0bd9122a073e9ec8"
+      },
+      {
+        "session_id": "GC-2017-09-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-14/source/gc_mbp1_GC-2017-09-14.dbn.zst",
+        "byte_size": 164,
+        "sha256": "38ddc277bdb867e59f054dcd71233dd6eece9bbba68293065e49d4b9ded9e0da"
+      },
+      {
+        "session_id": "GC-2017-09-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-18/source/gc_mbp1_GC-2017-09-18.dbn.zst",
+        "byte_size": 232,
+        "sha256": "a7bf57eaeae2ae4e9eff54d45fc1476795cc743a84a911bad7d6c6f38a9baf19"
+      },
+      {
+        "session_id": "GC-2017-09-19",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-19/source/gc_mbp1_GC-2017-09-19.dbn.zst",
+        "byte_size": 339,
+        "sha256": "a822988223ae9a92aacb58e54dbb98fcc5d6219fcafa65fd522f85925d7ded9c"
+      },
+      {
+        "session_id": "GC-2017-09-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-20/source/gc_mbp1_GC-2017-09-20.dbn.zst",
+        "byte_size": 232,
+        "sha256": "afa35a2bcc19d6e45b3f90d83108ff01f8002bf8f22f76f183209db3d2744a0a"
+      },
+      {
+        "session_id": "GC-2017-09-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-22/source/gc_mbp1_GC-2017-09-22.dbn.zst",
+        "byte_size": 229,
+        "sha256": "84f2bdc865ca9e42578e8c5e1d02be186929f69e567e79aa7dffde906923d13f"
+      },
+      {
+        "session_id": "GC-2017-09-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-09-29/source/gc_mbp1_GC-2017-09-29.dbn.zst",
+        "byte_size": 307,
+        "sha256": "7c6feb11991b4436d3cce78d2ed07fa6f6886c1c689d9f3e311cb1648e98c8b8"
+      },
+      {
+        "session_id": "GC-2017-10-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-10-06/source/gc_mbp1_GC-2017-10-06.dbn.zst",
+        "byte_size": 339,
+        "sha256": "4f0876fc52ec77748a6c3276586ff59a656e29580ff47c138c86ab335cfc2e8c"
+      },
+      {
+        "session_id": "GC-2017-10-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-10-13/source/gc_mbp1_GC-2017-10-13.dbn.zst",
+        "byte_size": 180,
+        "sha256": "20f27725f8ee0ebc8be5c773c7b39a9a6eb2b361d839b8015ab0ac3bb2403946"
+      },
+      {
+        "session_id": "GC-2017-10-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-10-20/source/gc_mbp1_GC-2017-10-20.dbn.zst",
+        "byte_size": 180,
+        "sha256": "67ff6ace402550a2f12d2fc9ff3dcfe070cbe0babbde33a9a6e55d26c063a023"
+      },
+      {
+        "session_id": "GC-2017-10-26",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-10-26/source/gc_mbp1_GC-2017-10-26.dbn.zst",
+        "byte_size": 856,
+        "sha256": "f329429ba64d7b6a6ec5872dd74a3e401c6295428d9084dc9152d9e71cdf5522"
+      },
+      {
+        "session_id": "GC-2017-10-27",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-10-27/source/gc_mbp1_GC-2017-10-27.dbn.zst",
+        "byte_size": 393,
+        "sha256": "7718d65420cb6c47b4ecc69dd9731c004214f9c77232a8b03d1b53c3f3935522"
+      },
+      {
+        "session_id": "GC-2017-11-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-11-03/source/gc_mbp1_GC-2017-11-03.dbn.zst",
+        "byte_size": 247,
+        "sha256": "dcd2af4436a83cd2a04004136c5f1c82347475a4d80ab7ab9a3ddfef7b240fb0"
+      },
+      {
+        "session_id": "GC-2017-11-15",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-11-15/source/gc_mbp1_GC-2017-11-15.dbn.zst",
+        "byte_size": 309,
+        "sha256": "a8b77ec7d0fe8a3ddb6adb1fbd3dfdc112c2b11f598eea980e1b8575f45f505c"
+      },
+      {
+        "session_id": "GC-2017-11-16",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-11-16/source/gc_mbp1_GC-2017-11-16.dbn.zst",
+        "byte_size": 381,
+        "sha256": "8771e08384328f61c2990d4f7e526f4ff067f1d2560bb83aefb63f3d54bbc326"
+      },
+      {
+        "session_id": "GC-2017-12-01",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-12-01/source/gc_mbp1_GC-2017-12-01.dbn.zst",
+        "byte_size": 2037,
+        "sha256": "686386bda6d0ae8e1e64a1ba0cba19e403c4fb992fca9e49eb61fcf644da144f"
+      },
+      {
+        "session_id": "GC-2017-12-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-12-14/source/gc_mbp1_GC-2017-12-14.dbn.zst",
+        "byte_size": 2692,
+        "sha256": "4c0ca60d628cd1bdbc786d498a4d84e0e4a15b1a07e0ff9d5d17b02eafd65c1c"
+      },
+      {
+        "session_id": "GC-2017-12-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-12-20/source/gc_mbp1_GC-2017-12-20.dbn.zst",
+        "byte_size": 864,
+        "sha256": "c406fd0fcfa8acc5324e42e3025d6a942259fe6388f2faade9a3c5bc69e3068a"
+      },
+      {
+        "session_id": "GC-2017-12-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2017-12-29/source/gc_mbp1_GC-2017-12-29.dbn.zst",
+        "byte_size": 3111,
+        "sha256": "ce7f1147c82ec5c46c664152c61e16cc27da467e820fba5ef0f04e5d8e41d835"
+      },
+      {
+        "session_id": "GC-2018-01-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-05/source/gc_mbp1_GC-2018-01-05.dbn.zst",
+        "byte_size": 423,
+        "sha256": "641d75e800001c911a2d72dcf436d36cc262d49e0c4e47ed1f92f56f0f39518d"
+      },
+      {
+        "session_id": "GC-2018-01-12",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-12/source/gc_mbp1_GC-2018-01-12.dbn.zst",
+        "byte_size": 1730,
+        "sha256": "e50a21a0e2486e95b5152ef44b1e0b0a02e76dd7ffd52e3ea157e8db8be2e0dc"
+      },
+      {
+        "session_id": "GC-2018-01-19",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-19/source/gc_mbp1_GC-2018-01-19.dbn.zst",
+        "byte_size": 271,
+        "sha256": "a40c3e6e18643f0839d283fe5e4e56aa39e0bda9c46801092f1ad88bdf94899f"
+      },
+      {
+        "session_id": "GC-2018-01-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-22/source/gc_mbp1_GC-2018-01-22.dbn.zst",
+        "byte_size": 274,
+        "sha256": "2563e51688b705b5fbb3da263a181cc33d64634905711053ed559ec426128998"
+      },
+      {
+        "session_id": "GC-2018-01-24",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-24/source/gc_mbp1_GC-2018-01-24.dbn.zst",
+        "byte_size": 6803,
+        "sha256": "80faa5a04f29a45e026af8521a6c3b70c890898b2df4d5c2b7e3bcbc9c578d5a"
+      },
+      {
+        "session_id": "GC-2018-01-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-29/source/gc_mbp1_GC-2018-01-29.dbn.zst",
+        "byte_size": 2156,
+        "sha256": "d41b00719d4e92c13095574a50759a0f70f73410eab691801ef0790c5b7474bc"
+      },
+      {
+        "session_id": "GC-2018-01-31",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-01-31/source/gc_mbp1_GC-2018-01-31.dbn.zst",
+        "byte_size": 11762,
+        "sha256": "00071cca40fd43d0fb2ef502e2ea040456abfc30ff43774a40cc4e145619b96f"
+      },
+      {
+        "session_id": "GC-2018-02-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-02-05/source/gc_mbp1_GC-2018-02-05.dbn.zst",
+        "byte_size": 11358,
+        "sha256": "3506b70ab0b6cc01c109c15c4a52c9eb572a2a9562ceb284d6bada2e7018111d"
+      },
+      {
+        "session_id": "GC-2018-02-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-02-07/source/gc_mbp1_GC-2018-02-07.dbn.zst",
+        "byte_size": 3644,
+        "sha256": "a81cfd209d5bc0da1868521394d86575a988a9f2148f4d0003d79396405ebc0a"
+      },
+      {
+        "session_id": "GC-2018-02-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-02-20/source/gc_mbp1_GC-2018-02-20.dbn.zst",
+        "byte_size": 908,
+        "sha256": "1f7293e5d08aa6ad755c6bc4f3dc85d09e34a8288d4043bd4024f4af813f14ad"
+      },
+      {
+        "session_id": "GC-2018-03-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-03-07/source/gc_mbp1_GC-2018-03-07.dbn.zst",
+        "byte_size": 9278,
+        "sha256": "df9f50cae556e19d9910b8358bf14d7b0663b34a7c0c815dbde3454aa4e449d6"
+      },
+      {
+        "session_id": "GC-2018-04-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-04-06/source/gc_mbp1_GC-2018-04-06.dbn.zst",
+        "byte_size": 11449,
+        "sha256": "63fd346e2f26bf252890394d9aa6f5e881fd11a602d1183c9856eacfb965666d"
+      },
+      {
+        "session_id": "GC-2018-04-10",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-04-10/source/gc_mbp1_GC-2018-04-10.dbn.zst",
+        "byte_size": 3747,
+        "sha256": "52a76de132ee4fa9d32fca249cd35da86188790f4f0eb0736d34e92ad84a6b72"
+      },
+      {
+        "session_id": "GC-2018-04-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-04-13/source/gc_mbp1_GC-2018-04-13.dbn.zst",
+        "byte_size": 3929,
+        "sha256": "b38881231b4d6233771cbb219aedadab7d169633bd56afd09cfd0c87640848f6"
+      },
+      {
+        "session_id": "GC-2018-05-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-05-03/source/gc_mbp1_GC-2018-05-03.dbn.zst",
+        "byte_size": 4558,
+        "sha256": "a39a54453ed455f6f17bf278199b97a42ee64e7dc852d933ae5c1a4876308907"
+      },
+      {
+        "session_id": "GC-2018-05-10",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-05-10/source/gc_mbp1_GC-2018-05-10.dbn.zst",
+        "byte_size": 15356,
+        "sha256": "1d1713bced770c91f1b859bf4482056f54164265be31352a192561096469b0d9"
+      },
+      {
+        "session_id": "GC-2018-05-17",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-05-17/source/gc_mbp1_GC-2018-05-17.dbn.zst",
+        "byte_size": 17747,
+        "sha256": "10f2a1b7130d781fac2cf00f654ee4e9f5e50b8b2e334a2e0924c2324c21c1ed"
+      },
+      {
+        "session_id": "GC-2018-05-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-05-18/source/gc_mbp1_GC-2018-05-18.dbn.zst",
+        "byte_size": 13154,
+        "sha256": "e317a49edda2026f0fb8b69ccfa8ea6d54a7a85edc1d7d4bc9222315eefa89e5"
+      },
+      {
+        "session_id": "GC-2018-06-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-06-14/source/gc_mbp1_GC-2018-06-14.dbn.zst",
+        "byte_size": 10923,
+        "sha256": "123c7d94ad4318037439088da681a4c40b6e82bd7bc8eaaf37839a059391521c"
+      },
+      {
+        "session_id": "GC-2018-06-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-06-29/source/gc_mbp1_GC-2018-06-29.dbn.zst",
+        "byte_size": 18614,
+        "sha256": "78591ccdfa311c97488bb3b738f947bbb1ee79ac4856652d4399c7020277b51c"
+      },
+      {
+        "session_id": "GC-2018-07-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-03/source/gc_mbp1_GC-2018-07-03.dbn.zst",
+        "byte_size": 100939,
+        "sha256": "95c9f288ba91a01a3fc765f809b0cfbe479dfaa4e3e10dcabbf80e43d3d61ec7"
+      },
+      {
+        "session_id": "GC-2018-07-12",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-12/source/gc_mbp1_GC-2018-07-12.dbn.zst",
+        "byte_size": 106799,
+        "sha256": "f73af7faf50ec0d35764b966e0b63159486540d81cf9d0b8f510aa52bf59655e"
+      },
+      {
+        "session_id": "GC-2018-07-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-18/source/gc_mbp1_GC-2018-07-18.dbn.zst",
+        "byte_size": 88963,
+        "sha256": "c4dd1f072ecab7129ffc479f90bc3ee44f915922f0d7e1ee9d71281b891b3685"
+      },
+      {
+        "session_id": "GC-2018-07-19",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-19/source/gc_mbp1_GC-2018-07-19.dbn.zst",
+        "byte_size": 61952,
+        "sha256": "28e3af35592d45732b61b0ba3d8841bd4f92c6c7f34e5972b95b9a56171abedb"
+      },
+      {
+        "session_id": "GC-2018-07-24",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-24/source/gc_mbp1_GC-2018-07-24.dbn.zst",
+        "byte_size": 112430,
+        "sha256": "0d43d906eb8df47b71deaff37c1868ac5dc60b92b9f7c88cee687a50bad1fbda"
+      },
+      {
+        "session_id": "GC-2018-07-25",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-25/source/gc_mbp1_GC-2018-07-25.dbn.zst",
+        "byte_size": 212806,
+        "sha256": "65e46a8c3670450be4ad98ee971e565b37eb44418b2662d3cbbbc41a67212268"
+      },
+      {
+        "session_id": "GC-2018-07-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-30/source/gc_mbp1_GC-2018-07-30.dbn.zst",
+        "byte_size": 97533,
+        "sha256": "60e5a9adf768a85040f2e4a784516687348ec1d9c90cd7155d16335d861496be"
+      },
+      {
+        "session_id": "GC-2018-07-31",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-07-31/source/gc_mbp1_GC-2018-07-31.dbn.zst",
+        "byte_size": 147849,
+        "sha256": "7247813814c88fe6c162092889bb1a388c98399293594f1f9b39a123e98950d0"
+      },
+      {
+        "session_id": "GC-2018-08-01",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-01/source/gc_mbp1_GC-2018-08-01.dbn.zst",
+        "byte_size": 122186,
+        "sha256": "1a965cb63e263e36b9334aed1c3bb7da7f2581dccb61b3666f1b6384160e8e0b"
+      },
+      {
+        "session_id": "GC-2018-08-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-03/source/gc_mbp1_GC-2018-08-03.dbn.zst",
+        "byte_size": 125012,
+        "sha256": "56bb9bd8d03bed9963111fd0d72b21d198b3eb7c31ef119cef3d6ba48b3617d1"
+      },
+      {
+        "session_id": "GC-2018-08-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-06/source/gc_mbp1_GC-2018-08-06.dbn.zst",
+        "byte_size": 61389,
+        "sha256": "88495b405330fbb1a60b5bf6bcdc05c44087202a8bba3f6e6dac3c538be2cfc7"
+      },
+      {
+        "session_id": "GC-2018-08-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-13/source/gc_mbp1_GC-2018-08-13.dbn.zst",
+        "byte_size": 163020,
+        "sha256": "e298e4616aa1c0e2b3dd4ecc364f0727ac72c5e0a391132e62392c5dce1b14ad"
+      },
+      {
+        "session_id": "GC-2018-08-27",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-27/source/gc_mbp1_GC-2018-08-27.dbn.zst",
+        "byte_size": 108969,
+        "sha256": "ae02363eb5ed88280944be3a6181ac3dfea195af68d11faffe9c5f4385e27e40"
+      },
+      {
+        "session_id": "GC-2018-08-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-29/source/gc_mbp1_GC-2018-08-29.dbn.zst",
+        "byte_size": 100712,
+        "sha256": "a403cbd35ecfbfd2e1a4a25b91d42dfc0ba39903f94b14385dd142ed11e628d8"
+      },
+      {
+        "session_id": "GC-2018-08-31",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-08-31/source/gc_mbp1_GC-2018-08-31.dbn.zst",
+        "byte_size": 135475,
+        "sha256": "48a4334ba464a1905f059ff729b8ca54eaab5df5bac81ef469e84be3d30bfb2d"
+      },
+      {
+        "session_id": "GC-2018-09-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-05/source/gc_mbp1_GC-2018-09-05.dbn.zst",
+        "byte_size": 204203,
+        "sha256": "f94035fa392f43fc8ebee1802c343759ec72287aade2943682e558abb25190cd"
+      },
+      {
+        "session_id": "GC-2018-09-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-06/source/gc_mbp1_GC-2018-09-06.dbn.zst",
+        "byte_size": 264283,
+        "sha256": "aac630f61683949c4ac6608e0687dd80170817dd88dd6a1dd1f05a522c2f2f7a"
+      },
+      {
+        "session_id": "GC-2018-09-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-07/source/gc_mbp1_GC-2018-09-07.dbn.zst",
+        "byte_size": 212478,
+        "sha256": "7a62aadd2707f375877323afb0c45ae06b1432b0769a68578f17248e39229b92"
+      },
+      {
+        "session_id": "GC-2018-09-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-13/source/gc_mbp1_GC-2018-09-13.dbn.zst",
+        "byte_size": 187147,
+        "sha256": "01bbd8a3af4f96a2fe3dd37919f04e0627c6be37e5b431e1c5aceacde282ce28"
+      },
+      {
+        "session_id": "GC-2018-09-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-14/source/gc_mbp1_GC-2018-09-14.dbn.zst",
+        "byte_size": 306455,
+        "sha256": "aac68bc581332a2a7c2bab841d3555cb158afd391583f54486ca882015b96377"
+      },
+      {
+        "session_id": "GC-2018-09-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-09-18/source/gc_mbp1_GC-2018-09-18.dbn.zst",
+        "byte_size": 187316,
+        "sha256": "a67ef9ba9251676099a17d8410459f1c11e5f6435034e295ff1a10b95062b6cf"
+      },
+      {
+        "session_id": "GC-2018-10-02",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-10-02/source/gc_mbp1_GC-2018-10-02.dbn.zst",
+        "byte_size": 639382,
+        "sha256": "98092acbb2bb59e5f9fbe41f5c58d3178cdfca31089a1f870229d1fea57f09d1"
+      },
+      {
+        "session_id": "GC-2018-10-08",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-10-08/source/gc_mbp1_GC-2018-10-08.dbn.zst",
+        "byte_size": 295166,
+        "sha256": "bca119bd439a642fb05de6c48ff1b8d58840bd2fdd24373430fe6830aefd31fb"
+      },
+      {
+        "session_id": "GC-2018-10-11",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-10-11/source/gc_mbp1_GC-2018-10-11.dbn.zst",
+        "byte_size": 748225,
+        "sha256": "1bd8bc899d4674d5ce742f063e8bc96a7a5390a46bb5095d67a3a4c8d71c4933"
+      },
+      {
+        "session_id": "GC-2018-11-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-11-07/source/gc_mbp1_GC-2018-11-07.dbn.zst",
+        "byte_size": 1776227,
+        "sha256": "02bd1fcee03855849b0201160e7b69efb937faf2f81fec64c61ea1b47a47f867"
+      },
+      {
+        "session_id": "GC-2018-11-26",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-11-26/source/gc_mbp1_GC-2018-11-26.dbn.zst",
+        "byte_size": 10133291,
+        "sha256": "d79e84011f008cead61ca51a26ff0c7562e8409ef094ee182225a24a92c2b49b"
+      },
+      {
+        "session_id": "GC-2018-11-28",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-11-28/source/gc_mbp1_GC-2018-11-28.dbn.zst",
+        "byte_size": 17061680,
+        "sha256": "7e481da77ee004092c74b6dfbe3197cd1e7f75f1ff75cbd2e3216548ac671dd0"
+      },
+      {
+        "session_id": "GC-2018-11-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-11-29/source/gc_mbp1_GC-2018-11-29.dbn.zst",
+        "byte_size": 25331620,
+        "sha256": "d42229bc7afe7f87e577e28b9d8f5bff0ac846a75bfca6470c2e50fe8288c54d"
+      },
+      {
+        "session_id": "GC-2018-12-27",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-12-27/source/gc_mbp1_GC-2018-12-27.dbn.zst",
+        "byte_size": 28863821,
+        "sha256": "4660b21e57e8730bac2548fbb014ed9476c597ea77113556bbe0ee9af5d0820b"
+      },
+      {
+        "session_id": "GC-2018-12-28",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2018-12-28/source/gc_mbp1_GC-2018-12-28.dbn.zst",
+        "byte_size": 23800191,
+        "sha256": "fda5caf1bf0f32ceb3343c50f168e522448b60dce81c5b0bd66b78965f9247b7"
+      },
+      {
+        "session_id": "GC-2019-01-04",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-04/source/gc_mbp1_GC-2019-01-04.dbn.zst",
+        "byte_size": 36893561,
+        "sha256": "4c8b785b7c90e728ffb319af76a22a91b187c070dfd2890efa6ad1e57fc68c8a"
+      },
+      {
+        "session_id": "GC-2019-01-09",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-09/source/gc_mbp1_GC-2019-01-09.dbn.zst",
+        "byte_size": 28925216,
+        "sha256": "e77e8c74509e8a0e40a10aa4d81f99b37c55b4b8a9f7b9e681cae7d0089e8d6d"
+      },
+      {
+        "session_id": "GC-2019-01-11",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-11/source/gc_mbp1_GC-2019-01-11.dbn.zst",
+        "byte_size": 24002523,
+        "sha256": "5c23cbd598adb4ec730688d27777c3f5c0c0bb0b384f20fbc1e75005e55b9291"
+      },
+      {
+        "session_id": "GC-2019-01-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-14/source/gc_mbp1_GC-2019-01-14.dbn.zst",
+        "byte_size": 20890944,
+        "sha256": "e7eec5b79ff5788922d9002d62b06dc4ff9424c9d3a8022b09cbb31f96938665"
+      },
+      {
+        "session_id": "GC-2019-01-16",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-16/source/gc_mbp1_GC-2019-01-16.dbn.zst",
+        "byte_size": 22937175,
+        "sha256": "6f65b8aa1410069d3a493cba452818c5cd5d7bbc05b6f14cb4db83a44dc3ae43"
+      },
+      {
+        "session_id": "GC-2019-01-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-18/source/gc_mbp1_GC-2019-01-18.dbn.zst",
+        "byte_size": 26047475,
+        "sha256": "fd415b4750ccd3adae7baf774dedd25be88d580038b7e0cdc2caab3c98e9dd67"
+      },
+      {
+        "session_id": "GC-2019-01-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-22/source/gc_mbp1_GC-2019-01-22.dbn.zst",
+        "byte_size": 22336849,
+        "sha256": "6cdb142130ed59a39c55b7f22790deb69b8447654bf7f8f5cdf2f6918ce6f083"
+      },
+      {
+        "session_id": "GC-2019-01-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-23/source/gc_mbp1_GC-2019-01-23.dbn.zst",
+        "byte_size": 23278458,
+        "sha256": "82ce598d3c1089f474aed777980fef64104b52c3b1b3a11c8d656993b0c8516c"
+      },
+      {
+        "session_id": "GC-2019-01-25",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-25/source/gc_mbp1_GC-2019-01-25.dbn.zst",
+        "byte_size": 36839490,
+        "sha256": "86747bb48165df363615439162ed5c9bc071b9fc0634f0f17af516e95474948d"
+      },
+      {
+        "session_id": "GC-2019-01-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-01-30/source/gc_mbp1_GC-2019-01-30.dbn.zst",
+        "byte_size": 32924585,
+        "sha256": "8090fe45aa4d795f051749fe4541b07fb0c404ff9cae2b6e3dc200861e048790"
+      },
+      {
+        "session_id": "GC-2019-02-01",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-02-01/source/gc_mbp1_GC-2019-02-01.dbn.zst",
+        "byte_size": 22645949,
+        "sha256": "25b1043843467dc18f601d5c3dcee77bf992e3360263ac9b280b25dc27e647c5"
+      },
+      {
+        "session_id": "GC-2019-02-08",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-02-08/source/gc_mbp1_GC-2019-02-08.dbn.zst",
+        "byte_size": 16165006,
+        "sha256": "e7abd25b1e6c1c1d84dc549d1e53eae1255d3ef898924b572bf68d313cfae25e"
+      },
+      {
+        "session_id": "GC-2019-03-01",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-03-01/source/gc_mbp1_GC-2019-03-01.dbn.zst",
+        "byte_size": 28049205,
+        "sha256": "87338254a5268f63efb4dd7ab4923eed5144279e797cb03cca59bffede6e74dc"
+      },
+      {
+        "session_id": "GC-2019-03-11",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-03-11/source/gc_mbp1_GC-2019-03-11.dbn.zst",
+        "byte_size": 20266646,
+        "sha256": "917394d683250237ae9db4877ec2e27290bd67ac8c94672700bfadf2805a5edc"
+      },
+      {
+        "session_id": "GC-2019-03-19",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-03-19/source/gc_mbp1_GC-2019-03-19.dbn.zst",
+        "byte_size": 19457521,
+        "sha256": "d32b1f8b354bd46e25b72866c87aa11609cd9873f98392fe097d23d6478b0644"
+      },
+      {
+        "session_id": "GC-2019-03-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-03-22/source/gc_mbp1_GC-2019-03-22.dbn.zst",
+        "byte_size": 27213500,
+        "sha256": "0a67a24f74d75ee4f82ca57acf1bdded4d4e9a56122dbd64c5bc6207261c9f31"
+      },
+      {
+        "session_id": "GC-2019-03-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-03-29/source/gc_mbp1_GC-2019-03-29.dbn.zst",
+        "byte_size": 1000313,
+        "sha256": "c18d24ec2a683d7f7310ccddf5b1f187293dc8c9b38f1726062cb3ed8c7a1501"
+      },
+      {
+        "session_id": "GC-2019-04-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-04-03/source/gc_mbp1_GC-2019-04-03.dbn.zst",
+        "byte_size": 803487,
+        "sha256": "a55a293d910c3e31dbb91cc816f69b3737212f13464cbd4ebbecaae35c0a4e0e"
+      },
+      {
+        "session_id": "GC-2019-04-04",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-04-04/source/gc_mbp1_GC-2019-04-04.dbn.zst",
+        "byte_size": 482794,
+        "sha256": "ec1995f9547acd2bcb87374b6ca568cb0d80b087c0e6b8ce46fe9df03b90bf15"
+      },
+      {
+        "session_id": "GC-2019-04-09",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-04-09/source/gc_mbp1_GC-2019-04-09.dbn.zst",
+        "byte_size": 721999,
+        "sha256": "c740c08da86dc23131407bca3bf23138df19d458675d679bc3aa127aabc27549"
+      },
+      {
+        "session_id": "GC-2019-04-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-04-22/source/gc_mbp1_GC-2019-04-22.dbn.zst",
+        "byte_size": 470438,
+        "sha256": "dc4f101e61c21225b5e26c617894edc8ff08ebcf57378f2ef18e310cc7a80e80"
+      },
+      {
+        "session_id": "GC-2019-05-21",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-05-21/source/gc_mbp1_GC-2019-05-21.dbn.zst",
+        "byte_size": 2953187,
+        "sha256": "96580af8d5d26d49649995adcf12b3586384a37cfe0934c02772fb3bc1d14090"
+      },
+      {
+        "session_id": "GC-2019-05-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-05-23/source/gc_mbp1_GC-2019-05-23.dbn.zst",
+        "byte_size": 8133413,
+        "sha256": "9fa707ae1987280e61690ab25abc4f7b7edc3d24ab6ca2b18ecf2eac794581ce"
+      },
+      {
+        "session_id": "GC-2019-05-24",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-05-24/source/gc_mbp1_GC-2019-05-24.dbn.zst",
+        "byte_size": 7819216,
+        "sha256": "cf963096977aa21236fe7f375dec70e6d82ede1b61f786972b17349aa61ad666"
+      },
+      {
+        "session_id": "GC-2019-05-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-05-29/source/gc_mbp1_GC-2019-05-29.dbn.zst",
+        "byte_size": 18100076,
+        "sha256": "9a26d808a7172fa41351c77de2d338031b03b54b6e01bcf6f2e51b937f30bb8e"
+      },
+      {
+        "session_id": "GC-2019-06-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-06-14/source/gc_mbp1_GC-2019-06-14.dbn.zst",
+        "byte_size": 36337827,
+        "sha256": "ac770098102e74520452e1ea8ed2ca227b385996b560d49dffbceae14282e60c"
+      },
+      {
+        "session_id": "GC-2019-06-20",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-06-20/source/gc_mbp1_GC-2019-06-20.dbn.zst",
+        "byte_size": 46188594,
+        "sha256": "9a5e9dc85359749b70698d29f596eed39141c34d3acf392bafdcf697639b872a"
+      },
+      {
+        "session_id": "GC-2019-06-25",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-06-25/source/gc_mbp1_GC-2019-06-25.dbn.zst",
+        "byte_size": 49029182,
+        "sha256": "86607295dce18a2a8452f3e474728865f793890991f5259955469ed277cabf57"
+      },
+      {
+        "session_id": "GC-2019-07-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-03/source/gc_mbp1_GC-2019-07-03.dbn.zst",
+        "byte_size": 35634450,
+        "sha256": "d38e36d1845ac6d0549393c9b8ea43814e955034b29b8e169936750274f589be"
+      },
+      {
+        "session_id": "GC-2019-07-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-05/source/gc_mbp1_GC-2019-07-05.dbn.zst",
+        "byte_size": 35865898,
+        "sha256": "f9930bbc5b80722f5dd18f9936d4f80cf41821ce720cb78590ddf85f65eb9984"
+      },
+      {
+        "session_id": "GC-2019-07-10",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-10/source/gc_mbp1_GC-2019-07-10.dbn.zst",
+        "byte_size": 36489475,
+        "sha256": "b37ccd3766b5099b0956d8a3d41994851233cb1a09c9007f2411d78bc4a75284"
+      },
+      {
+        "session_id": "GC-2019-07-11",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-11/source/gc_mbp1_GC-2019-07-11.dbn.zst",
+        "byte_size": 31365194,
+        "sha256": "ed51cc0cc4942fe0235366abe912387d1c8dd641590100aec34c7d34ef944a8f"
+      },
+      {
+        "session_id": "GC-2019-07-12",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-12/source/gc_mbp1_GC-2019-07-12.dbn.zst",
+        "byte_size": 23896013,
+        "sha256": "64d023343ea27f59bbfcd5321f4e7406283c1cb65e490ed99a4998737765e22f"
+      },
+      {
+        "session_id": "GC-2019-07-16",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-16/source/gc_mbp1_GC-2019-07-16.dbn.zst",
+        "byte_size": 28933724,
+        "sha256": "3abee9484551feecb5a653130959629f37dd193adf63e19f4cfe6c02829b9d61"
+      },
+      {
+        "session_id": "GC-2019-07-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-18/source/gc_mbp1_GC-2019-07-18.dbn.zst",
+        "byte_size": 35546981,
+        "sha256": "34a157a8fd51e78b02b4bcf657f8a603bbc10007bb176a6733e06048eb150b5f"
+      },
+      {
+        "session_id": "GC-2019-07-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-22/source/gc_mbp1_GC-2019-07-22.dbn.zst",
+        "byte_size": 26141652,
+        "sha256": "d7ee5dfcac41222657cb6361ec44aad8099c422dffa85d291a988db4727d8363"
+      },
+      {
+        "session_id": "GC-2019-07-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-23/source/gc_mbp1_GC-2019-07-23.dbn.zst",
+        "byte_size": 32123233,
+        "sha256": "de94a78bb9c9f4ae2973667d5a09177425227cd40d90d827b1b14da82cea8c9a"
+      },
+      {
+        "session_id": "GC-2019-07-24",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-24/source/gc_mbp1_GC-2019-07-24.dbn.zst",
+        "byte_size": 29092550,
+        "sha256": "74c3c421e0a3e5fc2430dc482a2def13301e070735d62eb504f85af7a83360a2"
+      },
+      {
+        "session_id": "GC-2019-07-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-30/source/gc_mbp1_GC-2019-07-30.dbn.zst",
+        "byte_size": 9354138,
+        "sha256": "2bded805007012fb083f5015ed7b36227f5397d75f979544b7d2a72f7a32f694"
+      },
+      {
+        "session_id": "GC-2019-07-31",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-07-31/source/gc_mbp1_GC-2019-07-31.dbn.zst",
+        "byte_size": 1806321,
+        "sha256": "7e8b2f2524a2826645d070cac727ca88bb5323a9536779e2a6f6434305f0c265"
+      },
+      {
+        "session_id": "GC-2019-08-01",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-08-01/source/gc_mbp1_GC-2019-08-01.dbn.zst",
+        "byte_size": 3447448,
+        "sha256": "90af0b02ae2710b53215c9fb02b1e37b7468f9a59013b5be29420e510d52ba9f"
+      },
+      {
+        "session_id": "GC-2019-08-30",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-08-30/source/gc_mbp1_GC-2019-08-30.dbn.zst",
+        "byte_size": 1864868,
+        "sha256": "a36ab2bab472cd06fa73ee13290193bdfcb79d22bfc5c66f7baf61d2ccbc8455"
+      },
+      {
+        "session_id": "GC-2019-09-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-09-03/source/gc_mbp1_GC-2019-09-03.dbn.zst",
+        "byte_size": 1550540,
+        "sha256": "2f10ca7978dd649f8b34e45dfae4efabadac5dc4324c78bc909caf2698bfe4f9"
+      },
+      {
+        "session_id": "GC-2019-09-06",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-09-06/source/gc_mbp1_GC-2019-09-06.dbn.zst",
+        "byte_size": 2465041,
+        "sha256": "c32ee66a9d4fad6479a3c070024ac12238a50752466c32ead57808d566aa9f4c"
+      },
+      {
+        "session_id": "GC-2019-09-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-09-23/source/gc_mbp1_GC-2019-09-23.dbn.zst",
+        "byte_size": 716403,
+        "sha256": "1dd47b40c46cdac86463f91aa06442b069a856e10ce17fdd0754fdf7cad41614"
+      },
+      {
+        "session_id": "GC-2019-10-11",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-10-11/source/gc_mbp1_GC-2019-10-11.dbn.zst",
+        "byte_size": 1150883,
+        "sha256": "b4ea863ce93d457fbdf64be83e276be73e8b9869ad919eb5335020c645e6cddc"
+      },
+      {
+        "session_id": "GC-2019-10-18",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-10-18/source/gc_mbp1_GC-2019-10-18.dbn.zst",
+        "byte_size": 684571,
+        "sha256": "08fd7ba2fbfddee461e01d30f214c06f80939e01ecbaba11a72c72fab3921672"
+      },
+      {
+        "session_id": "GC-2019-10-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-10-29/source/gc_mbp1_GC-2019-10-29.dbn.zst",
+        "byte_size": 2748931,
+        "sha256": "6b9e4a8f5924ced2a57465f4a2779311649b404d079620fb55170e2790345052"
+      },
+      {
+        "session_id": "GC-2019-11-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-11-07/source/gc_mbp1_GC-2019-11-07.dbn.zst",
+        "byte_size": 1804056,
+        "sha256": "0ff1addb4b3f920293360818f036698693c9ecf3ed88957a3468720bcbed34ee"
+      },
+      {
+        "session_id": "GC-2019-12-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-12-05/source/gc_mbp1_GC-2019-12-05.dbn.zst",
+        "byte_size": 31653119,
+        "sha256": "3e68db51920f359d317ce275cb3f0208e26fd69dbfdc0e88671e6ad58622fbd0"
+      },
+      {
+        "session_id": "GC-2019-12-09",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-12-09/source/gc_mbp1_GC-2019-12-09.dbn.zst",
+        "byte_size": 19793621,
+        "sha256": "3c93b8bf90ca4afcaf27709c9c9e6fe7e4b70f49e5983264ef8a6f1ed82b6bb8"
+      },
+      {
+        "session_id": "GC-2019-12-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-12-13/source/gc_mbp1_GC-2019-12-13.dbn.zst",
+        "byte_size": 39573793,
+        "sha256": "88930ccd0448d1d5a473e8dd95046dca6ed378c0274b8db79435c90214d12ff4"
+      },
+      {
+        "session_id": "GC-2019-12-17",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-12-17/source/gc_mbp1_GC-2019-12-17.dbn.zst",
+        "byte_size": 18366295,
+        "sha256": "04cb3cf0e3bf6fafb4e9fa91f79a4218f53bb44864d8cd18be60d6dd347b4c73"
+      },
+      {
+        "session_id": "GC-2019-12-23",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2019-12-23/source/gc_mbp1_GC-2019-12-23.dbn.zst",
+        "byte_size": 16865134,
+        "sha256": "a61cda22083cd9a55c79cc1dfaf6ebad936bbc517967dac44ea5cea17505c653"
+      },
+      {
+        "session_id": "GC-2020-01-03",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-03/source/gc_mbp1_GC-2020-01-03.dbn.zst",
+        "byte_size": 43080347,
+        "sha256": "b3d4ac37bd29f96b842a424caadd7137895b7540bc68fa5d924639ec324f9b73"
+      },
+      {
+        "session_id": "GC-2020-01-07",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-07/source/gc_mbp1_GC-2020-01-07.dbn.zst",
+        "byte_size": 37180958,
+        "sha256": "b4aa3fe7abdf5299fce86778f57ae42a70763b81f030d0fe15491886fc2821a7"
+      },
+      {
+        "session_id": "GC-2020-01-10",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-10/source/gc_mbp1_GC-2020-01-10.dbn.zst",
+        "byte_size": 30411554,
+        "sha256": "642e040b7814f06e258a3ef4ce14355820371e5e212f9d5487395e787d7fd8b0"
+      },
+      {
+        "session_id": "GC-2020-01-14",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-14/source/gc_mbp1_GC-2020-01-14.dbn.zst",
+        "byte_size": 32328303,
+        "sha256": "d54f4ac41253a45f3314679859c13f8b87048c697e79f1c40704870cde48a21d"
+      },
+      {
+        "session_id": "GC-2020-01-17",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-17/source/gc_mbp1_GC-2020-01-17.dbn.zst",
+        "byte_size": 24990771,
+        "sha256": "a56747baf2e27dcae97c821fef3310ff459d3620a53b8d8f10212482c3873211"
+      },
+      {
+        "session_id": "GC-2020-01-22",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-22/source/gc_mbp1_GC-2020-01-22.dbn.zst",
+        "byte_size": 28243680,
+        "sha256": "645936f068bf700e8014766a43a2970b578a48034b9e753a72ff612d3503b5ea"
+      },
+      {
+        "session_id": "GC-2020-01-24",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-24/source/gc_mbp1_GC-2020-01-24.dbn.zst",
+        "byte_size": 43708238,
+        "sha256": "8ab50f3f089040897d7f4229c3a13d94eca0b6ec87f6a29eaaf8f0f8f6f6390d"
+      },
+      {
+        "session_id": "GC-2020-01-29",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-29/source/gc_mbp1_GC-2020-01-29.dbn.zst",
+        "byte_size": 35934977,
+        "sha256": "48a37096aa5285e4673305d0b6f3c3776e5ddc5a2265466812276c3d13301200"
+      },
+      {
+        "session_id": "GC-2020-01-31",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-01-31/source/gc_mbp1_GC-2020-01-31.dbn.zst",
+        "byte_size": 33282304,
+        "sha256": "483e543aa03cb403143f0176cb20dd4e5fe3a7aef0790f19c6d1271995228e8e"
+      },
+      {
+        "session_id": "GC-2020-02-05",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-02-05/source/gc_mbp1_GC-2020-02-05.dbn.zst",
+        "byte_size": 32038962,
+        "sha256": "a67a041c6c5fdc361102e3a6867a029ccfeeaae2405fd22b0fcf28428d59b272"
+      },
+      {
+        "session_id": "GC-2020-02-19",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-02-19/source/gc_mbp1_GC-2020-02-19.dbn.zst",
+        "byte_size": 29729065,
+        "sha256": "d5be127dfaf6c9b45e4c59d95a8562f0b67d748eaf08f7c668690059b120c10d"
+      },
+      {
+        "session_id": "GC-2020-02-27",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-02-27/source/gc_mbp1_GC-2020-02-27.dbn.zst",
+        "byte_size": 51227128,
+        "sha256": "21f110ed6b464914162368929904ac5ee2e7e51ce6fbac8fddc50b5d092ee0c4"
+      },
+      {
+        "session_id": "GC-2020-03-04",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-03-04/source/gc_mbp1_GC-2020-03-04.dbn.zst",
+        "byte_size": 29362805,
+        "sha256": "f4e4d61b1091750b29591589783629e4086ce22c69434f63233781a102071dc6"
+      },
+      {
+        "session_id": "GC-2020-03-13",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-03-13/source/gc_mbp1_GC-2020-03-13.dbn.zst",
+        "byte_size": 27948547,
+        "sha256": "a1780574ec665365072deaa39351ec6f2fa3fe5e95bce10860c47450ee3ac4fb"
+      },
+      {
+        "session_id": "GC-2020-03-16",
+        "native_object_relative_path": "hmt2-gc-mbp1-v1/sessions/GC-2020-03-16/source/gc_mbp1_GC-2020-03-16.dbn.zst",
+        "byte_size": 29793903,
+        "sha256": "ac4bcd532d6997b2ad8fcfbc31a9701152c2897ba449a225f9aec43c92d21c94"
+      }
+    ]
+  },
+  "governed_tracked_inputs": {
+    "note": "Files genuinely loaded/referenced by the current canonicalisation path (market_truth/acquisition/canonical_worker.py + research/hmt2/hmt2i_gc_corpus_canonicalise.py). Hashes are of the exact blob at the post-merge HEAD (git show <sha>:<path> | sha256sum), not the working-tree copy.",
+    "head_sha": "ca48e8c250aa661cb415f8c75cc867a737062581",
+    "files": [
+      {
+        "path": "research/hmt2/corpus-selection-manifest-v2.json",
+        "sha256": "2fd83976157adf1f7780d98f940f1a1731e5277ba91313b75dd7788bb344be89",
+        "role": "CORPUS_MANIFEST_REF constant in hmt2i_gc_corpus_canonicalise.py \u2014 corpus/session selection authority referenced by the canonicalisation driver"
+      },
+      {
+        "path": "research/hmt2/gc-contract-mapping-table-v2.json",
+        "sha256": "033d6daaa5c9649c5b48f0d2a28a24684c4c628d6e55c22c762bbaa957c48195",
+        "role": "The REAL GC contract-mapping file actually loaded at runtime. Verified filename via code: MAPPING_TABLE_PATH in hmt2i_gc_corpus_canonicalise.py resolves to this file, passed as mapping_table_path into canonical_worker.py's ContractMappingTable.from_json_file(). CORRECTS the dispatch's assumed filename 'gc-contract-mapping-table-v2.json' \u2014 assumption was actually correct, confirmed live rather than inferred."
+      }
+    ],
+    "excluded_but_noted": [
+      {
+        "path": "research/hmt2/corpus-selection-manifest-v2-allocation-evidence.json",
+        "reason": "Supporting allocation-evidence documentation output by research/hmt2/generate_selection_manifest_v2.py. NOT read by canonical_worker.py or the canonicalisation driver at runtime \u2014 not a governed input to the canonicalisation path itself, so excluded from the authoritative set above."
+      },
+      {
+        "path": "research/hmt2/gc-session-contract-activity-v1.json",
+        "reason": "Read by the ACQUISITION/selection scripts (hmt2c/hmt2d/hmt2e/hmt2h), not by canonical_worker.py or the canonicalisation driver. Out of scope for 'current canonicalisation path' per this dispatch's Step 6 framing; flagged here in case HELM's acquisition-side work needs it."
+      }
+    ]
+  },
+  "recovery_oracle": {
+    "source_pr": {
+      "number": 176,
+      "state": "OPEN",
+      "merged": false,
+      "branch": "docs/hmt2-canonical-store-incident-2026-09-25",
+      "head_sha_at_manifest_generation": "576a21ccbd7a0b28378c665995b6f4d7e7ac4726",
+      "head_sha_current_live_2026-09-25": "ceade295ee3919aeff07d1344083ebf99557fb9c",
+      "head_sha_drift_note": "The single commit between these two SHAs (576a21c..ceade295) only ADDS this manifest and the native-source-transfer-manifest.json to the branch \u2014 it does not touch full-regression-progress.json, the forensic evidence files, or any other referenced evidence file. This is expected self-referential staleness (a manifest cannot record the hash of the commit that first introduces it) and is NOT content drift: all evidence file hashes below were independently re-verified at the current live HEAD and matched exactly."
+    },
+    "note": "PR #176 has not merged yet. This is fine \u2014 it is evidence, not authoritative corpus code, so it does not need to be on the main/authoritative branch to be usable. HELM should be pointed at this branch/commit/path regardless of merge state.",
+    "path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/full-regression-progress.json",
+    "sha256": "a5808a1246ab3cf0e9555de86ae20f0c2500eb61ba5f21d3f677c9ba639ba768",
+    "companion_log_path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/full_regression_driver.log.txt",
+    "companion_log_sha256": "a6bf1194c52fae5d13103b42bf6835bfad14fd860a154059e4cf98e8efe15886",
+    "independent_reverification": "Re-read the actual file and independently counted status values across all 'completed' entries: {'MATCH': 150}, total completed = 150, zero DRIFT entries present. This CONFIRMS the claimed match_count: 150, drift_count: 0 \u2014 not taken on trust from the prior report."
+  },
+  "forensic_evidence": {
+    "files": [
+      {
+        "path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/hmt2_forensic_report.json",
+        "sha256": "7407e7f759094af56991f4733326d25a447a928bd96545edbfc539283c406bea"
+      },
+      {
+        "path": "docs/incidents/2026-09-25-hmt2-canonical-store-data-loss-evidence/hmt2_forensic_per_session.json",
+        "sha256": "10ab90be0bc034fbc00915a68bf4c425a0a9d6537c53403886d1a93962ce8563"
+      }
+    ],
+    "branch": "docs/hmt2-canonical-store-incident-2026-09-25 (PR #176, OPEN, not merged)",
+    "explicit_statement": "These are forensic ANALYSIS reports about the historical namespace-defect investigation and the 2026-09-25 data-loss incident. They are NOT a replacement for the physically-deleted 'canonical-v1-superseded-by-namespace-defect' forensic tree (1009 parquet files), which is genuinely, permanently lost. If canonical output is later regenerated and happens to look similar, it MUST NOT be represented as a recreation of that original defect-era artefact set."
+  },
+  "exclusions": {
+    "must_not_be_transferred_or_treated_as_authoritative": [
+      "research-canonical-store/hmt2-gc-mbp1-v1/canonical-v2 \u2014 derived/recomputed canonical output; NOT source-of-truth, must be recomputed or independently verified by HELM, never assumed authoritative as transferred",
+      "The deleted 'canonical-v1-superseded-by-namespace-defect' forensic tree \u2014 genuinely, permanently lost; do not represent any future regenerated output as this tree",
+      "Any of the 13 other Rogue dell-debian HMT worktrees named above under other_dell_debian_hmt_worktrees_NOT_authoritative (hermes-gc-live-architecture-docs, hmt0-architecture-closure, hmt1-canonical-market-event-replay-foundation, hmt2-bounded-canonical-spool, hmt2-bounded-reload-verification-fix, hmt2-emergency-test-isolation, hmt2-memory-investigation-patched, hmt2-memory-profiling, hmt2-partitionwriter-bounded, hmt2-permission-bypass-incident, hmt2-slice-containment-guard, hmt2-snapshot-path-fix, and the bare /srv/rogue-hermes/canonical clone) [corrected 2026-09-25: hmt2-permission-bypass-incident (PR #178) was missing from the original count/list and has been added]",
+      "Any secrets/credentials (none identified in or near the transfer set; none of the files referenced above are credential-bearing)",
+      "Any Python virtualenvs on dell-debian (e.g. /tmp/hermes-test-venv, /tmp/hmt1_venv, /tmp/hmt2b1_venv, /tmp/hmt2b1_dbn_venv, /tmp/hmt2b1_databento_venv, /tmp/hmt2-partitionwriter-bounded-venv, /tmp/hmt2-work-venv, /tmp/hmt2-mem-profile-venv, /tmp/databento_venv)",
+      "Arbitrary /tmp/hmt2-* scratch/audit paths, including /tmp/hmt2-handoff-check (this dispatch's own scratch verification workspace)",
+      "research-canonical-store/hmt2-gc-mbp1-v1/.staging and /quality subtrees \u2014 working/scratch state of the canonicaliser, not durable authority",
+      "The hmt2-incident-evidence worktree as a whole \u2014 only the individually-named, individually-hashed evidence files above are endorsed for handoff, not the worktree wholesale",
+      "The hmt2-permission-bypass-incident worktree as a whole \u2014 holds PR #178's incident documentation only; only the individually-named, individually-hashed evidence file below is endorsed for handoff reference, not the worktree wholesale"
+    ]
+  },
+  "permission_bypass_incident_pr_178": {
+    "purpose": "Durable record of the separate 2026-09-25 permission-boundary-bypass incident during the PR #177 merge execution (process concern, distinct from the canonical-store data-loss incident in PR #176). Does not block use of merge commit ca48e8c250aa661cb415f8c75cc867a737062581 as the authoritative execution point (ratified by Architect on technical/content grounds).",
+    "branch": "docs/hmt2-permission-bypass-incident-2026-09-25",
+    "state": "OPEN, unmerged (must not be merged per standing instruction)",
+    "head_sha": "7cdb594c46a4768a66b2cba7dcddf962376b5a62",
+    "evidence_file": {
+      "path": "docs/incidents/2026-09-25-hmt2-permission-boundary-bypass.md",
+      "sha256": "42af30891f48eab9450c91476939fc0bf62d8bacea1f5b8dda45f629e653141e"
+    }
+  },
+  "independent_reverification_2026-09-25": {
+    "performed_by": "FORGE Engineer dispatch (dell-debian SSH + gh CLI, read/verify/hash only, no heavy compute)",
+    "scope": "Every claim in this manifest and the standalone native-source-transfer-manifest.json was independently re-derived from the live repo/filesystem, not trusted from either file's own cached content.",
+    "result": "ALL CLAIMS CONFIRMED MATCHING, with one benign self-referential staleness noted in recovery_oracle.source_pr (see head_sha_drift_note) and one real gap corrected: hmt2-permission-bypass-incident (PR #178) worktree had been omitted from other_dell_debian_hmt_worktrees_NOT_authoritative and the exclusions block; both are now corrected, and a permission_bypass_incident_pr_178 block was added.",
+    "native_integrity": "162/162 COMPLETE-state ledger artefacts independently re-verified (existence + byte_size + sha256 + no duplicate paths) directly against research-source on dell-debian \u2014 ZERO mismatches. This is the third independent pass at this exact check.",
+    "recovery_oracle_reverified": "full-regression-progress.json re-read live: 150/150 'completed' entries have status MATCH, 0 DRIFT \u2014 confirms manifest's claim exactly.",
+    "hashes_reconfirmed_exactly": [
+      "gc_corpus_acquisition_ledger.json sha256 08ca3d98b0bccb805f9070c1d773668a9947ad51ee7eafe2854984506346d860",
+      "mbp1_pilot_acquisition_catalogue.json sha256 3b28747c35527828530bd103638861c7e047272c75775a545cb5a36d9dd667a9",
+      "research/hmt2/corpus-selection-manifest-v2.json @ ca48e8c2 sha256 2fd83976157adf1f7780d98f940f1a1731e5277ba91313b75dd7788bb344be89",
+      "research/hmt2/gc-contract-mapping-table-v2.json @ ca48e8c2 sha256 033d6daaa5c9649c5b48f0d2a28a24684c4c628d6e55c22c762bbaa957c48195",
+      "full-regression-progress.json sha256 a5808a1246ab3cf0e9555de86ae20f0c2500eb61ba5f21d3f677c9ba639ba768",
+      "hmt2_forensic_report.json sha256 7407e7f759094af56991f4733326d25a447a928bd96545edbfc539283c406bea",
+      "hmt2_forensic_per_session.json sha256 10ab90be0bc034fbc00915a68bf4c425a0a9d6537c53403886d1a93962ce8563",
+      "docs/handoff/2026-09-25-hmt2-native-source-transfer-manifest.json sha256 75e13a72a2c3e32fc8cce8de3d2bf076d46fa8726bdcc2be1cb659399148a37a"
+    ],
+    "ledger_spend_reconfirmed": {
+      "ledger_acquisition_spend_usd": 10.031334578989998,
+      "total_hmt2_programme_spend_usd": 12.270617417990998
+    }
+  }
+}

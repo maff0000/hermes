@@ -1,0 +1,91 @@
+{
+  "canonical_ledger_summary": {
+    "by_state": {
+      "CANONICAL_COMPLETE": 2,
+      "CANONICAL_FAILED": 0,
+      "CANONICAL_IN_PROGRESS": 0,
+      "CANONICAL_PENDING": 160
+    },
+    "total_sessions": 162
+  },
+  "canonical_store_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-canonical-store/hmt2-gc-mbp1-v1",
+  "processed": [
+    {
+      "canonical_event_counts_by_family": {
+        "market_trade": 155953,
+        "top_of_book": 1187122
+      },
+      "canonical_event_set_hash": "2f594077cf2f15598e1c6057d667b78e537908a5e961ba25efab0a3008c87dd5",
+      "canonical_result_kind": "NONEMPTY",
+      "empty_reason": null,
+      "quality_summary": {
+        "bad_receive_time_count": 8,
+        "canonical_emitted_contract_count": 7,
+        "canonical_emitted_contract_ids": [
+          "COMEX:GC:2020-03",
+          "COMEX:GC:2020-04",
+          "COMEX:GC:2020-05",
+          "COMEX:GC:2020-08",
+          "COMEX:GC:2020-10",
+          "COMEX:GC:2021-02",
+          "COMEX:GC:2021-04"
+        ],
+        "canonical_event_count": 1343075,
+        "canonical_result_kind": "NONEMPTY",
+        "conflict_count": 0,
+        "crossed_book_skipped_count": 1,
+        "duplicate_count": 0,
+        "empty_reason": null,
+        "incomplete_book_skipped_count": 324,
+        "market_trade_event_count": 155953,
+        "native_record_count": 1344043,
+        "observed_contract_count": 7,
+        "observed_contract_ids": [
+          "COMEX:GC:2020-03",
+          "COMEX:GC:2020-04",
+          "COMEX:GC:2020-05",
+          "COMEX:GC:2020-08",
+          "COMEX:GC:2020-10",
+          "COMEX:GC:2021-02",
+          "COMEX:GC:2021-04"
+        ],
+        "quality_record_file_version": "hmt2-canonical-quality-record-v3",
+        "sequence_non_monotonic_per_symbol_count": 9893,
+        "session_id": "GC-2020-03-04",
+        "source_channel_maybe_bad_book_count": 0,
+        "source_gap_completeness_status": "COMPLETE",
+        "source_observed_symbols": [
+          "GCG1",
+          "GCH0",
+          "GCJ0",
+          "GCJ1",
+          "GCK0",
+          "GCM3",
+          "GCM5",
+          "GCQ0",
+          "GCV0",
+          "GCZ2"
+        ],
+        "source_resolved_contract_count": 10,
+        "source_resolved_contract_ids": [
+          "COMEX:GC:2020-03",
+          "COMEX:GC:2020-04",
+          "COMEX:GC:2020-05",
+          "COMEX:GC:2020-08",
+          "COMEX:GC:2020-10",
+          "COMEX:GC:2021-02",
+          "COMEX:GC:2021-04",
+          "COMEX:GC:2022-12",
+          "COMEX:GC:2023-06",
+          "COMEX:GC:2025-06"
+        ],
+        "top_of_book_event_count": 1187122,
+        "unmapped_symbol_count": 0
+      },
+      "reused_existing_canonical_result": false,
+      "session_id": "GC-2020-03-04",
+      "source_record_count": 1344043
+    }
+  ],
+  "stopped_reason": null
+}
