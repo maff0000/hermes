@@ -16,8 +16,11 @@ def _cfg(tmp_path, **overrides):
     env = {
         "HMT2_OPS_REPO_DIR": str(tmp_path / "repo"),
         "HMT2_OPS_LAUNCHER_PATH": "/usr/local/sbin/hmt2-run.sh",
+        "HMT2_OPS_ACQUIRE_LAUNCHER_PATH": "/usr/local/sbin/hmt2-acquire-run.sh",
         "HMT2_OPS_VENV_PYTHON": "/venv/bin/python3",
         "HMT2_OPS_DISK_GUARD_MOUNT": str(tmp_path),
+        "HMT2_OPS_SCRATCH_DIR": str(tmp_path / "scratch"),
+        "HMT2_OPS_EVIDENCE_ROOT": str(tmp_path / "evidence"),
     }
     env.update(overrides)
     return Hmt2OpsConfig.from_env(env)

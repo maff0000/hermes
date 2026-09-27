@@ -22,9 +22,20 @@ Mirrors the 3-tier doctrine already established elsewhere in this repository:
             by anything in this package.
 
 No host-specific numeric uid/gid, path, or resource-envelope value is ever hardcoded as a Python
-constant outside this file's DEFAULT_* fallbacks (which exist only so tests and docs have a
-concrete, clearly-labelled example to point at -- production deployments are expected to set the
-environment variables, not rely on these defaults).
+constant outside this file. Two different kinds of "default" exist here, deliberately treated
+differently:
+
+  * Generic policy/tuning fields (timeouts, memory floors/ceilings, percentages, the slice name,
+    chunk-size limits) are not host-identifying -- the same sane value is expected to be correct
+    on any host until a deployer chooses to override it -- so these keep concrete numeric
+    defaults below.
+  * Path fields (`repo_dir`, `venv_python`, `launcher_path`, `acquire_launcher_path`,
+    `scratch_dir`, `evidence_root`, `disk_guard_mount`) have NO default. A plausible-looking
+    fallback path here is actively dangerous: an unset env var on some future host would
+    silently resolve to a real-looking-but-wrong location instead of failing. These fields
+    resolve to `None` when their env var is unset, and `validate()` raises a `ConfigError`
+    naming every missing env var before `from_env()` ever returns -- fail loud, not silently
+    plausible.
 """
 from __future__ import annotations
 
@@ -110,22 +121,23 @@ class Hmt2OpsConfig:
     an identity/naming convention, a policy threshold, or a resource-envelope value -- never
     application/domain logic (that stays in the already-in-Git ledger/canonicalise modules)."""
 
-    # Paths -- all Trinity-specific / host-specific in value, generic in convention.
-    repo_dir: str
-    venv_python: str
-    launcher_path: str
-    acquire_launcher_path: str
+    # Paths -- all host-specific in value, generic in convention. No safe cross-host default
+    # exists for any of these; None means "not yet configured" and `validate()` rejects it.
+    repo_dir: Optional[str]
+    venv_python: Optional[str]
+    launcher_path: Optional[str]
+    acquire_launcher_path: Optional[str]
     canonical_research_root: Optional[str]  # None => defer to canonical_worker's own resolution
-    scratch_dir: str
-    evidence_root: str
+    scratch_dir: Optional[str]
+    evidence_root: Optional[str]
     oracle_path: Optional[str]
     acquire_secret_path: Optional[str]  # PATH only, never the secret value
 
     # Naming / identity conventions.
     slice_name: str
 
-    # Disk guard policy.
-    disk_guard_mount: str
+    # Disk guard policy. `disk_guard_mount` is a path -- no safe cross-host default (see above).
+    disk_guard_mount: Optional[str]
     disk_guard_warn_pct: int
     disk_guard_stop_pct: int
 
@@ -150,24 +162,27 @@ class Hmt2OpsConfig:
 
     @classmethod
     def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "Hmt2OpsConfig":
-        """Resolve every field from `env` (defaults to `os.environ`), falling back to the
-        documented, clearly-host-agnostic-example defaults below. `env` is an injectable seam
-        purely for tests -- production callers should never pass it."""
+        """Resolve every field from `env` (defaults to `os.environ`). Generic policy/tuning
+        fields fall back to the documented host-agnostic defaults below; path fields have no
+        fallback and raise a `ConfigError` via `validate()` if left unset. `env` is an
+        injectable seam purely for tests -- production callers should never pass it."""
         env = os.environ if env is None else env
 
-        repo_dir = _get_str(env, ENV_REPO_DIR, "/srv/hmt-code/hermes")
+        repo_dir = _get(env, ENV_REPO_DIR)
         cfg = cls(
+            # Path fields: no fallback. An unset env var must surface as a loud ConfigError from
+            # validate() below, never as a silently-plausible-looking default.
             repo_dir=repo_dir,
-            venv_python=_get_str(env, ENV_VENV_PYTHON, "/srv/hmt-code/hmt2-venv/bin/python3"),
-            launcher_path=_get_str(env, ENV_LAUNCHER_PATH, "/usr/local/sbin/hmt2-run.sh"),
-            acquire_launcher_path=_get_str(env, ENV_ACQUIRE_LAUNCHER_PATH, "/usr/local/sbin/hmt2-acquire-run.sh"),
+            venv_python=_get(env, ENV_VENV_PYTHON),
+            launcher_path=_get(env, ENV_LAUNCHER_PATH),
+            acquire_launcher_path=_get(env, ENV_ACQUIRE_LAUNCHER_PATH),
             canonical_research_root=_get(env, ENV_CANONICAL_RESEARCH_ROOT),
-            scratch_dir=_get_str(env, ENV_SCRATCH_DIR, "/srv/hmt-data/scratch"),
-            evidence_root=_get_str(env, ENV_EVIDENCE_ROOT, "/srv/hmt-data/evidence"),
+            scratch_dir=_get(env, ENV_SCRATCH_DIR),
+            evidence_root=_get(env, ENV_EVIDENCE_ROOT),
             oracle_path=_get(env, ENV_ORACLE_PATH),
             acquire_secret_path=_get(env, ENV_ACQUIRE_SECRET_PATH),
             slice_name=_get_str(env, ENV_SLICE_NAME, "hmt2.slice"),
-            disk_guard_mount=_get_str(env, ENV_DISK_GUARD_MOUNT, "/srv"),
+            disk_guard_mount=_get(env, ENV_DISK_GUARD_MOUNT),
             disk_guard_warn_pct=_get_int(env, ENV_DISK_GUARD_WARN_PCT, 70),
             disk_guard_stop_pct=_get_int(env, ENV_DISK_GUARD_STOP_PCT, 80),
             per_session_timeout_sec=_get_int(env, ENV_PER_SESSION_TIMEOUT_SEC, 900),
@@ -189,7 +204,31 @@ class Hmt2OpsConfig:
         cfg.validate()
         return cfg
 
+    # Fields with no safe cross-host default: (attribute name, env var name). Every one of these
+    # MUST be set explicitly per host (e.g. via /etc/hmt2/hmt2-ops.env) -- there is no plausible
+    # value that is safe to guess on a host that hasn't configured it.
+    _REQUIRED_NO_DEFAULT_FIELDS = (
+        ("repo_dir", ENV_REPO_DIR),
+        ("venv_python", ENV_VENV_PYTHON),
+        ("launcher_path", ENV_LAUNCHER_PATH),
+        ("acquire_launcher_path", ENV_ACQUIRE_LAUNCHER_PATH),
+        ("scratch_dir", ENV_SCRATCH_DIR),
+        ("evidence_root", ENV_EVIDENCE_ROOT),
+        ("disk_guard_mount", ENV_DISK_GUARD_MOUNT),
+    )
+
     def validate(self) -> None:
+        missing_env_vars = [
+            env_name
+            for field_name, env_name in self._REQUIRED_NO_DEFAULT_FIELDS
+            if getattr(self, field_name) is None
+        ]
+        if missing_env_vars:
+            raise ConfigError(
+                "missing required HMT-2 ops configuration -- the following environment "
+                "variable(s) must be set (no safe cross-host default exists for a host-specific "
+                "path): " + ", ".join(missing_env_vars)
+            )
         if self.in_session_min_memavailable_kb >= self.pre_session_min_memavailable_kb:
             # Not strictly required to be smaller, but a routine misconfiguration (in-session
             # floor set >= the pre-session gate) would make the pre-session gate meaningless --
