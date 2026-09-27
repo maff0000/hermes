@@ -1,6 +1,7 @@
 """Exceptional-envelope apply/verify/restore/verify state machine: never leaves the exception
 active, requires explicit per-session authorization, never auto-escalates beyond the configured
-ceiling."""
+ceiling, and (see the race/serialization tests near the bottom) never interleaves a competing
+action between its idle check and its envelope mutation."""
 import pytest
 
 from market_truth.acquisition.orchestration import exceptional_envelope as ee
@@ -19,6 +20,16 @@ def _auth(**overrides):
     )
     defaults.update(overrides)
     return ee.EnvelopeAuthorization(**defaults)
+
+
+class _FakeIdleResult:
+    """Minimal stand-in for `host_guards.SliceIdleCheck`, satisfying `ee.SliceIdleCheckLike`
+    (`is_confidently_idle`, `reasons`) without importing host_guards -- this module is tested in
+    isolation from it, exactly as `preflight()` itself only depends on the duck-typed shape."""
+
+    def __init__(self, is_confidently_idle, reasons=()):
+        self.is_confidently_idle = is_confidently_idle
+        self.reasons = tuple(reasons)
 
 
 def test_validate_authorization_accepts_a_well_formed_request():
@@ -58,7 +69,7 @@ def test_preflight_passes_when_all_conditions_healthy():
         psi_stall_threshold=5.0,
         mem_available_fn=lambda: 55 * 1024 * 1024,
         psi_fn=lambda: 0.0,
-        slice_is_idle_fn=lambda: True,
+        slice_is_idle_fn=lambda: _FakeIdleResult(True),
     )
     assert result.ok is True
     assert result.reasons == []
@@ -67,10 +78,15 @@ def test_preflight_passes_when_all_conditions_healthy():
 @pytest.mark.parametrize(
     "mem_fn,psi_fn,idle_fn,expected_fragment",
     [
-        (lambda: 10 * 1024 * 1024, lambda: 0.0, lambda: True, "MemAvailable"),
-        (lambda: 55 * 1024 * 1024, lambda: None, lambda: True, "unreadable"),
-        (lambda: 55 * 1024 * 1024, lambda: 6.0, lambda: True, "PSI"),
-        (lambda: 55 * 1024 * 1024, lambda: 0.0, lambda: False, "idle"),
+        (lambda: 10 * 1024 * 1024, lambda: 0.0, lambda: _FakeIdleResult(True), "MemAvailable"),
+        (lambda: 55 * 1024 * 1024, lambda: None, lambda: _FakeIdleResult(True), "unreadable"),
+        (lambda: 55 * 1024 * 1024, lambda: 6.0, lambda: _FakeIdleResult(True), "PSI"),
+        (
+            lambda: 55 * 1024 * 1024,
+            lambda: 0.0,
+            lambda: _FakeIdleResult(False, reasons=("competing HMT-2 work is present",)),
+            "idle",
+        ),
     ],
 )
 def test_preflight_fails_closed_on_each_condition(mem_fn, psi_fn, idle_fn, expected_fragment):
@@ -80,6 +96,36 @@ def test_preflight_fails_closed_on_each_condition(mem_fn, psi_fn, idle_fn, expec
     )
     assert result.ok is False
     assert any(expected_fragment in r for r in result.reasons)
+
+
+def test_preflight_folds_idle_check_reasons_into_its_own_reasons_for_diagnostics():
+    """The idle check's own `reasons` (e.g. from host_guards.SliceIdleCheck, whether NOT_IDLE or
+    INDETERMINATE) must be visible in preflight's failure reasons, never discarded -- an operator
+    reading a preflight failure needs to know WHY the slice was not confidently idle."""
+    result = ee.preflight(
+        min_memavailable_kb=40 * 1024 * 1024,
+        psi_stall_threshold=5.0,
+        mem_available_fn=lambda: 55 * 1024 * 1024,
+        psi_fn=lambda: 0.0,
+        slice_is_idle_fn=lambda: _FakeIdleResult(
+            False, reasons=("2 live process(es) found in child cgroup 'run-worker1.scope'",)
+        ),
+    )
+    assert result.ok is False
+    assert any("run-worker1.scope" in r for r in result.reasons)
+
+
+def test_preflight_treats_indeterminate_idle_result_identically_to_not_idle():
+    """`is_confidently_idle is False` must fail preflight regardless of WHY -- confirmed-not-idle
+    and cannot-determine are both fail-closed, identically, from preflight's point of view."""
+    result = ee.preflight(
+        min_memavailable_kb=40 * 1024 * 1024,
+        psi_stall_threshold=5.0,
+        mem_available_fn=lambda: 55 * 1024 * 1024,
+        psi_fn=lambda: 0.0,
+        slice_is_idle_fn=lambda: _FakeIdleResult(False, reasons=("systemd unit query failed",)),
+    )
+    assert result.ok is False
 
 
 class _FakeCgroup:
@@ -155,7 +201,7 @@ def _context_manager_kwargs(cg, **overrides):
         read_cgroup_int_fn=cg.read_cgroup_int_fn,
         mem_available_fn=lambda: 55 * 1024 * 1024,
         psi_fn=lambda: 0.0,
-        slice_is_idle_fn=lambda: True,
+        slice_is_idle_fn=lambda: _FakeIdleResult(True),
     )
     kwargs.update(overrides)
     return kwargs
@@ -183,7 +229,9 @@ def test_exceptional_envelope_restores_routine_even_if_worker_body_raises():
 def test_exceptional_envelope_never_applies_if_preflight_fails():
     cg = _FakeCgroup()
     with pytest.raises(ee.EnvelopeError, match="preflight failed"):
-        with ee.exceptional_envelope(_auth(), **_context_manager_kwargs(cg, slice_is_idle_fn=lambda: False)):
+        with ee.exceptional_envelope(
+            _auth(), **_context_manager_kwargs(cg, slice_is_idle_fn=lambda: _FakeIdleResult(False, reasons=("busy",)))
+        ):
             pytest.fail("must never enter the with-block body when preflight fails")
     # apply_envelope was never called at all.
     assert cg.systemctl_calls == []
@@ -195,4 +243,67 @@ def test_exceptional_envelope_never_applies_if_authorization_invalid():
     with pytest.raises(ee.EnvelopeError, match="ceiling"):
         with ee.exceptional_envelope(bad_auth, **_context_manager_kwargs(cg)):
             pytest.fail("must never enter the with-block body for an invalid authorization")
+    assert cg.systemctl_calls == []
+
+
+# ---------------------------------------------------------------------------------------------
+# Race/serialization proof (see module docstring "RACE SAFETY"): within a single call to
+# exceptional_envelope(), the idle check (inside preflight) and the systemctl mutation (inside
+# apply_envelope) happen as one deterministic, synchronous sequence with nothing interleaved.
+# This is the guarantee that already exists by construction (a plain function-call chain, no
+# threads, no async, no I/O wait between the two) -- it does NOT extend across OS processes; see
+# the module docstring and the WO report for the cross-process analysis and why closing that
+# gap is deliberately out of scope for this fix.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_preflight_then_apply_is_an_uninterrupted_synchronous_sequence():
+    cg = _FakeCgroup()
+    call_log = []
+
+    def mem_fn():
+        call_log.append("mem_available_fn")
+        return 55 * 1024 * 1024
+
+    def psi_fn():
+        call_log.append("psi_fn")
+        return 0.0
+
+    def idle_fn():
+        call_log.append("slice_is_idle_fn")
+        return _FakeIdleResult(True)
+
+    def logging_run_systemctl(argv):
+        call_log.append("run_systemctl:" + argv[3])
+        cg.run_systemctl(argv)
+
+    kwargs = _context_manager_kwargs(cg, mem_available_fn=mem_fn, psi_fn=psi_fn, slice_is_idle_fn=idle_fn)
+    kwargs["run_systemctl"] = logging_run_systemctl
+
+    with ee.exceptional_envelope(_auth(), **kwargs):
+        call_log.append("worker_body")
+
+    # Exactly this order, every single time: nothing this module does can interleave a competing
+    # action (e.g. a second worker-launch call) between the idle check and the apply mutation --
+    # there is no yield point, no thread handoff, no I/O wait between them.
+    assert call_log[0] == "mem_available_fn"
+    assert call_log[1] == "psi_fn"
+    assert call_log[2] == "slice_is_idle_fn"
+    assert call_log[3] == "run_systemctl:hmt2.slice"
+    assert call_log[4] == "worker_body"
+    assert call_log[5] == "run_systemctl:hmt2.slice"  # the finally-block restore
+
+
+def test_apply_is_never_reached_before_preflight_completes():
+    """A stronger phrasing of the same guarantee: if slice_is_idle_fn() itself raises (simulating
+    some failure mid-check), run_systemctl must never have been called -- preflight cannot be
+    partially satisfied on the way to an apply."""
+    cg = _FakeCgroup()
+
+    def exploding_idle_fn():
+        raise RuntimeError("cgroup read exploded mid-check")
+
+    with pytest.raises(RuntimeError, match="cgroup read exploded"):
+        with ee.exceptional_envelope(_auth(), **_context_manager_kwargs(cg, slice_is_idle_fn=exploding_idle_fn)):
+            pytest.fail("must never enter the with-block body if the idle check itself raises")
     assert cg.systemctl_calls == []
