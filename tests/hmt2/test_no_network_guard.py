@@ -63,7 +63,17 @@ _GET_RANGE_ALLOWED_FUNCTION_NAMES = frozenset(
 # Files legitimately concerned with the real Databento credential (parameter/variable names,
 # never a hardcoded value — see the stricter check further down) are excluded from the blanket
 # credential-shaped-token scan that still applies to every other file in this package.
-_CREDENTIAL_TOKEN_SCAN_EXEMPT_RELATIVE_PATHS = {_DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH}
+#
+# `diagnostics/credential_check.py` (HMT-2 Trinity-operational-delta port, WO-HERMES-HMT2-
+# TRINITY-OPS-PORT-0001) added: a reusable, non-billable credential-validation diagnostic that
+# necessarily names `api_key`/`load_..._fn` as injectable parameter/variable names (never a
+# hardcoded value) to call the already-governed `DatabentoHistoricalProvider(api_key=...)`
+# constructor — the same legitimate shape as the one adapter file above, not a second real
+# credential-handling code path.
+_CREDENTIAL_TOKEN_SCAN_EXEMPT_RELATIVE_PATHS = {
+    _DATABENTO_IMPORT_ALLOWED_RELATIVE_PATH,
+    Path("diagnostics") / "credential_check.py",
+}
 
 
 def _python_files():

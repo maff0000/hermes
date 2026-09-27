@@ -1,0 +1,8 @@
+[Unit]
+Description=HMT-2 disk capacity guard (warn/stop thresholds set in ${HMT2_OPS_ENV_FILE_DISPLAY})
+
+[Service]
+Type=oneshot
+User=root
+Environment=HMT2_OPS_ENV_FILE=${HMT2_OPS_ENV_FILE_DISPLAY}
+ExecStart=${HMT2_DISK_GUARD_SCRIPT_PATH}
