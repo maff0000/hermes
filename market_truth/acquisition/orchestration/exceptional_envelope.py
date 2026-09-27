@@ -26,13 +26,37 @@ exceptional envelope -- it only ever *applies* an authorization the caller alrea
 is no code path here that can auto-escalate beyond `authorised_ceiling_memory_max_bytes`; that
 value is itself an operator/Architect-owned configuration input (see `config.Hmt2OpsConfig`),
 never something this module raises on its own.
+
+RACE SAFETY -- read before touching `preflight()` / `apply_envelope()` / `exceptional_envelope()`:
+
+  The idle-check-then-apply sequence (`preflight()` calling `slice_is_idle_fn()`, immediately
+  followed, if it passed, by `apply_envelope()`'s `run_systemctl` call) is a single synchronous
+  Python call stack with no `await`, no thread handoff, and no I/O wait between the two -- nothing
+  this module itself executes can interleave a competing worker-launch call between them; see
+  `tests/hmt2/orchestration/test_exceptional_envelope.py::test_preflight_then_apply_is_an_uninterrupted_synchronous_sequence`
+  for the proof.
+
+  This does NOT, by itself, prevent a wholly separate OS process (a second, independently
+  launched invocation of this mechanism, a second `canonical_root_orchestrator.py` run, or a
+  direct/manual `deployment/hmt2/hmt2-run.sh` invocation) from launching a new worker into the
+  slice in the gap between this module's own cgroupfs/systemd reads and its `systemctl
+  set-property` call. As of this fix, nothing anywhere in this repository (no PID file, no
+  `flock`, no systemd single-instance constraint) provides that cross-process exclusion --
+  `canonical_root_orchestrator.py`'s dispatch loop does not currently call this module at all
+  (it is invoked only as a standalone, operator-driven procedure), and
+  `deployment/hmt2/hmt2-run.sh` places every session in an unnamed transient scope with no
+  collision/locking of any kind. Closing that cross-process gap would require synchronization
+  that spans this module AND every worker-launch entry point (including the launcher shell
+  script), which is a new locking architecture, not a narrow guard fix -- deliberately NOT
+  attempted here; see the WO report for this defect correction for the full analysis and the
+  recommendation to open a separate, appropriately-scoped work order if closing it is wanted.
 """
 from __future__ import annotations
 
 import contextlib
 import re
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Optional
+from typing import Callable, Iterator, List, Optional, Protocol, Tuple, runtime_checkable
 
 SESSION_ID_RE = re.compile(r"^GC-\d{4}-\d{2}-\d{2}$")
 
@@ -84,16 +108,37 @@ class PreflightResult:
     reasons: List[str]
 
 
+@runtime_checkable
+class SliceIdleCheckLike(Protocol):
+    """Structural (duck-typed) contract `preflight()` needs from whatever `slice_is_idle_fn()`
+    returns -- deliberately NOT an import of `host_guards.SliceIdleCheck`, matching this module's
+    existing convention of depending only on injected callables/shapes, never on concrete
+    `host_guards` types. `host_guards.SliceIdleCheck` satisfies this today; any replacement must
+    keep satisfying it."""
+
+    is_confidently_idle: bool
+    reasons: Tuple[str, ...]
+
+
 def preflight(
     *,
     min_memavailable_kb: int,
     psi_stall_threshold: float,
     mem_available_fn: Callable[[], Optional[int]],
     psi_fn: Callable[[], Optional[float]],
-    slice_is_idle_fn: Callable[[], bool],
+    slice_is_idle_fn: Callable[[], SliceIdleCheckLike],
 ) -> PreflightResult:
     """Preflight, matching the Trinity procedure exactly: `MemAvailable >= floor`, host PSI
-    healthy (below threshold, and readable), `hmt2.slice` idle (no competing HMT work)."""
+    healthy (below threshold, and readable), `hmt2.slice` idle (no competing HMT work).
+
+    `slice_is_idle_fn()` must return something satisfying `SliceIdleCheckLike` -- in production
+    this is `host_guards.slice_is_idle(...)`'s result. Only `is_confidently_idle` decides
+    ok/not-ok here; `reasons` is folded into this preflight's own `reasons` purely for
+    diagnostics/evidence, never re-interpreted. `is_confidently_idle is False` covers BOTH
+    "confirmed not idle" and "could not determine" -- both are fail-closed here, identically;
+    this function does not, and must not, distinguish between them when deciding whether to
+    proceed.
+    """
     reasons: List[str] = []
     mem = mem_available_fn()
     if mem is None or mem < min_memavailable_kb:
@@ -103,8 +148,10 @@ def preflight(
         reasons.append("host PSI unreadable -- cannot confirm host is healthy")
     elif psi >= psi_stall_threshold:
         reasons.append(f"host PSI full avg10={psi} >= stall threshold {psi_stall_threshold}")
-    if not slice_is_idle_fn():
-        reasons.append("hmt2.slice is not idle -- competing HMT-2 work is present")
+    idle_check = slice_is_idle_fn()
+    if not idle_check.is_confidently_idle:
+        detail = "; ".join(idle_check.reasons) if idle_check.reasons else "no further detail available"
+        reasons.append(f"hmt2.slice is not confidently idle -- competing HMT-2 work may be present ({detail})")
     return PreflightResult(ok=not reasons, reasons=reasons)
 
 
@@ -183,7 +230,7 @@ def exceptional_envelope(
     read_cgroup_int_fn: Callable[[str], Optional[int]],
     mem_available_fn: Callable[[], Optional[int]],
     psi_fn: Callable[[], Optional[float]],
-    slice_is_idle_fn: Callable[[], bool],
+    slice_is_idle_fn: Callable[[], SliceIdleCheckLike],
 ) -> Iterator[None]:
     """The full apply/verify/restore/verify state machine as a context manager: validates and
     preflights BEFORE yielding, and unconditionally restores + re-verifies the routine envelope
@@ -191,6 +238,10 @@ def exceptional_envelope(
     session's worker launch inside the `with` block; there is no supported way to run more than
     one session per `exceptional_envelope()` call, matching the Trinity procedure's "run exactly
     ONE session under the exception" rule structurally, not just by convention.
+
+    See the module docstring's "RACE SAFETY" section for exactly what is, and is not, guaranteed
+    about the gap between the idle check inside `preflight()` and the mutation inside
+    `apply_envelope()`.
     """
     validate_authorization(auth, authorised_ceiling_memory_max_bytes=authorised_ceiling_memory_max_bytes)
     result = preflight(
