@@ -7,6 +7,8 @@
 `hmt-2/governed-gc-mbp1-historical-corpus` at commit `be8da9527a09cbcf3d5cbe3dff4a52360fb4d487`. No
 `.py` file, migration, schema, config, or CI workflow is touched by this record.
 
+**This verdict closes the Git/GitHub authority gap only. It does NOT declare HMT-2 itself CLOSED GREEN.** HMT-2 (the corpus programme) remains IN PROGRESS: 26 sessions are still PLANNED and Batch 14 remains BLOCKED (§7). Final HMT-2 closure is a separate, later decision.
+
 ## What this closes
 
 Before this reconciliation, HMT-2's real operational mechanisms — the mechanisms that actually ran
@@ -125,6 +127,10 @@ the correct, intended security boundary**, not a bug. The retired script that di
 [`docs/architecture/hmt0-market-truth-v2/hmt2-trinity-operational-delta-obsolete-notes.md`](hmt2-trinity-operational-delta-obsolete-notes.md).
 The corrected topology is `canonical_root_orchestrator.py`'s own module docstring, and is exercised by
 `tests/hmt2/orchestration/test_privilege_boundary.py`.
+
+**Generic tests use disposable roots.** Every test added by this reconciliation runs against `tmp_path`-scoped or otherwise test-owned disposable directories; none discovers or has write access to an authoritative HMT runtime path. The adversarial destructive-cleanup regression suite (`tests/hmt2/orchestration/test_destructive_cleanup_regression.py`, reusing the existing `tests/support/destructive_cleanup_guard.py`) exists specifically to make the prior canonical-store data-loss incident's failure mode impossible to reproduce through normal testing.
+
+**Runtime evidence lives outside Git.** The config module's `evidence_root` (and the other storage-root fields) point at an externally-configured location on each host; the repository itself contains only code, contracts, and documentation/examples -- never chunk allowlists, quarantine records, diagnostic snapshots, or exceptional-envelope authorization records.
 
 Supporting modules, all under `market_truth/acquisition/orchestration/`: `config.py` (below),
 `host_guards.py` (disk/memory/PSI preflight + `CausalMemorySampler`), `chunk_allowlist.py`
