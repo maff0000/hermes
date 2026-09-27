@@ -1,0 +1,9 @@
+[Unit]
+Description=Run HMT-2 disk capacity guard every ${HMT2_DISK_GUARD_INTERVAL_MIN} minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=${HMT2_DISK_GUARD_INTERVAL_MIN}min
+
+[Install]
+WantedBy=timers.target
