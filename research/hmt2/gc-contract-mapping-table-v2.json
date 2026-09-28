@@ -1,0 +1,656 @@
+{
+  "mappings": [
+    {
+      "delivery_month": 1,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCF0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCF1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCF2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCF3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCF4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCF5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCF6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2027,
+      "product_root": "GC",
+      "provider_symbol": "GCF7",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 1,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCF9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCG0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCG1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCG2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCG3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCG4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCG5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCG6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2027,
+      "product_root": "GC",
+      "provider_symbol": "GCG7",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 2,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCG9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCH0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCH1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCH2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCH3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCH4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCH5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCH6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2027,
+      "product_root": "GC",
+      "provider_symbol": "GCH7",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 3,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCH9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCJ0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCJ1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCJ2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCJ3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCJ4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCJ5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCJ6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2027,
+      "product_root": "GC",
+      "provider_symbol": "GCJ7",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 4,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCJ9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCK0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCK1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCK2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCK3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCK4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCK5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCK6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 5,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCK9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 6,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCM3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 6,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCM4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 6,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCM5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 6,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCM6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCN0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCN1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCN2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCN3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCN4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCN5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCN6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 7,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCN9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCQ0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCQ1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCQ2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCQ3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCQ4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCQ5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCQ6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 8,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCQ9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCU0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCU1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCU2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCU3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCU4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCU5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCU6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 9,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCU9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCV0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCV1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCV2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCV3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCV4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCV5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCV6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 10,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCV9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2020,
+      "product_root": "GC",
+      "provider_symbol": "GCX0",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2021,
+      "product_root": "GC",
+      "provider_symbol": "GCX1",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCX2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCX3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCX4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCX5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCX6",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 11,
+      "delivery_year": 2019,
+      "product_root": "GC",
+      "provider_symbol": "GCX9",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 12,
+      "delivery_year": 2022,
+      "product_root": "GC",
+      "provider_symbol": "GCZ2",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 12,
+      "delivery_year": 2023,
+      "product_root": "GC",
+      "provider_symbol": "GCZ3",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 12,
+      "delivery_year": 2024,
+      "product_root": "GC",
+      "provider_symbol": "GCZ4",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 12,
+      "delivery_year": 2025,
+      "product_root": "GC",
+      "provider_symbol": "GCZ5",
+      "venue": "COMEX"
+    },
+    {
+      "delivery_month": 12,
+      "delivery_year": 2026,
+      "product_root": "GC",
+      "provider_symbol": "GCZ6",
+      "venue": "COMEX"
+    }
+  ],
+  "version": "hmt2-gc-contract-mapping-v2"
+}

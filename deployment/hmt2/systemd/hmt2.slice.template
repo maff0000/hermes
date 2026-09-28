@@ -1,0 +1,10 @@
+[Unit]
+Description=HMT-2 governed historical batch-compute containment
+Before=slices.target
+
+[Slice]
+MemoryHigh=${HMT2_SLICE_MEMORY_HIGH}
+MemoryMax=${HMT2_SLICE_MEMORY_MAX}
+MemorySwapMax=0
+CPUQuota=${HMT2_SLICE_CPU_QUOTA}
+IOWeight=${HMT2_SLICE_IO_WEIGHT}

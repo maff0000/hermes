@@ -39,3 +39,21 @@ __pycache__/
 ops/evidence/WO-HERMES-PROOF-H/equivalence_log.jsonl
 ops/evidence/WO-HERMES-PROOF-OF-WORKING-0006/soak/soak_log.jsonl
 ops/evidence/**/*.jsonl
+
+# HMT-2 (real-money checkpoint) — local/disposable native-source-store artefacts
+# (market_truth/acquisition/source_store.py's own documented layout). Real, large
+# (up to ~1GB), immutable retained vendor bytes + evidence JSON. Never committed —
+# local/disposable filesystem storage only, mirrors market_truth/partition.py's own
+# research-partition storage discipline. Evidence of what was retained (hashes, byte
+# sizes, record counts) is committed separately in tracked JSON under research/hmt2/.
+research-source/
+
+# HMT-2 canonicalisation checkpoint — durable canonical research store
+# (market_truth/acquisition/canonical_worker.py's own documented layout): derived Parquet/Zstd
+# canonical partitions + evidence/lineage/quality JSON, all regenerable from retained native
+# bytes + governed code. Local/durable filesystem storage, controlled by
+# HMT2_CANONICAL_RESEARCH_ROOT (default: research-canonical-store/ at the repo root, mirrored
+# here). Never committed for the same reason research-source/ isn't — real, potentially large,
+# derived artefacts. Evidence of what was produced (hashes, counts, lineage references) is
+# committed separately in tracked JSON snapshots under research/hmt2/.
+research-canonical-store/

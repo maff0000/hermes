@@ -1,0 +1,40 @@
+{
+  "frozen_source": {
+    "dataset": "GLBX.MDP3",
+    "date_range": "2017-05-21..2026-09-18 (inclusive cutoff)",
+    "instrument": "GC.v.0",
+    "native_artefact_relative_path": "research-source/hmt2-gc-mbp1-v1/sessions/HMT2-REAL-ACQ-REFERENCE-SERIES-GC-V0-OHLCV1H/source/gc_v0_ohlcv1h_2017-05-21_2026-09-19.dbn.zst",
+    "native_artefact_sha256": "8e1309d2a11f1b254b072ca368a07152ab8420a7546cfe1d491092eafe9ec8c8",
+    "price_basis": "hourly OHLC (high/low used; open/close not used by this methodology)",
+    "provider": "databento",
+    "resolution": "1 hour",
+    "schema": "ohlcv-1h",
+    "session_calendar_version": "gc-session-calendar-v1",
+    "stype_in": "continuous"
+  },
+  "methodology": {
+    "candidacy_rule": "Only REFERENCE_COMPLETE sessions may enter HIGH_VOL_NON_EVENT/COMPRESSION candidacy. Within each calendar year separately, eligible (REFERENCE_COMPLETE, not already claimed by PROTECTED_HOLDOUT/SCHEDULED_EVENT/MATCHED_CONTROL) sessions are ranked by session_log_range; top 20% within year = HIGH_VOL_NON_EVENT candidates, bottom 20% within year = COMPRESSION candidates. Sizing: floor(eligible_count_in_year * fraction); a year too small to produce even one candidate contributes zero, disclosed, not forced.",
+    "frozen_before_computation": "This formula/method was implemented and its tests written BEFORE this script was ever run against the real retained data; it was run exactly once and this file's counts/candidates are whatever that one run produced \u2014 no tuning after seeing results.",
+    "no_mbp1_used": "Zero MBP-1/TBBO/trades/MBO data was used, examined, or referenced anywhere in this computation \u2014 none has been acquired anywhere in this repository.",
+    "purpose": "A coarse, session-level range measure used ONLY to classify each already-calendar-eligible GC session into HIGH_VOL_NON_EVENT or COMPRESSION candidacy for corpus stratification (manifest v2). NOT a P0 microstructure fact, NOT used for any strategy/threshold logic \u2014 selection-only.",
+    "quality_tagging": {
+      "REFERENCE_COMPLETE": "single instrument_id AND coverage_ratio >= 0.9",
+      "REFERENCE_MISSING": "zero hourly bars assigned to the session",
+      "REFERENCE_PARTIAL": "single instrument_id AND coverage_ratio < 0.9, at least one bar",
+      "REFERENCE_ROLL_AMBIGUOUS": "more than one distinct instrument_id among the session's bars"
+    },
+    "tie_break_rule": "Sessions sorted ascending by (session_log_range, session_date) before slicing; at a percentile-boundary tie in session_log_range, the earlier session_date sorts first.",
+    "transformation_formula": "session_log_range = ln(max(hourly highs) / min(hourly lows))"
+  },
+  "orphan_bar_count": 1313,
+  "per_session_file": "research/hmt2/reference-series-per-session-v2.json",
+  "quality_tag_counts": {
+    "REFERENCE_COMPLETE": 2308,
+    "REFERENCE_MISSING": 0,
+    "REFERENCE_PARTIAL": 4,
+    "REFERENCE_ROLL_AMBIGUOUS": 34
+  },
+  "reference_series_version": "hmt2-reference-series-v2",
+  "session_universe_size": 2346,
+  "status": "COMPUTED_FROM_REAL_DATA"
+}

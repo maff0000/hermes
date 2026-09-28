@@ -1,0 +1,25 @@
+{
+  "reference_series_version": "hmt2-vol-compression-reference-series-v1",
+  "status": "PENDING_REFERENCE_SERIES_DATA",
+  "status_explanation": "This checkpoint (HMT-2A) has zero live/real market-data source available: no Databento access, no real feed, no provider adapter is in scope. A live web-research pass (2026-09-21) for a legitimately citable, freely redistributable, license-clean daily GC/gold reference-price dataset found no source meeting that bar: Investing.com and Barchart.com data are ToS-restricted from scraping/redistribution, and third-party GitHub CSVs found had no verifiable provenance, license, or quality guarantee. Rather than fabricate a plausible-looking historical volatility/compression number, this checkpoint freezes ONLY the methodology, transformation formula, and interfaces below, and marks every value and every dependent stratum PENDING. HMT-2B/2C (with an authorised, paid or otherwise licensed data source) must populate this file's 'frozen_source' block for real before the HIGH_VOL_NON_EVENT and COMPRESSION strata can be genuinely computed.",
+  "frozen_source": {
+    "data_source": "PENDING_REFERENCE_SERIES_DATA",
+    "instrument": "PENDING_REFERENCE_SERIES_DATA",
+    "resolution": "PENDING_REFERENCE_SERIES_DATA",
+    "price_basis": "PENDING_REFERENCE_SERIES_DATA",
+    "date_range": "PENDING_REFERENCE_SERIES_DATA",
+    "version_or_hash": "PENDING_REFERENCE_SERIES_DATA"
+  },
+  "methodology": {
+    "purpose": "A coarse, session-level compression/volatility measure used ONLY to classify each already-calendar-eligible GC session into HIGH_VOL_NON_EVENT or COMPRESSION for corpus stratification. This is explicitly NOT a P0 microstructure fact and NOT used for any strategy/threshold logic -- selection-only, per the WO's absolute scope boundary.",
+    "transformation_formula": "coarse_range_pct[t] = (daily_high[t] - daily_low[t]) / daily_close[t-1]; normalized_score[t] = (coarse_range_pct[t] - rolling_median_63[t]) / rolling_mad_63[t] (63-session trailing window, median/MAD chosen for robustness to outlier event days; NOT computed in this checkpoint -- see status above).",
+    "classification_rule": {
+      "HIGH_VOL_NON_EVENT": "normalized_score[t] in the upper decile of the eligible non-event session population, AND session t is not already a SCHEDULED_EVENT or MATCHED_CONTROL session (calendar/event-metadata exclusion only -- never re-examining price behaviour to pick the exclusion set beyond this coarse score itself).",
+      "COMPRESSION": "normalized_score[t] in the lower decile of the eligible non-event session population, same exclusions."
+    },
+    "normalization_approach": "Robust z-score against a trailing 63-session median/MAD window, deliberately coarse (session-level high/low/close only, no intraday MBP-1/TBBO input of any kind -- none exists yet in this checkpoint, and none would be used for this purpose even if it did, per the WO's explicit 'never match on price/volatility behaviour beyond this coarse score' instruction).",
+    "interfaces": "compute_coarse_range_series(daily_ohlc) -> list[float]; classify_sessions(scores, excluded_session_ids) -> dict[stratum, list[session_id]] -- both defined structurally in market_truth/acquisition/corpus_selection.py as PENDING no-op stubs that raise ReferenceSeriesUnavailableError rather than returning a fabricated result."
+  },
+  "dependent_strata": ["HIGH_VOL_NON_EVENT", "COMPRESSION"],
+  "dependent_strata_status": "Both strata are PENDING_REFERENCE_SERIES_DATA in the HMT-2A selection manifest: zero sessions are assigned to either stratum, and no volatility_compression_metric value in the manifest is a real computed number -- every occurrence is the literal string 'PENDING_REFERENCE_SERIES_DATA'."
+}

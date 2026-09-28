@@ -1,0 +1,87 @@
+{
+  "gate_5_dollars": {
+    "proceed_to_part3": true,
+    "quoted_cost_usd": 0.175759524107
+  },
+  "quote": {
+    "dataset": "GLBX.MDP3",
+    "distinct_contract_count": 15,
+    "per_run_results": [
+      {
+        "billable_size_bytes": 101341600,
+        "end_exclusive": "2019-03-22T21:00:00+00:00",
+        "quoted_cost_usd": 0.16988709569,
+        "raw_symbols": [
+          "GCG0",
+          "GCH9",
+          "GCJ0",
+          "GCJ9",
+          "GCK9",
+          "GCM3",
+          "GCM4",
+          "GCQ0",
+          "GCQ9",
+          "GCV0",
+          "GCV9",
+          "GCZ2",
+          "GCZ3",
+          "GCZ4"
+        ],
+        "record_count": 1266770,
+        "session_ids": [
+          "GC-2019-03-22"
+        ],
+        "start": "2019-03-21T22:00:00+00:00",
+        "symbol_count": 14
+      },
+      {
+        "billable_size_bytes": 3503040,
+        "end_exclusive": "2019-03-29T21:00:00+00:00",
+        "quoted_cost_usd": 0.005872428417,
+        "raw_symbols": [
+          "GCG0",
+          "GCG1",
+          "GCJ0",
+          "GCJ9",
+          "GCK9",
+          "GCM3",
+          "GCM4",
+          "GCQ0",
+          "GCQ9",
+          "GCV0",
+          "GCV9",
+          "GCZ2",
+          "GCZ3",
+          "GCZ4"
+        ],
+        "record_count": 43788,
+        "session_ids": [
+          "GC-2019-03-29"
+        ],
+        "start": "2019-03-28T22:00:00+00:00",
+        "symbol_count": 14
+      }
+    ],
+    "run_count": 2,
+    "schema": "mbp-1",
+    "stype_in": "raw_symbol",
+    "total_billable_size_bytes": 104844640,
+    "total_quoted_cost_usd": 0.175759524107,
+    "total_record_count": 1310558
+  },
+  "selection": {
+    "candidate_pair_count": 79,
+    "manifest_sha256": "962f49c2d607d4aaad6d511314bcc47ee02491f85feb019849fc02390c2a497c",
+    "pilot_index": 22,
+    "pilot_seed_digest": "176eeaabf0b43c19715160e63636b2ed86c3c27f10e552e995184ef7fd8f5d24",
+    "seed_input": "HERMES|HMT-2|MBP1-PILOT-V1|962f49c2d607d4aaad6d511314bcc47ee02491f85feb019849fc02390c2a497c",
+    "selected_control_gc_trade_date": "2019-03-22",
+    "selected_control_inclusion_reason": "matched_control_for:GC-2019-03-29;weekday_distance_days:7",
+    "selected_control_session_id": "GC-2019-03-22",
+    "selected_event_event_class": "PCE_RELEASE",
+    "selected_event_gc_trade_date": "2019-03-29",
+    "selected_event_session_id": "GC-2019-03-29"
+  },
+  "stage": "PART1_AND_PART2",
+  "status": "OK"
+}

@@ -1,0 +1,191 @@
+{
+  "contract_mapping_anomalies": [
+    {
+      "conflicting": "COMEX:GC:2027-06",
+      "existing": "COMEX:GC:2017-06",
+      "raw_symbol": "GCM7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-12",
+      "existing": "COMEX:GC:2017-12",
+      "raw_symbol": "GCZ7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-06",
+      "existing": "COMEX:GC:2018-06",
+      "raw_symbol": "GCM8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-12",
+      "existing": "COMEX:GC:2018-12",
+      "raw_symbol": "GCZ8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2029-06",
+      "existing": "COMEX:GC:2019-06",
+      "raw_symbol": "GCM9",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2029-12",
+      "existing": "COMEX:GC:2019-12",
+      "raw_symbol": "GCZ9",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2030-06",
+      "existing": "COMEX:GC:2020-06",
+      "raw_symbol": "GCM0",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2030-12",
+      "existing": "COMEX:GC:2020-12",
+      "raw_symbol": "GCZ0",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-05",
+      "existing": "COMEX:GC:2017-05",
+      "raw_symbol": "GCK7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-07",
+      "existing": "COMEX:GC:2017-07",
+      "raw_symbol": "GCN7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2031-06",
+      "existing": "COMEX:GC:2021-06",
+      "raw_symbol": "GCM1",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-08",
+      "existing": "COMEX:GC:2017-08",
+      "raw_symbol": "GCQ7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-09",
+      "existing": "COMEX:GC:2017-09",
+      "raw_symbol": "GCU7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-10",
+      "existing": "COMEX:GC:2017-10",
+      "raw_symbol": "GCV7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2027-11",
+      "existing": "COMEX:GC:2017-11",
+      "raw_symbol": "GCX7",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-01",
+      "existing": "COMEX:GC:2018-01",
+      "raw_symbol": "GCF8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2031-12",
+      "existing": "COMEX:GC:2021-12",
+      "raw_symbol": "GCZ1",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-02",
+      "existing": "COMEX:GC:2018-02",
+      "raw_symbol": "GCG8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-03",
+      "existing": "COMEX:GC:2018-03",
+      "raw_symbol": "GCH8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-04",
+      "existing": "COMEX:GC:2018-04",
+      "raw_symbol": "GCJ8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-05",
+      "existing": "COMEX:GC:2018-05",
+      "raw_symbol": "GCK8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-07",
+      "existing": "COMEX:GC:2018-07",
+      "raw_symbol": "GCN8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2032-06",
+      "existing": "COMEX:GC:2022-06",
+      "raw_symbol": "GCM2",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-08",
+      "existing": "COMEX:GC:2018-08",
+      "raw_symbol": "GCQ8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-09",
+      "existing": "COMEX:GC:2018-09",
+      "raw_symbol": "GCU8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-10",
+      "existing": "COMEX:GC:2018-10",
+      "raw_symbol": "GCV8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    },
+    {
+      "conflicting": "COMEX:GC:2028-11",
+      "existing": "COMEX:GC:2018-11",
+      "raw_symbol": "GCX8",
+      "reason": "CONFLICTING_DUPLICATE_MAPPING"
+    }
+  ],
+  "contract_mapping_anomaly_count": 27,
+  "contract_mapping_anomaly_reason_counts": {
+    "CONFLICTING_DUPLICATE_MAPPING": 27
+  },
+  "contract_mapping_entry_count": 93,
+  "contract_mapping_table_file": "research/hmt2/gc-contract-mapping-table-v2.json",
+  "frozen_source": {
+    "dataset": "GLBX.MDP3",
+    "native_artefact_relative_path": "research-source/hmt2-gc-mbp1-v1/sessions/HMT2-REAL-ACQ-GC-FUT-DEFINITIONS/definitions/gc_fut_definitions_2017-05-21_2026-09-19.dbn.zst",
+    "native_artefact_sha256": "049608e11f224c9eba7d676db7143340ea691da7c7af37fc71af624d8fa35375",
+    "parent_symbol": "GC.FUT",
+    "provider": "databento",
+    "schema": "definition",
+    "stype_in": "parent"
+  },
+  "instrument_class_counts": {
+    "F": 70016,
+    "S": 1986014
+  },
+  "non_outright_count": 1986014,
+  "outright_count": 70016,
+  "processing_version": "hmt2-gc-definitions-processing-v2",
+  "real_data_correction_disclosure": "The real Databento raw_symbol wire form for a GC outright is one-digit-year (e.g. GCG8), genuinely ambiguous across decades; this run uses the authoritative maturity_year/maturity_month fields, not symbol-string parsing, for delivery identity \u2014 see market_truth.acquisition.gc_definitions module docstring. CONFLICTING_DUPLICATE_MAPPING anomalies below are the real, expected consequence of raw_symbol strings that recur across the corpus's ~9.3-year window.",
+  "total_definition_records": 2056030,
+  "unique_outright_raw_symbol_count": 120
+}
