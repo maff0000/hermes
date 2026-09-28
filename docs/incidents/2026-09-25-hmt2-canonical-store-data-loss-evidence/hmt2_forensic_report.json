@@ -1,0 +1,1144 @@
+{
+  "aggregate": {
+    "collision_path_count": 57,
+    "distinct_victim_session_count": 19,
+    "sessions_fully_valid": 103,
+    "sessions_with_at_least_one_stale_reference": 19,
+    "total_artifact_hash_mismatches": 58,
+    "total_completed_sessions_inspected": 122,
+    "total_lineage_partition_references": 1067,
+    "total_missing_files": 0,
+    "total_semantic_hash_mismatches": 58,
+    "unique_physical_paths_referenced": 1009
+  },
+  "canonical_store_root": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-canonical-store/hmt2-gc-mbp1-v1",
+  "captured_utc": null,
+  "collisions": {
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-11-28/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "d954b6aca69195a444ef91e724ff088d7dd278195618de8577a5841abc0ff23e",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "5cc749095dc25002bee8799b0fc5d44a8e48a09f7e793c945c79d3170b70cb66",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-11-28/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "7b7b3490f335c59b7b2b8e056e4b00e6c58b06a9d1c5fc72ff25e969f499a90c",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "4f9a2839efa6be67ca67eb759980fe2a6b4a004fa370084503de42aa2f1762cf",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-12-27/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e30f65fd99524c6c98ffb6cf01bc2d3db2db35f9f3c91eb203cf4105884a106f",
+        "session_id": "GC-2018-12-27"
+      },
+      {
+        "recorded_artifact_hash": "7eceb2e2348089242fcee4d0fd27226ed53bdad9230348ddd41a515dd6216222",
+        "session_id": "GC-2018-12-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-05-17/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "314a86c4b426cfd4b321b037353738da55801891d630b4c6270fdbcd0ed72772",
+        "session_id": "GC-2018-05-17"
+      },
+      {
+        "recorded_artifact_hash": "99836130049e966c27cf805b27df3fb744330161394983173f25d7f18845c7f4",
+        "session_id": "GC-2018-05-18"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-05-17/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "33393f10605471529238b679aa97a20c77828bdf82b4ce7eaad74b69c57568a8",
+        "session_id": "GC-2018-05-17"
+      },
+      {
+        "recorded_artifact_hash": "6fcce8fab0d9b9fb7bcf0c0d352625180a15cf9fd123a53c6bb7b49bd0166a06",
+        "session_id": "GC-2018-05-18"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-18/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "bed6fe1a44cad117b215371842991a0563d5240841a0724107c86baddc5ad381",
+        "session_id": "GC-2018-07-18"
+      },
+      {
+        "recorded_artifact_hash": "185057df0aa50b0947b9ff68405045131547aad45765246f552998133c7ff26b",
+        "session_id": "GC-2018-07-19"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-24/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "378d121d078a8f5210c401048e7229430948321571526b8eea251212c514e4b9",
+        "session_id": "GC-2018-07-24"
+      },
+      {
+        "recorded_artifact_hash": "4b2da6b47ff32e22b2fc2330f0d6265c13224f8452ff88bc61b49afabab078d1",
+        "session_id": "GC-2018-07-25"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-24/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "66fadbed0619c67971a82bffb3cb861e3962999c7c57166cc202ffb74956832d",
+        "session_id": "GC-2018-07-24"
+      },
+      {
+        "recorded_artifact_hash": "95c536941362d726db148ac5f1a6a5b8ac10e4133d3141bd6196241ce6084bfd",
+        "session_id": "GC-2018-07-25"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-30/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "8553381a201fdea0ecf75bc2a44a0d3531530cfbd9527cb06af399b6f6abe92a",
+        "session_id": "GC-2018-07-30"
+      },
+      {
+        "recorded_artifact_hash": "b40ebdce6ad646acbd17e7f5d03e3d06608f3d84d5932290f21fe726f4340aa6",
+        "session_id": "GC-2018-07-31"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-31/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "081f3ffd97ffb29038147d80592656e20b0102e815c440cd8d9586c72145786d",
+        "session_id": "GC-2018-07-31"
+      },
+      {
+        "recorded_artifact_hash": "28fdf2a7118fa66fc9f66d2cd15d232f7fa2e627bfb654ffadc752090b6d3391",
+        "session_id": "GC-2018-08-01"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-31/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e335e023e0a8f9241799910854a4c2c95a9ce759f934a21202858bb37c245a89",
+        "session_id": "GC-2018-07-31"
+      },
+      {
+        "recorded_artifact_hash": "b67b366def06ebb4df1ae5c081e887f44ad3090e7f41f8ed1a9a3646c33d45b2",
+        "session_id": "GC-2018-08-01"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-05/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "acb3f7361bdb0b53e779ea0e3fb33748dd62d0983c76f4cb1eecca99ae94e722",
+        "session_id": "GC-2018-09-05"
+      },
+      {
+        "recorded_artifact_hash": "e04467f9947fe7bb03b44c68073a93c592366e4e9e7007cc83c39fa31e4aa0aa",
+        "session_id": "GC-2018-09-06"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-06/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "6499e523fbcbe2d2ec4998a17f4f12b66f27d2759aac1f30355f0b683fa8c249",
+        "session_id": "GC-2018-09-06"
+      },
+      {
+        "recorded_artifact_hash": "24edcf4cd73c8b0ca0f17a022453bac112cae0361f77bf043133de858fa5e0f2",
+        "session_id": "GC-2018-09-07"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-06/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "b04db5e2b6f2add319ce408e6155b2de17da2bdfce677c02c5c01ed39e9d685c",
+        "session_id": "GC-2018-09-06"
+      },
+      {
+        "recorded_artifact_hash": "f228f89f7c3b3d3feb2e2cb5e0843680aafb65359e208501b8efecef56fe117d",
+        "session_id": "GC-2018-09-07"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-13/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "21e30527702acf44b92109fddb7be8f0e29ee46e34408522d22bf4f80d62bfd7",
+        "session_id": "GC-2018-09-13"
+      },
+      {
+        "recorded_artifact_hash": "6f2452daea1e6f1bf8cf47e303725d69ae5b837c0bc32490c0a36da7d1517866",
+        "session_id": "GC-2018-09-14"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-11-28/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "8898fee66e8c7184edd575fd831de43b1069b04482a81738c49907530d81a83c",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "8a06d9536d49caa22c82b567d02607630677103f38f8bc0fca621fbf5386f3b8",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-11-28/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "8dec243adb715daff9802c1e4b744c36513988e04d1d21add92ec39ca1b4acf5",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "21734c88599222dd217bdba45ecf321205769a1ae4691b428831ea53047e2e66",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-12-27/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "0a96adbc90ba7399064bfa4d5f46cf5d45b26914ac8f14ce28504f9ed4bd893b",
+        "session_id": "GC-2018-12-27"
+      },
+      {
+        "recorded_artifact_hash": "cf0972992a2fa907996f60eb2f92c5961ee2d635a68be03535a964ca1a1c3faf",
+        "session_id": "GC-2018-12-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-12-27/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "acba0e6b943650d20ef1d4e5e5bc403e0403e85a52b4b3d733a3e25ea7b43061",
+        "session_id": "GC-2018-12-27"
+      },
+      {
+        "recorded_artifact_hash": "decdd1d857676dec2492ab1f641182cce3ddf2481165604c7f26d1af2a9c0c84",
+        "session_id": "GC-2018-12-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2019-01-22/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e2db8a44033b151b895c4701c893a76e5d4a408985d882dbdccc8e9bfa6e0a6b",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "1fd3f85702e6b97417acac0c77e2fbf23f7ea4f98fdaf00a3c53d237a226176f",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2019-01-22/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "5f3ae261c7a7577af605539715eaba51e16d058e11bf30c7573b1f27dd6d8463",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "3af77f33ed90b97260adcec38b0f63e9d5870b5be782f11af6e763b04fa6ca4a",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-03/date=2019-01-22/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "c58579433a4150c23a4c9965f96e0e637df9448196f3c161f004a1aff61e733a",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "50880a3ef5c206817d2b41099f70aff3e9d7c84b6ce3a7cd8665b4671722876b",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-03/date=2019-01-22/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "4c734216c43ce0290ec2d81bf5c1e18c462e755bd6bf0fe57fd55d5bb76eaf4d",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "81de230f29f05e2d2fa052419b3035e24587a30c0143272051517a704e63c7ee",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-18/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "373fd725999979e79ed95e036838edd31388fa7fcd0eb270b58ff89fb85f58fb",
+        "session_id": "GC-2018-07-18"
+      },
+      {
+        "recorded_artifact_hash": "710593ae9c6933e9592823af0365f06fb986efa16ec0a647a27b8d35fd482edf",
+        "session_id": "GC-2018-07-19"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-24/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "cf71174418939445609ecd52b632e9e9cf3f26a0729a551e76ed4457aba80ddf",
+        "session_id": "GC-2018-07-24"
+      },
+      {
+        "recorded_artifact_hash": "6366dffc8efac2ef2229cd2d65d5fb7ba08ec869c7d51f704c69f89badb90f22",
+        "session_id": "GC-2018-07-25"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-30/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e6881b7c1311b4e9777fc6b99888c22a5cfb2fd96913c97c817c9c792f6b4706",
+        "session_id": "GC-2018-07-30"
+      },
+      {
+        "recorded_artifact_hash": "05fd793f0c9ec9d9d0a2ab2a4f35ee070cff5627a57940ad9eb1e82fad47e945",
+        "session_id": "GC-2018-07-31"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-08-01/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "a81575a2d6260a6faf44e0c2d5f8831f3a7c1f3e8a65939b81ff9dc2d83c306f",
+        "session_id": "GC-2018-08-01"
+      },
+      {
+        "recorded_artifact_hash": "00f53ac70fec81d0fd06896ed411d45b406b5c6e180215b4fb67d40d98d440d9",
+        "session_id": "GC-2018-08-03"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-05/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "d59f0746291442d226f3debb05f2bc85d49a142a426f839dbbcf3620bb0e935b",
+        "session_id": "GC-2018-09-05"
+      },
+      {
+        "recorded_artifact_hash": "b1b58ae28430e6eb4342d61b90e80d7535db3f3bd1afafa171045f8e8975dd44",
+        "session_id": "GC-2018-09-06"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-06/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "a2b9165eb0bd0b742554dae393bca9610b1da170bcaf9df78eb316daac2b721f",
+        "session_id": "GC-2018-09-06"
+      },
+      {
+        "recorded_artifact_hash": "0f58c360b24fc8d374ed6dd90792fa9c32551899e74b0eaa26f0e6f509b6f7ea",
+        "session_id": "GC-2018-09-07"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-13/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "3a6b229a44c6a462679f6043fafb9424a1964e8ba8dfc53995094a93e0b99ed7",
+        "session_id": "GC-2018-09-13"
+      },
+      {
+        "recorded_artifact_hash": "89edc48ad58312ff9508d058d94b526f6154f14c5cf040b52b91073a37c9db0c",
+        "session_id": "GC-2018-09-14"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-11-28/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "d200152affb5447b8df88000fda548e34892e47edf2a691020cba8b3891a5be1",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "f39f994e93728184fa35b7e6ab1639bb7b6cafd52096daf8197aab2f1ed5407d",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-11-28/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e81d7c264792f67d9787467b504ac937f8ba6b8424738bcbc73311bb7d6413b5",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "a714516672a8eb309994e6fee43f98aec85433e71c16202365d1b4c1c667f319",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-12-27/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "c2337c29181e0e4bd2731e3bf09e04676cd9a9ab04d8d0e77659c4857bdf8ffb",
+        "session_id": "GC-2018-12-27"
+      },
+      {
+        "recorded_artifact_hash": "c120c588ce265d701e1f4746ee6cb316c05d19525c43d21f21243108b8522a8f",
+        "session_id": "GC-2018-12-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-12-27/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "c6cd64c6c2512a698e24130d17481825a23d2ee059c23f2c7d7d8bd38c4abef7",
+        "session_id": "GC-2018-12-27"
+      },
+      {
+        "recorded_artifact_hash": "ceafe2a392ec2f939560a8f07792857519a77d6e1e442daa08df0a0bf2893f58",
+        "session_id": "GC-2018-12-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-01-22/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "8f6151c935e97cc6d0e4d2076068251b76d8d2693e6e510919617ac0c9e4d8a5",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "ff749f7dd5bffde82b9892bde43d3e2f953d8caff5f1f96648f54a41fb74c4b4",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-01-22/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "3dc3df75de388fa28f35b5a91161b326034cdc9b0e8403da1bd721d270d410ad",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "50f3146ea4ec8c11c80b5b61e79b7696611aeee928af33efe4f5ebcf369b659a",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-04-03/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "3711e5856a5799c24edabb52df03b9d5716d0b7fd0a06785057c739e25e44b2d",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "2013d65fdfbf1d38e2f01c20226d30b72263b0e961d47d991f061080d577353d",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-05/date=2019-04-03/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "5bc87f42ed9ea01c1c280c23a2a1f7e3520933e1fe2f00cc7aae3e46271c55f5",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "57fbdfbc95fb134fb32123ca987ac733e01bfdf5fb2ad80213a84306ea477c18",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-05/date=2019-04-03/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "773f25131a4d05878101be73a473eceef2d11c28a5324f2dba128705026cbdb1",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "b49f5dafe2ac1fd23b3636e719af4600a570c2272cc08ad6d42907d820e272ca",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-07/date=2019-05-23/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e84b1183572640fbcf58b34cac3ee78d630c2d31f5fc580d6faa52fe99d1de1c",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "c53f817a4036cfcf443a2295a2c6d9d8048ca880d5c60d76d445e3a7f1cfb04b",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-07/date=2019-05-23/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "f5ed68a58814407706dd6eb435df563e97382963843feeff7fb1c79b29c0dd7e",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "8fb3b3d16a2aab7f74f778def8e15f960f4ee9891ba724eafe29e9f541748b1e",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2018-05-17/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "e2d7c14fe1654447bbf2e4ac7c59ed0287a955df72e6f4f1efe9bd20bca96079",
+        "session_id": "GC-2018-05-17"
+      },
+      {
+        "recorded_artifact_hash": "19754f5a9234f98d1ea814ed6118e8b9fd5ce27a1794d58e90c9d54e0652f5f3",
+        "session_id": "GC-2018-05-18"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-01-22/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "7465aa91d5e11ea55c08bcc5d862621f4415aa88ba10eef2c352123af5ff42b8",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "2e06fe0633c10527b72341b51ade323c7dab5c9a032b307f97e2e4924d2befd8",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-04-03/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "10b627c50fe66c0096078fef28b95ad7ccb6ac3f682b37c8cc8761f8c38cd5fc",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "12bd8dd4c4c77d8a5476451a8a710875bc250b3b1be9aab21e1999ad504a0e02",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-04-03/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "71c619836799c288f6344e4f717acf66e34125e1056a8e829f0e8b8606c8f822",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "7fe1913ed7350df828e0c4801b5bfc1f29672e805c983afc78281cca01073c76",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-05-23/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "af91ec765cb2d3ba347f824b490ffeb6f6c1af881ca5e0329d11cfb9c23159a2",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "d156efcee63c804549cd69d8fe6f800af31abcbf246e2ceec44e8c0ce229151b",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-05-23/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "cbe5dc9a28c2d5f0e157932c3f54aef24039f7d61574e7b393951f9bb3787016",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "c048918466c85e8a9f7b4a65a9fa5450520cb0809ff1fe268e77514d71cf9e4e",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2018-11-25/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "f30bce49e21082ee0c05b491e6d58b660a42f148873635f3ef94b92d194875a3",
+        "session_id": "GC-2018-11-26"
+      },
+      {
+        "recorded_artifact_hash": "36b18a2d0656e4cfd8d798b694272c5a8770429ffc696ff22b16f6f163faf7f0",
+        "session_id": "GC-2018-11-28"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2018-11-28/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "7c2c61a67c7643d0b6e620f53becc75e502c4fc55c666a8b863bd2deb752432f",
+        "session_id": "GC-2018-11-28"
+      },
+      {
+        "recorded_artifact_hash": "d739be1f4783134ce87dc7013c251ee5c557a791d3d6e7d469364ce8adf84dfb",
+        "session_id": "GC-2018-11-29"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-06/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "308216b4a3972c819b663840d8f220c2d9b6935c8f56120ad2606790f4819284",
+        "session_id": "GC-2019-01-09"
+      },
+      {
+        "recorded_artifact_hash": "3e3903cf61d0858d7512dde3ceb749f92118361eb8cf627c1292e923072efcf1",
+        "session_id": "GC-2019-01-11"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-13/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "19ec62f5e746dc70c38e9ad40b3b36314754e88ddaa672e4f659c6af0d23f397",
+        "session_id": "GC-2019-01-14"
+      },
+      {
+        "recorded_artifact_hash": "0fc952d7cb0ef8aaf3d3d110680bec90cbf53715ff5307721a0372a5203660aa",
+        "session_id": "GC-2019-01-16"
+      },
+      {
+        "recorded_artifact_hash": "c56fa5505ab3492b945e14afb824e606647177879151d03d5e745b843a4851c7",
+        "session_id": "GC-2019-01-18"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-22/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "00d2290810b582e251dff9b5c1eba6f7635475b1191c0ca80ff36d51fe8dd8db",
+        "session_id": "GC-2019-01-22"
+      },
+      {
+        "recorded_artifact_hash": "1bcac16b7aa18521d3ca4001775ca739974ec42f601551ee448e89ad513cd88a",
+        "session_id": "GC-2019-01-23"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-05-23/event_type=market_trade/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "256036fcc0500a8ef9e8b5cb5a9e3288768f25a3b69f4fd78a8bd04e94d4cfd4",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "cd6ff91e6a84c8b50e3af7e9d311850bad59ddc07123ccdea07950c0e7548b0f",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-05-23/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "57dd3bdd3de30ff0da73a6657dcf2bdc074547683aa6658cb42732fc7d39936c",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "276a83baa1385874f3d3499b5b138156f32fb83ed4d94705153f6b2f31f08f95",
+        "session_id": "GC-2019-05-24"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-03-17/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "77d427975af1c1b2b5adbe220c4b70759f14d1b9390f16a3e0d0253c2bb00339",
+        "session_id": "GC-2019-03-19"
+      },
+      {
+        "recorded_artifact_hash": "7a0fc1ff3e31b3be769e1aa14b7c4f8a1c93277c01006d91b0fd655a4f22c60a",
+        "session_id": "GC-2019-03-22"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-04-03/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "9ed25314e0e9d35c806b70ca69e2f634eb8ecc4ea3f8f26f80d5fded35f879d0",
+        "session_id": "GC-2019-04-03"
+      },
+      {
+        "recorded_artifact_hash": "65534fcbb565032820093b8ea0bc8ea368166b6c18766fcdb996b2e14f6d89a8",
+        "session_id": "GC-2019-04-04"
+      }
+    ],
+    "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-05-23/event_type=top_of_book/part-00000.parquet": [
+      {
+        "recorded_artifact_hash": "25e83f1b5c39094f82c5694e7cbab4cb3a5fb479d3b7c19898648b1d47e17fa1",
+        "session_id": "GC-2019-05-23"
+      },
+      {
+        "recorded_artifact_hash": "3af1d80ba61fd5852f71c30f39b3964ac89f061371d3519303a77b81bd93c276",
+        "session_id": "GC-2019-05-24"
+      }
+    ]
+  },
+  "ledger_completed_count": 122,
+  "ledger_path": "/srv/rogue-hermes/worktrees/hmt2-governed-gc-mbp1-corpus/research-canonical-store/hmt2-gc-mbp1-v1/manifest/gc_corpus_canonical_ledger.json",
+  "ledger_sha256": "b6589f6f06be24d09b783b7ba534c0dafb9c62c05c8e94e122876a81c4470668",
+  "ledger_total_sessions": 122,
+  "lineage_catalogue_aggregate_identity_sha256": "9b2fa1cf79cf56da04f55c811574932e09dfaea71ea9a551d054c9a6366aa734",
+  "lineage_file_count": 122,
+  "read_errors": [],
+  "victim_session_ids": [
+    "GC-2018-05-17",
+    "GC-2018-07-18",
+    "GC-2018-07-24",
+    "GC-2018-07-30",
+    "GC-2018-07-31",
+    "GC-2018-08-01",
+    "GC-2018-09-05",
+    "GC-2018-09-06",
+    "GC-2018-09-13",
+    "GC-2018-11-26",
+    "GC-2018-11-28",
+    "GC-2018-12-27",
+    "GC-2019-01-09",
+    "GC-2019-01-14",
+    "GC-2019-01-16",
+    "GC-2019-01-22",
+    "GC-2019-03-22",
+    "GC-2019-04-03",
+    "GC-2019-05-23"
+  ],
+  "victims": [
+    {
+      "actual_hash": "99836130049e966c27cf805b27df3fb744330161394983173f25d7f18845c7f4",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-05-17/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-05-18"
+      ],
+      "victim_recorded_hash": "314a86c4b426cfd4b321b037353738da55801891d630b4c6270fdbcd0ed72772",
+      "victim_session_id": "GC-2018-05-17"
+    },
+    {
+      "actual_hash": "6fcce8fab0d9b9fb7bcf0c0d352625180a15cf9fd123a53c6bb7b49bd0166a06",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-05-17/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-05-18"
+      ],
+      "victim_recorded_hash": "33393f10605471529238b679aa97a20c77828bdf82b4ce7eaad74b69c57568a8",
+      "victim_session_id": "GC-2018-05-17"
+    },
+    {
+      "actual_hash": "19754f5a9234f98d1ea814ed6118e8b9fd5ce27a1794d58e90c9d54e0652f5f3",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2018-05-17/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-05-18"
+      ],
+      "victim_recorded_hash": "e2d7c14fe1654447bbf2e4ac7c59ed0287a955df72e6f4f1efe9bd20bca96079",
+      "victim_session_id": "GC-2018-05-17"
+    },
+    {
+      "actual_hash": "185057df0aa50b0947b9ff68405045131547aad45765246f552998133c7ff26b",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-18/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-19"
+      ],
+      "victim_recorded_hash": "bed6fe1a44cad117b215371842991a0563d5240841a0724107c86baddc5ad381",
+      "victim_session_id": "GC-2018-07-18"
+    },
+    {
+      "actual_hash": "710593ae9c6933e9592823af0365f06fb986efa16ec0a647a27b8d35fd482edf",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-18/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-19"
+      ],
+      "victim_recorded_hash": "373fd725999979e79ed95e036838edd31388fa7fcd0eb270b58ff89fb85f58fb",
+      "victim_session_id": "GC-2018-07-18"
+    },
+    {
+      "actual_hash": "4b2da6b47ff32e22b2fc2330f0d6265c13224f8452ff88bc61b49afabab078d1",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-24/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-25"
+      ],
+      "victim_recorded_hash": "378d121d078a8f5210c401048e7229430948321571526b8eea251212c514e4b9",
+      "victim_session_id": "GC-2018-07-24"
+    },
+    {
+      "actual_hash": "95c536941362d726db148ac5f1a6a5b8ac10e4133d3141bd6196241ce6084bfd",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-24/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-25"
+      ],
+      "victim_recorded_hash": "66fadbed0619c67971a82bffb3cb861e3962999c7c57166cc202ffb74956832d",
+      "victim_session_id": "GC-2018-07-24"
+    },
+    {
+      "actual_hash": "6366dffc8efac2ef2229cd2d65d5fb7ba08ec869c7d51f704c69f89badb90f22",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-24/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-25"
+      ],
+      "victim_recorded_hash": "cf71174418939445609ecd52b632e9e9cf3f26a0729a551e76ed4457aba80ddf",
+      "victim_session_id": "GC-2018-07-24"
+    },
+    {
+      "actual_hash": "b40ebdce6ad646acbd17e7f5d03e3d06608f3d84d5932290f21fe726f4340aa6",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-30/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-31"
+      ],
+      "victim_recorded_hash": "8553381a201fdea0ecf75bc2a44a0d3531530cfbd9527cb06af399b6f6abe92a",
+      "victim_session_id": "GC-2018-07-30"
+    },
+    {
+      "actual_hash": "05fd793f0c9ec9d9d0a2ab2a4f35ee070cff5627a57940ad9eb1e82fad47e945",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-07-30/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-07-31"
+      ],
+      "victim_recorded_hash": "e6881b7c1311b4e9777fc6b99888c22a5cfb2fd96913c97c817c9c792f6b4706",
+      "victim_session_id": "GC-2018-07-30"
+    },
+    {
+      "actual_hash": "28fdf2a7118fa66fc9f66d2cd15d232f7fa2e627bfb654ffadc752090b6d3391",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-31/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-08-01"
+      ],
+      "victim_recorded_hash": "081f3ffd97ffb29038147d80592656e20b0102e815c440cd8d9586c72145786d",
+      "victim_session_id": "GC-2018-07-31"
+    },
+    {
+      "actual_hash": "b67b366def06ebb4df1ae5c081e887f44ad3090e7f41f8ed1a9a3646c33d45b2",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-07-31/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-08-01"
+      ],
+      "victim_recorded_hash": "e335e023e0a8f9241799910854a4c2c95a9ce759f934a21202858bb37c245a89",
+      "victim_session_id": "GC-2018-07-31"
+    },
+    {
+      "actual_hash": "00f53ac70fec81d0fd06896ed411d45b406b5c6e180215b4fb67d40d98d440d9",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-08-01/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-08-03"
+      ],
+      "victim_recorded_hash": "a81575a2d6260a6faf44e0c2d5f8831f3a7c1f3e8a65939b81ff9dc2d83c306f",
+      "victim_session_id": "GC-2018-08-01"
+    },
+    {
+      "actual_hash": "e04467f9947fe7bb03b44c68073a93c592366e4e9e7007cc83c39fa31e4aa0aa",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-05/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-06"
+      ],
+      "victim_recorded_hash": "acb3f7361bdb0b53e779ea0e3fb33748dd62d0983c76f4cb1eecca99ae94e722",
+      "victim_session_id": "GC-2018-09-05"
+    },
+    {
+      "actual_hash": "b1b58ae28430e6eb4342d61b90e80d7535db3f3bd1afafa171045f8e8975dd44",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-05/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-06"
+      ],
+      "victim_recorded_hash": "d59f0746291442d226f3debb05f2bc85d49a142a426f839dbbcf3620bb0e935b",
+      "victim_session_id": "GC-2018-09-05"
+    },
+    {
+      "actual_hash": "24edcf4cd73c8b0ca0f17a022453bac112cae0361f77bf043133de858fa5e0f2",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-06/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-07"
+      ],
+      "victim_recorded_hash": "6499e523fbcbe2d2ec4998a17f4f12b66f27d2759aac1f30355f0b683fa8c249",
+      "victim_session_id": "GC-2018-09-06"
+    },
+    {
+      "actual_hash": "f228f89f7c3b3d3feb2e2cb5e0843680aafb65359e208501b8efecef56fe117d",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-06/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-07"
+      ],
+      "victim_recorded_hash": "b04db5e2b6f2add319ce408e6155b2de17da2bdfce677c02c5c01ed39e9d685c",
+      "victim_session_id": "GC-2018-09-06"
+    },
+    {
+      "actual_hash": "0f58c360b24fc8d374ed6dd90792fa9c32551899e74b0eaa26f0e6f509b6f7ea",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-06/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-07"
+      ],
+      "victim_recorded_hash": "a2b9165eb0bd0b742554dae393bca9610b1da170bcaf9df78eb316daac2b721f",
+      "victim_session_id": "GC-2018-09-06"
+    },
+    {
+      "actual_hash": "6f2452daea1e6f1bf8cf47e303725d69ae5b837c0bc32490c0a36da7d1517866",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-09-13/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-14"
+      ],
+      "victim_recorded_hash": "21e30527702acf44b92109fddb7be8f0e29ee46e34408522d22bf4f80d62bfd7",
+      "victim_session_id": "GC-2018-09-13"
+    },
+    {
+      "actual_hash": "89edc48ad58312ff9508d058d94b526f6154f14c5cf040b52b91073a37c9db0c",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-09-13/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-09-14"
+      ],
+      "victim_recorded_hash": "3a6b229a44c6a462679f6043fafb9424a1964e8ba8dfc53995094a93e0b99ed7",
+      "victim_session_id": "GC-2018-09-13"
+    },
+    {
+      "actual_hash": "36b18a2d0656e4cfd8d798b694272c5a8770429ffc696ff22b16f6f163faf7f0",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2018-11-25/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-28"
+      ],
+      "victim_recorded_hash": "f30bce49e21082ee0c05b491e6d58b660a42f148873635f3ef94b92d194875a3",
+      "victim_session_id": "GC-2018-11-26"
+    },
+    {
+      "actual_hash": "5cc749095dc25002bee8799b0fc5d44a8e48a09f7e793c945c79d3170b70cb66",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-11-28/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "d954b6aca69195a444ef91e724ff088d7dd278195618de8577a5841abc0ff23e",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "4f9a2839efa6be67ca67eb759980fe2a6b4a004fa370084503de42aa2f1762cf",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-11-28/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "7b7b3490f335c59b7b2b8e056e4b00e6c58b06a9d1c5fc72ff25e969f499a90c",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "8a06d9536d49caa22c82b567d02607630677103f38f8bc0fca621fbf5386f3b8",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-11-28/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "8898fee66e8c7184edd575fd831de43b1069b04482a81738c49907530d81a83c",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "21734c88599222dd217bdba45ecf321205769a1ae4691b428831ea53047e2e66",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-11-28/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "8dec243adb715daff9802c1e4b744c36513988e04d1d21add92ec39ca1b4acf5",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "f39f994e93728184fa35b7e6ab1639bb7b6cafd52096daf8197aab2f1ed5407d",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-11-28/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "d200152affb5447b8df88000fda548e34892e47edf2a691020cba8b3891a5be1",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "a714516672a8eb309994e6fee43f98aec85433e71c16202365d1b4c1c667f319",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-11-28/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "e81d7c264792f67d9787467b504ac937f8ba6b8424738bcbc73311bb7d6413b5",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "d739be1f4783134ce87dc7013c251ee5c557a791d3d6e7d469364ce8adf84dfb",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2018-11-28/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-11-29"
+      ],
+      "victim_recorded_hash": "7c2c61a67c7643d0b6e620f53becc75e502c4fc55c666a8b863bd2deb752432f",
+      "victim_session_id": "GC-2018-11-28"
+    },
+    {
+      "actual_hash": "7eceb2e2348089242fcee4d0fd27226ed53bdad9230348ddd41a515dd6216222",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-01/date=2018-12-27/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-12-28"
+      ],
+      "victim_recorded_hash": "e30f65fd99524c6c98ffb6cf01bc2d3db2db35f9f3c91eb203cf4105884a106f",
+      "victim_session_id": "GC-2018-12-27"
+    },
+    {
+      "actual_hash": "cf0972992a2fa907996f60eb2f92c5961ee2d635a68be03535a964ca1a1c3faf",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-12-27/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-12-28"
+      ],
+      "victim_recorded_hash": "0a96adbc90ba7399064bfa4d5f46cf5d45b26914ac8f14ce28504f9ed4bd893b",
+      "victim_session_id": "GC-2018-12-27"
+    },
+    {
+      "actual_hash": "decdd1d857676dec2492ab1f641182cce3ddf2481165604c7f26d1af2a9c0c84",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2018-12-27/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-12-28"
+      ],
+      "victim_recorded_hash": "acba0e6b943650d20ef1d4e5e5bc403e0403e85a52b4b3d733a3e25ea7b43061",
+      "victim_session_id": "GC-2018-12-27"
+    },
+    {
+      "actual_hash": "c120c588ce265d701e1f4746ee6cb316c05d19525c43d21f21243108b8522a8f",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-12-27/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-12-28"
+      ],
+      "victim_recorded_hash": "c2337c29181e0e4bd2731e3bf09e04676cd9a9ab04d8d0e77659c4857bdf8ffb",
+      "victim_session_id": "GC-2018-12-27"
+    },
+    {
+      "actual_hash": "ceafe2a392ec2f939560a8f07792857519a77d6e1e442daa08df0a0bf2893f58",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2018-12-27/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2018-12-28"
+      ],
+      "victim_recorded_hash": "c6cd64c6c2512a698e24130d17481825a23d2ee059c23f2c7d7d8bd38c4abef7",
+      "victim_session_id": "GC-2018-12-27"
+    },
+    {
+      "actual_hash": "3e3903cf61d0858d7512dde3ceb749f92118361eb8cf627c1292e923072efcf1",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-06/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-11"
+      ],
+      "victim_recorded_hash": "308216b4a3972c819b663840d8f220c2d9b6935c8f56120ad2606790f4819284",
+      "victim_session_id": "GC-2019-01-09"
+    },
+    {
+      "actual_hash": "c56fa5505ab3492b945e14afb824e606647177879151d03d5e745b843a4851c7",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-13/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-18"
+      ],
+      "victim_recorded_hash": "19ec62f5e746dc70c38e9ad40b3b36314754e88ddaa672e4f659c6af0d23f397",
+      "victim_session_id": "GC-2019-01-14"
+    },
+    {
+      "actual_hash": "c56fa5505ab3492b945e14afb824e606647177879151d03d5e745b843a4851c7",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-13/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-18"
+      ],
+      "victim_recorded_hash": "0fc952d7cb0ef8aaf3d3d110680bec90cbf53715ff5307721a0372a5203660aa",
+      "victim_session_id": "GC-2019-01-16"
+    },
+    {
+      "actual_hash": "1fd3f85702e6b97417acac0c77e2fbf23f7ea4f98fdaf00a3c53d237a226176f",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2019-01-22/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "e2db8a44033b151b895c4701c893a76e5d4a408985d882dbdccc8e9bfa6e0a6b",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "3af77f33ed90b97260adcec38b0f63e9d5870b5be782f11af6e763b04fa6ca4a",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-02/date=2019-01-22/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "5f3ae261c7a7577af605539715eaba51e16d058e11bf30c7573b1f27dd6d8463",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "50880a3ef5c206817d2b41099f70aff3e9d7c84b6ce3a7cd8665b4671722876b",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-03/date=2019-01-22/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "c58579433a4150c23a4c9965f96e0e637df9448196f3c161f004a1aff61e733a",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "81de230f29f05e2d2fa052419b3035e24587a30c0143272051517a704e63c7ee",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-03/date=2019-01-22/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "4c734216c43ce0290ec2d81bf5c1e18c462e755bd6bf0fe57fd55d5bb76eaf4d",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "ff749f7dd5bffde82b9892bde43d3e2f953d8caff5f1f96648f54a41fb74c4b4",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-01-22/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "8f6151c935e97cc6d0e4d2076068251b76d8d2693e6e510919617ac0c9e4d8a5",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "50f3146ea4ec8c11c80b5b61e79b7696611aeee928af33efe4f5ebcf369b659a",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-01-22/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "3dc3df75de388fa28f35b5a91161b326034cdc9b0e8403da1bd721d270d410ad",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "2e06fe0633c10527b72341b51ade323c7dab5c9a032b307f97e2e4924d2befd8",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-01-22/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "7465aa91d5e11ea55c08bcc5d862621f4415aa88ba10eef2c352123af5ff42b8",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "1bcac16b7aa18521d3ca4001775ca739974ec42f601551ee448e89ad513cd88a",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-01-22/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-01-23"
+      ],
+      "victim_recorded_hash": "00d2290810b582e251dff9b5c1eba6f7635475b1191c0ca80ff36d51fe8dd8db",
+      "victim_session_id": "GC-2019-01-22"
+    },
+    {
+      "actual_hash": "77d427975af1c1b2b5adbe220c4b70759f14d1b9390f16a3e0d0253c2bb00339",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-03-17/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-03-19"
+      ],
+      "victim_recorded_hash": "7a0fc1ff3e31b3be769e1aa14b7c4f8a1c93277c01006d91b0fd655a4f22c60a",
+      "victim_session_id": "GC-2019-03-22"
+    },
+    {
+      "actual_hash": "2013d65fdfbf1d38e2f01c20226d30b72263b0e961d47d991f061080d577353d",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-04/date=2019-04-03/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "3711e5856a5799c24edabb52df03b9d5716d0b7fd0a06785057c739e25e44b2d",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "57fbdfbc95fb134fb32123ca987ac733e01bfdf5fb2ad80213a84306ea477c18",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-05/date=2019-04-03/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "5bc87f42ed9ea01c1c280c23a2a1f7e3520933e1fe2f00cc7aae3e46271c55f5",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "b49f5dafe2ac1fd23b3636e719af4600a570c2272cc08ad6d42907d820e272ca",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-05/date=2019-04-03/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "773f25131a4d05878101be73a473eceef2d11c28a5324f2dba128705026cbdb1",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "12bd8dd4c4c77d8a5476451a8a710875bc250b3b1be9aab21e1999ad504a0e02",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-04-03/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "10b627c50fe66c0096078fef28b95ad7ccb6ac3f682b37c8cc8761f8c38cd5fc",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "7fe1913ed7350df828e0c4801b5bfc1f29672e805c983afc78281cca01073c76",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-04-03/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "71c619836799c288f6344e4f717acf66e34125e1056a8e829f0e8b8606c8f822",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "65534fcbb565032820093b8ea0bc8ea368166b6c18766fcdb996b2e14f6d89a8",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-04-03/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-04-04"
+      ],
+      "victim_recorded_hash": "9ed25314e0e9d35c806b70ca69e2f634eb8ecc4ea3f8f26f80d5fded35f879d0",
+      "victim_session_id": "GC-2019-04-03"
+    },
+    {
+      "actual_hash": "c53f817a4036cfcf443a2295a2c6d9d8048ca880d5c60d76d445e3a7f1cfb04b",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-07/date=2019-05-23/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "e84b1183572640fbcf58b34cac3ee78d630c2d31f5fc580d6faa52fe99d1de1c",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "8fb3b3d16a2aab7f74f778def8e15f960f4ee9891ba724eafe29e9f541748b1e",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-07/date=2019-05-23/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "f5ed68a58814407706dd6eb435df563e97382963843feeff7fb1c79b29c0dd7e",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "d156efcee63c804549cd69d8fe6f800af31abcbf246e2ceec44e8c0ce229151b",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-05-23/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "af91ec765cb2d3ba347f824b490ffeb6f6c1af881ca5e0329d11cfb9c23159a2",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "c048918466c85e8a9f7b4a65a9fa5450520cb0809ff1fe268e77514d71cf9e4e",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-08/date=2019-05-23/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "cbe5dc9a28c2d5f0e157932c3f54aef24039f7d61574e7b393951f9bb3787016",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "cd6ff91e6a84c8b50e3af7e9d311850bad59ddc07123ccdea07950c0e7548b0f",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-05-23/event_type=market_trade/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "256036fcc0500a8ef9e8b5cb5a9e3288768f25a3b69f4fd78a8bd04e94d4cfd4",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "276a83baa1385874f3d3499b5b138156f32fb83ed4d94705153f6b2f31f08f95",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2019-10/date=2019-05-23/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "57dd3bdd3de30ff0da73a6657dcf2bdc074547683aa6658cb42732fc7d39936c",
+      "victim_session_id": "GC-2019-05-23"
+    },
+    {
+      "actual_hash": "3af1d80ba61fd5852f71c30f39b3964ac89f061371d3519303a77b81bd93c276",
+      "path": "schema=v1/venue=COMEX/product=GC/contract=COMEX_GC_2020-02/date=2019-05-23/event_type=top_of_book/part-00000.parquet",
+      "surviving_session_ids": [
+        "GC-2019-05-24"
+      ],
+      "victim_recorded_hash": "25e83f1b5c39094f82c5694e7cbab4cb3a5fb479d3b7c19898648b1d47e17fa1",
+      "victim_session_id": "GC-2019-05-23"
+    }
+  ]
+}
