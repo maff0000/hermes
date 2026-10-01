@@ -146,6 +146,15 @@ services:
       # /etc/hostname mounted read-only. The environment-owned env file declares
       # EXPECTED_HOSTNAME; a mismatch (wrong env file on this host) FAILS CLOSED.
       - /etc/hostname:/etc/host-hostname:ro
+      # WO-PID05-STAGE3B-EVIDENCE-PUBLISHER: HERMES-owned client mTLS material for the
+      # out-of-band evidence-publish GELF target (FALCON_PUBLISH_ENABLED). Read-only.
+      # HELM provisions this host path SEPARATELY (NOT created by this change) — it does
+      # not exist yet, so this mount source is simply absent/unused while
+      # FALCON_PUBLISH_ENABLED=false (the default). Expected layout once provisioned:
+      # client.crt (0644), client.key (0600), ca.crt (0644), directory itself 0700.
+      # Credential ownership: HERMES-owned path; never copied from the evidence sink's
+      # own filesystem.
+      - /srv-dev/hermes-deploy-secrets/falcon-evidence:/app/secrets/falcon-evidence:ro
 
     # WO-HELM-HERMES-DEV-STARTUP-RECOVERY-RESILIENCE-AND-HEALTH-TRUTHFIX-0001:
     # container health = APPLICATION health, not a bare TCP listener. This compose
