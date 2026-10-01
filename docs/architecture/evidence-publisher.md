@@ -18,11 +18,17 @@ SignalPublisher.publish_signal()
       |
       +-- existing Redis write      (own try/except, never raises)
       |
-      +-- EvidencePublisher.publish(signal)   <- NEW, independent, failure-isolated
+      +-- EvidencePublisher.publish(signal)   <- independent, failure-isolated, NON-BLOCKING
+              |                                   (builds + enqueues only — see "Asynchronous
+              |                                    publication boundary" below for where the
+              v                                    actual network send happens)
+      queue.Queue(maxsize=200) -> ONE background daemon thread -> GELF TCP + mTLS send
 ```
 
 This is deliberately small: one HERMES-owned module plus a handful of integration lines.
-It is not a messaging framework — no brokers, no queues, no outbox tables, no new SQL.
+It is not a messaging framework — no brokers, no durable queues, no outbox tables, no new
+SQL. The in-process bounded queue described below is an implementation detail of this one
+module, not a general-purpose messaging layer.
 
 ## GOV-SE-SEVERED-001 — why this doesn't violate the severance doctrine
 
@@ -94,34 +100,129 @@ use the safer `astimezone(utc)`-then-strip helper already present in
 given non-UTC-aware input. Today's actual input is always UTC-sourced, so this is not
 live. This WO does not touch `_get_candle_start()` or `CandleAggregator` — out of scope.)
 
+## Asynchronous publication boundary — F1 fix (HELM DEV-integration defect)
+
+**F1** (found during HELM's real DEV integration proof, fixed after this WO's original
+audit-GREEN pass): the transport is **blocking** Python sockets (`socket`/`ssl`, not
+`asyncio`-native). The original design called it **synchronously, inline, on HERMES's
+single-threaded asyncio signal-processing coroutine** — so a hung/black-holed evidence sink
+could stall the **entire event loop**, every instrument's signal processing, for up to
+roughly `2 * timeout` seconds per publication. That violated the required doctrine: HERMES
+must be independent of the sink's **latency**, not just its failures.
+
+**Fix shape:** a bounded, thread-safe `queue.Queue` (`maxsize=200`) plus **one background
+daemon thread** that owns the existing, byte-for-byte-unchanged, blocking transport. This
+mirrors the established HERMES idiom in `utils/hermes_publisher_runtime_v1.py`
+(`PublisherRunner`): a `threading.Thread` + `threading.Event`, bounded loops, graceful
+start/stop, exception-isolated. Deliberately **not** `asyncio.Queue` + an asyncio task — the
+transport itself is blocking I/O, and converting it to true asyncio-native sockets would be
+a materially larger, riskier rewrite than this fix warrants.
+
+```
+EvidencePublisher.publish(signal)        <- runs on the SIGNAL-PROCESSING thread only
+      |                                     builds + serializes the event (pure, in-memory,
+      |                                     no I/O), then queue.put_nowait() — NEVER blocks,
+      v                                     NEVER touches the network
+queue.Queue(maxsize=200)
+      |
+      v
+ONE background daemon thread (_worker_loop)
+      |
+      +-- blocking get() with a short poll timeout (observes stop() promptly)
+      +-- _send_event_with_retry(): the SAME 2-attempt GELF/mTLS transport logic described
+      |   below, now running entirely off the signal-processing path
+      +-- exception-isolated per item — one malformed/failing event can never kill the
+          worker thread (caught, logged `[EVIDENCE_PUBLISH_WORKER_ERROR]`, loop continues)
+```
+
+Event identity is fixed **before** enqueueing, not re-derived by the worker:
+`EvidencePublisher.publish()` calls `build_evidence_event()` and serializes it to bytes
+exactly once, on the caller's thread, and queues that already-built `(event, data)` pair.
+The worker's own internal retry reuses those exact values/bytes for both attempts — this is
+a relocation of **when/where** the transport send happens, not a change to **what** is sent
+or to the identity semantics documented above.
+
+**Queue sizing (`_EVIDENCE_QUEUE_MAX_SIZE = 200`)**, derived from real observed traffic:
+
+- HELM's real DEV integration proof observed **~182 evidence-publish events over 14
+  minutes**: an observed average rate of `182 / 14 ≈ 13.0 events/min` (~0.217 events/s).
+- The dominant burst shape is a near-simultaneous cluster (up to 4 instruments' M1 signals
+  landing within the same second, once per minute), not a sustained-rate spike. A generous
+  **3x safety multiplier** on the observed average gives an assumed worst-case *sustained*
+  rate of `13.0 * 3 ≈ 39 events/min`.
+- Sized to absorb an evidence-sink outage of **~5 minutes** at that worst-case sustained
+  rate: `39 * 5 ≈ 195`, rounded to **200**.
+- At the actually-observed (non-multiplied) average rate, 200 slots absorb
+  `200 / 13.0 ≈ 15.4 minutes` of outage before any drop — comfortably longer than a typical
+  transient restart/blip — while each queued item (a JSON-sized dict + its pre-serialized
+  bytes, a few KB) keeps total worst-case memory in the low single-digit MB, trivial against
+  HERMES's budget.
+- Deliberately **not** sized for hours of outage buffering: this channel is explicitly
+  best-effort telemetry, so oversizing would only delay — never prevent — eventual drops
+  during a genuinely prolonged outage, for zero behavioural benefit.
+
+**Queue-full behaviour:** `queue.put_nowait()` only — never a blocking/timed `put()`. On
+`queue.Full` the event is **dropped**: counted in `events_dropped_queue_full` and logged at
+`warning` with the distinct tag `[EVIDENCE_PUBLISH_DROPPED_QUEUE_FULL]` — deliberately
+different from the transport-level `[EVIDENCE_PUBLISH_FAIL]` tag, so an operator can tell
+"dropped due to backpressure" apart from "tried to send and the network failed". This is
+explicitly **best-effort, not guaranteed delivery** — no spill-to-disk, no durable queue,
+nothing queued survives process shutdown.
+
+**Startup:** enabling evidence publication never performs a blocking remote-availability
+check — the worker thread starts eagerly (so the queue always has a consumer), but the
+transport connection itself stays fully lazy (`_connect()` is only ever called from inside
+the worker, on the first dequeued item), exactly as before this fix. HERMES boot never
+waits on, or requires, the sink being reachable.
+
+**Shutdown is bounded:** `close()` signals the worker to stop, then joins it for at most
+`_WORKER_SHUTDOWN_MAX_WAIT_SECONDS` (**5.0s** — the same order of magnitude as the
+transport's own per-attempt `timeout`, not tens of seconds). Within that window the worker
+keeps draining whatever is already queued (a small, best-effort drain — not a guarantee).
+After the deadline, `close()` stops waiting regardless of the worker's state, force-closes
+the transport connection (using a non-blocking lock attempt, so a still-busy worker thread
+can never make `close()` itself block past the bound), and logs exactly how many queued
+events were discarded. No persistence is added for shutdown draining.
+
 ## Retry semantics
 
-**Maximum 2 total send attempts per `publish()` invocation** — not "2 retries": 2 attempts
+**Maximum 2 total send attempts per logical publication** (now performed by
+`EvidencePublisher._send_event_with_retry()` on the background worker thread — see above;
+unchanged from the original design apart from WHERE it runs) — not "2 retries": 2 attempts
 total, counting the first. Both attempts send the **exact same already-serialized event**
 (same `falcon_event_id`, `produced_at_utc`, `signal_natural_key`, payload — the event is
-constructed and serialized once, then sent up to twice). On the first transport failure the
-broken connection is closed and a fresh one is attempted for the second send. After a
-second failure: one structured `[EVIDENCE_PUBLISH_FAIL]` log line, then return.
+constructed and serialized once, in `publish()`, then sent up to twice by the worker). On
+the first transport failure the broken connection is closed and a fresh one is attempted
+for the second send. After a second failure: one structured `[EVIDENCE_PUBLISH_FAIL]` log
+line, then return.
 
-There is **no** delayed/background retry, **no** persistent retry queue, and **no**
-guaranteed-delivery claim anywhere in this module, its docs, or its log messages.
+There is **no** delayed/background retry **beyond this single bounded 2-attempt pair**, no
+persistent retry queue, and **no** guaranteed-delivery claim anywhere in this module, its
+docs, or its log messages. (The in-process handoff queue described above is a latency/
+backpressure buffer for when the event is SENT, not a delivery-retry mechanism — an event
+that exhausts its 2 attempts is not re-queued.)
 
 ## Failure isolation
 
 Every failure mode — connection refused, TLS handshake failure, certificate rejection,
 timeout, reset, remote restart, a malformed local `Signal`-like object — is caught inside
-`EvidencePublisher.publish()`'s own boundary. It **never raises**. The integration point in
-`signal_builder.py` wraps the call in its **own, separate** `try`/`except` as a second,
-independent layer of defence (so even an unexpected exception that somehow escaped the
-publisher's internal handling still cannot reach `publish_signal()`'s caller or affect the
-SQL/Redis `success` result computed above it).
+`EvidencePublisher`'s own boundary (`publish()` for construction/enqueue failures;
+`_send_event_with_retry()`, running on the background worker thread, for transport
+failures). Neither ever raises. The integration point in `signal_builder.py` wraps the
+`publish()` call in its **own, separate** `try`/`except` as a second, independent layer of
+defence (so even an unexpected exception that somehow escaped the publisher's internal
+handling still cannot reach `publish_signal()`'s caller or affect the SQL/Redis `success`
+result computed above it). The background worker thread has its **own** third, independent
+layer: `_worker_loop()` catches broadly around each dequeued item's processing, so a bad
+event can never kill the worker thread itself.
 
 Startup-time misconfiguration is a **different, deliberately separate** failure mode:
 `FALCON_PUBLISH_ENABLED=true` with missing/malformed host/port/cert/key/ca **fails loud at
 boot** (`GOV-CFG-001` — matching the existing "enabled gates mandatory validation" idiom
 used throughout `main.py`'s `lifespan()`, e.g. the candle-forward and shadow-tick seams). A
 runtime "sink unreachable" failure, by contrast, is always log-and-continue and is never
-raised from a correctly-configured, already-running publisher.
+raised from a correctly-configured, already-running publisher — nor, per the fix above, does
+it ever block the signal-processing path regardless of how long the sink takes to fail.
 
 ## Payload is a producer-owned extensibility boundary
 
@@ -214,6 +315,17 @@ lifecycle (enable/disable, fail-loud config, bounded shutdown), and the
 tests is generated fresh, per test session, by
 `tests/fixtures/evidence_publisher_test_certs/` (throwaway self-signed test-only
 certificates — never real HERMES/FALCON PKI, never committed to the repository).
+
+`tests/test_evidence_publisher_async_boundary_v1.py` (same infra-free PKI/fixtures, reused
+via import rather than duplicated) covers the F1 fix specifically: the signal path never
+blocking regardless of a deliberately-hung fake sink (the key regression proof), bounded
+queue capacity + non-blocking overflow/drop behaviour and its distinct log tag, event
+identity being fixed before enqueue and staying distinct across two events sitting in the
+queue at once, worker-thread resilience to a malformed queued item and to a transport
+exception escaping the retry loop, bounded shutdown (clean/fast when idle, bounded-not-
+indefinite when the transport is hung, with the discard count logged), and the required
+empirical latency proof (healthy / connection-refused / hung-sink, contrasted against a real
+measurement of the old inline call pattern).
 
 `tests/test_structure_ingest_boundary.py` (`GOV-SE-SEVERED-001`'s own test file) is
 unmodified and passes unchanged, confirming this WO does not weaken that doctrine's guard.

@@ -172,6 +172,38 @@ def _env(monkeypatch, **kv):
             monkeypatch.setenv(k, str(v))
 
 
+def _bare_publisher():
+    """Construct an EvidencePublisher via __new__ (no real SSL/socket/thread init) with every
+    attribute the F1 async-boundary refactor now expects to exist, pre-populated, so tests
+    that drive internals directly (bypassing the real queue/worker-thread machinery) keep
+    working. Used only for tests that exercise a single internal method in isolation
+    (e.g. `_send_event_with_retry`) — never starts a background thread."""
+    publisher = ep.EvidencePublisher.__new__(ep.EvidencePublisher)
+    publisher.host, publisher.port = "127.0.0.1", 0
+    publisher._lock = threading.Lock()
+    publisher._stats_lock = threading.Lock()
+    publisher._stats = {
+        "events_sent": 0, "events_failed": 0, "reconnections": 0,
+        "events_queued": 0, "events_dropped_queue_full": 0,
+    }
+    publisher._queue = ep.queue.Queue(maxsize=ep._EVIDENCE_QUEUE_MAX_SIZE)
+    publisher._stop_event = threading.Event()
+    publisher._worker_thread = None  # no real worker thread for these isolated-method tests
+    return publisher
+
+
+def _wait_until(predicate, timeout=3.0, interval=0.01):
+    """Poll `predicate()` until truthy or timeout; raises AssertionError on timeout. Used to
+    deterministically wait for the background worker thread to finish processing an item
+    that was just enqueued via publish() (the handoff is async by design — see F1 fix)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return
+        time.sleep(interval)
+    raise AssertionError(f"timed out after {timeout}s waiting for condition to become true")
+
+
 # ============================================================================
 # Identity semantics
 # ============================================================================
@@ -298,19 +330,21 @@ def test_produced_at_utc_is_separate_fresh_aware_value_from_signal_timestamp():
 
 
 def test_produced_at_utc_reused_unchanged_across_retries():
-    publisher = ep.EvidencePublisher.__new__(ep.EvidencePublisher)  # avoid real SSL/socket init
+    """F1 refactor: the 2-attempt retry loop now lives in _send_event_with_retry(), called by
+    the background worker thread — exercise it directly (bypassing the real queue/thread) to
+    prove the SAME already-built event/bytes are reused across both attempts, unmodified."""
+    publisher = _bare_publisher()  # avoid real SSL/socket/thread init
     sig = make_signal()
+    event = ep.build_evidence_event(sig)
+    data = json.dumps(event["gelf_message"], default=str).encode("utf-8") + ep._TCP_NULL_TERMINATOR
     captured = []
 
-    def fake_attempt_send(data):
-        captured.append(json.loads(data.rstrip(b"\x00").decode("utf-8")))
+    def fake_attempt_send(d):
+        captured.append(json.loads(d.rstrip(b"\x00").decode("utf-8")))
         return len(captured) >= 2
 
     publisher._attempt_send = fake_attempt_send
-    publisher._lock = __import__("threading").Lock()
-    publisher._stats = {"events_sent": 0, "events_failed": 0, "reconnections": 0}
-    publisher.host, publisher.port = "127.0.0.1", 0
-    publisher.publish(sig)
+    publisher._send_event_with_retry(event, data)
 
     assert len(captured) == 2
     assert captured[0]["_produced_at_utc"] == captured[1]["_produced_at_utc"]
@@ -504,14 +538,22 @@ def test_successful_send_received_by_fake_listener_with_correct_fields(pki, list
 
 
 def test_connection_reused_across_multiple_sends_not_one_handshake_per_signal(pki, listener):
+    """F1 refactor: publish() only enqueues (async handoff to the background worker thread),
+    so the actual send/connect happens slightly later than the publish() call returns — wait
+    for each event to be observed by the fake listener before inspecting `_sock`/stats."""
     publisher = ep.EvidencePublisher(
         host="127.0.0.1", port=listener.port,
         client_cert_file=pki.client_cert, client_key_file=pki.client_key, ca_file=pki.ca_cert,
         timeout=2.0,
     )
     publisher.publish(make_signal())
+    listener.wait_for_messages(1)
+    _wait_until(lambda: publisher.get_stats()["events_sent"] >= 1)
     sock_after_first = publisher._sock
+
     publisher.publish(make_signal())
+    listener.wait_for_messages(2)
+    _wait_until(lambda: publisher.get_stats()["events_sent"] >= 2)
     sock_after_second = publisher._sock
     publisher.close()
 
@@ -523,13 +565,15 @@ def test_connection_reused_across_multiple_sends_not_one_handshake_per_signal(pk
 
 
 def test_reconnect_after_failure_establishes_a_new_connection(pki, listener):
+    """F1 refactor: publish() only enqueues; wait for the background worker thread to have
+    actually processed each event before asserting on connection/reconnection state."""
     publisher = ep.EvidencePublisher(
         host="127.0.0.1", port=listener.port,
         client_cert_file=pki.client_cert, client_key_file=pki.client_key, ca_file=pki.ca_cert,
         timeout=2.0,
     )
     publisher.publish(make_signal())
-    assert publisher.get_stats()["reconnections"] == 1
+    _wait_until(lambda: publisher.get_stats()["reconnections"] == 1)
 
     # Simulate a broken connection (remote restart/reset) by forcibly closing the socket
     # out from under the publisher, without going through its own close().
@@ -540,14 +584,14 @@ def test_reconnect_after_failure_establishes_a_new_connection(pki, listener):
         pass  # confirmed broken; the next publish() must detect this and reconnect
 
     publisher.publish(make_signal())
-    assert publisher.get_stats()["reconnections"] == 2
+    _wait_until(lambda: publisher.get_stats()["reconnections"] == 2)
     publisher.close()
 
 
-def test_bounded_retry_exactly_two_total_attempts_not_more(monkeypatch):
-    publisher = ep.EvidencePublisher.__new__(ep.EvidencePublisher)
-    publisher._lock = threading.Lock()
-    publisher._stats = {"events_sent": 0, "events_failed": 0, "reconnections": 0}
+def test_bounded_retry_exactly_two_total_attempts_not_more():
+    """F1 refactor: the retry loop now lives in _send_event_with_retry(); exercise it
+    directly (bypassing the real queue/thread) — same assertion strength as before."""
+    publisher = _bare_publisher()
     publisher.host, publisher.port = "127.0.0.1", 1  # nothing listens here
 
     call_count = {"n": 0}
@@ -557,7 +601,9 @@ def test_bounded_retry_exactly_two_total_attempts_not_more(monkeypatch):
         return False
 
     publisher._attempt_send = always_fail
-    publisher.publish(make_signal())
+    event = ep.build_evidence_event(make_signal())
+    data = json.dumps(event["gelf_message"], default=str).encode("utf-8") + ep._TCP_NULL_TERMINATOR
+    publisher._send_event_with_retry(event, data)
 
     assert call_count["n"] == 2
     assert publisher.get_stats()["events_failed"] == 1
@@ -565,29 +611,31 @@ def test_bounded_retry_exactly_two_total_attempts_not_more(monkeypatch):
 
 
 def test_final_failure_is_isolated_raises_nothing(pki):
-    """Connecting to a port nothing listens on must never raise out of publish()."""
+    """Connecting to a port nothing listens on must never raise out of publish() — and,
+    since F1, publish() only enqueues, so the actual (failing) send happens asynchronously
+    on the background worker thread; wait for it to complete before asserting the outcome."""
     publisher = ep.EvidencePublisher(
         host="127.0.0.1", port=1,  # privileged/unused port — connection refused
         client_cert_file=pki.client_cert, client_key_file=pki.client_key, ca_file=pki.ca_cert,
         timeout=1.0,
     )
     publisher.publish(make_signal())  # must not raise
-    assert publisher.get_stats()["events_failed"] == 1
+    _wait_until(lambda: publisher.get_stats()["events_failed"] == 1)
     publisher.close()  # must not raise / hang either
 
 
 def test_malformed_local_signal_object_does_not_raise():
-    publisher = ep.EvidencePublisher.__new__(ep.EvidencePublisher)
-    publisher._lock = threading.Lock()
-    publisher._stats = {"events_sent": 0, "events_failed": 0, "reconnections": 0}
+    publisher = _bare_publisher()
     publisher._attempt_send = lambda data: True
 
     class Broken:
         pass  # no .instrument/.timestamp/.timeframe at all
 
-    publisher.publish(Broken())  # must not raise
+    publisher.publish(Broken())  # must not raise; fails inside build_evidence_event(), before
+    # ever touching the queue — so no thread/queue interaction is needed for this to hold.
     assert publisher.get_stats()["events_sent"] == 0
     assert publisher.get_stats()["events_failed"] == 0  # never even attempted a send
+    assert publisher.get_stats()["events_queued"] == 0  # never reached the enqueue step either
 
 
 # ============================================================================
@@ -687,19 +735,28 @@ def test_enabled_fully_configured_builds_real_publisher(monkeypatch, pki, listen
 
 def test_runtime_unreachable_sink_does_not_propagate_hermes_continues():
     """Simulates the call site: FALCON unreachable at runtime must never raise, regardless
-    of which layer (publisher internals, or an unexpected exception escaping them) fails."""
-    # Built without a real SSL context / socket (not needed for this scenario); forces
-    # _attempt_send to simulate a real-world failure mode that raises instead of returning
-    # False, proving publish()'s own outer defensive boundary holds even then.
-    publisher = ep.EvidencePublisher.__new__(ep.EvidencePublisher)
-    publisher._lock = threading.Lock()
-    publisher._stats = {"events_sent": 0, "events_failed": 0, "reconnections": 0}
+    of which layer (publisher internals, or an unexpected exception escaping them) fails.
+
+    F1 refactor: the retry loop (and thus _attempt_send) now runs inside
+    _send_event_with_retry() on the background worker thread, not inside publish() — so this
+    exercises THAT method directly (bypassing the real queue/thread) to prove its own outer
+    defensive boundary holds even when an attempt helper raises unexpectedly instead of
+    returning False. This is also exactly the scenario the worker's own per-item exception
+    isolation (_worker_loop) backstops in production."""
+    publisher = _bare_publisher()
     publisher.host, publisher.port = "127.0.0.1", 1
     publisher._attempt_send = lambda data: (_ for _ in ()).throw(ConnectionRefusedError("refused"))
 
-    # publish() has its own outer defensive boundary — must not raise even if an attempt
-    # helper itself raises unexpectedly rather than returning False.
-    publisher.publish(make_signal())  # must not raise
+    event = ep.build_evidence_event(make_signal())
+    data = json.dumps(event["gelf_message"], default=str).encode("utf-8") + ep._TCP_NULL_TERMINATOR
+
+    # _send_event_with_retry() has its own outer defensive boundary — must not raise even if
+    # an attempt helper itself raises unexpectedly rather than returning False.
+    publisher._send_event_with_retry(event, data)  # must not raise
+
+    # Also prove publish() itself (the real producer-side entry point) is entirely unaffected
+    # by this failure mode — it never even reaches _attempt_send.
+    publisher.publish(make_signal())  # must not raise either
 
 
 def test_shutdown_close_does_not_hang(pki, listener):

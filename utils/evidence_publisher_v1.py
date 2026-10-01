@@ -76,6 +76,115 @@ timeout, reset, remote restart, malformed local object) is caught inside this mo
 boundary. ``EvidencePublisher.publish()`` NEVER raises — callers get a best-effort
 fire-and-forget call that cannot affect their own return value or exception flow.
 
+Asynchronous publication boundary (FINAL, binding) — HELM DEV-integration defect F1 fix
+------------------------------------------------------------------------------------------
+F1 (found during HELM's real DEV integration proof): the original Stage-3B design ran the
+GELF TCP + mTLS transport SYNCHRONOUSLY, INLINE, on HERMES's single-threaded asyncio
+signal-processing coroutine. Because the transport is blocking (``socket``/``ssl``, not
+``asyncio``-native) with up to ``_MAX_SEND_ATTEMPTS`` (2) attempts each bounded by
+``timeout`` (default 5s), a hung/black-holed evidence sink could stall the ENTIRE event
+loop — every instrument's signal processing, not just one — for up to roughly
+``2 * timeout`` seconds per publication. That violates the required doctrine: HERMES must
+be independent of the evidence sink's LATENCY, not just its failures.
+
+Fix shape (Central Architecture pre-approved, intentionally small): a bounded,
+thread-safe ``queue.Queue`` plus ONE background daemon thread that owns the existing,
+unchanged, blocking transport. This mirrors the established HERMES idiom in
+``utils/hermes_publisher_runtime_v1.py`` (``PublisherRunner``: ``threading.Thread`` +
+``threading.Event``, bounded loops, graceful start/stop, exception-isolated). Deliberately
+NOT ``asyncio.Queue`` + an asyncio task — the transport itself is blocking I/O, and
+converting it to true asyncio-native sockets would be a materially larger, riskier rewrite
+than this fix warrants; a background OS thread consuming a thread-safe queue keeps the
+already-audited transport code completely unchanged.
+
+    SignalPublisher.publish_signal()
+          |
+          +-- SQL (unchanged)
+          |
+          +-- Redis (unchanged)
+          |
+          +-- EvidencePublisher.publish(signal)   <-- runs ONLY on the signal-processing
+                  |                                    thread: builds + serializes the
+                  |                                    event (pure, in-memory, no I/O),
+                  |                                    then queue.put_nowait() — NEVER
+                  |                                    blocks, NEVER touches the network.
+                  v
+          queue.Queue(maxsize=_EVIDENCE_QUEUE_MAX_SIZE)
+                  |
+                  v
+          ONE background daemon thread (_worker_loop)
+                  |
+                  +-- blocking get() with a short poll timeout (observes the stop signal
+                  |   promptly — standard producer/consumer idiom)
+                  +-- _send_event_with_retry(): the EXISTING, UNCHANGED 2-attempt GELF/mTLS
+                  |   transport logic (previously inline in publish()), now running off the
+                  |   signal-processing path entirely
+                  +-- exception-isolated per item: one malformed/failing event can never
+                      kill the worker thread — caught, logged, loop continues
+
+Event identity is fixed BEFORE enqueueing, not re-derived by the worker: ``publish()``
+calls ``build_evidence_event()`` and serializes it to bytes exactly once, on the caller's
+thread, and queues that already-built ``(event, data)`` pair. The worker's own internal
+retry loop (``_send_event_with_retry``) reuses those exact same values/bytes for both send
+attempts — it never regenerates ``falcon_event_id``/``produced_at_utc`` because the worker
+reconnected, and never regenerates them because the item sat in the queue for a while. This
+is a relocation of WHEN/WHERE the transport send happens, not a change to WHAT is sent or
+to the identity semantics documented above.
+
+Queue sizing — ``_EVIDENCE_QUEUE_MAX_SIZE`` = 200, derived from real observed traffic, not
+guessed:
+  - HELM's real DEV integration proof observed ~182 evidence-publish events over 14
+    minutes: an observed AVERAGE rate of ``182 / 14 ≈ 13.0 events/min`` (~0.217 events/s).
+  - The dominant burst shape is NOT a sustained-rate spike but a near-simultaneous cluster:
+    up to 4 instruments' M1 signals landing within the same second, once per minute (plus
+    smaller, less frequent M5/M15 contributions). To size for sustained backpressure
+    (not just one instant's burst), a generous 3x safety multiplier is applied to the
+    observed average, giving an assumed worst-case SUSTAINED rate of
+    ``13.0 * 3 ≈ 39 events/min``.
+  - The queue is sized to absorb an evidence-sink outage of ~5 minutes at that worst-case
+    sustained rate: ``39 * 5 ≈ 195``, rounded to ``200``.
+  - At the actually-OBSERVED (non-multiplied) average rate, 200 slots absorb
+    ``200 / 13.0 ≈ 15.4 minutes`` of outage before any drop — comfortably longer than a
+    typical transient restart/network blip — while staying small: each queued item is a
+    JSON-sized dict plus its pre-serialized bytes (a few KB), so 200 items is at most a
+    low single-digit number of MB resident, trivial against HERMES's memory budget.
+  - This is deliberately NOT sized for "hours of outage buffering": this channel is
+    explicitly best-effort telemetry, not guaranteed delivery (see below), so oversizing
+    the queue would only delay — never prevent — eventual drops during a genuinely
+    prolonged outage, while permanently costing memory headroom for zero behavioural
+    benefit.
+
+Queue-full behaviour: ``queue.put_nowait()`` only — NEVER ``queue.put()`` with a timeout or
+blocking wait, NEVER any wait at all. On ``queue.Full`` the event is dropped: counted in
+``events_dropped_queue_full`` and logged at ``warning`` with the distinct tag
+``[EVIDENCE_PUBLISH_DROPPED_QUEUE_FULL]`` — deliberately different from the transport-level
+``[EVIDENCE_PUBLISH_FAIL]`` tag, so an operator can tell "we dropped evidence because of
+backpressure" apart from "we tried to send and the network failed". This is explicitly
+best-effort, NOT guaranteed delivery — there is no spill-to-disk, no durable/persistent
+queue, and nothing queued survives process shutdown.
+
+Startup: enabling evidence publication never performs a blocking remote-availability check
+against the sink — the worker thread is started eagerly (so the queue always has a
+consumer), but the transport connection itself is still lazy (``_connect()`` is only ever
+called from inside the worker, on the first dequeued item) exactly as before. HERMES boot
+never waits on, or requires, the sink being reachable, even momentarially.
+
+Shutdown is BOUNDED: ``close()`` signals the worker to stop, then joins it for at most
+``_WORKER_SHUTDOWN_MAX_WAIT_SECONDS`` (5.0s — deliberately small, on the same order as the
+transport's own per-attempt ``timeout``, not tens of seconds). Within that window the
+worker keeps draining whatever is already queued (a small, best-effort drain, not a
+guarantee). After the deadline, ``close()`` stops waiting regardless of whether the worker
+has finished, force-closes the transport connection, and logs exactly how many queued
+events were discarded (via ``queue.qsize()``). No persistence is added for shutdown
+draining — this is explicitly out of scope, matching the best-effort nature of this whole
+channel.
+
+Worker resilience: a malformed/corrupt queued item, an exception raised while processing
+one, or any transport exception propagating out of the existing send/retry logic are all
+caught broadly — with a structured, logged ``[EVIDENCE_PUBLISH_WORKER_ERROR]`` line — and
+the worker loop continues to the next item. The worker thread is never silently killed by
+a single bad event.
+
 Replay / backfill
 --------------------
 Intentional: replaying this code path produces a fresh ``falcon_event_id`` and
@@ -104,6 +213,7 @@ import hashlib
 import json
 import logging
 import os
+import queue
 import socket
 import ssl
 import threading
@@ -118,6 +228,20 @@ _TCP_NULL_TERMINATOR = b"\x00"
 
 # Maximum total send attempts per publish() invocation (binding: exactly 2, not "2 retries").
 _MAX_SEND_ATTEMPTS = 2
+
+# F1 fix (HELM DEV-integration defect): bounded in-process async handoff so no network I/O
+# to the evidence sink ever runs on the signal-processing coroutine. See the module
+# docstring's "Asynchronous publication boundary" section for the full queue-sizing and
+# shutdown-bound rationale.
+_EVIDENCE_QUEUE_MAX_SIZE = 200
+# How often the background worker wakes from a blocking queue.get() to re-check the stop
+# signal when the queue is empty. Short enough to observe stop() promptly; irrelevant to
+# normal-operation latency (queue.put() wakes a blocked get() immediately, it never waits
+# out this poll interval).
+_WORKER_POLL_SECONDS = 0.2
+# Bounded shutdown wait: deliberately small, same order of magnitude as the transport's own
+# per-attempt `timeout` (default 5.0s) — not tens of seconds. See module docstring.
+_WORKER_SHUTDOWN_MAX_WAIT_SECONDS = 5.0
 
 # Fixed envelope metadata for this evidence family (producer-declared, not Signal-derived —
 # every evidence event emitted by this module belongs to the same registered family/type).
@@ -315,13 +439,37 @@ class EvidencePublisher:
         self._ssl_context.load_cert_chain(certfile=client_cert_file, keyfile=client_key_file)
 
         self._sock: Optional[ssl.SSLSocket] = None
+        # Guards the transport connection (`_sock`) only — shared between the background
+        # worker thread (sole caller of _attempt_send/_connect/_reset_connection during
+        # normal operation) and close() (called from the signal-processing thread at
+        # shutdown).
         self._lock = threading.Lock()
 
+        # Stats are mutated from TWO different threads (producer-side counters from the
+        # signal-processing thread via publish(); consumer-side counters from the background
+        # worker thread) — guarded by their own lock, deliberately separate from `_lock` so
+        # a stats read/update is never blocked behind a slow/hung transport operation.
+        self._stats_lock = threading.Lock()
         self._stats = {
             "events_sent": 0,
             "events_failed": 0,
             "reconnections": 0,
+            "events_queued": 0,
+            "events_dropped_queue_full": 0,
         }
+
+        # F1 fix: bounded handoff queue + single background worker thread. The queue and
+        # stop event are created BEFORE the thread starts so the thread's first loop
+        # iteration always finds them in place. No network I/O happens here — only a thread
+        # object is created and started; the actual transport connection stays fully lazy
+        # (see _connect()), so constructing/enabling this publisher never performs a
+        # blocking remote-availability check.
+        self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=_EVIDENCE_QUEUE_MAX_SIZE)
+        self._stop_event = threading.Event()
+        self._worker_thread = threading.Thread(
+            target=self._worker_loop, name="hermes-evidence-publisher", daemon=True,
+        )
+        self._worker_thread.start()
 
     # -- connection management -------------------------------------------------------------
 
@@ -369,8 +517,77 @@ class EvidencePublisher:
             self._reset_connection()
             return False
 
+    def _bump_stat(self, key: str, amount: int = 1) -> None:
+        with self._stats_lock:
+            self._stats[key] = self._stats.get(key, 0) + amount
+
+    def _send_event_with_retry(self, event: Dict[str, Any], data: bytes) -> None:
+        """The EXISTING, UNCHANGED transport retry logic (previously inline in publish()):
+        up to `_MAX_SEND_ATTEMPTS` (2) total attempts of the SAME already-serialized `data`,
+        reconnecting between attempts. Runs exclusively on the background worker thread.
+        Never raises — the worker's own exception-isolation wrapper is a second, independent
+        layer of defence on top of this, matching the original design's layered boundaries.
+        """
+        try:
+            with self._lock:
+                for attempt in range(1, _MAX_SEND_ATTEMPTS + 1):
+                    if self._attempt_send(data):
+                        self._bump_stat("events_sent")
+                        logger.debug(
+                            "[EVIDENCE_PUBLISH_OK] natural_key=%s event_id=%s attempt=%d",
+                            event["signal_natural_key"], event["falcon_event_id"], attempt,
+                        )
+                        return
+                self._bump_stat("events_failed")
+                logger.error(
+                    "[EVIDENCE_PUBLISH_FAIL] exhausted %d/%d send attempts; natural_key=%s "
+                    "event_id=%s host=%s:%s (best-effort, no retry queue, HERMES unaffected)",
+                    _MAX_SEND_ATTEMPTS, _MAX_SEND_ATTEMPTS, event["signal_natural_key"],
+                    event["falcon_event_id"], self.host, self.port,
+                )
+        except Exception as e:
+            # Final defensive boundary: no failure mode of this method may ever propagate,
+            # and it must never be able to kill the worker thread.
+            logger.error("[EVIDENCE_PUBLISH_FAIL] unexpected exception inside publisher boundary: %r", e)
+
+    def _worker_loop(self) -> None:
+        """Background daemon thread: the ONLY code in this module that ever performs
+        transport I/O. Blocking `get()` with a short poll timeout so the stop signal is
+        observed promptly once the queue drains; while the queue has items, keeps draining
+        them even after stop() has been called (the bounded "best-effort drain" — the actual
+        bound on how long a CALLER waits for this is close()'s `join(timeout=...)`, not a
+        limit enforced inside this loop). Exception-isolated per item: nothing dequeued here
+        may ever kill this thread.
+        """
+        while True:
+            try:
+                item = self._queue.get(timeout=_WORKER_POLL_SECONDS)
+            except queue.Empty:
+                if self._stop_event.is_set():
+                    return
+                continue
+            try:
+                self._send_event_with_retry(item.get("event"), item.get("data"))
+            except Exception as e:  # noqa: BLE001 - worker must survive ANY per-item failure
+                logger.error(
+                    "[EVIDENCE_PUBLISH_WORKER_ERROR] unexpected exception processing a queued "
+                    "evidence event; worker continues, event dropped: %r", e,
+                )
+            finally:
+                try:
+                    self._queue.task_done()
+                except Exception:
+                    pass
+
     def publish(self, signal: Any) -> None:
-        """Publish `signal` as evidence. Best-effort, fire-and-forget — NEVER raises."""
+        """Publish `signal` as evidence. Best-effort, fire-and-forget — NEVER raises and
+        NEVER performs network I/O itself (F1 fix). Builds and serializes the event ONCE,
+        here, on the caller's (signal-processing) thread — this is pure, in-memory work with
+        no I/O — then hands the already-built, already-identity-fixed event to the bounded
+        queue via a non-blocking `put_nowait()`. On backpressure (queue full) the event is
+        dropped; this is logged distinctly from a transport-level failure and never raises.
+        The actual GELF/mTLS send always happens later, on the background worker thread.
+        """
         try:
             event = build_evidence_event(signal)
         except Exception as e:
@@ -387,34 +604,74 @@ class EvidencePublisher:
             return
 
         try:
-            with self._lock:
-                for attempt in range(1, _MAX_SEND_ATTEMPTS + 1):
-                    if self._attempt_send(data):
-                        self._stats["events_sent"] += 1
-                        logger.debug(
-                            "[EVIDENCE_PUBLISH_OK] natural_key=%s event_id=%s attempt=%d",
-                            event["signal_natural_key"], event["falcon_event_id"], attempt,
-                        )
-                        return
-                self._stats["events_failed"] += 1
-                logger.error(
-                    "[EVIDENCE_PUBLISH_FAIL] exhausted %d/%d send attempts; natural_key=%s "
-                    "event_id=%s host=%s:%s (best-effort, no retry queue, HERMES unaffected)",
-                    _MAX_SEND_ATTEMPTS, _MAX_SEND_ATTEMPTS, event["signal_natural_key"],
-                    event["falcon_event_id"], self.host, self.port,
-                )
+            self._queue.put_nowait({"event": event, "data": data})
+            self._bump_stat("events_queued")
+        except queue.Full:
+            self._bump_stat("events_dropped_queue_full")
+            logger.warning(
+                "[EVIDENCE_PUBLISH_DROPPED_QUEUE_FULL] queue_size=%d natural_key=%s "
+                "event_id=%s (best-effort evidence telemetry dropped under backpressure; "
+                "HERMES SQL/Redis unaffected)",
+                self._queue.maxsize, event["signal_natural_key"], event["falcon_event_id"],
+            )
         except Exception as e:
-            # Final defensive boundary: no failure mode of this method may ever propagate.
-            logger.error("[EVIDENCE_PUBLISH_FAIL] unexpected exception inside publisher boundary: %r", e)
+            # Final defensive boundary: enqueueing itself must never be able to propagate.
+            logger.error("[EVIDENCE_PUBLISH_FAIL] unexpected exception while enqueueing evidence event: %r", e)
 
     def close(self) -> None:
-        """Clean shutdown. Bounded: socket.close() does not perform a network round-trip (no
-        SO_LINGER is set), so this cannot hang on a stuck/unreachable remote end."""
-        with self._lock:
-            self._reset_connection()
+        """Bounded shutdown (F1 fix). Signals the worker to stop, gives it a small,
+        best-effort chance to drain whatever is already queued/in-flight, but never waits
+        longer than `_WORKER_SHUTDOWN_MAX_WAIT_SECONDS` regardless of the worker's state.
+        After that bound, whatever remains queued is discarded (logged, counted via
+        queue.qsize()) and the transport connection is force-closed on a best-effort basis.
+
+        Deliberately uses a NON-BLOCKING attempt to acquire `_lock` for the final close: if
+        the join() above timed out, the worker thread may still be mid-operation and
+        holding `_lock` for up to its own remaining `timeout` budget — blocking here too
+        would silently let total shutdown time drift well past
+        `_WORKER_SHUTDOWN_MAX_WAIT_SECONDS` (up to ~2x the transport timeout), defeating the
+        whole point of a bounded shutdown. If the lock is busy, the stale connection is left
+        for the (daemon) worker thread to close itself when it eventually unblocks, or for
+        the OS to reclaim at process exit — never for this method to wait on. No
+        persistence is added across shutdown; this channel is explicitly best-effort, not
+        guaranteed-delivery.
+        """
+        self._stop_event.set()
+        if self._worker_thread is not None:
+            self._worker_thread.join(timeout=_WORKER_SHUTDOWN_MAX_WAIT_SECONDS)
+            if self._worker_thread.is_alive():
+                logger.warning(
+                    "[EVIDENCE_PUBLISH_SHUTDOWN_TIMEOUT] worker thread still running after "
+                    "the %.1fs bounded shutdown wait; proceeding without waiting further. "
+                    "The worker is a daemon thread and will not block process exit.",
+                    _WORKER_SHUTDOWN_MAX_WAIT_SECONDS,
+                )
+        discarded = self._queue.qsize()
+        if discarded:
+            logger.warning(
+                "[EVIDENCE_PUBLISH_SHUTDOWN_DISCARD] discarding %d queued evidence event(s) "
+                "at shutdown (best-effort telemetry; no persistence across shutdown)",
+                discarded,
+            )
+        if self._lock.acquire(blocking=False):
+            try:
+                self._reset_connection()
+            finally:
+                self._lock.release()
+        else:
+            logger.warning(
+                "[EVIDENCE_PUBLISH_SHUTDOWN_LOCK_BUSY] transport lock still held by the "
+                "worker thread after the bounded shutdown wait; skipping explicit close to "
+                "keep shutdown bounded (the OS reclaims the socket at process exit)."
+            )
 
     def get_stats(self) -> Dict[str, int]:
-        return dict(self._stats)
+        with self._stats_lock:
+            stats = dict(self._stats)
+        # Approximation under concurrency (queue.qsize() is documented as such by the stdlib)
+        # — acceptable for observability purposes; never used for a correctness decision.
+        stats["queue_depth_approx"] = self._queue.qsize()
+        return stats
 
 
 class DisabledEvidencePublisher:
@@ -430,7 +687,10 @@ class DisabledEvidencePublisher:
         return
 
     def get_stats(self) -> Dict[str, int]:
-        return {"events_sent": 0, "events_failed": 0, "reconnections": 0}
+        return {
+            "events_sent": 0, "events_failed": 0, "reconnections": 0,
+            "events_queued": 0, "events_dropped_queue_full": 0, "queue_depth_approx": 0,
+        }
 
 
 def build_evidence_publisher_from_env():
