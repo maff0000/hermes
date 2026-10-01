@@ -739,13 +739,18 @@ class SignalPublisher:
     Ensures signals are available for Zeus to consume.
     """
 
-    def __init__(self, db_config: dict = None, redis_publisher=None):
+    def __init__(self, db_config: dict = None, redis_publisher=None, evidence_publisher=None):
         """
         Initialize publisher.
 
         Args:
             db_config: Database configuration
             redis_publisher: RedisPublisher instance
+            evidence_publisher: Optional independent, best-effort evidence publisher
+                (utils.evidence_publisher_v1.EvidencePublisher / DisabledEvidencePublisher /
+                None). PID05/Stage-3B: a THIRD, independent side effect alongside SQL/Redis —
+                never required, never gating, never able to affect SQL/Redis or raise into
+                publish_signal()'s caller. See utils/evidence_publisher_v1.py.
         """
         # Use environment-aware config (GOV-ENV-001)
         if db_config:
@@ -760,6 +765,7 @@ class SignalPublisher:
                 'database': cfg['database'],
             }
         self.redis = redis_publisher
+        self.evidence_publisher = evidence_publisher
         self._db_conn = None
 
         logger.info("SignalPublisher initialized")
@@ -972,6 +978,22 @@ class SignalPublisher:
             except Exception as e:
                 logger.error(f"Failed to publish signal to Redis: {e}")
                 success = False
+
+        # Evidence publication (PID05/Stage-3B): a THIRD, independent, best-effort side
+        # effect — not SQL, not Redis — published to HERMES's own out-of-band evidence sink.
+        # Deliberately its OWN, SEPARATE try/except boundary: it must never touch `success`
+        # (the SQL/Redis outcome above) and must never be able to raise into this method's
+        # caller, regardless of the sink's availability or state. See
+        # utils/evidence_publisher_v1.py and docs/architecture/evidence-publisher.md for the
+        # GOV-SE-SEVERED-001 severance reasoning and the identity/timestamp/retry semantics.
+        if self.evidence_publisher is not None:
+            try:
+                self.evidence_publisher.publish(signal)
+            except Exception as e:
+                logger.error(
+                    f"[EVIDENCE_PUBLISH_FAIL] unexpected exception escaped publisher "
+                    f"boundary (HERMES unaffected): {e!r}"
+                )
 
         if success:
             logger.info(f"[{signal.instrument}] Signal v{signal.version}: "

@@ -75,6 +75,10 @@ from utils.candle_d1_hydration_v1 import warmstart_d1_from_env as _warmstart_d1
 # WO-HELM-HERMES-H4-H1-HYDRATION-WARMSTART-0001 — H4 H1 warm-start hydration (gated; default cold-start no-op).
 from utils.candle_h4_hydration_v1 import warmstart_h4_from_env as _warmstart_h4
 from utils.candle_history_warmstart_v1 import build_warmstart_from_env as _build_candle_history_warmstart
+# WO-PID05-STAGE3B-EVIDENCE-PUBLISHER — independent, best-effort evidence-publish boundary
+# (DISABLED by default; FALCON_PUBLISH_ENABLED unset/false -> zero-overhead no-op). See
+# utils/evidence_publisher_v1.py and docs/architecture/evidence-publisher.md.
+from utils.evidence_publisher_v1 import build_evidence_publisher_from_env as _build_evidence_publisher
 from signal_builder import CandleAggregator, SignalComputer, SignalPublisher
 from utils.level_engine import LevelEngine
 from utils.watchdog import (
@@ -153,6 +157,11 @@ class ServiceState:
     candle_aggregator = None
     signal_computer = None
     signal_publisher = None
+
+    # WO-PID05-STAGE3B-EVIDENCE-PUBLISHER: independent, best-effort evidence-publish boundary
+    # (utils/evidence_publisher_v1.py). Default DisabledEvidencePublisher (FALCON_PUBLISH_ENABLED
+    # unset/false) -> zero connection/credential overhead. Never gates HERMES's own behaviour.
+    evidence_publisher = None
 
     # EPIC-D027: Level Engine for Phase 3
     level_engine = None
@@ -1208,7 +1217,29 @@ async def lifespan(app: FastAPI):
     state.signal_computer = SignalComputer()
     logger.info("Signal computer initialized")
 
-    state.signal_publisher = SignalPublisher(redis_publisher=state.redis_publisher)
+    # WO-PID05-STAGE3B-EVIDENCE-PUBLISHER — independent evidence-publish boundary init.
+    # FALCON_PUBLISH_ENABLED unset/false -> DisabledEvidencePublisher (default; zero
+    # connection/credential overhead). Enabled-but-misconfigured -> FAIL LOUD on init (boot
+    # aborts, GOV-CFG-001) — distinct from a runtime "sink unreachable" failure, which is
+    # always log-and-continue inside SignalPublisher.publish_signal() and never raised here.
+    try:
+        state.evidence_publisher = _build_evidence_publisher()
+        logger.info(
+            "[EVIDENCE_PUBLISH_BOOT] publisher=%s enabled=%s",
+            type(state.evidence_publisher).__name__,
+            getattr(state.evidence_publisher, "enabled", False),
+        )
+    except Exception as _evidence_init_exc:
+        logger.error(
+            "[EVIDENCE_PUBLISH_BOOT_FAIL] HERMES boot aborted on evidence-publish init: %r",
+            _evidence_init_exc,
+        )
+        raise
+
+    state.signal_publisher = SignalPublisher(
+        redis_publisher=state.redis_publisher,
+        evidence_publisher=state.evidence_publisher,
+    )
     logger.info("Signal publisher initialized")
 
     # EPIC-D027: Initialize Level Engine for Phase 3
@@ -1576,6 +1607,16 @@ async def lifespan(app: FastAPI):
     # Close signal publisher
     if state.signal_publisher:
         state.signal_publisher.close()
+
+    # WO-PID05-STAGE3B-EVIDENCE-PUBLISHER: close the evidence publisher. Bounded — socket.close()
+    # performs no network round-trip (no SO_LINGER set), so this cannot hang shutdown on a
+    # stuck/unreachable evidence sink.
+    if getattr(state, "evidence_publisher", None) is not None:
+        try:
+            state.evidence_publisher.close()
+            logger.info("[EVIDENCE_PUBLISH_SHUTDOWN] closed")
+        except Exception as _evidence_close_exc:
+            logger.error("[EVIDENCE_PUBLISH_SHUTDOWN_FAIL] %r", _evidence_close_exc)
 
     # Close Redis
     if state.redis_publisher:
