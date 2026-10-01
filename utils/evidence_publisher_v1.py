@@ -484,7 +484,7 @@ class EvidencePublisher:
                 pass
             raise
         wrapped.settimeout(self.timeout)
-        self._stats["reconnections"] += 1
+        self._bump_stat("reconnections")
         return wrapped
 
     def _get_connection(self) -> ssl.SSLSocket:
