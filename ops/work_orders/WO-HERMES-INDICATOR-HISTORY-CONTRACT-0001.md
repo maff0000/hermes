@@ -6,7 +6,7 @@ application code, Redis, or SQL has been modified by this WO.
 **Date:** 2026-10-07
 **Repo:** `maff0000/hermes` (canonical checkout `/srv/rogue-hermes/canonical` on dell-debian)
 **Parent governance:** `docs/governance/PID-HERMES-MVP-001.md` §4 ("EMA 200 is a SEPARATE WO: it requires its
-own history-depth, retention and warm-start design") and §11-§13 (added alongside this WO).
+own history-depth, retention and warm-start design") and §11-§16 (added/amended alongside this WO).
 **Base SHA:** `origin/main = 2da7cc3ead27279d1c4153101e6dbc104d1153ff`
 **Production SHA (observed, separate from canonical base)**: `1c359067b0e00d3947fa314382bc125da398d662`
 (`hermes-signal:prod-1c359067b0e0`, host `194.164.122.94`, compose project `hermes-prod`) — labelled
@@ -99,7 +99,7 @@ observed, so the precise historical TTL value remains a **supported inference**,
 forensic fact. No separate root-cause WO is required solely to prove the already-expired TTL.
 
 **Additional finding — imminent expiry of surviving history** (same HELM verification): surviving
-forward-written H4 objects from `2026-09-02`/`2026-09-03` have only ~0.1–0.9 days of TTL remaining, under
+forward-written H4 objects from `2026-09-02`/`2026-09-03` have only ~0.1–0.9 days of TTL remaining (true of 5 of 7 independently-sampled objects at those dates; 2 of 7 already carry ~99 days remaining, consistent with the current regime — the finding applies to the subset still on the older regime, not universally to every object dated 2026-09-02/03), under
 an apparent older ~35-day TTL regime — see §6a (retention normalisation).
 
 ### 3.5 Build/promotion classification (full detail: PID §15)
@@ -183,7 +183,7 @@ excluded).
 
 ## 6a. H4 retention normalisation design (bounded, alongside §6 — not a new retention policy)
 
-PID §14: surviving forward-written H4 objects from `2026-09-02`/`2026-09-03` carry only ~0.1–0.9 days of
+PID §14: a majority (5 of 7 sampled) of surviving forward-written H4 objects from `2026-09-02`/`2026-09-03` carry only ~0.1–0.9 days of
 remaining TTL under an apparent older ~35-day TTL regime and are about to expire. Repairing §6's 65 objects
 while allowing this additional, currently-valid H4 history to disappear immediately afterward would be
 self-defeating for the warm-up depth §5's acceptance criteria require.
@@ -221,7 +221,7 @@ continue working off whatever is present, exactly as `_read_history()` already d
 
 ## 9. Build-classification disposition (not remediated here)
 
-Recorded in PID §13. This WO does not change any label, does not implement a promotion gate, and does not
+Recorded in PID §15. This WO does not change any label, does not implement a promotion gate, and does not
 treat production's `NON_PROMOTED_ENGINEERING_CANDIDATE` classification as a defect specific to this change —
 it is a pre-existing, repo-wide condition. Disposition/ownership of a future promotion-gate WO is returned to
 Central Architecture.
@@ -243,8 +243,11 @@ history is written once, at the moment `latest` is already computed, never recom
    do not create a parallel publisher.
 2. New provenance fields as designed in §4/§7.
 3. Retention wiring reusing the exact existing constants/env vars per §5 — no new configuration surface.
-4. (Separately sequenced, per §6) H4 candle-history backfill for the confirmed-repairable portion of the
-   65-object gap, contingent on the Fabric-record check in §6 item 1.
+4. (Separately sequenced, per §6) H4 candle-history backfill for all 65 missing objects, contingent on
+   §6/§6a being separately authorised and executed. The September-incident correlation question (originally
+   gating this item) is addressed by the R2D2 reconciliation cited in PID §12
+   (`r2d2:audit:hermes:h4_history_defect_september_incident_reconciliation:20261007:v1`), not by a pending
+   Fabric-record check — §6 no longer contains a check of that kind.
 
 ## 12. Exact exclusions (binding on any future implementation stage)
 
@@ -303,12 +306,14 @@ future HERMES or HELIOS-side work.
 
 ## 16. STOP conditions (binding on any future implementation stage)
 
-Stop and return to Central Architecture, without improvising, if: the §6 Fabric-record check reveals the
-September incident is unrelated to the H4 gap (root cause would then be genuinely unknown and the repair
-design in §6 would need re-evaluation); the governed computation functions (§3.2) cannot be cleanly reused
-for historical (as opposed to latest) computation without a structural change beyond this WO's scope; H1
-source data for the gap window is found to be itself incomplete at the authoritative source (§6 item 3's
-honest-gap outcome); or any ambiguity arises about whether an action is inside or outside this WO's scope.
+Stop and return to Central Architecture, without improvising, if: the governed computation functions
+(§3.2) cannot be cleanly reused for historical (as opposed to latest) computation without a structural
+change beyond this WO's scope; H1 source data for the gap window is found, upon actual execution, to be
+itself incomplete at the authoritative source (§6 item 3's honest-gap outcome); the §6a retention-normalisation
+sampling finds the stale-TTL condition is not limited to the specific objects already identified (broader
+than the bounded scope §6a describes); or any ambiguity arises about whether an action is inside or outside
+this WO's scope. (The September-incident correlation question that previously gated this section is resolved
+via the R2D2 reconciliation cited in PID §12 — it is no longer an open STOP condition.)
 
 ## 17. Disposition
 

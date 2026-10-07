@@ -163,7 +163,7 @@ explicitly not decided or opened by this PID.
 ## 14. Binding finding — H4 retention normalisation required alongside the §12 repair
 
 HELM's final verification additionally found surviving forward-written H4 objects from `2026-09-02` and
-`2026-09-03` with only approximately 0.1–0.9 days of TTL remaining — these objects appear to carry an older,
+`2026-09-03` with only approximately 0.1–0.9 days of TTL remaining (5 of 7 objects independently sampled at those two dates — the remaining 2 of 7 already carry ~99 days remaining, consistent with the current 120-day regime; the finding is not universally true of every object at those dates, only of the subset still on the older regime) — these objects appear to carry an older,
 historical ~35-day TTL regime and are about to expire imminently. **The §12 repair must not restore 65
 objects while knowingly allowing additional, currently-valid H4 history to disappear immediately afterward
 under a stale TTL regime.** A bounded requirement is added: identify the affected surviving H4 objects,
