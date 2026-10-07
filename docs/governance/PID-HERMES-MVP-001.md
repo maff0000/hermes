@@ -91,3 +91,63 @@ validation/publisher/audit layer is incomplete.) No layer may be activated ahead
 At the time of writing: **canonical main** contains DEL-PUB-01 + the EMA50/Bollinger/ADX wiring; the **deployed runtime**
 remains the earlier dark image (indicator payload still carries only the prior field set); **operational** activation of the new
 indicators and of any publisher is a later, separately-audited gate. Do not conflate the three.
+
+## 11. Binding correction — Indicator History Contract (the EMA 200 lane, §4 realised)
+
+Realises §4's EMA 200 lane. **Governed by `ops/work_orders/WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001.md`
+(preparation stage; not yet authorised for implementation).** Production indicator publication
+(`hermes:indicators:{instrument}:{timeframe}:v1`) currently exposes **latest-only** values. HELIOS (and any
+future consumer needing a historical governed indicator value for a specific closed bar) requires historical
+governed indicator records, computed by the **same deterministic calculation already used for `latest`**
+(`utils/indicators.py`, `utils/atr_calculator.py` — no second implementation), associated with the candle
+history HERMES already retains (`utils/candle_history_v1.py`). The WO's proposed contract mirrors the
+existing, proven candle-history pattern exactly (`hermes:indicators:{instrument}:{timeframe}:history:v1:
+{open_epoch}` + a ZSET index, same `history` provenance block shape, same per-timeframe retention policy
+already governing candle history) rather than inventing a new mechanism. No event ID or content hash is
+required for this phase (Architect ruling) — natural identity is `(instrument, timeframe, open_epoch)`,
+identical to the existing candle-history natural key.
+
+## 12. Binding finding — H4 candle-history integrity gap (discovered preparing §11)
+
+Production H4 candle history for XAU_USD (`hermes:candles:XAU_USD:H4:history:v1:index`, a 250-member ZSET)
+is missing 65 contiguous history objects the index still references — open-times
+`2026-09-05T14:00:00Z` through `2026-09-16T06:00:00Z` inclusive. This is the direct, mechanical cause of
+`hermes:indicators:XAU_USD:H4:v1`'s `ema_200` field currently reading `null` in production: the indicator
+publisher correctly refuses to fabricate `ema_200` when fewer than 200 of the requested 210-bar deep window
+are actually present (`hermes_runtime_publisher_steps_v1.py`), exactly as designed — **this is not an
+indicator-code defect; it is a candle-history data gap**. Per-object TTL expiry and Redis `maxmemory`
+eviction have both been read-only ruled out as the mechanism (TTL timing on surviving neighbours is
+inconsistent with expiry; `maxmemory-policy=noeviction`, `evicted_keys=0`, 32% of configured `maxmemory`
+used). One object inside the missing range is confirmed, via production container boot logs
+(`2026-09-16T11:51:19Z`), to have existed and byte-matched its deterministic recompute at that moment and is
+missing today — root cause of its subsequent disappearance is **UNRESOLVED from read-only evidence alone**.
+The gap window plausibly overlaps the incident recorded at Helm's auto-memory pointer
+`helm_hermes_september_incident_closed_state.md` ("HERMES SEPTEMBER INCIDENT CLOSED GREEN 2026-09-06 —
+hostname drift + Redis OOM crash-loop... 35,409-row PROD historical repair") — this is an unverified
+correlation, not a confirmed cause, and must be checked against that incident's actual Fabric record before
+any repair work is authorised. **This must be treated as a real HERMES defect requiring governed repair
+(backfill from authoritative H1 history via the existing, already-governed
+`utils/candle_h4_history_seed_backfill_v1.py` mechanism — reused, not forked), not a HELIOS integration
+inconvenience and not something to special-case around.** No repair is authorised by this PID entry alone.
+
+## 13. Binding finding — build/promotion classification governance gap (discovered preparing §11)
+
+Production's deployed image (`1c359067b0e00d3947fa314382bc125da398d662`, `prod-1c359067b0e0`) is labelled
+`HERMES_BUILD_CLASSIFICATION=NON_PROMOTED_ENGINEERING_CANDIDATE`. This label is **not stale or incorrect** —
+it is hardcoded, unconditionally, directly in the `Dockerfile`'s `ENV` instruction, with no alternate
+`PROMOTED` value implemented anywhere in the codebase. `docs/design/container_mvp/
+WP2_CANONICAL_BUILD_AND_EXTERNALISED_CONFIG.md` explicitly states "WP3 remains required before any
+promotion," but no WP3 promotion mechanism exists anywhere in the repository. **Every image this build
+system can currently produce is, by construction, a non-promoted engineering candidate — there is no path to
+a genuinely promoted production build today.** This is real, separate HERMES delivery-governance debt,
+independent of the indicator-history work in §11/§12. It is not remediated by, and must not be bundled into,
+`WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001`. Disposition (ownership of the fix) is returned to Central
+Architecture — this PID records the finding, not a remediation plan.
+
+## 14. Current status addendum (supplements §9, does not replace it)
+
+| Item | State |
+|---|---|
+| Indicator history contract (§11, the EMA 200 lane realisation) | **PREPARATION** — `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001` drafted, not yet Architect-accepted, no implementation dispatched |
+| H4 candle-history integrity gap (§12) | **OPEN DEFECT**, root cause partially unresolved, repair not yet authorised |
+| Build/promotion classification gap (§13) | **OPEN GOVERNANCE GAP**, disposition pending Central Architecture, ownership not yet assigned |
