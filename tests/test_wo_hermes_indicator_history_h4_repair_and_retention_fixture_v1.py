@@ -278,10 +278,11 @@ def test_repair_never_overwrites_already_present_survivor_single_bucket():
     assert res["skipped_match"] >= (TOTAL_BUCKETS - MISSING_COUNT)
 
 
-def test_repair_halts_loudly_on_fewer_than_4_h1_children_never_fabricates():
-    """WO §13 item 18: halts/fails loud if fewer than 4 complete H1 children are available — never
-    fabricates a missing child. Uses a SEPARATE, deliberately incomplete small-scale fixture (the realistic
-    65-bucket production gap has 4/4 children for all 65, per PID §12, so this is exercised in isolation)."""
+def test_repair_leaves_bucket_absent_when_fewer_than_4_h1_children_never_fabricates():
+    """WO §13 item 18: when fewer than 4 complete H1 children are available, the affected H4 bucket
+    simply remains absent from history — it is never fabricated as a synthetic/incomplete entry. Uses a
+    SEPARATE, deliberately incomplete small-scale fixture (the realistic 65-bucket production gap has 4/4
+    children for all 65, per PID §12, so this is exercised in isolation)."""
     start = datetime(2026, 5, 4, 0, 0, tzinfo=UTC)   # a Monday
     rows = _h1_rows_continuous(start, 24 * 6)
     # Remove exactly one H1 row so exactly one H4 bucket loses a child.
