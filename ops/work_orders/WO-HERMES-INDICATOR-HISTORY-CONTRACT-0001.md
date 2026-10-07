@@ -7,7 +7,14 @@ application code, Redis, or SQL has been modified by this WO.
 **Repo:** `maff0000/hermes` (canonical checkout `/srv/rogue-hermes/canonical` on dell-debian)
 **Parent governance:** `docs/governance/PID-HERMES-MVP-001.md` §4 ("EMA 200 is a SEPARATE WO: it requires its
 own history-depth, retention and warm-start design") and §11-§16 (added/amended alongside this WO).
-**Base SHA:** `origin/main = 2da7cc3ead27279d1c4153101e6dbc104d1153ff`
+**Base SHA (authored against):** `origin/main = 2da7cc3ead27279d1c4153101e6dbc104d1153ff`
+**Implementation base (Architect-authorised, post-governance-merge)**: `0981224414b80194fea027dfa13c7cd9f8a8649b`
+(canonical `main` after this WO's own governance package, PR #185, merged). The only commits between the
+original authored base and this implementation base are this WO's own merge sequence (`ed5f3b7`, `1ffd3fa`,
+`a4ddca9`, merge `0981224`), touching only this file and `docs/governance/PID-HERMES-MVP-001.md` — a
+benign, documentation-only, self-referential advance that changes nothing this WO's technical scope depends
+on. FORGE must implement against `0981224414b80194fea027dfa13c7cd9f8a8649b`, not the original authored
+base.
 **Production SHA (observed, separate from canonical base)**: `1c359067b0e00d3947fa314382bc125da398d662`
 (`hermes-signal:prod-1c359067b0e0`, host `194.164.122.94`, compose project `hermes-prod`) — labelled
 `HERMES_BUILD_CLASSIFICATION=NON_PROMOTED_ENGINEERING_CANDIDATE`; see §9 below, not remediated by this WO.
