@@ -76,18 +76,33 @@ Target architecture: `HERMES → HERMES-owned Redis → HELIOS`. FALCON is not i
   scaffold in `utils/candle_payload_builders.py` (a different, unused key family — not what production runs).
   Any new indicator-history work must anchor to the real, live `H4_FROM_H1_NY1700_V1` policy only.
 
-### 3.4 Production H4 candle-history integrity defect (full detail: PID §12)
+### 3.4 Production H4 candle-history integrity defect (full detail: PID §12, corrected)
 
-Index `ZCARD` = 250 (as expected); 65 of the newest 210 referenced history objects do not exist
-(`2026-09-05T14:00:00Z`–`2026-09-16T06:00:00Z` inclusive), causing `ema_200` to read `null` in production
-today — correct publisher behaviour given a thin history window, not an indicator-code bug. TTL expiry and
-Redis eviction both read-only ruled out. One object in the missing range is confirmed (via boot-time logs) to
-have existed and matched its deterministic recompute at `2026-09-16T11:51:19Z` and is gone today — exact
-mechanism of disappearance is **UNRESOLVED** from available read-only evidence. Plausible, **unverified**
-correlation with the incident recorded at `helm_hermes_september_incident_closed_state.md` — must be checked
-against that incident's actual Fabric content before repair work is authorised.
+**Corrected per HELM's final read-only verification** (`helm:evidence:hermes:h4_history_final_verification:
+20261007T1640Z`, R2D2 reconciliation `r2d2:audit:hermes:h4_history_defect_september_incident_reconciliation:
+20261007:v1`). Index `ZCARD` = 250. Of the full 250, **185 history objects exist and 65 do not** —
+within just the newest-210 subset the indicator publisher actually reads, 145 exist / 65 are missing (the
+same 65; this is consistent, not contradictory, since the gap falls entirely inside that subset). All 65
+missing objects fall exactly inside `2026-09-05T14:00:00Z`–`2026-09-16T06:00:00Z` inclusive, zero missing
+outside it. 45 of the 65 correspond to conventionally market-open periods; 20 correspond to flat
+carry-forward weekend periods — **both classes are equally valid governed H4 market truth** (see PID §13,
+§6a below). All 65 have four complete H1 children available in durable SQL and are therefore
+deterministically reconstructable. This causes `ema_200` to read `null` in production today — correct
+publisher behaviour given a thin history window, not an indicator-code bug.
 
-### 3.5 Build/promotion classification (full detail: PID §13)
+**Root-cause wording corrected** — the prior claim that "TTL expiry was ruled out" was **incorrect and is
+retracted**. Production evidence strongly supports expiry under a historical shorter-TTL regime as the cause
+of the contiguous missing H4 object window: all and only the relevant forward-written objects are absent, the
+loss window is bounded by retention/deployment changes, and neighbouring survivors demonstrate distinct
+historical TTL regimes. The exact original TTL of the already-expired objects cannot now be directly
+observed, so the precise historical TTL value remains a **supported inference**, not directly observed
+forensic fact. No separate root-cause WO is required solely to prove the already-expired TTL.
+
+**Additional finding — imminent expiry of surviving history** (same HELM verification): surviving
+forward-written H4 objects from `2026-09-02`/`2026-09-03` have only ~0.1–0.9 days of TTL remaining, under
+an apparent older ~35-day TTL regime — see §6a (retention normalisation).
+
+### 3.5 Build/promotion classification (full detail: PID §15)
 
 Not stale, not a one-off skipped step — no promotion mechanism (`PROMOTED` value, "WP3" gate) has ever been
 implemented in this codebase; every build is unconditionally `NON_PROMOTED_ENGINEERING_CANDIDATE` by
@@ -144,22 +159,52 @@ closed (§6) for `ema_200` history to actually warm up correctly in H4's near-te
 
 ## 6. H4 history repair/backfill design (candle-history repair, prerequisite — not indicator work)
 
-1. **Do not implement until the September-incident Fabric record (`helm_hermes_september_incident_closed_state.md`)
-   is actually read and the 2026-09-05–2026-09-16 window is confirmed or ruled out as its cause** — this WO's
-   discovery could not access Memory Fabric to verify this correlation.
-2. If the H1 source data for the missing window is itself intact in authoritative HERMES sources, backfill
-   the 65 missing H4 candle-history objects using the existing, already-governed
-   `utils/candle_h4_history_seed_backfill_v1.py` mechanism (the same one used for the original H4 bootstrap)
-   — reused, not forked, per PID §8's "no duplicate utilities" rule — deriving strictly from real H1 children
-   under the canonical `H4_FROM_H1_NY1700_V1` policy (§3.3), never fabricated.
-3. If H1 source data for any bucket in that window is itself missing/incomplete, that H4 bucket must remain
-   correctly absent — per PID §3's "a gap key is evidence, not execution authority" philosophy, an unfillable
-   gap is represented honestly, never synthesised, and the indicator publisher's existing `null`-on-insufficient-
-   window behaviour (§3.2) is correct behaviour for that case, not a defect to route around.
+**Repair scope confirmed: all 65 missing H4 history objects** (PID §12, §3.4), including both market-open
+and weekend flat carry-forward bars (PID §13 — weekend bars are valid governed market truth and must not be
+excluded).
+
+1. Reconstruct all 65 missing H4 history objects from durable authoritative `candles_H1` SQL children — not
+   legacy/stale `candles_H4` SQL — using the existing, already-governed `utils/candle_h4_history_seed_backfill_v1.py`
+   mechanism (the same one used for the original H4 bootstrap), reused, not forked, per PID §8's "no
+   duplicate utilities" rule. Each bar requires exactly 4 complete H1 children, deriving strictly under the
+   canonical `H4_FROM_H1_NY1700_V1` policy and the `22/02/06/10/14/18 UTC` anchors (§3.3) — never fabricated.
+2. Never overwrite an existing H4 survivor; halt/fail safely on conflicting existing data; record repair
+   provenance (mirroring §4/§7's provenance shape — a `backfill_run_id`-style field identifying this exact
+   repair operation).
+3. If H1 source data for any bucket in the 65-wide window is itself missing/incomplete at the authoritative
+   source, that specific H4 bucket must remain correctly absent — per PID §3's "a gap key is evidence, not
+   execution authority" philosophy, an unfillable gap is represented honestly, never synthesised. (No such
+   gap in H1 source data has been found for this window — HELM's verification confirmed all 65 buckets have
+   4 complete H1 children available — this clause covers the case where that changes on actual execution.)
 4. This repair is **candle-history work**, a prerequisite for the indicator-history contract (§4) to actually
-   produce populated H4 `ema_200` history in the near term — it is not part of the indicator-history contract
-   itself and should be sequenced and authorised as its own bounded WO/PR if Central Architecture agrees,
-   consistent with PID §8's one-WO-one-scope discipline.
+   produce populated H4 `ema_200` history, and should be sequenced and authorised as its own bounded WO/PR if
+   Central Architecture agrees, consistent with PID §8's one-WO-one-scope discipline. It is not executed by
+   this WO document itself — preparation only.
+
+## 6a. H4 retention normalisation design (bounded, alongside §6 — not a new retention policy)
+
+PID §14: surviving forward-written H4 objects from `2026-09-02`/`2026-09-03` carry only ~0.1–0.9 days of
+remaining TTL under an apparent older ~35-day TTL regime and are about to expire. Repairing §6's 65 objects
+while allowing this additional, currently-valid H4 history to disappear immediately afterward would be
+self-defeating for the warm-up depth §5's acceptance criteria require.
+
+1. Identify the affected surviving H4 objects (those carrying a legacy/shorter TTL regime inconsistent with
+   the current canonical H4 retention policy, §5: count-based `H4_HISTORY_RETAIN_COUNT=250` + the current
+   120-day per-object TTL cap).
+2. Preserve their payload bytes/semantic content exactly — no market-value rewrite of any kind.
+3. Apply the existing, already-governed current canonical H4 retention policy to these objects — this is
+   normalisation to an already-decided policy, not invention of a new one — without extending any object
+   beyond that governed policy's own cap.
+4. Ensure index/object consistency is preserved throughout (§7 below).
+5. Prove, as acceptance evidence, that the required H4 warm-up depth (§5) will not immediately regress
+   through legacy TTL expiry once §6's repair completes.
+6. **Implementation-design question for the future implementation stage, not decided here**: whether this
+   normalisation can safely reuse §6's existing governed H4 repair/retention mechanism directly (e.g. by
+   re-writing the affected objects through the same path, which would naturally apply the current TTL), or
+   requires a small, separate, explicitly-bounded operation. Either way, it must not become a general-purpose
+   TTL-rewriting utility — scope is limited to the specific surviving objects identified in step 1.
+
+Not executed by this WO document itself — preparation only.
 
 ## 7. Provenance design
 
@@ -218,12 +263,19 @@ restart, redeploy, or mutate any production service; create Redis ACL users; exp
    assertion/fixture against `utils.indicators`/`utils.atr_calculator`, not a reimplementation).
 2. M5 historical `atr_14` exists for a representative window.
 3. H4 historical `ema_50` exists for a representative window.
-4. H4 historical `ema_200` exists once the §6 prerequisite repair is complete.
+4. After §6/§6a's repair and retention normalisation: (a) the required H4 history depth exists;
+   (b) the newest governed calculation window contains at least 200 valid closes; (c) H4 `ema_200` is
+   non-null; (d) H4 `ema_200` is produced by the existing governed indicator implementation (no alternative
+   EMA implementation introduced); (e) this holds without excluding or special-casing weekend flat
+   carry-forward bars (PID §13).
 5. Historical values correspond to the correct closed bar (`open_epoch` alignment).
 6. H4 anchoring is the canonical `22/02/06/10/14/18 UTC` grid (§3.3), not the inert alternate.
 7. Sufficient H4 history exists for `ema_200` warm-up post-repair.
 8. Redis index members do not point at missing history objects (a regression test for the exact defect
-   found in §3.4/§6).
+   found in §3.4/§6) — explicitly re-run against the full current 250-member production index after
+   repair, not merely a fixture.
+16. Surviving H4 history identified in §6a retains its original market-value content, byte-identical, after
+    retention normalisation — only the TTL/expiry regime changes.
 9. Restart/recovery preserves contract correctness (no special-case logic needed, per §8 — test that reads
    continue working off whatever is present).
 10. Historical values remain deterministic across replay/recalculation.

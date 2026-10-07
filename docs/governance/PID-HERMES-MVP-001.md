@@ -107,30 +107,74 @@ already governing candle history) rather than inventing a new mechanism. No even
 required for this phase (Architect ruling) — natural identity is `(instrument, timeframe, open_epoch)`,
 identical to the existing candle-history natural key.
 
-## 12. Binding finding — H4 candle-history integrity gap (discovered preparing §11)
+## 12. Binding finding — H4 candle-history integrity gap (corrected, supersedes the prior version of this section within this same unmerged PR)
 
-Production H4 candle history for XAU_USD (`hermes:candles:XAU_USD:H4:history:v1:index`, a 250-member ZSET)
-is missing 65 contiguous history objects the index still references — open-times
-`2026-09-05T14:00:00Z` through `2026-09-16T06:00:00Z` inclusive. This is the direct, mechanical cause of
-`hermes:indicators:XAU_USD:H4:v1`'s `ema_200` field currently reading `null` in production: the indicator
-publisher correctly refuses to fabricate `ema_200` when fewer than 200 of the requested 210-bar deep window
-are actually present (`hermes_runtime_publisher_steps_v1.py`), exactly as designed — **this is not an
-indicator-code defect; it is a candle-history data gap**. Per-object TTL expiry and Redis `maxmemory`
-eviction have both been read-only ruled out as the mechanism (TTL timing on surviving neighbours is
-inconsistent with expiry; `maxmemory-policy=noeviction`, `evicted_keys=0`, 32% of configured `maxmemory`
-used). One object inside the missing range is confirmed, via production container boot logs
-(`2026-09-16T11:51:19Z`), to have existed and byte-matched its deterministic recompute at that moment and is
-missing today — root cause of its subsequent disappearance is **UNRESOLVED from read-only evidence alone**.
-The gap window plausibly overlaps the incident recorded at Helm's auto-memory pointer
-`helm_hermes_september_incident_closed_state.md` ("HERMES SEPTEMBER INCIDENT CLOSED GREEN 2026-09-06 —
-hostname drift + Redis OOM crash-loop... 35,409-row PROD historical repair") — this is an unverified
-correlation, not a confirmed cause, and must be checked against that incident's actual Fabric record before
-any repair work is authorised. **This must be treated as a real HERMES defect requiring governed repair
-(backfill from authoritative H1 history via the existing, already-governed
-`utils/candle_h4_history_seed_backfill_v1.py` mechanism — reused, not forked), not a HELIOS integration
-inconvenience and not something to special-case around.** No repair is authorised by this PID entry alone.
+**Verified production facts** (HELM final read-only verification,
+`helm:evidence:hermes:h4_history_final_verification:20261007T1640Z`, independently reproduced by this
+project's own Auditor): the H4 history index for XAU_USD (`hermes:candles:XAU_USD:H4:history:v1:index`) has
+250 members; **185 of the 250 referenced history objects exist; 65 do not**. All 65 missing objects fall
+inside, and exactly span, `2026-09-05T14:00:00Z` through `2026-09-16T06:00:00Z` inclusive — zero missing
+objects exist outside that interval. (Within just the newest 210 of the 250 members — the window the
+indicator publisher actually reads — 145 exist and the same 65 are missing; this is consistent with, not a
+contradiction of, the full-index 185/250 total, since the 65-wide gap falls entirely inside the newest-210
+subset.) Of the 65 missing bars, 45 correspond to conventionally market-open periods and 20 correspond to
+flat carry-forward weekend periods (see §13 — both classes are equally valid governed H4 market truth). All
+65 have four complete H1 children available in durable SQL and are therefore deterministically
+reconstructable using the existing governed H4 derivation (`H4_FROM_H1_NY1700_V1`, §3.3). This is the direct,
+mechanical cause of `hermes:indicators:XAU_USD:H4:v1`'s `ema_200` field currently reading `null` in
+production: the indicator publisher correctly refuses to fabricate `ema_200` when fewer than 200 of the
+requested 210-bar deep window are actually present — this is not an indicator-code defect, it is a
+candle-history data gap.
 
-## 13. Binding finding — build/promotion classification governance gap (discovered preparing §11)
+**Supported inference, not directly observed forensic fact** — root-cause wording corrected: the prior
+statement in this section that "TTL expiry was ruled out" was **incorrect and is retracted**. Production
+evidence strongly supports expiry under a historical shorter-TTL regime as the cause of the contiguous
+missing H4 object window. All and only the relevant forward-written objects are absent, the loss window is
+bounded by retention/deployment changes, and neighbouring survivors demonstrate distinct historical TTL
+regimes. The exact original TTL of the already-expired objects cannot now be directly observed, so the
+precise historical TTL value remains a supported historical inference rather than directly observed forensic
+fact. No separate root-cause WO is required solely to prove the already-expired TTL.
+
+**Architectural ruling — repair scope**: the governed repair must target **all 65** missing H4 history
+objects (not a subset), reconstructed from durable authoritative `candles_H1` SQL children via the existing
+governed `derive_h4`-equivalent canonical derivation, requiring exactly 4 complete H1 children per bar,
+preserving `H4_FROM_H1_NY1700_V1` and the `22/02/06/10/14/18 UTC` anchors exactly. The repair must never
+fabricate a missing H1 child, never overwrite an existing H4 survivor, must halt/fail safely on conflicting
+existing data, and must record repair provenance. Reconstruction must use durable SQL H1 children, not
+legacy/stale `candles_H4` SQL. No repair is authorised by this PID entry alone — implementation requires its
+own governed WO acceptance and Architect authorisation (see `ops/work_orders/
+WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001.md` §6).
+
+R2D2 reconciliation reference: `r2d2:audit:hermes:h4_history_defect_september_incident_reconciliation:20261007:v1`.
+
+## 13. Binding architecture ruling — weekend flat carry-forward H4 bars are valid governed market truth
+
+HERMES production deliberately constructs H4 bars from exactly four complete H1 children under
+`H4_FROM_H1_NY1700_V1` (anchors `22/02/06/10/14/18 UTC`), including flat carry-forward H1 children during
+weekend/non-trading periods. Those flat H1 children are complete, deterministic, 4/4, already accepted by
+existing production H4 derivation, already represented in surviving H4 history, and already consumed by the
+current governed indicator engine. **Valid 4/4 flat carry-forward H1-derived weekend H4 bars therefore remain
+part of current governed HERMES H4 market truth.** The §12 repair must not exclude them, this PID does not
+redefine H4 semantics, and EMA calculation must not be altered to exclude weekends. Any future decision to
+change this market-data doctrine (e.g. to exclude weekend bars for strategy-research reasons) requires a
+separate research/architecture/compatibility/strategy-retesting programme (APOLLO/ATHENA involved) — it is
+explicitly not decided or opened by this PID.
+
+## 14. Binding finding — H4 retention normalisation required alongside the §12 repair
+
+HELM's final verification additionally found surviving forward-written H4 objects from `2026-09-02` and
+`2026-09-03` with only approximately 0.1–0.9 days of TTL remaining — these objects appear to carry an older,
+historical ~35-day TTL regime and are about to expire imminently. **The §12 repair must not restore 65
+objects while knowingly allowing additional, currently-valid H4 history to disappear immediately afterward
+under a stale TTL regime.** A bounded requirement is added: identify the affected surviving H4 objects,
+preserve their payload bytes/semantic content exactly (no market-value rewrite), apply the existing current
+canonical H4 retention policy (not a new policy) without extending any object beyond that governed policy,
+and prove the required H4 warm-up depth will not immediately regress through legacy TTL expiry once §12's
+repair completes. Full design: `ops/work_orders/WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001.md` §6a. This is
+retention normalisation to the already-governed policy, not invention of a new retention policy, and it is
+not executed by this PID entry alone.
+
+## 15. Binding finding — build/promotion classification governance gap (discovered preparing §11, unchanged)
 
 Production's deployed image (`1c359067b0e00d3947fa314382bc125da398d662`, `prod-1c359067b0e0`) is labelled
 `HERMES_BUILD_CLASSIFICATION=NON_PROMOTED_ENGINEERING_CANDIDATE`. This label is **not stale or incorrect** —
@@ -144,10 +188,12 @@ independent of the indicator-history work in §11/§12. It is not remediated by,
 `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001`. Disposition (ownership of the fix) is returned to Central
 Architecture — this PID records the finding, not a remediation plan.
 
-## 14. Current status addendum (supplements §9, does not replace it)
+## 16. Current status addendum (supplements §9, does not replace it)
 
 | Item | State |
 |---|---|
 | Indicator history contract (§11, the EMA 200 lane realisation) | **PREPARATION** — `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001` drafted, not yet Architect-accepted, no implementation dispatched |
-| H4 candle-history integrity gap (§12) | **OPEN DEFECT**, root cause partially unresolved, repair not yet authorised |
-| Build/promotion classification gap (§13) | **OPEN GOVERNANCE GAP**, disposition pending Central Architecture, ownership not yet assigned |
+| H4 candle-history integrity gap (§12) | **OPEN DEFECT**, corrected scope 65/65 missing of 250 confirmed, TTL-expiry inference qualified (not directly observed), repair not yet authorised |
+| Weekend flat carry-forward H4 bars (§13) | **RULED** — valid governed market truth, preserved, not excluded from repair; no market-data doctrine change opened here |
+| H4 retention normalisation (§14) | **OPEN, BOUNDED REQUIREMENT ADDED** — surviving `2026-09-02`/`2026-09-03` H4 objects imminently expiring under a stale TTL regime; normalisation to the existing current canonical retention policy required alongside §12's repair; not yet authorised |
+| Build/promotion classification gap (§15) | **OPEN GOVERNANCE GAP**, disposition pending Central Architecture, ownership not yet assigned |
