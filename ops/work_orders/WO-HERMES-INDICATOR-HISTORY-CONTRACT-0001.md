@@ -1,8 +1,37 @@
 # WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001 — governed indicator-history contract (EMA 200 lane)
 
 **Persona:** Rogue (Delivery Controller), per direct Central Architecture dispatch
-**Status:** PREPARATION ONLY — not yet accepted for implementation. No FORGE dispatch has occurred. No HERMES
-application code, Redis, or SQL has been modified by this WO.
+**Status:** ACCEPTED — Central Architecture has reviewed and accepted this Work Order as durable project
+authority and has explicitly authorised dispatch of a bounded Implementer mandate against it (see Acceptance
+record below). This supersedes the original "PREPARATION ONLY — not yet accepted for implementation. No
+FORGE dispatch has occurred." line this document carried through PRs #185/#186 — that line was accurate at
+the time it was written and is retained in this file's Git history, not rewritten, per this project's own
+discipline against silently erasing prior state. No HERMES application code, Redis, or SQL has been modified
+by this WO itself; implementation is Git-tracked separately per the governance chain (§1).
+
+## Acceptance record
+
+- **Accepted by:** Central Architecture, via explicit instruction to the Delivery Controller (Rogue):
+  "ARCHITECT ACCEPTANCE — HERMES PR #185" (accepting PR #185's governance package, merge SHA
+  `0981224414b80194fea027dfa13c7cd9f8a8649b`) and, separately, "ARCHITECT AUTHORIZATION — OPEN
+  IMPLEMENTATION GATE" — "The Central Architect now authorizes you to open governed implementation of:
+  `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001` under its parent: `PID-HERMES-MVP-001` and all
+  amendments/rulings incorporated by merged PR #185," explicitly instructing the Delivery Controller to
+  "[s]ynchronise against canonical HERMES main" and record the implementation base before dispatch (§2 of
+  that mandate), which this document's "Implementation base" field above already satisfies (PR #186,
+  merge SHA `792adafa0bbaff6b2e0898a3b897a95bfc72983b`).
+- **Dispatch authorised:** the same "OPEN IMPLEMENTATION GATE" mandate's §3—§14 constitute the bounded
+  implementation scope, exclusions, and governance rules a dispatched Implementer (FORGE) must work within
+  — reproduced in full in §4—§16 of this document (objective, contract, repair design, retention
+  normalisation, exclusions, tests, STOP conditions) and in the dispatch mandate given directly to FORGE,
+  which must itself carry the governance chain and hard invariants (per that mandate's §3: "Do not assume
+  FORGE remembers them from another session").
+- **This correction's own authority:** this status update is itself a Delivery-Controller-level
+  durable-record correction (not new architecture, not implementation against this WO's technical scope) —
+  making the already-given, already-acted-upon Architect acceptance visible in Git, per this project's own
+  "no Git record → not durable project authority" rule. It was prompted by a FORGE Implementer correctly
+  refusing to proceed against the stale "PREPARATION ONLY / no FORGE dispatch" line still present in Git at
+  dispatch time — exactly the STOP-on-ambiguity discipline this WO requires, working as intended.
 **Date:** 2026-10-07
 **Repo:** `maff0000/hermes` (canonical checkout `/srv/rogue-hermes/canonical` on dell-debian)
 **Parent governance:** `docs/governance/PID-HERMES-MVP-001.md` §4 ("EMA 200 is a SEPARATE WO: it requires its
@@ -324,5 +353,10 @@ via the R2D2 reconciliation cited in PID §12 — it is no longer an open STOP c
 
 ## 17. Disposition
 
-**Preparation complete. Not authorised for implementation.** Returned to Central Architecture for review and
-acceptance of this governed package before any FORGE dispatch.
+**ACCEPTED — implementation dispatch authorised.** The original "Preparation complete. Not authorised for
+implementation" line above was accurate when written (PRs #185/#186) and is preserved in this file's Git
+history, not rewritten. Central Architecture has since reviewed and accepted this governed package (see
+Acceptance record above) and explicitly authorised dispatch of a bounded FORGE Implementer mandate against
+the implementation base recorded above (`0981224414b80194fea027dfa13c7cd9f8a8649b`). Implementation must
+stay strictly within §4—§16 of this document; any architectural ambiguity encountered during
+implementation must STOP and return to Central Architecture, per §1 and §16.
