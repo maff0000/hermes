@@ -213,7 +213,14 @@ def test_two_observation_publication_deterministic(monkeypatch):
     payloads2 = _published_indicator_payloads()
 
     assert res1["published"] == 5 and res2["published"] == 5
-    assert keys1 == {f"hermes:indicators:XAU_USD:{tf}:v1" for tf in ("M1", "M5", "M15", "H1", "H4")}
+    # WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001: indicator_step() now ALSO snapshots a governed
+    # indicator-history record (hermes:indicators:{inst}:{tf}:history:v1:{open_epoch}) alongside each
+    # mutable `latest` write, at the exact moment `latest` is written — exactly 5 additional keys here
+    # (one history snapshot per configured timeframe). The 5 `latest` keys themselves are unchanged.
+    expected_latest = {f"hermes:indicators:XAU_USD:{tf}:v1" for tf in ("M1", "M5", "M15", "H1", "H4")}
+    expected_history = {k for k in keys1 if ":history:v1:" in k}
+    assert len(expected_history) == 5
+    assert keys1 == expected_latest | expected_history
     # every published payload carries the new fields with declared methods, and validates
     for k, p in payloads2.items():
         for f in ("ema_50", "bollinger_upper_20_2", "adx_14", "adx_plus_di_14", "ema_12", "rsi_14", "atr_14"):

@@ -15,10 +15,17 @@ These steps are invoked ONLY by the in-process supervisor, which itself is DISAB
 start unless HERMES_PUBLISHER_RUNTIME_OWNER=in_process (duplicate-publisher guard).
 """
 from __future__ import annotations
+import copy
 import datetime
 import json
 
 from utils import candle_contract_v1 as cc
+from utils import candle_history_v1 as chv             # WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001: reused
+                                                        # retention helpers (history_ttl_seconds_for /
+                                                        # h4_history_retention_trim_plan /
+                                                        # history_retention_cutoff_epoch / history_key)
+from utils import indicator_history_v1 as indh         # WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001: governed
+                                                        # indicator-history key/index/envelope contract
 from utils import hermes_control_plane_v1 as cp
 from utils import hermes_indicators_v1 as ind
 from utils import hermes_candle_features_v1 as feat
@@ -470,6 +477,73 @@ def _compute_indicators(all_candles):
     return out
 
 
+def _decode_hist(raw):
+    return raw.decode() if isinstance(raw, (bytes, bytearray)) else raw
+
+
+def _indicator_history_fingerprint(payload):
+    """Stable fingerprint over the governed indicator-history CONTENT, excluding volatile provenance
+    timestamps (`generated_at_utc`, `history.published_at_utc`) so an idempotent re-write of the SAME bar's
+    already-computed snapshot compares equal regardless of exactly when it was (re-)published — mirrors
+    `candle_history_forward_writer_v1._candle_fingerprint`'s exact discipline (compare governed content,
+    never wall-clock metadata)."""
+    p = copy.deepcopy(payload)
+    p.pop("generated_at_utc", None)
+    if "history" in p:
+        p["history"].pop("published_at_utc", None)
+    return json.dumps(p, sort_keys=True)
+
+
+def _write_indicator_history(client, *, tf, now, vot, inds, freshness_state):
+    """WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001 §4/§11: snapshot the ALREADY-COMPUTED `inds` (never a
+    second computation) into the governed indicator-history key/index, at the exact moment `indicator_step`
+    already writes the mutable `latest` key for this bar. Mirrors `candle_history_forward_writer_v1`'s
+    write-then-prune discipline exactly, reusing the EXACT existing retention constants (`candle_history_v1.
+    history_ttl_seconds_for` / `h4_history_retention_trim_plan` / `history_retention_cutoff_epoch`) — no new
+    retention policy, no new config surface. `source_candle_history_key` points at the exact governed
+    candle-history record (`candle_history_v1.history_key`) this indicator snapshot was computed from.
+    `published_at_utc` is a FRESH clock read (never the batch-shared `now` already used for the base
+    contract's own `generated_at_utc`, which correctly describes the same generation event as `latest`).
+    A genuine conflict (same open_epoch, different governed content) fails loud — never silently overwrites
+    existing indicator-history truth, exactly like the candle forward writer's own conflict guard."""
+    open_epoch = int(vot.timestamp())
+    source_key = chv.history_key(INST, tf, open_epoch)
+    published_at = _now()   # fresh clock read — not reused from elsewhere
+    hist_payload = indh.build_history_envelope(
+        instrument=INST, timeframe=tf, generated_at_utc=now, value_open_time_utc=vot,
+        indicators=inds, freshness_state=freshness_state, publish_run_id=indh.PUBLISH_RUN_MARKER,
+        published_at_utc=published_at, source_candle_history_key=source_key, source_timestamp_utc=vot)
+    plan = indh.build_history_write_plan(hist_payload)
+    indh.assert_history_target(plan["key"])
+    indh.assert_history_target(plan["index_key"])
+
+    existing = client.get(plan["key"])
+    if existing:
+        ex_payload = json.loads(_decode_hist(existing))
+        if _indicator_history_fingerprint(ex_payload) != _indicator_history_fingerprint(hist_payload):
+            raise ValueError(f"GOV-HERMES-IND-HIST-020: open_epoch conflict at {plan['key']!r} — existing "
+                             "indicator-history truth differs from the newly computed snapshot (refusing "
+                             "to overwrite history)")
+
+    client.set(plan["key"], json.dumps(plan["value"]), ex=plan["ttl_seconds"])
+    client.zadd(plan["index_key"], {plan["index_member"]: plan["index_score"]})
+
+    # Index pruning mirrors candle_history_forward_writer_v1 exactly: H4 prunes by COUNT (the same
+    # H4_HISTORY_RETAIN_COUNT bootstrapped/derived asset reasoning), every other timeframe by the same
+    # time-based cutoff. Best-effort: a pruning fault must never invalidate the write that already
+    # succeeded above.
+    try:
+        if tf == "H4":
+            trim = chv.h4_history_retention_trim_plan(client.zcard(plan["index_key"]))
+            if trim["would_trim"] > 0:
+                client.zremrangebyrank(plan["index_key"], 0, trim["would_trim"] - 1)
+        else:
+            cutoff = chv.history_retention_cutoff_epoch(published_at)
+            client.zremrangebyscore(plan["index_key"], "-inf", cutoff)
+    except Exception:
+        pass
+
+
 def indicator_step(client):
     pub = ind.build_indicator_publisher_from_env()  # SystemExit(101) if enabled-without-authorised
     if not getattr(pub, "enabled", False):
@@ -489,13 +563,16 @@ def indicator_step(client):
             continue
         value_open = candles[-1]["timestamp_utc"]
         vot = datetime.datetime.strptime(value_open[:-1], cc._UTC_MS).replace(tzinfo=UTC)
+        fresh_state = _freshness(client, tf)
         payload = pub.build(instrument=INST, timeframe=tf, generated_at_utc=now, value_open_time_utc=vot,
-                            indicators=inds, freshness_state=_freshness(client, tf))
+                            indicators=inds, freshness_state=fresh_state)
         key = pub.key(INST, tf)
         if not (key.endswith(":v1") and "XAUUSD" not in key):
             continue
         client.set(key, json.dumps(payload))
         n += 1
+        if tf in indh.HISTORY_TIMEFRAMES:   # D1 excluded — gated/out of WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001 scope
+            _write_indicator_history(client, tf=tf, now=now, vot=vot, inds=inds, freshness_state=fresh_state)
     return {"published": n}
 
 
