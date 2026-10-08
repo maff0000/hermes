@@ -205,3 +205,49 @@ Architecture — this PID records the finding, not a remediation plan.
 | H4 retention normalisation (§14) | **MECHANISM CODE-IN-MAIN, PRODUCTION NORMALISATION NOT YET EXECUTED** — the bounded, `EXPIRE`-only mechanism is implemented and fixture-proven; the actual production normalisation has not been authorised or performed; see production-activation row below |
 | Build/promotion classification gap (§15) | **OPEN GOVERNANCE GAP**, disposition pending Central Architecture, ownership not yet assigned |
 | Indicator-history production activation | **PREPARATION** — `WO-HELM-HERMES-INDICATOR-HISTORY-PRODUCTION-ACTIVATION-0001` drafted, not yet Architect-accepted, no HELM dispatch, no production mutation |
+| Same-bar indicator-history recomputation semantics (§17, B1 corrective) | **PREPARATION** — `WO-HERMES-INDICATOR-HISTORY-SAME-BAR-RECOMPUTATION-0001` drafted, not yet Architect-accepted, no FORGE dispatch. **Blocks production activation** until implemented, independently audited, merged, and R2D2 re-gates GREEN |
+
+## 17. Binding ruling — same-bar indicator-history idempotent replay and deterministic-recomputation semantics (B1 corrective)
+
+**Source finding**: R2D2's production-activation re-gate (`r2d2:audit:hermes:ih_production_activation_green_gate:
+20261008:v1`) found the merged `_write_indicator_history` write path (§11,
+`utils/hermes_runtime_publisher_steps_v1.py`) can reject legitimate recomputation of the same bar, blocking
+production activation (**B1**). The conflict check (`_indicator_history_fingerprint`) already excludes
+`generated_at_utc` and `history.published_at_utc`, but still treats `freshness_state` and every indicator
+value as immutable conflict material — so a clock-derived `freshness_state` transition, or the exact proven
+case (`ema_200` moving from `null` to a populated value once governed H4 history depth is restored), both
+incorrectly raise `GOV-HERMES-IND-HIST-020`.
+
+**Binding record identity (unchanged)**: `(instrument, timeframe, open_epoch)` remains the sole identity for
+a historical indicator record, exactly as established in §11. This ruling does not change identity.
+
+**Binding semantics (corrective)**:
+
+1. **Idempotent replay.** Re-writing the same bar with governed-equivalent indicator truth is safe. Any
+   publication-time metadata difference between two writes of the same bar must not, by itself, be treated
+   as a conflict.
+2. **Transient/clock-derived fields are never conflict material.** `generated_at_utc`, `history.
+   published_at_utc` (already excluded), and `freshness_state` (newly confirmed) are excluded from the
+   conflict comparison. This list is explicit and closed — it is not a general invitation to exclude
+   arbitrary future fields; any further exclusion requires its own governance record.
+3. **Legitimate deterministic recomputation is permitted, narrowly.** The existing architecture already
+   guarantees every write that reaches this function came through the single governed call path
+   (`indicator_step()` → `_compute_indicators()` → `_write_indicator_history()` — there is no other producer
+   of this payload). Given that structural guarantee, a recomputed value for an indicator field is accepted,
+   for the same bar, when the field's value transitions from **absent/`null` to a populated, schema-valid
+   value** — i.e. the governed engine has legitimately become able to compute something it previously could
+   not (the proven case: `ema_200: null → <value>` once H4 history depth is restored). This rule is defined
+   once, generically, over every indicator field the contract carries — it is **not** EMA-200-specific
+   special-casing.
+4. **Genuine conflicts remain fail-loud.** This ruling does **not** convert the history store into
+   unconditional last-write-wins. A value that was already populated changing to a *different* populated
+   value, or regressing from populated back to `null`, for the same bar, remains a conflict and must still
+   raise `GOV-HERMES-IND-HIST-020` exactly as today. Identity mismatch (different `open_epoch`) is already
+   structurally impossible to collide, since it addresses a different key. Malformed/schema-invalid payloads
+   are already rejected by the existing contract validation before reaching this comparison and are
+   unaffected by this ruling.
+
+**Explicitly not decided or reopened by this ruling**: candle-history semantics, H4 derivation, weekend
+semantics (§13), retention policy (§14), repair logic (§12), Redis security, HELIOS, FALCON, or the
+build-classification/promotion gap (§15). Governed by
+`ops/work_orders/WO-HERMES-INDICATOR-HISTORY-SAME-BAR-RECOMPUTATION-0001.md`.
