@@ -486,12 +486,77 @@ def _indicator_history_fingerprint(payload):
     timestamps (`generated_at_utc`, `history.published_at_utc`) so an idempotent re-write of the SAME bar's
     already-computed snapshot compares equal regardless of exactly when it was (re-)published — mirrors
     `candle_history_forward_writer_v1._candle_fingerprint`'s exact discipline (compare governed content,
-    never wall-clock metadata)."""
+    never wall-clock metadata). Retained for byte-for-byte equality checks elsewhere; same-bar CONFLICT
+    detection in `_write_indicator_history` uses `_indicator_history_conflict` below (PID §17 /
+    WO-HERMES-INDICATOR-HISTORY-SAME-BAR-RECOMPUTATION-0001), which additionally excludes `freshness_state`
+    and tolerates legitimate null->populated field recomputation — a raw fingerprint-inequality check cannot
+    express that narrower rule."""
     p = copy.deepcopy(payload)
     p.pop("generated_at_utc", None)
     if "history" in p:
         p["history"].pop("published_at_utc", None)
     return json.dumps(p, sort_keys=True)
+
+
+# Transient/clock-derived fields excluded from same-bar conflict comparison. PID §17 item 2: this list is
+# explicit and closed — `generated_at_utc`/`history.published_at_utc` were already excluded (WO-HERMES-
+# INDICATOR-HISTORY-CONTRACT-0001); `freshness_state` is newly confirmed by PID §17 / WO-HERMES-INDICATOR-
+# HISTORY-SAME-BAR-RECOMPUTATION-0001. Any further exclusion requires its own governance record.
+_HIST_CONFLICT_EXCLUDED_TOP_LEVEL_FIELDS = ("generated_at_utc", "freshness_state")
+_HIST_CONFLICT_EXCLUDED_HISTORY_FIELDS = ("published_at_utc",)
+
+_MISSING = object()   # sentinel: a leaf/field absent entirely (as distinct from present-and-null)
+
+
+def _indicator_history_leaf_conflicts(old, new):
+    """PID §17 item 3 / WO §4 item 3, applied to a single leaf value (after transient-field exclusion):
+    a transition from null/absent (`old`) to ANY populated value (`new`) is legitimate deterministic
+    recomputation — never conflict material. Once `old` itself is populated, any difference — a different
+    populated value, OR a regression back to null/absent — remains a genuine conflict, exactly as before
+    this correction. Equal values are trivially never a conflict."""
+    if old == new:
+        return False
+    if old is None or old is _MISSING:
+        return False   # null/absent -> (necessarily different, by the equality check above) -> NOT a conflict
+    return True         # old was already populated and differs from new -> genuine conflict
+
+
+def _indicator_history_payload_conflicts(old, new):
+    """Recursive structural walk implementing the leaf rule generically over the ENTIRE compared payload
+    (WO §4 item 4 — symmetric across every field, no `ema_200`-specific allow-list). Dicts are compared
+    key-by-key over the union of keys on both sides (a key missing on one side is treated as `_MISSING`,
+    equivalent to an explicit null for this rule). Non-dict containers (lists, etc.) and scalars fall through
+    to the leaf rule directly — list-valued fields in this contract (e.g. `source_timeframes`) are stable
+    metadata, never a null->populated indicator recomputation, so no special-casing is needed or applied
+    there; an unexpected list difference still correctly fails loud via the leaf rule's default."""
+    if isinstance(old, dict) or isinstance(new, dict):
+        old_d = old if isinstance(old, dict) else {}
+        new_d = new if isinstance(new, dict) else {}
+        for k in set(old_d) | set(new_d):
+            if _indicator_history_payload_conflicts(old_d.get(k, _MISSING), new_d.get(k, _MISSING)):
+                return True
+        return False
+    return _indicator_history_leaf_conflicts(old, new)
+
+
+def _indicator_history_conflict(existing_payload, new_payload):
+    """Same-bar conflict decision for `_write_indicator_history` (PID §17 / WO-HERMES-INDICATOR-HISTORY-
+    SAME-BAR-RECOMPUTATION-0001). Strips the closed, explicit exclusion list (`generated_at_utc`,
+    `freshness_state`, `history.published_at_utc`) from both sides, then walks the remaining payload
+    generically: a field recomputed from null/absent to a populated, schema-valid value is accepted as
+    legitimate deterministic recomputation (idempotent same-bar replay/recompute); a populated value
+    changing to a different populated value, or regressing to null, remains `GOV-HERMES-IND-HIST-020` exactly
+    as before this correction. Identity (`instrument`/`timeframe`/`open_epoch`-derived key) is never touched
+    here — a different bar is structurally a different Redis key and never reaches this comparison."""
+    old = copy.deepcopy(existing_payload)
+    new = copy.deepcopy(new_payload)
+    for p in (old, new):
+        for f in _HIST_CONFLICT_EXCLUDED_TOP_LEVEL_FIELDS:
+            p.pop(f, None)
+        if isinstance(p.get("history"), dict):
+            for f in _HIST_CONFLICT_EXCLUDED_HISTORY_FIELDS:
+                p["history"].pop(f, None)
+    return _indicator_history_payload_conflicts(old, new)
 
 
 def _write_indicator_history(client, *, tf, now, vot, inds, freshness_state):
@@ -520,7 +585,7 @@ def _write_indicator_history(client, *, tf, now, vot, inds, freshness_state):
     existing = client.get(plan["key"])
     if existing:
         ex_payload = json.loads(_decode_hist(existing))
-        if _indicator_history_fingerprint(ex_payload) != _indicator_history_fingerprint(hist_payload):
+        if _indicator_history_conflict(ex_payload, hist_payload):
             raise ValueError(f"GOV-HERMES-IND-HIST-020: open_epoch conflict at {plan['key']!r} — existing "
                              "indicator-history truth differs from the newly computed snapshot (refusing "
                              "to overwrite history)")
