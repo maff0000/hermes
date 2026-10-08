@@ -1,14 +1,45 @@
 # WO-HERMES-INDICATOR-HISTORY-SAME-BAR-RECOMPUTATION-0001 — B1 corrective: idempotent replay & deterministic recomputation
 
 **Persona:** Rogue (Delivery Controller), governance preparation, per direct Central Architecture dispatch.
-**Status:** PREPARATION ONLY — not yet accepted. No FORGE dispatch has occurred. No HERMES application code,
-Redis, or SQL has been modified by this WO.
+**Status:** ACCEPTED — Central Architecture has reviewed and accepted this Work Order as durable project
+authority and has explicitly authorised dispatch of a bounded Implementer mandate against it (see Acceptance
+record below). This supersedes the original "PREPARATION ONLY — not yet accepted. No FORGE dispatch has
+occurred." line this document carried at merge time (PR #190) — that line was accurate when written and is
+retained in this file's Git history, not rewritten, per this project's own discipline against silently
+erasing prior state. No HERMES application code, Redis, or SQL has been modified by this WO itself;
+implementation is Git-tracked separately per the governance chain (§1).
+
+## Acceptance record
+
+- **Accepted by:** Central Architecture, via explicit instruction to the Delivery Controller (Rogue):
+  "ROGUE — DELIVERY CONTROLLER / ARCHITECT DECISION — R2D2 B1 CORRECTIVE WORK" — "Once the corrective WO is
+  properly authorised through the existing governance process, FORGE may make the smallest implementation
+  necessary in the indicator-history write path" (§5 of that mandate), following the Architect's explicit
+  acceptance of this WO's governance package for merge (PR #190, merge SHA
+  `5a3a780f1f0b4018d8c5db890491a35cf05ba3bb`).
+- **Dispatch authorised:** the same mandate's §5–§8 constitute the bounded implementation scope, exclusions,
+  required test matrix, mandatory end-to-end R2D2 regression sequence, and dual audit/R2D2-regate
+  requirement a dispatched Implementer (FORGE) must work within — reproduced in full in §4–§8 of this
+  document.
+- **This correction's own authority:** this status update is itself a Delivery-Controller-level
+  durable-record correction (not new architecture, not implementation against this WO's technical scope) —
+  making the already-given, already-acted-upon Architect acceptance visible in Git, per this project's own
+  "no Git record → not durable project authority" rule. It was prompted by a FORGE Implementer correctly
+  refusing to proceed against the stale "PREPARATION ONLY / not yet accepted" line (and a stale Base SHA)
+  still present in Git at dispatch time — exactly the STOP-on-ambiguity discipline this WO requires, working
+  as intended.
 **Date:** 2026-10-08
 **Repo:** `maff0000/hermes` (canonical checkout `/srv/rogue-hermes/canonical` on dell-debian)
 **Parent governance:** `docs/governance/PID-HERMES-MVP-001.md` §17 (the binding ruling this WO implements),
 §11 (the original indicator-history decision this corrects), §8 (delivery discipline — binding on this WO).
-**Base SHA:** `origin/main = b9eb84177687e405306bdbd7e3440f4cd631eab7` (canonical main after
-`WO-HELM-HERMES-INDICATOR-HISTORY-PRODUCTION-ACTIVATION-0001`'s governance merge, PR #189).
+**Base SHA (authored against):** `origin/main = b9eb84177687e405306bdbd7e3440f4cd631eab7` (canonical
+main after `WO-HELM-HERMES-INDICATOR-HISTORY-PRODUCTION-ACTIVATION-0001`'s governance merge, PR #189).
+**Implementation base (Architect-authorised, post-governance-merge)**: `5a3a780f1f0b4018d8c5db890491a35cf05ba3bb`
+(canonical `main` after this WO's own governance package, PR #190, merged). The only commit between the
+original authored base and this implementation base is this WO's own merge (`775a8c7`, merge `5a3a780f`),
+touching only this file and `docs/governance/PID-HERMES-MVP-001.md` — a benign, documentation-only,
+self-referential advance that changes nothing this WO's technical scope depends on. FORGE must implement
+against `5a3a780f1f0b4018d8c5db890491a35cf05ba3bb`, not the original authored base.
 **Source finding:** R2D2 production-activation re-gate, `r2d2:audit:hermes:ih_production_activation_
 green_gate:20261008:v1` — **B1**, blocking.
 
@@ -127,7 +158,11 @@ activation may resume.
 
 ## 9. Disposition
 
-**Preparation only.** No FORGE dispatch has occurred. No application code has been modified. This document
-and the accompanying PID §17 ruling establish the durable, bounded authority a future FORGE dispatch must
-implement within. Returned to Central Architecture for review and acceptance before any implementation
-dispatch.
+**ACCEPTED — implementation dispatch authorised.** The original "Preparation only... Returned to Central
+Architecture for review and acceptance before any implementation dispatch" line above was accurate when
+written (PR #190) and is preserved in this file's Git history, not rewritten. Central Architecture has since
+reviewed and accepted this governed package (see Acceptance record above) and explicitly authorised dispatch
+of a bounded FORGE Implementer mandate against the implementation base recorded above
+(`5a3a780f1f0b4018d8c5db890491a35cf05ba3bb`). Implementation must stay strictly within §4–§8 of this
+document; any architectural ambiguity encountered during implementation must STOP and return to Central
+Architecture, per §1.
