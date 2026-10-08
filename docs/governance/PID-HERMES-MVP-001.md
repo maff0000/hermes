@@ -94,8 +94,15 @@ indicators and of any publisher is a later, separately-audited gate. Do not conf
 
 ## 11. Binding correction — Indicator History Contract (the EMA 200 lane, §4 realised)
 
-Realises §4's EMA 200 lane. **Governed by `ops/work_orders/WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001.md`
-(preparation stage; not yet authorised for implementation).** Production indicator publication
+Realises §4's EMA 200 lane. **Governed by `ops/work_orders/WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001.md`.**
+That WO's implementation is complete and merged into canonical main (independently audited, Architect-
+accepted, merged via PRs #185–#188) — the **code-in-main** state of PID §5's three-state Indicator
+Definition of Done is satisfied. Production activation (deployment of this code, execution of the
+governed H4 repair, execution of the bounded retention normalisation, and proof of fresh versioned
+Redis payloads in production) has **not** occurred and is separately governed by
+`ops/work_orders/WO-HELM-HERMES-INDICATOR-HISTORY-PRODUCTION-ACTIVATION-0001.md` (see §16) — the
+**deployed-runner** and **fresh-versioned-Redis-payload** DoD states remain outstanding until that
+separate WO is itself accepted and executed through the governed chain. Production indicator publication
 (`hermes:indicators:{instrument}:{timeframe}:v1`) currently exposes **latest-only** values. HELIOS (and any
 future consumer needing a historical governed indicator value for a specific closed bar) requires historical
 governed indicator records, computed by the **same deterministic calculation already used for `latest`**
