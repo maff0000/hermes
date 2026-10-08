@@ -192,8 +192,9 @@ Architecture — this PID records the finding, not a remediation plan.
 
 | Item | State |
 |---|---|
-| Indicator history contract (§11, the EMA 200 lane realisation) | **PREPARATION** — `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001` drafted, not yet Architect-accepted, no implementation dispatched |
-| H4 candle-history integrity gap (§12) | **OPEN DEFECT**, corrected scope 65/65 missing of 250 confirmed, TTL-expiry inference qualified (not directly observed), repair not yet authorised |
+| Indicator history contract (§11, the EMA 200 lane realisation) | **CODE-IN-MAIN** — `WO-HERMES-INDICATOR-HISTORY-CONTRACT-0001` implemented, independently audited twice (PASS both times), merged to canonical main (PRs #185-#188). Deployed-runner and fresh-versioned-Redis-payload DoD states (PID §5) not yet met — see production-activation row below |
+| H4 candle-history integrity gap (§12) | **REPAIR MECHANISM CODE-IN-MAIN, PRODUCTION REPAIR NOT YET EXECUTED** — the governed repair mechanism is implemented and fixture-proven; the actual 65-object production repair has not been authorised or performed; see production-activation row below |
 | Weekend flat carry-forward H4 bars (§13) | **RULED** — valid governed market truth, preserved, not excluded from repair; no market-data doctrine change opened here |
-| H4 retention normalisation (§14) | **OPEN, BOUNDED REQUIREMENT ADDED** — surviving `2026-09-02`/`2026-09-03` H4 objects imminently expiring under a stale TTL regime; normalisation to the existing current canonical retention policy required alongside §12's repair; not yet authorised |
+| H4 retention normalisation (§14) | **MECHANISM CODE-IN-MAIN, PRODUCTION NORMALISATION NOT YET EXECUTED** — the bounded, `EXPIRE`-only mechanism is implemented and fixture-proven; the actual production normalisation has not been authorised or performed; see production-activation row below |
 | Build/promotion classification gap (§15) | **OPEN GOVERNANCE GAP**, disposition pending Central Architecture, ownership not yet assigned |
+| Indicator-history production activation | **PREPARATION** — `WO-HELM-HERMES-INDICATOR-HISTORY-PRODUCTION-ACTIVATION-0001` drafted, not yet Architect-accepted, no HELM dispatch, no production mutation |
