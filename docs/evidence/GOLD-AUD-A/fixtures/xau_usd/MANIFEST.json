@@ -1,0 +1,9 @@
+{
+  "audit": "GOLD-AUD-A",
+  "status": "PENDING HELM PROTOCOL",
+  "captured_utc": "PENDING HELM PROTOCOL",
+  "files": [],
+  "sanitisation_record": "PENDING HELM PROTOCOL",
+  "private_bundle_sha256": "PENDING HELM PROTOCOL",
+  "note": "No sample exists yet. This manifest will list the SHA-256 of every sanitised sample once the HELM-operated read-only protocol has run."
+}
