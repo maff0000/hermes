@@ -1,0 +1,76 @@
+{
+  "synthetic": true,
+  "hermes_key_example": "hermes:candles:XAU_USD:H1:latest:v1",
+  "results": [
+    {
+      "case": "candle: map is_closed->complete, provenance.source->source, Decimal-parsed",
+      "result": "ACCEPTED",
+      "detail": ""
+    },
+    {
+      "case": "candle: raw JSON floats passed straight through",
+      "result": "REJECTED",
+      "detail": "binary float refused"
+    },
+    {
+      "case": "candle: HERMES field name is_closed passed through unmapped",
+      "result": "REJECTED",
+      "detail": "ContractViolationError"
+    },
+    {
+      "case": "indicators: projection to the six HELIOS numeric facts, null kept as absent",
+      "result": "ACCEPTED",
+      "detail": "available=['atr_14', 'ema_21', 'ema_50', 'ema_9', 'rsi_14']"
+    },
+    {
+      "case": "indicators: extra published fields (ema_12) passed through",
+      "result": "REJECTED",
+      "detail": "ContractViolationError"
+    },
+    {
+      "case": "session: governed lowercase 'london'",
+      "result": "REJECTED",
+      "detail": "value pattern requires uppercase"
+    },
+    {
+      "case": "session: governed 'overlap_ldn_ny'",
+      "result": "REJECTED",
+      "detail": "value pattern requires uppercase"
+    },
+    {
+      "case": "session: legacy 'late_ny'",
+      "result": "REJECTED",
+      "detail": "value pattern requires uppercase"
+    },
+    {
+      "case": "session: uppercase 'LONDON'",
+      "result": "ACCEPTED",
+      "detail": ""
+    },
+    {
+      "case": "regime: legacy value BULL_TREND (source: legacy signal path only)",
+      "result": "ACCEPTED",
+      "detail": ""
+    },
+    {
+      "case": "legacy zero-fill: ema_200 = 0 treated as present",
+      "result": "ACCEPTED",
+      "detail": "available=['ema_200']"
+    },
+    {
+      "case": "provenance: HERMES envelope schema_version 'v1'",
+      "result": "REJECTED",
+      "detail": "schema_version must be '<namespace>/<x.y.z>'"
+    },
+    {
+      "case": "provenance: qualified 'hermes.market_fact/1.0.0'",
+      "result": "ACCEPTED",
+      "detail": ""
+    },
+    {
+      "case": "timestamp: HERMES ms-precision text parses to aware UTC",
+      "result": "ACCEPTED",
+      "detail": "2026-01-05T08:00:00+00:00"
+    }
+  ]
+}

@@ -1,0 +1,838 @@
+{
+  "audit": "GOLD-AUD-A",
+  "phase": "SOURCE_ONLY",
+  "generated_for_date": "2026-10-16",
+  "note": "No production value is recorded in this file. Every observed field is PENDING HELM PROTOCOL.",
+  "sources": [
+    {
+      "repo": "maff0000/hermes",
+      "sha": "ca1901789f8c7a7e085d02ebde8f7264d90d669e",
+      "branch": "main",
+      "ci_checks_on_sha": "4 completed, success"
+    },
+    {
+      "repo": "maff0000/HELIOS",
+      "sha": "7f7193d55475e40583892b94dd461b1b64d6f1ef",
+      "branch": "main"
+    }
+  ],
+  "production_instance_identification": "PENDING HELM PROTOCOL",
+  "families": [
+    {
+      "id": "F01",
+      "key_pattern": "hermes:ticks:XAU_USD:latest:v1",
+      "redis_type_source": "string (JSON envelope)",
+      "source_ref": "utils/tick_live_emitter_v1.py:L183; utils/tick_contract_v1.py:L26-27",
+      "ttl_source": "EX 10 s; ttl_seconds 5",
+      "documented": "YES: registered, status DESIGNED (publisher not built)",
+      "doc_ref": "docs/contracts/hermes_redis_contract_manifest.md:L11; docs/contracts/hermes_redis_tick_contract_v1.md",
+      "doc_vs_source_preclassification": "DIVERGENT (document says publisher not built; source has a gated per-tick emitter; TTL/EX/freshness thresholds MATCH)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F02",
+      "key_pattern": "hermes:ticks:latest:v1",
+      "redis_type_source": "string (JSON catalog)",
+      "source_ref": "utils/tick_contract_v1.py:L128 (builder only; no runtime caller found)",
+      "ttl_source": "would be EX 10 s",
+      "documented": "YES: registered, DESIGNED (publisher not built)",
+      "doc_ref": "docs/contracts/hermes_redis_contract_manifest.md:L12",
+      "doc_vs_source_preclassification": "MATCH (both say no publisher; source has builder only)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F03",
+      "key_pattern": "hermes:candles:XAU_USD:{M1|M5|M15|H1|H4|D1}:latest:v1",
+      "redis_type_source": "string (JSON envelope)",
+      "source_ref": "utils/candle_contract_v1.py:L66-68; utils/candle_publisher_v1.py:L266-293",
+      "ttl_source": "EX = timeframe + buffer (M1 90, M5 360, M15 1080, H1 3900, H4 15300, D1 90000 s)",
+      "documented": "FAMILY NAME ONLY (core latest+history M1/M5/M15/H1; H4/D1 for XAU_USD); no key or schema registry",
+      "doc_ref": "docs/architecture/environment-model.md:L48-51; docs/config/hermes-configuration-reference.md:L38-53",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (key pattern and schema are in code and a config note only)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F04",
+      "key_pattern": "hermes:candles:XAU_USD:{M1|M5|M15|H1|H4}:history:v1:{open_epoch} and :history:v1:index",
+      "redis_type_source": "string per bar; sorted set index",
+      "source_ref": "utils/candle_history_v1.py:L129-139; utils/candle_history_forward_writer_v1.py:L202",
+      "ttl_source": "per-bar EX = configured retention days (H4: 120 d cap, 250-bar count trim)",
+      "documented": "FAMILY NAME ONLY",
+      "doc_ref": "docs/config/hermes-configuration-reference.md:L38-53",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F04b",
+      "key_pattern": "hermes:candles:XAU_USD:D1:history:v1:{open_epoch} and :history:v1:index",
+      "redis_type_source": "string per bar; sorted set index",
+      "source_ref": "utils/candle_d1_history_v1.py:L41-46; utils/candle_d1_history_seed_backfill_v1.py:L277",
+      "ttl_source": "EX 120 d cap; keeps 35 bars",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F05",
+      "key_pattern": "hermes:indicators:XAU_USD:{M1|M5|M15|H1|H4|D1}:v1",
+      "redis_type_source": "string (JSON payload, not the universal envelope)",
+      "source_ref": "utils/hermes_indicators_v1.py:L115-147; utils/hermes_runtime_publisher_steps_v1.py:L612-641",
+      "ttl_source": "none (persistent)",
+      "documented": "NOT REGISTERED; manifest says indicators are 'separately designed (different WOs)'",
+      "doc_ref": "docs/contracts/hermes_redis_contract_manifest.md:L35-37",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F06",
+      "key_pattern": "hermes:indicators:XAU_USD:{M1|M5|M15|H1|H4}:history:v1:{open_epoch} and :history:v1:index (absent at the documented production revision)",
+      "redis_type_source": "string; sorted set",
+      "source_ref": "utils/indicator_history_v1.py:L56-67; utils/hermes_runtime_publisher_steps_v1.py:L562-609",
+      "ttl_source": "as F04",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F07",
+      "key_pattern": "hermes:candle_features:XAU_USD:{M1|M5|M15|H1|H4|D1}:v1",
+      "redis_type_source": "string (JSON payload)",
+      "source_ref": "utils/hermes_candle_features_v1.py:L80-114; utils/hermes_runtime_publisher_steps_v1.py:L686-722",
+      "ttl_source": "none",
+      "documented": "NOT REGISTERED (manifest: separately designed)",
+      "doc_ref": "docs/contracts/hermes_redis_contract_manifest.md:L35-37",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F08",
+      "key_pattern": "hermes:sessions:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_sessions_v1.py:L66; utils/hermes_runtime_publisher_steps_v1.py:L800-819",
+      "ttl_source": "none",
+      "documented": "FAMILY NAME ONLY ('sessions')",
+      "doc_ref": "docs/architecture/environment-model.md:L49-51",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F09",
+      "key_pattern": "hermes:levels:XAU_USD:{session|intraday|daily}:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_levels_v1.py:L98; utils/hermes_runtime_publisher_steps_v1.py:L826-855",
+      "ttl_source": "none",
+      "documented": "FAMILY NAME ONLY ('levels')",
+      "doc_ref": "docs/architecture/environment-model.md:L49-51",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F10",
+      "key_pattern": "hermes:quote:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_quote_tick_contract_v1.py:L59; utils/hermes_runtime_publisher_steps_v1.py:L948-970",
+      "ttl_source": "EX 15 s",
+      "documented": "FAMILY NAME ONLY ('quote/tick')",
+      "doc_ref": "docs/architecture/environment-model.md:L49-51",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F11",
+      "key_pattern": "hermes:feed_health:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_feed_health_v1.py:L60; utils/hermes_runtime_publisher_steps_v1.py:L911-939",
+      "ttl_source": "EX 180 s",
+      "documented": "NO (manifest builder lists feed_health as INVENTORY_PENDING)",
+      "doc_ref": "utils/hermes_control_plane_v1.py:L189",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F12",
+      "key_pattern": "hermes:instrument_catalog:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_instrument_catalog_v1.py:L43; utils/hermes_runtime_publisher_steps_v1.py:L880-901",
+      "ttl_source": "EX 300 s",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F13",
+      "key_pattern": "hermes:gaps:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_gaps_v1.py:L409",
+      "ttl_source": "none",
+      "documented": "FAMILY NAME ONLY ('gaps')",
+      "doc_ref": "docs/architecture/environment-model.md:L49-51",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F14",
+      "key_pattern": "hermes:backfill:status:XAU_USD:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_backfill_status_v1.py:L278",
+      "ttl_source": "none",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F15",
+      "key_pattern": "hermes:contract:manifest:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_control_plane_v1.py:L22; utils/hermes_runtime_publisher_steps_v1.py:L423",
+      "ttl_source": "none",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (and its own status table is stale in places, see AUDIT section 9)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F16",
+      "key_pattern": "hermes:catalog:candles:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_control_plane_v1.py:L24; utils/hermes_runtime_publisher_steps_v1.py:L424",
+      "ttl_source": "none",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F17",
+      "key_pattern": "hermes:health:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_control_plane_v1.py:L25; utils/hermes_runtime_publisher_steps_v1.py:L425",
+      "ttl_source": "none",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "F18",
+      "key_pattern": "hermes:publisher:heartbeat:v1",
+      "redis_type_source": "string",
+      "source_ref": "utils/hermes_control_plane_v1.py:L23, L67-68; utils/hermes_runtime_publisher_steps_v1.py:L426",
+      "ttl_source": "EX 180 s",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L01",
+      "key_pattern": "{prefix}signals:latest:{instrument}",
+      "redis_type_source": "hash (53 text fields)",
+      "source_ref": "signal_builder.py:L902-972; main.py:L909-910",
+      "ttl_source": "EX 600 s",
+      "documented": "FAMILY NAME ONLY ('signal/indicator snapshot')",
+      "doc_ref": "docs/architecture/environment-model.md:L48-49; utils/hermes_control_plane_v1.py:L193-197 (FROZEN_PENDING_CONSUMER_CUTOVER)",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (legacy)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L02",
+      "key_pattern": "{prefix}signals:price:{instrument}",
+      "redis_type_source": "hash",
+      "source_ref": "utils/redis_publisher.py:L143-154; main.py:L856",
+      "ttl_source": "EX 300 s",
+      "documented": "FAMILY NAME ONLY ('current price')",
+      "doc_ref": "docs/architecture/environment-model.md:L48",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (legacy)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L03",
+      "key_pattern": "{prefix}signals:candle:{TF}:{instrument}:latest",
+      "redis_type_source": "hash",
+      "source_ref": "utils/redis_publisher.py:L189-200 (no caller found)",
+      "ttl_source": "EX 3600 s",
+      "documented": "NO; governed candle contract forbids it as governed output",
+      "doc_ref": "utils/candle_contract_v1.py:L8-9",
+      "doc_vs_source_preclassification": "UNDOCUMENTED candidate (code only, no caller found; live presence UNVERIFIED)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L04",
+      "key_pattern": "{prefix}signals:health:status",
+      "redis_type_source": "hash",
+      "source_ref": "utils/redis_publisher.py:L231-236 (no caller found)",
+      "ttl_source": "EX 60 s",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED candidate (code only, no caller found; live presence UNVERIFIED)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L05",
+      "key_pattern": "{prefix}market_map:{instrument}",
+      "redis_type_source": "hash",
+      "source_ref": "services/market-map/market_map.py:L313-331",
+      "ttl_source": "EX 600 s",
+      "documented": "NO; control plane marks FROZEN_PENDING_CONSUMER_CUTOVER",
+      "doc_ref": "utils/hermes_control_plane_v1.py:L193-197",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (legacy)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L06",
+      "key_pattern": "{prefix}instrument:{instrument}",
+      "redis_type_source": "hash",
+      "source_ref": "utils/redis_publisher.py:L268-330",
+      "ttl_source": "not examined",
+      "documented": "NO; control plane marks LEGACY_OR_PARTIAL_CATALOG",
+      "doc_ref": "utils/hermes_control_plane_v1.py:L196",
+      "doc_vs_source_preclassification": "UNDOCUMENTED-IN-REPO (legacy)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L07",
+      "key_pattern": "pub/sub channels signals:tick:*, signals:stream:*",
+      "redis_type_source": "not keys",
+      "source_ref": "utils/redis_publisher.py:L135; signal_builder.py:L975",
+      "ttl_source": "n/a",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED candidate; not observable under the allow-list, so UNVERIFIED by design",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "L08",
+      "key_pattern": "hermes:ticks:{instrument} (stream) and hermes:ticks:latest:{instrument}",
+      "redis_type_source": "stream; string",
+      "source_ref": "utils/tick_stream_publisher.py:L14-16 (no runtime caller found)",
+      "ttl_source": "configured",
+      "documented": "NO",
+      "doc_ref": "-",
+      "doc_vs_source_preclassification": "UNDOCUMENTED candidate (code only, no runtime caller found; live presence UNVERIFIED)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "I01",
+      "key_pattern": "hermes:candle_features:latest:v1:{instrument}:{timeframe}; hermes:candle_context:current:v1:{instrument}; hermes:indicators:latest:v1:{instrument}:{timeframe}",
+      "redis_type_source": "string",
+      "source_ref": "utils/candle_payload_builders.py:L61, L115, L143 (no runtime caller found)",
+      "ttl_source": "n/a",
+      "documented": "MENTIONED as 'separately designed'",
+      "doc_ref": "docs/contracts/hermes_redis_contract_manifest.md:L35-37",
+      "doc_vs_source_preclassification": "DOCUMENTED-NOT-LIVE candidate (inert builders only)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    },
+    {
+      "id": "S01",
+      "key_pattern": "hermes:shadow:*",
+      "redis_type_source": "string",
+      "source_ref": "utils/candle_publisher_v1.py:L23; utils/tick_live_emitter_v1.py (SHADOW_PREFIX)",
+      "ttl_source": "EX as canonical",
+      "documented": "dev-only; production posture fail-closed",
+      "doc_ref": "docs/config/hermes-configuration-reference.md:L26-28",
+      "doc_vs_source_preclassification": "DOCUMENTED-NOT-LIVE candidate (dev-only namespace; presence in production would be DIVERGENT)",
+      "observed": {
+        "count": "PENDING HELM PROTOCOL",
+        "type": "PENDING HELM PROTOCOL",
+        "ttl_stats": "PENDING HELM PROTOCOL",
+        "field_list": "PENDING HELM PROTOCOL",
+        "source": "SCAN/TYPE/PTTL/GET per protocol.md",
+        "observed_utc": "PENDING HELM PROTOCOL",
+        "evidence_hash": "PENDING HELM PROTOCOL"
+      }
+    }
+  ],
+  "coverage_matrix_source": {
+    "legend": {
+      "C": "coded and populated once enough closed bars exist",
+      "C*": "coded but structurally null in source (depth cap)",
+      "N": "not published by any governed key",
+      "X": "timeframe not in the Redis grid",
+      "(gated)": "requires D1 gates and minimum D1 depth"
+    },
+    "cells": {
+      "rsi_14": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C(gated)",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "ema_9": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C(gated)",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "ema_21": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C(gated)",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "ema_50": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C*",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "ema_200": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C*",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "atr_14": {
+        "M1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "C",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "C(gated)",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "regime": {
+        "M1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      },
+      "session": {
+        "M1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M5": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M15": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "M30": {
+          "source": "X",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "H4": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        },
+        "D1": {
+          "source": "N",
+          "observed_prod": "PENDING HELM PROTOCOL"
+        }
+      }
+    }
+  },
+  "revision_sensitivity": {
+    "documented_production_revision_claim": "repository documents the production image as older than the audited revision (claim, UNVERIFIED; detail in the private handback)",
+    "audited_revision": "ca1901789f8c7a7e085d02ebde8f7264d90d669e",
+    "family_absent_at_documented_revision": [
+      "F06"
+    ],
+    "note": "deployed_sha is read from the production manifest and heartbeat during the HELM protocol"
+  },
+  "observation": {
+    "run_id_before": "PENDING HELM PROTOCOL",
+    "run_id_after": "PENDING HELM PROTOCOL",
+    "dbsize_before": "PENDING HELM PROTOCOL",
+    "dbsize_after": "PENDING HELM PROTOCOL"
+  }
+}
